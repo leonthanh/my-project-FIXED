@@ -940,7 +940,7 @@ const UserProfilePage = () => {
 
                 <div className="userProfilePage__heroStats">
                   <div className="userProfilePage__heroStat">
-                    <span className="userProfilePage__heroStatLabel">Liên hệ chính</span>
+                    <span className="userProfilePage__heroStatLabel">Số điện thoại</span>
                     <strong className="userProfilePage__heroStatValue">
                       {currentUser?.phone || 'Chưa có số điện thoại'}
                     </strong>
@@ -1014,7 +1014,7 @@ const UserProfilePage = () => {
               </section>
 
               <aside className="userProfilePage__stack">
-                <section className="userProfilePage__card">
+                <section className="userProfilePage__card userProfilePage__card--summary">
                   <div className="userProfilePage__cardHeader userProfilePage__cardHeader--tight">
                     <div>
                       <div className="userProfilePage__cardEyebrow">Tóm tắt hồ sơ</div>

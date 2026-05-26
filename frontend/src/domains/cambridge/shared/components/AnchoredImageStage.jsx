@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export default function AnchoredImageStage({
   src,
@@ -17,9 +17,15 @@ export default function AnchoredImageStage({
 }) {
   const [imageNode, setImageNode] = useState(null);
   const [imageReady, setImageReady] = useState(false);
+  const onReadyChangeRef = useRef(onReadyChange);
+  const lastNotifiedReadyRef = useRef(null);
+
+  useEffect(() => {
+    onReadyChangeRef.current = onReadyChange;
+  }, [onReadyChange]);
 
   const assignImageRef = useCallback((node) => {
-    setImageNode(node);
+    setImageNode((currentNode) => (currentNode === node ? currentNode : node));
     if (typeof imageRef === 'function') {
       imageRef(node);
       return;
@@ -31,6 +37,7 @@ export default function AnchoredImageStage({
 
   useEffect(() => {
     setImageReady(false);
+    lastNotifiedReadyRef.current = null;
   }, [src]);
 
   useEffect(() => {
@@ -40,8 +47,10 @@ export default function AnchoredImageStage({
   }, [imageNode, src]);
 
   useEffect(() => {
-    onReadyChange?.(imageReady);
-  }, [imageReady, onReadyChange]);
+    if (lastNotifiedReadyRef.current === imageReady) return;
+    lastNotifiedReadyRef.current = imageReady;
+    onReadyChangeRef.current?.(imageReady);
+  }, [imageReady]);
 
   return (
     <div

@@ -178,6 +178,22 @@
 body.dark-mode .ctb-page { background: #0f172a; }
 body.dark-mode .ctb-page--movers { background: #0f172a; }
 
+body.dark-mode .ctb-page--movers .ctb-main {
+  background: #0f172a;
+  color: #e5e7eb;
+  --builder-surface: #111827;
+  --builder-surface-alt: #1f2937;
+  --builder-surface-muted: #0f172a;
+  --builder-input-bg: #1e293b;
+  --builder-input-muted-bg: #0f172a;
+  --builder-border: #374151;
+  --builder-text: #e5e7eb;
+  --builder-subtext: #9ca3af;
+  --builder-accent-panel: rgba(59, 130, 246, 0.14);
+  --builder-accent-border: rgba(96, 165, 250, 0.35);
+  --builder-accent-text: #93c5fd;
+}
+
 body.dark-mode .ctb-card {
   background: #111827;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);

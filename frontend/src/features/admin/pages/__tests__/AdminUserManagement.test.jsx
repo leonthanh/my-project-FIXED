@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import AdminUserManagement from '../AdminUserManagement';
 
 jest.mock('../../../../shared/components/AdminNavbar', () => () => <div data-testid="admin-navbar" />);
@@ -13,6 +13,11 @@ jest.mock('../../../../shared/utils/api', () => ({
 }));
 
 const { authFetch, getStoredUser, storeAuthSession } = require('../../../../shared/utils/api');
+
+const LocationDisplay = () => {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+};
 
 describe('AdminUserManagement admin tabs', () => {
   beforeEach(() => {
@@ -161,6 +166,106 @@ describe('AdminUserManagement admin tabs', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No tests found for the current filters.')).toBeInTheDocument();
+    });
+  });
+
+  test('opens a selected user profile from the users tab', async () => {
+    authFetch.mockImplementation((url) => {
+      if (url.startsWith('admin/users?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ([
+            {
+              id: 204,
+              name: 'NGUYENNGOCLINH',
+              phone: '0394434056',
+              email: 'vytk@siec-star.edu.vn',
+              role: 'student',
+              createdAt: '2026-03-28T00:00:00.000Z',
+            },
+          ]),
+        });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users']}>
+        <Routes>
+          <Route
+            path="/admin/users"
+            element={(
+              <>
+                <AdminUserManagement />
+                <LocationDisplay />
+              </>
+            )}
+          />
+          <Route path="/admin/users/:userId/profile" element={<LocationDisplay />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('NGUYENNGOCLINH')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/admin/users/204/profile');
+    });
+  });
+
+  test('opens a selected user profile from the submissions tab', async () => {
+    authFetch.mockImplementation((url) => {
+      if (url.startsWith('admin/users?search=')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ([
+            {
+              id: 204,
+              name: 'NGUYENNGOCLINH',
+              phone: '0394434056',
+              email: 'vytk@siec-star.edu.vn',
+              role: 'student',
+              createdAt: '2026-03-28T00:00:00.000Z',
+            },
+          ]),
+        });
+      }
+
+      if (url.startsWith('admin/users?')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users']}>
+        <Routes>
+          <Route
+            path="/admin/users"
+            element={(
+              <>
+                <AdminUserManagement />
+                <LocationDisplay />
+              </>
+            )}
+          />
+          <Route path="/admin/users/:userId/profile" element={<LocationDisplay />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^Submissions\b/i }));
+
+    expect(await screen.findByText('NGUYENNGOCLINH')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/admin/users/204/profile');
     });
   });
 

@@ -2096,6 +2096,17 @@ body.dark-mode .select-test-toolbar--ix {
   background: linear-gradient(135deg, rgba(13, 27, 53, 0.94) 0%, rgba(14, 36, 72, 0.94) 100%);
 }
 
+body.dark-mode .select-test-card,
+body.dark-mode .select-test-card--writing,
+body.dark-mode .select-test-card--reading,
+body.dark-mode .select-test-card--listening,
+body.dark-mode .select-test-card--orange {
+  --card-overlay-top: rgba(18, 30, 54, 0.18);
+  --card-overlay-bottom: rgba(9, 17, 32, 0.9);
+  background: linear-gradient(180deg, rgba(12, 22, 40, 0.96) 0%, rgba(9, 17, 32, 0.96) 100%);
+  box-shadow: 0 20px 42px rgba(2, 6, 23, 0.24);
+}
+
 body.dark-mode .select-test-card::before {
   opacity: 0.22;
   filter: blur(2px) saturate(0.8) brightness(0.58);
@@ -2212,6 +2223,21 @@ body.dark-mode .select-test-subtab-count,
 body.dark-mode .cambridge-tab__badge {
   background: rgba(255, 255, 255, 0.12);
   color: inherit;
+}
+
+body.dark-mode .select-test-toolbarPill {
+  border-color: rgba(163, 176, 201, 0.34);
+  background: rgba(231, 238, 250, 0.86);
+  color: var(--select-ink);
+}
+
+body.dark-mode .select-test-controlIcon,
+body.dark-mode .select-test-sidePlatform:not(.is-active) .select-test-sidePlatformIcon {
+  color: var(--select-ink);
+}
+
+body.dark-mode .select-test-sidePlatform--orange:not(.is-active) .select-test-sidePlatformIcon {
+  color: #c95a14;
 }
 
 body.dark-mode .select-test-search,

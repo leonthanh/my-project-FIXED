@@ -1,5 +1,6 @@
 import React from "react";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 const defaultHighlightColor = "#f59e0b";
 
@@ -21,8 +22,8 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
     pending: {
       border: "#fed7aa",
       accent: "#f59e0b",
-      chipBg: "#fef3c7",
-      chipColor: "#92400e",
+      chipBg: isDarkMode ? "rgba(245, 158, 11, 0.18)" : "#fef3c7",
+      chipColor: isDarkMode ? "#fde68a" : "#92400e",
       calloutBg: isDarkMode ? "rgba(245, 158, 11, 0.12)" : "#fff7ed",
       calloutBorder: "#fed7aa",
       calloutText: isDarkMode ? "#fde68a" : "#9a3412",
@@ -30,8 +31,8 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
     reviewed: {
       border: "#bbf7d0",
       accent: "#16a34a",
-      chipBg: "#dcfce7",
-      chipColor: "#166534",
+      chipBg: isDarkMode ? "rgba(22, 163, 74, 0.18)" : "#dcfce7",
+      chipColor: isDarkMode ? "#bbf7d0" : "#166534",
       calloutBg: isDarkMode ? "rgba(22, 163, 74, 0.12)" : "#f0fdf4",
       calloutBorder: "#bbf7d0",
       calloutText: isDarkMode ? "#bbf7d0" : "#166534",
@@ -39,8 +40,8 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
     active: {
       border: "#bfdbfe",
       accent: "#2563eb",
-      chipBg: "#dbeafe",
-      chipColor: "#1e3a8a",
+      chipBg: isDarkMode ? "rgba(37, 99, 235, 0.22)" : "#dbeafe",
+      chipColor: isDarkMode ? "#bfdbfe" : "#1e3a8a",
       calloutBg: isDarkMode ? "rgba(37, 99, 235, 0.12)" : "#eff6ff",
       calloutBorder: "#bfdbfe",
       calloutText: isDarkMode ? "#dbeafe" : "#1e3a8a",
@@ -48,8 +49,8 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
     draft: {
       border: "#bfdbfe",
       accent: "#2563eb",
-      chipBg: "#dbeafe",
-      chipColor: "#1e3a8a",
+      chipBg: isDarkMode ? "rgba(37, 99, 235, 0.22)" : "#dbeafe",
+      chipColor: isDarkMode ? "#bfdbfe" : "#1e3a8a",
       calloutBg: isDarkMode ? "rgba(37, 99, 235, 0.12)" : "#eff6ff",
       calloutBorder: "#bfdbfe",
       calloutText: isDarkMode ? "#dbeafe" : "#1e3a8a",
@@ -62,7 +63,9 @@ export const getSubmissionTone = (variant = "pending", isDarkMode = false) => {
   };
 };
 
-export const SubmissionStatCards = ({ stats, containerStyle, compact = false, dense = false }) => {
+export const SubmissionStatCards = ({ stats, containerStyle, compact = false, dense = false, isDarkMode: explicitDarkMode }) => {
+  const { isDarkMode: themeDarkMode } = useTheme();
+  const isDarkMode = explicitDarkMode ?? themeDarkMode;
   const safeStats = Array.isArray(stats) ? stats.filter(Boolean) : [];
   if (!safeStats.length) return null;
 
@@ -89,13 +92,16 @@ export const SubmissionStatCards = ({ stats, containerStyle, compact = false, de
         <div
           key={stat.key || stat.label}
           style={{
-            background: stat.bg,
-            border: `1px solid ${stat.border}`,
+            background: isDarkMode
+              ? "linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(17, 24, 39, 0.98) 100%)"
+              : stat.bg,
+            border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.82)" : stat.border}`,
             borderRadius: cardRadius,
             padding: cardPadding,
             minWidth,
             textAlign: "center",
             cursor: "default",
+            boxShadow: isDarkMode ? "0 14px 28px rgba(2, 6, 23, 0.24)" : "none",
           }}
         >
           <div style={{ fontSize: valueFont, fontWeight: 700, color: stat.color, lineHeight: 1.1 }}>
@@ -124,6 +130,7 @@ export const ExpandableSubmissionList = ({
   emptyState = null,
   compact = false,
 }) => {
+  const { isDarkMode } = useTheme();
   if (!Array.isArray(items) || items.length === 0) {
     return emptyState;
   }
@@ -155,7 +162,7 @@ export const ExpandableSubmissionList = ({
         });
         const tone =
           typeof resolvedTone === "string"
-            ? getSubmissionTone(resolvedTone)
+            ? getSubmissionTone(resolvedTone, isDarkMode)
             : resolvedTone;
 
         return (

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 
 import { getCurrentUser, isAdmin } from "../../../shared/utils/permissions";
 
@@ -147,6 +148,7 @@ export const AdminSidebarPanel = ({ eyebrow, title, meta, children }) => (
 );
 
 export const AdminSidebarMetricList = ({ items = [] }) => {
+  const { isDarkMode } = useTheme();
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
   if (!safeItems.length) return null;
 
@@ -158,8 +160,11 @@ export const AdminSidebarMetricList = ({ items = [] }) => {
           className="admin-side-layout__metricCard"
           style={{
             "--admin-side-layout-metric-color": item.color || "#0f3f94",
-            borderColor: item.border || "rgba(148, 163, 184, 0.18)",
-            background: item.bg || "rgba(248, 250, 252, 0.9)",
+            borderColor: isDarkMode ? "rgba(71, 85, 105, 0.82)" : item.border || "rgba(148, 163, 184, 0.18)",
+            background: isDarkMode
+              ? "linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(17, 24, 39, 0.98) 100%)"
+              : item.bg || "rgba(248, 250, 252, 0.9)",
+            boxShadow: isDarkMode ? "0 14px 28px rgba(2, 6, 23, 0.22)" : "none",
           }}
         >
           <span className="admin-side-layout__metricValue">{item.value}</span>

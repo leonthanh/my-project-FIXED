@@ -599,6 +599,61 @@ export const compactCSS = (className) => `
     box-shadow: 0 22px 36px rgba(37, 99, 235, 0.34) !important;
   }
 
+  body.dark-mode .${className} {
+    color: #e2e8f0;
+  }
+
+  body.dark-mode .${className} label {
+    color: #94a3b8 !important;
+  }
+
+  body.dark-mode .${className} .listening-editor-workspace {
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 28%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(17, 24, 39, 0.94) 100%);
+  }
+
+  body.dark-mode .${className} .listening-editor-main {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(17, 24, 39, 0.94) 100%);
+  }
+
+  body.dark-mode .${className} .listening-editor-panel,
+  body.dark-mode .${className} .listening-editor-panel-body,
+  body.dark-mode .${className} .listening-editor-content-card,
+  body.dark-mode .${className} .listening-editor-audio-dropzone,
+  body.dark-mode .${className} .listening-editor-global-audio,
+  body.dark-mode .${className} .listening-editor-empty-state,
+  body.dark-mode .${className} .listening-editor-footer-bar {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 24, 39, 0.98) 100%) !important;
+    border-color: rgba(51, 65, 85, 0.92) !important;
+    box-shadow: 0 20px 40px rgba(2, 6, 23, 0.32);
+  }
+
+  body.dark-mode .${className} .listening-editor-panel-body {
+    border-top-color: rgba(51, 65, 85, 0.92);
+  }
+
+  body.dark-mode .${className} .listening-editor-audio-dropzone.is-active,
+  body.dark-mode .${className} .listening-editor-global-audio.is-active {
+    border-color: rgba(45, 212, 191, 0.42) !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(19, 78, 74, 0.42) 100%) !important;
+  }
+
+  body.dark-mode .${className} .listening-editor-empty-title {
+    color: #eff6ff;
+  }
+
+  body.dark-mode .${className} .listening-editor-empty-description {
+    color: #cbd5e1;
+  }
+
+  body.dark-mode .${className} .listening-editor-secondary-cta {
+    background: #111827 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    box-shadow: none;
+  }
+
   @media (max-width: 768px) {
     .${className} .listening-editor-main {
       padding: 8px;

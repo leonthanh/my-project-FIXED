@@ -17,6 +17,7 @@ import {
 } from "../components/SubmissionCardList";
 import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
@@ -35,6 +36,7 @@ const stopSelectionEvent = (event) => {
 };
 
 const AdminWritingSubmissions = () => {
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [feedbacks, setFeedbacks] = useState({});
@@ -661,8 +663,8 @@ const AdminWritingSubmissions = () => {
 
           {canDeleteSubmissions && (
             <>
-              <div style={selectionToolbarStyle}>
-                <span style={selectionSummaryStyle}>
+              <div style={getSelectionToolbarStyle(isDarkMode)}>
+                <span style={getSelectionSummaryStyle(isDarkMode)}>
                   Showing <strong>{filteredData.length}</strong> visible submissions
                 </span>
                 <div style={selectionActionsStyle}>
@@ -670,7 +672,7 @@ const AdminWritingSubmissions = () => {
                     <button
                       type="button"
                       onClick={toggleAllVisibleSelections}
-                      style={secondaryActionBtn}
+                      style={getSecondaryActionBtnStyle(isDarkMode)}
                       disabled={bulkDeleting}
                     >
                       {allVisibleSelected ? "Unselect all" : "Select all visible"}
@@ -680,7 +682,7 @@ const AdminWritingSubmissions = () => {
                     <button
                       type="button"
                       onClick={() => setSelectedSubmissionIds(new Set())}
-                      style={secondaryActionBtn}
+                      style={getSecondaryActionBtnStyle(isDarkMode)}
                       disabled={bulkDeleting}
                     >
                       Clear selection
@@ -690,14 +692,14 @@ const AdminWritingSubmissions = () => {
               </div>
 
               {selectedVisibleIds.length > 0 && (
-                <div style={bulkBarStyle}>
+                <div style={getBulkBarStyle(isDarkMode)}>
                   <span style={{ fontSize: 12.5, lineHeight: 1.25 }}>
                     Selected <strong>{selectedVisibleIds.length}</strong> submissions
                   </span>
                   <button
                     type="button"
                     onClick={openBulkDeleteConfirmation}
-                    style={dangerActionBtn}
+                    style={getDangerActionBtnStyle(isDarkMode)}
                     disabled={bulkDeleting}
                   >
                     {bulkDeleting
@@ -707,7 +709,7 @@ const AdminWritingSubmissions = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedSubmissionIds(new Set())}
-                    style={secondaryActionBtn}
+                    style={getSecondaryActionBtnStyle(isDarkMode)}
                     disabled={bulkDeleting}
                   >
                     Clear Selection
@@ -721,7 +723,7 @@ const AdminWritingSubmissions = () => {
               style={{
                 textAlign: "center",
                 padding: "40px 0",
-                color: "#9ca3af",
+                color: isDarkMode ? "#64748b" : "#9ca3af",
                 fontSize: 15,
               }}
             >
@@ -741,7 +743,8 @@ const AdminWritingSubmissions = () => {
                 ? "draft"
                 : !!(item.feedback && item.feedbackBy) || !!hasSaved[item.id]
                 ? "reviewed"
-                : "pending"
+                : "pending",
+              isDarkMode
             )
           }
           renderHeader={({ item, index, tone }) => {
@@ -761,7 +764,7 @@ const AdminWritingSubmissions = () => {
               <>
                 {canDeleteSubmissions && (
                   <label
-                    style={selectionCheckboxLabelStyle}
+                    style={getSelectionCheckboxLabelStyle(isDarkMode)}
                     onClick={stopSelectionEvent}
                     onMouseDown={stopSelectionEvent}
                   >
@@ -1191,12 +1194,12 @@ const AdminWritingSubmissions = () => {
 
 export default AdminWritingSubmissions;
 
-const selectionToolbarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc" };
-const selectionSummaryStyle = { fontSize: 13, color: "#475569" };
+const getSelectionToolbarStyle = (isDarkMode) => ({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`, borderRadius: 12, background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#f8fafc" });
+const getSelectionSummaryStyle = (isDarkMode) => ({ fontSize: 13, color: isDarkMode ? "#cbd5e1" : "#475569" });
 const selectionActionsStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
-const selectionCheckboxLabelStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer" };
-const bulkBarStyle = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: "1px solid #fecaca", borderRadius: 12, background: "#fff1f2", color: "#7f1d1d" };
-const secondaryActionBtn = { background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 };
-const dangerActionBtn = { background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 };
+const getSelectionCheckboxLabelStyle = (isDarkMode) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`, background: isDarkMode ? "#111827" : "#f8fafc", cursor: "pointer" });
+const getBulkBarStyle = (isDarkMode) => ({ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8, padding: "10px 12px", border: `1px solid ${isDarkMode ? "rgba(248, 113, 113, 0.36)" : "#fecaca"}`, borderRadius: 12, background: isDarkMode ? "rgba(127, 29, 29, 0.18)" : "#fff1f2", color: isDarkMode ? "#fecaca" : "#7f1d1d" });
+const getSecondaryActionBtnStyle = (isDarkMode) => ({ background: isDarkMode ? "#1e293b" : "#e5e7eb", color: isDarkMode ? "#e2e8f0" : "#374151", border: isDarkMode ? "1px solid #475569" : "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 });
+const getDangerActionBtnStyle = (isDarkMode) => ({ background: isDarkMode ? "#b91c1c" : "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1.05 });
 const confirmMetaHeadingStyle = { margin: "0 0 10px", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "inherit" };
 const confirmMetaTextStyle = { margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, color: "inherit" };

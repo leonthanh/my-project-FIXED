@@ -15,8 +15,8 @@ import {
   AdminListSummary,
   AdminSelectionToolbar,
   FilterField,
-  adminCardStyles as acs,
 } from '../components/AdminCardPrimitives';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { apiPath, authFetch, getStoredUser, storeAuthSession } from '../../../shared/utils/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -24,14 +24,29 @@ const fmtDate = (d) => {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
-const roleBadge = (role) => {
+const roleBadge = (role, isDarkMode = false) => {
   const map = {
-    admin: { bg: '#fef3c7', color: '#92400e', label: 'Admin' },
-    teacher: { bg: '#dbeafe', color: '#1e40af', label: 'Teacher' },
-    student: { bg: '#f3f4f6', color: '#374151', label: 'Student' },
+    admin: {
+      bg: isDarkMode ? 'rgba(245, 158, 11, 0.16)' : '#fef3c7',
+      color: isDarkMode ? '#fcd34d' : '#92400e',
+      border: isDarkMode ? 'rgba(252, 211, 77, 0.28)' : '#fcd34d',
+      label: 'Admin',
+    },
+    teacher: {
+      bg: isDarkMode ? 'rgba(37, 99, 235, 0.16)' : '#dbeafe',
+      color: isDarkMode ? '#bfdbfe' : '#1e40af',
+      border: isDarkMode ? 'rgba(191, 219, 254, 0.28)' : '#bfdbfe',
+      label: 'Teacher',
+    },
+    student: {
+      bg: isDarkMode ? 'rgba(71, 85, 105, 0.24)' : '#f3f4f6',
+      color: isDarkMode ? '#cbd5e1' : '#374151',
+      border: isDarkMode ? 'rgba(148, 163, 184, 0.3)' : '#d1d5db',
+      label: 'Student',
+    },
   };
   const m = map[role] || map.student;
-  return <span style={{ background: m.bg, color: m.color, borderRadius: 999, padding: '1px 7px', fontSize: 10, fontWeight: 700, lineHeight: 1.2 }}>{m.label}</span>;
+  return <span style={{ background: m.bg, color: m.color, border: `1px solid ${m.border}`, borderRadius: 999, padding: '1px 7px', fontSize: 10, fontWeight: 700, lineHeight: 1.2 }}>{m.label}</span>;
 };
 
 const syncStoredEditedUser = (updatedUser) => {
@@ -98,7 +113,7 @@ const getAdminTestEditPath = (test = {}) => {
   }
 };
 
-const testCountBadge = (count = 0) => {
+const testCountBadge = (count = 0, isDarkMode = false) => {
   const hasSubmissions = Number(count) > 0;
   return (
     <span style={{
@@ -108,9 +123,13 @@ const testCountBadge = (count = 0) => {
       minWidth: 28,
       padding: '1px 7px',
       borderRadius: 999,
-      background: hasSubmissions ? '#fff7ed' : '#f8fafc',
-      color: hasSubmissions ? '#c2410c' : '#475569',
-      border: `1px solid ${hasSubmissions ? '#fdba74' : '#e2e8f0'}`,
+      background: hasSubmissions
+        ? (isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed')
+        : (isDarkMode ? 'rgba(71, 85, 105, 0.24)' : '#f8fafc'),
+      color: hasSubmissions ? (isDarkMode ? '#fdba74' : '#c2410c') : (isDarkMode ? '#cbd5e1' : '#475569'),
+      border: `1px solid ${hasSubmissions
+        ? (isDarkMode ? 'rgba(253, 186, 116, 0.3)' : '#fdba74')
+        : (isDarkMode ? 'rgba(148, 163, 184, 0.28)' : '#e2e8f0')}`,
       fontSize: 10,
       fontWeight: 700,
     }}>
@@ -136,7 +155,7 @@ const getUserCardTone = (role) => {
   }
 };
 
-const getTestVisibilityMeta = (test = {}) => {
+const getTestVisibilityMeta = (test = {}, isDarkMode = false) => {
   const normalizedStatus = normalizeText(test.status);
   const hiddenFromStudents = typeof test.hiddenFromStudents === 'boolean'
     ? test.hiddenFromStudents
@@ -148,9 +167,9 @@ const getTestVisibilityMeta = (test = {}) => {
     return {
       hiddenFromStudents: true,
       label: 'Hidden from students',
-      bg: '#f1f5f9',
-      color: '#475569',
-      border: '#cbd5e1',
+      bg: isDarkMode ? 'rgba(71, 85, 105, 0.22)' : '#f1f5f9',
+      color: isDarkMode ? '#cbd5e1' : '#475569',
+      border: isDarkMode ? 'rgba(148, 163, 184, 0.3)' : '#cbd5e1',
       accent: '#64748b',
     };
   }
@@ -158,9 +177,9 @@ const getTestVisibilityMeta = (test = {}) => {
   return {
     hiddenFromStudents: false,
     label: 'Visible to students',
-    bg: '#dcfce7',
-    color: '#166534',
-    border: '#bbf7d0',
+    bg: isDarkMode ? 'rgba(22, 163, 74, 0.16)' : '#dcfce7',
+    color: isDarkMode ? '#bbf7d0' : '#166534',
+    border: isDarkMode ? 'rgba(187, 247, 208, 0.3)' : '#bbf7d0',
     accent: '#16a34a',
   };
 };
@@ -243,6 +262,8 @@ const getSubmissionMetaItems = (type, sub) => {
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 const PasswordModal = ({ user, onClose, onSaved }) => {
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [pw, setPw] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -267,7 +288,7 @@ const PasswordModal = ({ user, onClose, onSaved }) => {
     <div style={s.overlay}>
       <div style={s.modal}>
         <h3 style={{ marginTop: 0 }}>Reset Password</h3>
-        <p style={{ color: '#555', fontSize: 14 }}>User: <strong>{user.name}</strong> ({user.phone})</p>
+        <p style={{ color: isDarkMode ? '#cbd5e1' : '#555', fontSize: 14 }}>User: <strong>{user.name}</strong> ({user.phone})</p>
         <input
           type="password" placeholder="New password (min. 6 characters)"
           value={pw} onChange={(e) => setPw(e.target.value)}
@@ -285,6 +306,8 @@ const PasswordModal = ({ user, onClose, onSaved }) => {
 };
 
 const EditUserModal = ({ user, onClose, onSaved }) => {
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const isCurrentUser = String(getStoredUser()?.id || '') === String(user.id);
   const [form, setForm] = useState({ name: user.name, phone: user.phone, email: user.email || '', role: user.role, canManageTests: user.canManageTests });
   const [saving, setSaving] = useState(false);
@@ -321,7 +344,7 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
           <option value="teacher">Teacher</option>
           <option value="admin">Admin</option>
         </select>
-        {isCurrentUser && <p style={{ margin: '6px 0 0', fontSize: 12, color: '#6b7280' }}>You can update your own name, phone, and email here. Role changes stay disabled.</p>}
+        {isCurrentUser && <p style={{ margin: '6px 0 0', fontSize: 12, color: isDarkMode ? '#94a3b8' : '#6b7280' }}>You can update your own name, phone, and email here. Role changes stay disabled.</p>}
         {form.role === 'teacher' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, margin: '8px 0' }}>
             <input type="checkbox" checked={!!form.canManageTests} onChange={(e) => setForm({ ...form, canManageTests: e.target.checked })} disabled={isCurrentUser} />
@@ -340,6 +363,9 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
 
 // ─── Tab: Users ───────────────────────────────────────────────────────────────
 const UsersTab = ({ onViewSubmissions }) => {
+  const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -447,7 +473,7 @@ const UsersTab = ({ onViewSubmissions }) => {
         </div>
       </div>
 
-      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading users...</p>}
+      {loading && <p style={{ textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#888' }}>Loading users...</p>}
 
       {!loading && (
         <>
@@ -463,11 +489,11 @@ const UsersTab = ({ onViewSubmissions }) => {
                     key={u.id}
                     accent={tone.accent}
                     borderColor={tone.border}
-                    leading={<span style={acs.idPill}>#{u.id}</span>}
+                    leading={<span style={s.idPill}>#{u.id}</span>}
                     title={u.name}
                     badges={[
-                      roleBadge(u.role),
-                      u.role === 'teacher' && u.canManageTests ? <span style={acs.softPill}>Can manage tests</span> : null,
+                      roleBadge(u.role, isDarkMode),
+                      u.role === 'teacher' && u.canManageTests ? <span style={s.softPill}>Can manage tests</span> : null,
                     ]}
                     subtitle={`Created ${fmtDate(u.createdAt)}`}
                     actions={(
@@ -482,7 +508,7 @@ const UsersTab = ({ onViewSubmissions }) => {
                     metaItems={[
                       { label: 'Phone', value: u.phone || '—' },
                       { label: 'Email', value: u.email || '—' },
-                      { label: 'Role', value: roleBadge(u.role) },
+                      { label: 'Role', value: roleBadge(u.role, isDarkMode) },
                       { label: 'Created', value: fmtDate(u.createdAt) },
                     ]}
                   />
@@ -535,6 +561,9 @@ const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge'];
 const SUB_LABELS = { writing: 'Writing', reading: 'Reading', listening: 'Listening', cambridge: 'Orange' };
 
 const SubmissionsTab = ({ initialUser }) => {
+  const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(initialUser || null);
@@ -775,7 +804,7 @@ const SubmissionsTab = ({ initialUser }) => {
 
       {!selectedUser && <SubmissionStatCards stats={userSearchStats} compact />}
 
-      {!selectedUser && loading && <p style={{ textAlign: 'center', color: '#888' }}>Searching users...</p>}
+      {!selectedUser && loading && <p style={{ textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#888' }}>Searching users...</p>}
 
       {!selectedUser && !loading && (
         <>
@@ -791,9 +820,9 @@ const SubmissionsTab = ({ initialUser }) => {
                     key={u.id}
                     accent={tone.accent}
                     borderColor={tone.border}
-                    leading={<span style={acs.idPill}>#{u.id}</span>}
+                    leading={<span style={s.idPill}>#{u.id}</span>}
                     title={u.name}
-                    badges={[roleBadge(u.role)]}
+                    badges={[roleBadge(u.role, isDarkMode)]}
                     subtitle="Open this user to manage writing, reading, listening, and Orange submissions."
                     actions={(
                       <>
@@ -805,7 +834,7 @@ const SubmissionsTab = ({ initialUser }) => {
                     metaItems={[
                       { label: 'Phone', value: u.phone || '—' },
                       { label: 'Email', value: u.email || '—' },
-                      { label: 'Role', value: roleBadge(u.role) },
+                      { label: 'Role', value: roleBadge(u.role, isDarkMode) },
                       { label: 'Created', value: fmtDate(u.createdAt) },
                     ]}
                   />
@@ -821,9 +850,9 @@ const SubmissionsTab = ({ initialUser }) => {
           <AdminListCard
             accent="#0e276f"
             borderColor="#bfdbfe"
-            leading={<span style={acs.idPill}>#{selectedUser.id}</span>}
+            leading={<span style={s.idPill}>#{selectedUser.id}</span>}
             title={selectedUser.name}
-            badges={[roleBadge(selectedUser.role)]}
+            badges={[roleBadge(selectedUser.role, isDarkMode)]}
             subtitle="Manage all submissions for this user across Writing, Reading, Listening, and Orange."
             actions={(
               <>
@@ -835,7 +864,7 @@ const SubmissionsTab = ({ initialUser }) => {
             metaItems={[
               { label: 'Phone', value: selectedUser.phone || '—' },
               { label: 'Email', value: selectedUser.email || '—' },
-              { label: 'Role', value: roleBadge(selectedUser.role) },
+              { label: 'Role', value: roleBadge(selectedUser.role, isDarkMode) },
               { label: 'Created', value: fmtDate(selectedUser.createdAt) },
             ]}
             style={{ marginBottom: 12 }}
@@ -859,7 +888,7 @@ const SubmissionsTab = ({ initialUser }) => {
               </div>
 
               <AdminSelectionToolbar>
-                <span style={acs.selectionSummary}>
+                <span style={s.selectionSummary}>
                   Showing <strong>{currentList.length}</strong> {SUB_LABELS[activeType].toLowerCase()} submissions
                 </span>
                 <AdminActionGroup>
@@ -891,7 +920,7 @@ const SubmissionsTab = ({ initialUser }) => {
                   {currentList.map((sub) => {
                     const key = `${activeType}:${sub.id}`;
                     const statusMeta = getSubmissionStatusMeta(activeType, sub);
-                    const tone = getSubmissionTone(statusMeta.variant);
+                    const tone = getSubmissionTone(statusMeta.variant, isDarkMode);
                     const isSelected = selectedSubs.has(key);
 
                     return (
@@ -901,19 +930,19 @@ const SubmissionsTab = ({ initialUser }) => {
                         borderColor={isSelected ? '#f59e0b' : tone.border}
                         leading={(
                           <>
-                            <label style={acs.selectionCheckboxLabel}>
+                            <label style={s.selectionCheckboxLabel}>
                               <input
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => toggleSubSelect(activeType, sub.id)}
                               />
                             </label>
-                            <span style={acs.idPill}>#{sub.id}</span>
+                            <span style={s.idPill}>#{sub.id}</span>
                           </>
                         )}
                         title={getSubmissionDisplayName(activeType, sub)}
                         badges={[
-                          <span style={{ ...acs.statusPill, background: tone.chipBg, color: tone.chipColor, borderColor: tone.border }}>
+                          <span style={{ ...s.statusPill, background: tone.chipBg, color: tone.chipColor, borderColor: tone.border }}>
                             {statusMeta.label}
                           </span>,
                         ]}
@@ -939,6 +968,8 @@ const SubmissionsTab = ({ initialUser }) => {
 
 // ─── Tab: Duplicates ──────────────────────────────────────────────────────────
 const DuplicatesTab = () => {
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const [groups, setGroups] = useState([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -1066,7 +1097,7 @@ const DuplicatesTab = () => {
         </div>
       </div>
 
-      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Searching...</p>}
+      {loading && <p style={{ textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#888' }}>Searching...</p>}
 
       {!loading && (
         <>
@@ -1094,7 +1125,7 @@ const DuplicatesTab = () => {
                     leading={<span style={s.groupTag}>Duplicate group</span>}
                     title={group[0]?.name || 'Unnamed user'}
                     badges={[
-                      <span style={{ ...acs.statusPill, background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>
+                      <span style={{ ...s.statusPill, background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>
                         {group.length} accounts
                       </span>,
                     ]}
@@ -1114,15 +1145,15 @@ const DuplicatesTab = () => {
                             key={u.id}
                             accent={tone.accent}
                             borderColor={tone.border}
-                            leading={<span style={acs.idPill}>#{u.id}</span>}
+                            leading={<span style={s.idPill}>#{u.id}</span>}
                             title={u.name}
-                            badges={[roleBadge(u.role)]}
+                            badges={[roleBadge(u.role, isDarkMode)]}
                             subtitle={u.phone || 'No phone number'}
                             actions={<button style={s.btnSmRed} onClick={() => deleteUser(u)} title="Delete user">Delete</button>}
                             metaItems={[
                               { label: 'Phone', value: u.phone || '—' },
                               { label: 'Email', value: u.email || '—' },
-                              { label: 'Role', value: roleBadge(u.role) },
+                              { label: 'Role', value: roleBadge(u.role, isDarkMode) },
                               { label: 'Created', value: fmtDate(u.createdAt) },
                             ]}
                             style={s.duplicateNestedCard}
@@ -1143,6 +1174,8 @@ const DuplicatesTab = () => {
 
 // ─── Tab: Tests ───────────────────────────────────────────────────────────────
 const TestsTab = () => {
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
   const [tests, setTests] = useState({ ixWriting: [], ixReading: [], ixListening: [], cambridge: [] });
   const [activeBucket, setActiveBucket] = useState('ixWriting');
@@ -1207,7 +1240,7 @@ const TestsTab = () => {
     {
       key: 'visible',
       label: 'Visible',
-      count: bucketTests.filter((test) => !getTestVisibilityMeta(test).hiddenFromStudents).length,
+      count: bucketTests.filter((test) => !getTestVisibilityMeta(test, isDarkMode).hiddenFromStudents).length,
       bg: '#dcfce7',
       border: '#bbf7d0',
       color: '#166534',
@@ -1215,7 +1248,7 @@ const TestsTab = () => {
     {
       key: 'hidden',
       label: 'Hidden',
-      count: bucketTests.filter((test) => getTestVisibilityMeta(test).hiddenFromStudents).length,
+      count: bucketTests.filter((test) => getTestVisibilityMeta(test, isDarkMode).hiddenFromStudents).length,
       bg: '#f1f5f9',
       border: '#cbd5e1',
       color: '#475569',
@@ -1245,7 +1278,7 @@ const TestsTab = () => {
         return false;
       }
 
-      const visibility = getTestVisibilityMeta(test);
+      const visibility = getTestVisibilityMeta(test, isDarkMode);
       if (visibilityFilter === 'visible' && visibility.hiddenFromStudents) {
         return false;
       }
@@ -1591,7 +1624,7 @@ const TestsTab = () => {
         </div>
       </div>
 
-      {loading && <p style={{ textAlign: 'center', color: '#888' }}>Loading tests...</p>}
+      {loading && <p style={{ textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#888' }}>Loading tests...</p>}
 
       {!loading && (
         <>
@@ -1601,7 +1634,7 @@ const TestsTab = () => {
           </AdminListSummary>
 
           <AdminSelectionToolbar>
-            <span style={acs.selectionSummary}>
+            <span style={s.selectionSummary}>
               Showing <strong>{currentList.length}</strong> {TEST_BUCKETS.find((bucket) => bucket.id === activeBucket)?.label || 'tests'} items
             </span>
             <AdminActionGroup>
@@ -1643,7 +1676,7 @@ const TestsTab = () => {
               {currentList.map((test) => {
                 const editPath = getAdminTestEditPath(test);
                 const updateKey = `${test.deleteScope}:${test.id}`;
-                const visibility = getTestVisibilityMeta(test);
+                const visibility = getTestVisibilityMeta(test, isDarkMode);
                 const tone = getTestCardTone(test);
                 const isUpdating = updatingKey === updateKey;
                 const isDeleting = deletingKey === updateKey;
@@ -1656,7 +1689,7 @@ const TestsTab = () => {
                     borderColor={isSelected ? '#f59e0b' : tone.border}
                     leading={(
                       <>
-                        <label style={acs.selectionCheckboxLabel}>
+                        <label style={s.selectionCheckboxLabel}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1664,12 +1697,12 @@ const TestsTab = () => {
                             disabled={isUpdating || isDeleting || Boolean(bulkVisibilityAction) || bulkDeletingTests}
                           />
                         </label>
-                        <span style={acs.idPill}>#{test.id}</span>
+                        <span style={s.idPill}>#{test.id}</span>
                       </>
                     )}
                     title={test.title}
                     badges={[
-                      <span style={{ ...acs.statusPill, background: visibility.bg, color: visibility.color, borderColor: visibility.border }}>
+                      <span style={{ ...s.statusPill, background: visibility.bg, color: visibility.color, borderColor: visibility.border }}>
                         {visibility.label}
                       </span>,
                       <span style={s.typePill}>{getAdminTestTypeLabel(test)}</span>,
@@ -1699,7 +1732,7 @@ const TestsTab = () => {
                     metaItems={[
                       { label: 'Teacher', value: test.teacherName || '—' },
                       { label: 'Class', value: test.classCode || '—' },
-                      { label: 'Submissions', value: testCountBadge(test.submissionCount || 0) },
+                      { label: 'Submissions', value: testCountBadge(test.submissionCount || 0, isDarkMode) },
                       { label: 'Created', value: fmtDate(test.createdAt) },
                       { label: 'Updated', value: fmtDate(test.updatedAt) },
                     ]}
@@ -1727,6 +1760,8 @@ const TABS = [
 ];
 
 const AdminUserManagement = () => {
+  const { isDarkMode } = useTheme();
+  const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [jumpToUser, setJumpToUser] = useState(null); // passed from users tab → submissions tab
@@ -1803,68 +1838,68 @@ const AdminUserManagement = () => {
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const s = {
+const getAdminUserManagementStyles = (isDarkMode) => ({
   page: { maxWidth: '100%', width: '100%', margin: '0 auto', padding: '14px 12px', boxSizing: 'border-box' },
-  tabBar: { display: 'flex', gap: 6, flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: 6, marginBottom: 14, boxShadow: '0 8px 22px rgba(15, 23, 42, 0.04)' },
-  tabBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#475569', transition: 'all 0.2s ease', lineHeight: 1.1 },
-  tabBtnActive: { background: '#0e276f', border: '1px solid #0e276f', color: '#ffffff', boxShadow: '0 8px 18px rgba(14, 39, 111, 0.16)' },
-  tabContent: { background: '#fff', borderRadius: 16, padding: 16, border: '1px solid #e5e7eb', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)' },
-  filterPanel: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14, padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: 14, background: '#f8fafc' },
+  tabBar: { display: 'flex', gap: 6, flexWrap: 'wrap', background: isDarkMode ? 'rgba(15, 23, 42, 0.92)' : '#fff', border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`, borderRadius: 14, padding: 6, marginBottom: 14, boxShadow: isDarkMode ? '0 14px 28px rgba(2, 6, 23, 0.28)' : '0 8px 22px rgba(15, 23, 42, 0.04)' },
+  tabBtn: { background: isDarkMode ? '#111827' : '#f8fafc', border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 10, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: isDarkMode ? '#cbd5e1' : '#475569', transition: 'all 0.2s ease', lineHeight: 1.1 },
+  tabBtnActive: { background: '#0e276f', border: '1px solid #0e276f', color: '#ffffff', boxShadow: isDarkMode ? '0 10px 22px rgba(14, 39, 111, 0.3)' : '0 8px 18px rgba(14, 39, 111, 0.16)' },
+  tabContent: { background: isDarkMode ? 'rgba(15, 23, 42, 0.94)' : '#fff', borderRadius: 16, padding: 16, border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`, boxShadow: isDarkMode ? '0 16px 32px rgba(2, 6, 23, 0.3)' : '0 12px 30px rgba(15, 23, 42, 0.05)' },
+  filterPanel: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14, padding: '12px 14px', border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`, borderRadius: 14, background: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : '#f8fafc' },
   filterField: { display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 180px' },
-  filterLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748b' },
+  filterLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: isDarkMode ? '#94a3b8' : '#64748b' },
   filterActions: { display: 'flex', gap: 6, alignSelf: 'flex-end', flexWrap: 'wrap' },
   cardList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  managementCard: { display: 'flex', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' },
+  managementCard: { display: 'flex', background: isDarkMode ? 'rgba(15, 23, 42, 0.92)' : '#fff', border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 16, overflow: 'hidden', boxShadow: isDarkMode ? '0 12px 24px rgba(2, 6, 23, 0.28)' : '0 8px 24px rgba(15, 23, 42, 0.04)' },
   managementCardAccent: { width: 5, flexShrink: 0, background: '#2563eb' },
   managementCardBody: { flex: 1, padding: '16px 18px' },
   managementCardTop: { display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' },
   managementHeadingBlock: { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: '1 1 320px' },
   managementHeadingLine: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-  managementTitle: { fontSize: 18, color: '#0f172a' },
-  managementSubline: { fontSize: 13, color: '#64748b', lineHeight: 1.6 },
-  managementMetaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px solid #eef2f7' },
+  managementTitle: { fontSize: 18, color: isDarkMode ? '#f8fafc' : '#0f172a' },
+  managementSubline: { fontSize: 13, color: isDarkMode ? '#94a3b8' : '#64748b', lineHeight: 1.6 },
+  managementMetaGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${isDarkMode ? '#23314f' : '#eef2f7'}` },
   metaItem: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 },
-  metaLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#94a3b8' },
-  metaValue: { fontSize: 14, color: '#334155', minHeight: 20, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  idPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', borderRadius: 999, background: '#f1f5f9', color: '#475569', fontSize: 12, fontWeight: 800, border: '1px solid #e2e8f0' },
-  softPill: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 700, border: '1px solid #c7d2fe' },
+  metaLabel: { fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: isDarkMode ? '#64748b' : '#94a3b8' },
+  metaValue: { fontSize: 14, color: isDarkMode ? '#cbd5e1' : '#334155', minHeight: 20, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  idPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', borderRadius: 999, background: isDarkMode ? 'rgba(71, 85, 105, 0.24)' : '#f1f5f9', color: isDarkMode ? '#cbd5e1' : '#475569', fontSize: 12, fontWeight: 800, border: `1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.28)' : '#e2e8f0'}` },
+  softPill: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: isDarkMode ? 'rgba(79, 70, 229, 0.16)' : '#eef2ff', color: isDarkMode ? '#c7d2fe' : '#4338ca', fontSize: 12, fontWeight: 700, border: `1px solid ${isDarkMode ? 'rgba(199, 210, 254, 0.3)' : '#c7d2fe'}` },
   statusPill: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, border: '1px solid transparent', fontSize: 12, fontWeight: 800 },
-  listSummary: { fontSize: 13, color: '#64748b', marginBottom: 10 },
-  emptyCard: { border: '1px dashed #cbd5e1', borderRadius: 16, padding: '24px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc' },
-  selectionToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: 14, background: '#f8fafc' },
-  selectionSummary: { fontSize: 14, color: '#475569' },
-  selectionCheckboxLabel: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer' },
+  listSummary: { fontSize: 13, color: isDarkMode ? '#94a3b8' : '#64748b', marginBottom: 10 },
+  emptyCard: { border: `1px dashed ${isDarkMode ? '#475569' : '#cbd5e1'}`, borderRadius: 16, padding: '24px 20px', textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#64748b', background: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : '#f8fafc' },
+  selectionToolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '12px 14px', border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 14, background: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : '#f8fafc' },
+  selectionSummary: { fontSize: 14, color: isDarkMode ? '#cbd5e1' : '#475569' },
+  selectionCheckboxLabel: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, background: isDarkMode ? '#111827' : '#f8fafc', cursor: 'pointer' },
   tableWrap: { overflowX: 'auto' },
-  table: { width: 'max-content', minWidth: 0, borderCollapse: 'collapse', background: '#fff', borderRadius: 14, overflow: 'hidden' },
-  th: { background: '#f8fafc', padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#475569', borderBottom: '1px solid #e5e7eb' },
-  tr: { borderBottom: '1px solid #f0f0f0' },
-  td: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left' },
-  tdCheckbox: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left', width: 36 },
-  input: { border: '1px solid #d1d5db', borderRadius: 10, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box', margin: '4px 0 10px', minHeight: 40 },
-  label: { fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginTop: 4 },
+  table: { width: 'max-content', minWidth: 0, borderCollapse: 'collapse', background: isDarkMode ? '#0f172a' : '#fff', borderRadius: 14, overflow: 'hidden' },
+  th: { background: isDarkMode ? '#111827' : '#f8fafc', padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: isDarkMode ? '#cbd5e1' : '#475569', borderBottom: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}` },
+  tr: { borderBottom: `1px solid ${isDarkMode ? '#1f2937' : '#f0f0f0'}` },
+  td: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left', color: isDarkMode ? '#e5e7eb' : '#111827' },
+  tdCheckbox: { padding: '9px 12px', fontSize: 14, verticalAlign: 'middle', textAlign: 'left', width: 36, color: isDarkMode ? '#e5e7eb' : '#111827' },
+  input: { border: `1px solid ${isDarkMode ? '#334155' : '#d1d5db'}`, borderRadius: 10, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box', margin: '4px 0 10px', minHeight: 40, background: isDarkMode ? '#111827' : '#fff', color: isDarkMode ? '#e5e7eb' : '#111827' },
+  label: { fontSize: 13, fontWeight: 500, color: isDarkMode ? '#cbd5e1' : '#374151', display: 'block', marginTop: 4 },
   btnBlue: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 },
-  btnRed: { background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 },
-  btnGray: { background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 },
-  btnSmRed: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
-  btnSmBlue: { background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
-  btnSmGray: { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
-  btnSmAmber: { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
-  btnSmGreen: { background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
+  btnRed: { background: isDarkMode ? '#b91c1c' : '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 },
+  btnGray: { background: isDarkMode ? '#1e293b' : '#e5e7eb', color: isDarkMode ? '#e2e8f0' : '#374151', border: isDarkMode ? '1px solid #475569' : 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, lineHeight: 1.05 },
+  btnSmRed: { background: isDarkMode ? 'rgba(220, 38, 38, 0.16)' : '#fee2e2', color: isDarkMode ? '#fca5a5' : '#b91c1c', border: `1px solid ${isDarkMode ? 'rgba(248, 113, 113, 0.28)' : '#fecaca'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
+  btnSmBlue: { background: isDarkMode ? 'rgba(37, 99, 235, 0.16)' : '#dbeafe', color: isDarkMode ? '#bfdbfe' : '#1d4ed8', border: `1px solid ${isDarkMode ? 'rgba(191, 219, 254, 0.28)' : '#bfdbfe'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
+  btnSmGray: { background: isDarkMode ? 'rgba(71, 85, 105, 0.24)' : '#f3f4f6', color: isDarkMode ? '#cbd5e1' : '#374151', border: `1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.28)' : '#e5e7eb'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
+  btnSmAmber: { background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed', color: isDarkMode ? '#fdba74' : '#c2410c', border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fdba74'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
+  btnSmGreen: { background: isDarkMode ? 'rgba(22, 163, 74, 0.16)' : '#dcfce7', color: isDarkMode ? '#bbf7d0' : '#166534', border: `1px solid ${isDarkMode ? 'rgba(187, 247, 208, 0.28)' : '#86efac'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.05 },
   actionGroup: { display: 'flex', gap: 6, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  modal: { background: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 420, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', border: '1px solid #e5e7eb' },
+  overlay: { position: 'fixed', inset: 0, background: isDarkMode ? 'rgba(2, 6, 23, 0.74)' : 'rgba(15, 23, 42, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
+  modal: { background: isDarkMode ? '#0f172a' : '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 420, boxShadow: isDarkMode ? '0 24px 60px rgba(2, 6, 23, 0.46)' : '0 24px 60px rgba(15,23,42,0.25)', border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`, color: isDarkMode ? '#e5e7eb' : '#111827' },
   modalBtns: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 },
   errText: { color: '#dc2626', fontSize: 13, margin: '4px 0 0' },
   toast: { position: 'fixed', bottom: 20, right: 20, background: '#0f172a', color: '#fff', padding: '10px 14px', borderRadius: 10, fontSize: 13, zIndex: 9999, boxShadow: '0 16px 36px rgba(15,23,42,0.28)' },
-  userChip: { background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 },
-  bulkBar: { display: 'flex', alignItems: 'center', gap: 6, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 9, padding: '7px 10px', marginBottom: 8, flexWrap: 'wrap' },
-  infoCard: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12, padding: '10px 12px', marginBottom: 12 },
-  typePill: { display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 999, padding: '1px 7px', fontSize: 10, fontWeight: 700, lineHeight: 1.15 },
-  inlineMeta: { fontSize: 12, color: '#64748b' },
-  groupTag: { display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999, background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', fontSize: 11, fontWeight: 800 },
+  userChip: { background: isDarkMode ? '#111827' : '#f8fafc', border: `1px solid ${isDarkMode ? '#334155' : '#e5e7eb'}`, borderRadius: 10, padding: '8px 14px', cursor: 'pointer', marginRight: 8, marginBottom: 8, fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6, color: isDarkMode ? '#e5e7eb' : '#111827' },
+  bulkBar: { display: 'flex', alignItems: 'center', gap: 6, background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed', border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fed7aa'}`, borderRadius: 9, padding: '7px 10px', marginBottom: 8, flexWrap: 'wrap', color: isDarkMode ? '#fdba74' : '#9a3412' },
+  infoCard: { background: isDarkMode ? 'rgba(249, 115, 22, 0.14)' : '#fff7ed', border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fed7aa'}`, borderRadius: 12, padding: '10px 12px', marginBottom: 12 },
+  typePill: { display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', background: isDarkMode ? 'rgba(37, 99, 235, 0.16)' : '#eff6ff', color: isDarkMode ? '#bfdbfe' : '#1d4ed8', border: `1px solid ${isDarkMode ? 'rgba(191, 219, 254, 0.28)' : '#bfdbfe'}`, borderRadius: 999, padding: '1px 7px', fontSize: 10, fontWeight: 700, lineHeight: 1.15 },
+  inlineMeta: { fontSize: 12, color: isDarkMode ? '#94a3b8' : '#64748b' },
+  groupTag: { display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999, background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed', color: isDarkMode ? '#fdba74' : '#c2410c', border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fdba74'}`, fontSize: 11, fontWeight: 800 },
   duplicateNestedList: { marginTop: 8 },
-  duplicateNestedCard: { boxShadow: 'none', background: '#fcfdff' },
-};
+  duplicateNestedCard: { boxShadow: 'none', background: isDarkMode ? 'rgba(17, 24, 39, 0.94)' : '#fcfdff' },
+});
 
 export default AdminUserManagement;
 

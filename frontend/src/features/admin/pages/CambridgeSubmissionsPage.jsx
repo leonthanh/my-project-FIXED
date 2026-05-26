@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
+import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
@@ -73,6 +74,31 @@ const CAMBRIDGE_STATUS_TONES = {
     softBorder: '#bfdbfe',
     softText: '#1d4ed8',
   },
+};
+
+const getCambridgeStatusTones = (isDarkMode) => {
+  if (!isDarkMode) return CAMBRIDGE_STATUS_TONES;
+
+  return {
+    pending: {
+      ...CAMBRIDGE_STATUS_TONES.pending,
+      softBackground: 'rgba(245, 158, 11, 0.14)',
+      softBorder: 'rgba(245, 158, 11, 0.34)',
+      softText: '#fde68a',
+    },
+    reviewed: {
+      ...CAMBRIDGE_STATUS_TONES.reviewed,
+      softBackground: 'rgba(22, 163, 74, 0.14)',
+      softBorder: 'rgba(22, 163, 74, 0.34)',
+      softText: '#bbf7d0',
+    },
+    all: {
+      ...CAMBRIDGE_STATUS_TONES.all,
+      softBackground: 'rgba(37, 99, 235, 0.16)',
+      softBorder: 'rgba(59, 130, 246, 0.34)',
+      softText: '#bfdbfe',
+    },
+  };
 };
 
 const CAMBRIDGE_STATUS_OPTIONS = [
@@ -223,6 +249,9 @@ const stopSelectionEvent = (event) => {
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
  */
 const CambridgeSubmissionsPage = () => {
+  const { isDarkMode } = useTheme();
+  const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
+  const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   /* eslint-disable-next-line no-unused-vars */
@@ -1452,7 +1481,7 @@ const CambridgeSubmissionsPage = () => {
               <div style={styles.compactStatusTabs}>
                 {CAMBRIDGE_STATUS_OPTIONS.map((option) => {
                   const isActive = reviewStatus === option.value;
-                  const tone = CAMBRIDGE_STATUS_TONES[option.value];
+                  const tone = statusTones[option.value];
 
                   return (
                     <button
@@ -1618,7 +1647,8 @@ const CambridgeSubmissionsPage = () => {
                       ? 'active'
                       : hasReview(submission)
                       ? 'reviewed'
-                      : 'pending'
+                      : 'pending',
+                    isDarkMode
                   )
                 }
                 renderHeader={({ item: submission, index, tone }) => {
@@ -1707,8 +1737,8 @@ const CambridgeSubmissionsPage = () => {
                           style={{
                             padding: '3px 8px',
                             borderRadius: 999,
-                            background: '#fff7ed',
-                            color: '#c2410c',
+                            background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed',
+                            color: isDarkMode ? '#fdba74' : '#c2410c',
                             fontWeight: 700,
                             fontSize: 12,
                           }}
@@ -1763,11 +1793,11 @@ const CambridgeSubmissionsPage = () => {
                               onExtend={(minutes) => handleExtendTime(submission, minutes)}
                               buttonStyle={{
                                 ...styles.viewButton,
-                                background: '#0284c7',
+                                background: isDarkMode ? '#0369a1' : '#0284c7',
                               }}
                               submitButtonStyle={{
                                 ...styles.viewButton,
-                                background: '#0369a1',
+                                background: isDarkMode ? '#075985' : '#0369a1',
                               }}
                             />
                           </div>
@@ -1900,17 +1930,17 @@ const CambridgeSubmissionsPage = () => {
                       {canReviewEssay && (
                         <div
                           style={{
-                            background: '#fff7ed',
-                            border: '1px solid #fed7aa',
+                            background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#fff7ed',
+                            border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fed7aa'}`,
                             borderRadius: 7,
                             padding: 12,
                             marginTop: 12,
                           }}
                         >
-                          <p style={{ margin: '0 0 6px', fontSize: 13, color: '#9a3412' }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 13, color: isDarkMode ? '#fdba74' : '#9a3412' }}>
                             <strong>{pendingManualCount}</strong> open-ended responses are waiting for review.
                           </p>
-                          <p style={{ margin: 0, fontSize: 13, color: '#7c2d12' }}>
+                          <p style={{ margin: 0, fontSize: 13, color: isDarkMode ? '#fed7aa' : '#7c2d12' }}>
                             Use Review Essay to open the marking drawer and save teacher feedback.
                           </p>
                         </div>
@@ -1919,14 +1949,14 @@ const CambridgeSubmissionsPage = () => {
                       {hasReview(submission) && (submission.feedback || buildCambridgeResponseFeedbackEntries(submission.responseFeedback).length) ? (
                         <div
                           style={{
-                            background: '#f0fdf4',
-                            border: '1px solid #bbf7d0',
+                            background: isDarkMode ? 'rgba(22, 163, 74, 0.16)' : '#f0fdf4',
+                            border: `1px solid ${isDarkMode ? 'rgba(187, 247, 208, 0.28)' : '#bbf7d0'}`,
                             borderRadius: 7,
                             padding: 12,
                             marginTop: 12,
                           }}
                         >
-                          <p style={{ margin: '0 0 6px', fontSize: 13, color: '#166534' }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 13, color: isDarkMode ? '#bbf7d0' : '#166534' }}>
                             <strong>Reviewed</strong> by <strong>{submission.feedbackBy || '--'}</strong>
                           </p>
                           {submission.feedback ? (
@@ -1950,7 +1980,7 @@ const CambridgeSubmissionsPage = () => {
                       ) : null}
 
                       {isReviewing && (
-                        <div style={{ marginTop: 12, fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>
+                        <div style={{ marginTop: 12, fontSize: 13, color: isDarkMode ? '#93c5fd' : '#1d4ed8', fontWeight: 600 }}>
                           The essay review drawer is currently open for this submission.
                         </div>
                       )}
@@ -1982,11 +2012,11 @@ const CambridgeSubmissionsPage = () => {
                             onExtend={(minutes) => handleExtendTime(submission, minutes)}
                             buttonStyle={{
                               ...styles.viewButton,
-                              background: '#0284c7',
+                              background: isDarkMode ? '#0369a1' : '#0284c7',
                             }}
                             submitButtonStyle={{
                               ...styles.viewButton,
-                              background: '#0369a1',
+                              background: isDarkMode ? '#075985' : '#0369a1',
                             }}
                           />
                         )}
@@ -2888,6 +2918,278 @@ const styles = {
     fontSize: '14px',
     color: '#64748b',
   },
+};
+
+const getCambridgePageStyles = (isDarkMode) => {
+  if (!isDarkMode) return styles;
+
+  return {
+    ...styles,
+    container: {
+      ...styles.container,
+      backgroundColor: '#020617',
+    },
+    title: {
+      ...styles.title,
+      color: '#f8fafc',
+    },
+    subtitle: {
+      ...styles.subtitle,
+      color: '#94a3b8',
+    },
+    compactFilterPanel: {
+      ...styles.compactFilterPanel,
+      background: 'rgba(15, 23, 42, 0.9)',
+      border: '1px solid #243047',
+      boxShadow: '0 16px 34px rgba(2, 6, 23, 0.22)',
+    },
+    compactFilterLabel: {
+      ...styles.compactFilterLabel,
+      color: '#cbd5e1',
+    },
+    compactFilterInput: {
+      ...styles.compactFilterInput,
+      border: '1px solid #334155',
+      background: '#111827',
+      color: '#e5e7eb',
+    },
+    compactStatusLabel: {
+      ...styles.compactStatusLabel,
+      color: '#cbd5e1',
+    },
+    compactResetButton: {
+      ...styles.compactResetButton,
+      background: '#1e293b',
+      color: '#e2e8f0',
+      border: '1px solid #475569',
+    },
+    summaryHint: {
+      ...styles.summaryHint,
+      color: '#94a3b8',
+    },
+    loadingContainer: {
+      ...styles.loadingContainer,
+      color: '#94a3b8',
+    },
+    spinner: {
+      ...styles.spinner,
+      border: '4px solid #334155',
+      borderTopColor: '#60a5fa',
+    },
+    tableContainer: {
+      ...styles.tableContainer,
+      backgroundColor: '#0f172a',
+      boxShadow: '0 14px 28px rgba(2, 6, 23, 0.28)',
+      border: '1px solid #243047',
+    },
+    th: {
+      ...styles.th,
+      backgroundColor: '#111827',
+      borderBottom: '2px solid #243047',
+      color: '#cbd5e1',
+    },
+    tr: {
+      ...styles.tr,
+      borderBottom: '1px solid #1f2937',
+    },
+    trFocused: {
+      ...styles.trFocused,
+      backgroundColor: 'rgba(245, 158, 11, 0.18)',
+      boxShadow: 'inset 4px 0 0 #f59e0b',
+    },
+    td: {
+      ...styles.td,
+      color: '#e5e7eb',
+    },
+    emptyCell: {
+      ...styles.emptyCell,
+      color: '#64748b',
+    },
+    testMeta: {
+      ...styles.testMeta,
+      color: '#94a3b8',
+    },
+    studentPhone: {
+      ...styles.studentPhone,
+      color: '#94a3b8',
+    },
+    classCode: {
+      ...styles.classCode,
+      backgroundColor: '#1e293b',
+      color: '#cbd5e1',
+    },
+    statusMeta: {
+      ...styles.statusMeta,
+      color: '#94a3b8',
+    },
+    timeSpent: {
+      ...styles.timeSpent,
+      color: '#94a3b8',
+    },
+    date: {
+      ...styles.date,
+      color: '#94a3b8',
+    },
+    submissionActionButtonView: {
+      ...styles.submissionActionButtonView,
+      border: '1px solid #2563eb',
+      boxShadow: '0 1px 2px rgba(2, 6, 23, 0.3)',
+    },
+    viewButton: {
+      ...styles.viewButton,
+      backgroundColor: '#1d4ed8',
+      boxShadow: '0 1px 2px rgba(2, 6, 23, 0.3)',
+    },
+    reviewEssayButton: {
+      ...styles.reviewEssayButton,
+      backgroundColor: 'rgba(249, 115, 22, 0.16)',
+      color: '#fdba74',
+      border: '1px solid rgba(253, 186, 116, 0.28)',
+      boxShadow: '0 1px 2px rgba(2, 6, 23, 0.3)',
+    },
+    reviewEssayButtonActive: {
+      ...styles.reviewEssayButtonActive,
+      backgroundColor: 'rgba(249, 115, 22, 0.22)',
+      borderColor: 'rgba(253, 186, 116, 0.42)',
+      color: '#fed7aa',
+      boxShadow: '0 0 0 1px rgba(249, 115, 22, 0.28), 0 3px 8px rgba(2, 6, 23, 0.24)',
+    },
+    submissionActionButtonDanger: {
+      ...styles.submissionActionButtonDanger,
+      border: '1px solid #dc2626',
+      boxShadow: '0 1px 2px rgba(2, 6, 23, 0.3)',
+    },
+    drawerOverlay: {
+      ...styles.drawerOverlay,
+      backgroundColor: 'rgba(2, 6, 23, 0.72)',
+    },
+    drawerPanel: {
+      ...styles.drawerPanel,
+      backgroundColor: '#0f172a',
+      boxShadow: '-24px 0 48px rgba(2, 6, 23, 0.42)',
+    },
+    drawerHeader: {
+      ...styles.drawerHeader,
+      borderBottom: '1px solid #243047',
+    },
+    drawerEyebrow: {
+      ...styles.drawerEyebrow,
+      color: '#fdba74',
+    },
+    drawerTitle: {
+      ...styles.drawerTitle,
+      color: '#f8fafc',
+    },
+    drawerMetaChip: {
+      ...styles.drawerMetaChip,
+      backgroundColor: '#1e293b',
+      color: '#cbd5e1',
+    },
+    drawerMetaChipAccent: {
+      ...styles.drawerMetaChipAccent,
+      backgroundColor: 'rgba(249, 115, 22, 0.16)',
+      color: '#fdba74',
+    },
+    drawerCloseButton: {
+      ...styles.drawerCloseButton,
+      border: '1px solid #334155',
+      backgroundColor: '#111827',
+      color: '#cbd5e1',
+    },
+    drawerSectionTitle: {
+      ...styles.drawerSectionTitle,
+      color: '#f8fafc',
+    },
+    drawerHint: {
+      ...styles.drawerHint,
+      color: '#94a3b8',
+    },
+    answerCard: {
+      ...styles.answerCard,
+      border: '1px solid #243047',
+      background: '#111827',
+    },
+    answerCardTitle: {
+      ...styles.answerCardTitle,
+      color: '#f8fafc',
+    },
+    answerPromptLabel: {
+      ...styles.answerPromptLabel,
+      color: '#94a3b8',
+    },
+    answerPromptHtml: {
+      ...styles.answerPromptHtml,
+      color: '#cbd5e1',
+    },
+    answerBody: {
+      ...styles.answerBody,
+      color: '#f8fafc',
+    },
+    feedbackTextarea: {
+      ...styles.feedbackTextarea,
+      border: '1px solid #334155',
+      backgroundColor: '#0f172a',
+      color: '#e5e7eb',
+    },
+    secondaryActionButton: {
+      ...styles.secondaryActionButton,
+      backgroundColor: '#111827',
+      color: '#e5e7eb',
+      border: '1px solid #334155',
+    },
+    ghostActionButton: {
+      ...styles.ghostActionButton,
+      backgroundColor: 'rgba(37, 99, 235, 0.16)',
+      color: '#bfdbfe',
+      border: '1px solid rgba(191, 219, 254, 0.28)',
+    },
+    btnRed: {
+      ...styles.btnRed,
+      background: '#b91c1c',
+    },
+    btnGray: {
+      ...styles.btnGray,
+      background: '#1e293b',
+      color: '#e2e8f0',
+      border: '1px solid #475569',
+    },
+    statusMessage: {
+      ...styles.statusMessage,
+      color: '#93c5fd',
+    },
+    selectionToolbar: {
+      ...styles.selectionToolbar,
+      border: '1px solid #334155',
+      background: 'rgba(15, 23, 42, 0.9)',
+    },
+    selectionSummary: {
+      ...styles.selectionSummary,
+      color: '#cbd5e1',
+    },
+    selectionCheckboxLabel: {
+      ...styles.selectionCheckboxLabel,
+      border: '1px solid #334155',
+      background: '#111827',
+    },
+    bulkBar: {
+      ...styles.bulkBar,
+      border: '1px solid rgba(248, 113, 113, 0.36)',
+      background: 'rgba(127, 29, 29, 0.18)',
+      color: '#fecaca',
+    },
+    pagination: {
+      ...styles.pagination,
+      color: '#94a3b8',
+    },
+    pageButtonDisabled: {
+      ...styles.pageButtonDisabled,
+      backgroundColor: '#475569',
+    },
+    pageInfo: {
+      ...styles.pageInfo,
+      color: '#94a3b8',
+    },
+  };
 };
 
 export default CambridgeSubmissionsPage;

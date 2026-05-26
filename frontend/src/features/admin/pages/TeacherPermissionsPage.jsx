@@ -17,6 +17,7 @@ import {
   MetaItem,
   adminCardStyles as acs,
 } from '../components/AdminCardPrimitives';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 const fmtDate = (value) => {
@@ -28,70 +29,78 @@ const fmtDate = (value) => {
   });
 };
 
-const teacherBadge = () => (
-  <span style={s.teacherBadge}>Teacher</span>
+const teacherBadge = (styles) => (
+  <span style={styles.teacherBadge}>Teacher</span>
 );
 
-const statusBadge = (enabled) => (
-  <span style={enabled ? s.statusBadgeEnabled : s.statusBadgeDisabled}>
+const statusBadge = (enabled, styles) => (
+  <span style={enabled ? styles.statusBadgeEnabled : styles.statusBadgeDisabled}>
     {enabled ? 'Test management on' : 'Test management off'}
   </span>
 );
 
-const accessScopePills = (enabled) => {
+const accessScopePills = (enabled, styles) => {
   if (!enabled) {
-    return <span style={s.scopePillPaused}>No active tools</span>;
+    return <span style={styles.scopePillPaused}>No active tools</span>;
   }
 
   return (
-    <span style={s.scopeGroup}>
-      <span style={s.scopePillReading}>Reading</span>
-      <span style={s.scopePillListening}>Listening</span>
-      <span style={s.scopePillOrange}>Orange</span>
+    <span style={styles.scopeGroup}>
+      <span style={styles.scopePillReading}>Reading</span>
+      <span style={styles.scopePillListening}>Listening</span>
+      <span style={styles.scopePillOrange}>Orange</span>
     </span>
   );
 };
 
-const getTeacherTone = (teacher, savingId) => {
+const getTeacherTone = (teacher, savingId, isDarkMode) => {
   if (savingId === teacher.id) {
     return {
       accent: '#ec4899',
-      border: '#fbcfe8',
-      surface: 'linear-gradient(180deg, #fff7fb 0%, #fff1f8 100%)',
-      idBackground: '#fce7f3',
-      idColor: '#be185d',
-      idBorder: '#f9a8d4',
-      titleColor: '#9d174d',
-      subtitleColor: '#be185d',
+      border: isDarkMode ? 'rgba(236, 72, 153, 0.38)' : '#fbcfe8',
+      surface: isDarkMode
+        ? 'linear-gradient(180deg, rgba(58, 18, 43, 0.94) 0%, rgba(41, 17, 37, 0.98) 100%)'
+        : 'linear-gradient(180deg, #fff7fb 0%, #fff1f8 100%)',
+      idBackground: isDarkMode ? 'rgba(236, 72, 153, 0.18)' : '#fce7f3',
+      idColor: isDarkMode ? '#f9a8d4' : '#be185d',
+      idBorder: isDarkMode ? 'rgba(249, 168, 212, 0.34)' : '#f9a8d4',
+      titleColor: isDarkMode ? '#fbcfe8' : '#9d174d',
+      subtitleColor: isDarkMode ? '#f9a8d4' : '#be185d',
     };
   }
 
   if (teacher.canManageTests) {
     return {
       accent: '#06b6d4',
-      border: '#a5f3fc',
-      surface: 'linear-gradient(180deg, #f0fdfa 0%, #ecfeff 100%)',
-      idBackground: '#cffafe',
-      idColor: '#0f766e',
-      idBorder: '#67e8f9',
-      titleColor: '#0f766e',
-      subtitleColor: '#0f766e',
+      border: isDarkMode ? 'rgba(6, 182, 212, 0.38)' : '#a5f3fc',
+      surface: isDarkMode
+        ? 'linear-gradient(180deg, rgba(13, 43, 55, 0.94) 0%, rgba(10, 34, 44, 0.98) 100%)'
+        : 'linear-gradient(180deg, #f0fdfa 0%, #ecfeff 100%)',
+      idBackground: isDarkMode ? 'rgba(6, 182, 212, 0.18)' : '#cffafe',
+      idColor: isDarkMode ? '#a5f3fc' : '#0f766e',
+      idBorder: isDarkMode ? 'rgba(103, 232, 249, 0.34)' : '#67e8f9',
+      titleColor: isDarkMode ? '#ccfbf1' : '#0f766e',
+      subtitleColor: isDarkMode ? '#67e8f9' : '#0f766e',
     };
   }
 
   return {
     accent: '#8b5cf6',
-    border: '#ddd6fe',
-    surface: 'linear-gradient(180deg, #faf5ff 0%, #fdf4ff 100%)',
-    idBackground: '#ede9fe',
-    idColor: '#6d28d9',
-    idBorder: '#c4b5fd',
-    titleColor: '#6d28d9',
-    subtitleColor: '#7c3aed',
+    border: isDarkMode ? 'rgba(139, 92, 246, 0.38)' : '#ddd6fe',
+    surface: isDarkMode
+      ? 'linear-gradient(180deg, rgba(39, 25, 70, 0.94) 0%, rgba(33, 20, 60, 0.98) 100%)'
+      : 'linear-gradient(180deg, #faf5ff 0%, #fdf4ff 100%)',
+    idBackground: isDarkMode ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe',
+    idColor: isDarkMode ? '#ddd6fe' : '#6d28d9',
+    idBorder: isDarkMode ? 'rgba(196, 181, 253, 0.34)' : '#c4b5fd',
+    titleColor: isDarkMode ? '#ede9fe' : '#6d28d9',
+    subtitleColor: isDarkMode ? '#c4b5fd' : '#7c3aed',
   };
 };
 
 const TeacherPermissionsPage = () => {
+  const { isDarkMode } = useTheme();
+  const s = getTeacherPermissionStyles(isDarkMode);
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +234,7 @@ const TeacherPermissionsPage = () => {
               ) : (
                 <AdminCardList style={s.cardList}>
                   {teachers.map((teacher) => {
-                    const tone = getTeacherTone(teacher, saving);
+                    const tone = getTeacherTone(teacher, saving, isDarkMode);
                     const isSaving = saving === teacher.id;
 
                     return (
@@ -251,8 +260,8 @@ const TeacherPermissionsPage = () => {
                               <strong style={{ ...acs.managementTitle, color: tone.titleColor }}>
                                 {teacher.name || 'Unnamed teacher'}
                               </strong>
-                              {teacherBadge()}
-                              {statusBadge(teacher.canManageTests)}
+                              {teacherBadge(s)}
+                              {statusBadge(teacher.canManageTests, s)}
                               {isSaving ? <span style={s.savingBadge}>Saving...</span> : null}
                             </div>
 
@@ -289,8 +298,8 @@ const TeacherPermissionsPage = () => {
                         <AdminMetaGrid style={s.permissionMetaGrid}>
                           <MetaItem label="Phone" value={<span style={s.phoneValue}>{teacher.phone || '—'}</span>} />
                           <MetaItem label="Email" value={<span style={s.emailValue}>{teacher.email || '—'}</span>} />
-                          <MetaItem label="Status" value={statusBadge(teacher.canManageTests)} />
-                          <MetaItem label="Access tools" value={accessScopePills(teacher.canManageTests)} />
+                          <MetaItem label="Status" value={statusBadge(teacher.canManageTests, s)} />
+                          <MetaItem label="Access tools" value={accessScopePills(teacher.canManageTests, s)} />
                         </AdminMetaGrid>
                       </AdminManagementCard>
                     );
@@ -306,7 +315,7 @@ const TeacherPermissionsPage = () => {
   );
 };
 
-const s = {
+const getTeacherPermissionStyles = (isDarkMode) => ({
   page: {
     maxWidth: '100%',
     width: '100%',
@@ -315,11 +324,13 @@ const s = {
     boxSizing: 'border-box',
   },
   headerCard: {
-    background: 'linear-gradient(135deg, #ffffff 0%, #eef2ff 45%, #fff7ed 100%)',
-    border: '1px solid #ddd6fe',
+    background: isDarkMode
+      ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.95) 52%, rgba(66, 32, 6, 0.9) 100%)'
+      : 'linear-gradient(135deg, #ffffff 0%, #eef2ff 45%, #fff7ed 100%)',
+    border: `1px solid ${isDarkMode ? '#374151' : '#ddd6fe'}`,
     borderRadius: 20,
     padding: '22px 24px',
-    boxShadow: '0 16px 40px rgba(99, 102, 241, 0.1)',
+    boxShadow: isDarkMode ? '0 18px 40px rgba(2, 6, 23, 0.34)' : '0 16px 40px rgba(99, 102, 241, 0.1)',
     marginBottom: 18,
   },
   kicker: {
@@ -327,17 +338,19 @@ const s = {
     fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: '#6d28d9',
+    color: isDarkMode ? '#c4b5fd' : '#6d28d9',
     marginBottom: 8,
   },
-  center: { textAlign: 'center', padding: '36px 16px', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: 800, margin: '0 0 8px', color: '#312e81' },
-  subtitle: { color: '#5b21b6', margin: 0, fontSize: 15, lineHeight: 1.6 },
+  center: { textAlign: 'center', padding: '36px 16px', fontSize: 16, color: isDarkMode ? '#cbd5e1' : '#111827' },
+  title: { fontSize: 28, fontWeight: 800, margin: '0 0 8px', color: isDarkMode ? '#f8fafc' : '#312e81' },
+  subtitle: { color: isDarkMode ? '#cbd5e1' : '#5b21b6', margin: 0, fontSize: 15, lineHeight: 1.6 },
   panel: {
-    background: 'linear-gradient(180deg, #ffffff 0%, #fffaf5 100%)',
+    background: isDarkMode
+      ? 'linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(17, 24, 39, 0.98) 100%)'
+      : 'linear-gradient(180deg, #ffffff 0%, #fffaf5 100%)',
     borderRadius: 20,
-    border: '1px solid #fed7aa',
-    boxShadow: '0 16px 40px rgba(249, 115, 22, 0.08)',
+    border: `1px solid ${isDarkMode ? '#334155' : '#fed7aa'}`,
+    boxShadow: isDarkMode ? '0 18px 40px rgba(2, 6, 23, 0.34)' : '0 16px 40px rgba(249, 115, 22, 0.08)',
     padding: '20px 22px',
   },
   summaryRow: {
@@ -348,7 +361,7 @@ const s = {
     flexWrap: 'wrap',
     marginBottom: 16,
     fontSize: 14,
-    color: '#7c2d12',
+    color: isDarkMode ? '#e2e8f0' : '#7c2d12',
   },
   summaryHint: {
     display: 'inline-flex',
@@ -356,24 +369,24 @@ const s = {
     minHeight: 30,
     padding: '0 12px',
     borderRadius: 999,
-    background: '#f3e8ff',
-    color: '#7c3aed',
+    background: isDarkMode ? 'rgba(124, 58, 237, 0.18)' : '#f3e8ff',
+    color: isDarkMode ? '#c4b5fd' : '#7c3aed',
     fontSize: 12,
     fontWeight: 700,
   },
   listSummary: {
     marginBottom: 10,
-    color: '#7c3aed',
+    color: isDarkMode ? '#94a3b8' : '#7c3aed',
     fontSize: 12,
   },
   emptyCard: {
-    borderColor: '#fdba74',
-    background: '#fff7ed',
-    color: '#c2410c',
+    borderColor: isDarkMode ? '#334155' : '#fdba74',
+    background: isDarkMode ? 'rgba(15, 23, 42, 0.88)' : '#fff7ed',
+    color: isDarkMode ? '#cbd5e1' : '#c2410c',
   },
   cardList: { gap: 12 },
   permissionCard: {
-    boxShadow: '0 12px 28px rgba(99, 102, 241, 0.08)',
+    boxShadow: isDarkMode ? '0 14px 28px rgba(2, 6, 23, 0.28)' : '0 12px 28px rgba(99, 102, 241, 0.08)',
   },
   permissionMetaGrid: {
     marginTop: 12,
@@ -384,44 +397,44 @@ const s = {
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#ede9fe',
-    color: '#6d28d9',
+    background: isDarkMode ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe',
+    color: isDarkMode ? '#ddd6fe' : '#6d28d9',
     fontSize: 10,
     fontWeight: 700,
-    border: '1px solid #ddd6fe',
+    border: `1px solid ${isDarkMode ? 'rgba(196, 181, 253, 0.34)' : '#ddd6fe'}`,
   },
   statusBadgeEnabled: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#dcfce7',
-    color: '#15803d',
+    background: isDarkMode ? 'rgba(22, 163, 74, 0.18)' : '#dcfce7',
+    color: isDarkMode ? '#bbf7d0' : '#15803d',
     fontSize: 10,
     fontWeight: 800,
-    border: '1px solid #86efac',
+    border: `1px solid ${isDarkMode ? 'rgba(134, 239, 172, 0.34)' : '#86efac'}`,
   },
   statusBadgeDisabled: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#ffedd5',
-    color: '#c2410c',
+    background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5',
+    color: isDarkMode ? '#fdba74' : '#c2410c',
     fontSize: 10,
     fontWeight: 800,
-    border: '1px solid #fdba74',
+    border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.34)' : '#fdba74'}`,
   },
   savingBadge: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#fce7f3',
-    color: '#be185d',
+    background: isDarkMode ? 'rgba(236, 72, 153, 0.18)' : '#fce7f3',
+    color: isDarkMode ? '#f9a8d4' : '#be185d',
     fontSize: 10,
     fontWeight: 800,
-    border: '1px solid #f9a8d4',
+    border: `1px solid ${isDarkMode ? 'rgba(249, 168, 212, 0.34)' : '#f9a8d4'}`,
   },
   scopeGroup: {
     display: 'inline-flex',
@@ -434,51 +447,51 @@ const s = {
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#dbeafe',
-    color: '#1d4ed8',
+    background: isDarkMode ? 'rgba(37, 99, 235, 0.16)' : '#dbeafe',
+    color: isDarkMode ? '#bfdbfe' : '#1d4ed8',
     fontSize: 10,
     fontWeight: 700,
-    border: '1px solid #bfdbfe',
+    border: `1px solid ${isDarkMode ? 'rgba(191, 219, 254, 0.32)' : '#bfdbfe'}`,
   },
   scopePillListening: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#dcfce7',
-    color: '#15803d',
+    background: isDarkMode ? 'rgba(22, 163, 74, 0.16)' : '#dcfce7',
+    color: isDarkMode ? '#bbf7d0' : '#15803d',
     fontSize: 10,
     fontWeight: 700,
-    border: '1px solid #86efac',
+    border: `1px solid ${isDarkMode ? 'rgba(134, 239, 172, 0.32)' : '#86efac'}`,
   },
   scopePillOrange: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#ffedd5',
-    color: '#c2410c',
+    background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5',
+    color: isDarkMode ? '#fdba74' : '#c2410c',
     fontSize: 10,
     fontWeight: 700,
-    border: '1px solid #fdba74',
+    border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.32)' : '#fdba74'}`,
   },
   scopePillPaused: {
     display: 'inline-flex',
     alignItems: 'center',
     padding: '2px 8px',
     borderRadius: 999,
-    background: '#fdf2f8',
-    color: '#be185d',
+    background: isDarkMode ? 'rgba(236, 72, 153, 0.16)' : '#fdf2f8',
+    color: isDarkMode ? '#f9a8d4' : '#be185d',
     fontSize: 10,
     fontWeight: 700,
-    border: '1px solid #f9a8d4',
+    border: `1px solid ${isDarkMode ? 'rgba(249, 168, 212, 0.32)' : '#f9a8d4'}`,
   },
-  phoneValue: { color: '#1d4ed8', fontWeight: 700 },
-  emailValue: { color: '#7c3aed', fontWeight: 700 },
+  phoneValue: { color: isDarkMode ? '#93c5fd' : '#1d4ed8', fontWeight: 700 },
+  emailValue: { color: isDarkMode ? '#c4b5fd' : '#7c3aed', fontWeight: 700 },
   btnSmIndigo: {
-    background: '#eef2ff',
-    color: '#4338ca',
-    border: '1px solid #c7d2fe',
+    background: isDarkMode ? 'rgba(79, 70, 229, 0.16)' : '#eef2ff',
+    color: isDarkMode ? '#c7d2fe' : '#4338ca',
+    border: `1px solid ${isDarkMode ? 'rgba(199, 210, 254, 0.28)' : '#c7d2fe'}`,
     borderRadius: 7,
     padding: '4px 8px',
     cursor: 'pointer',
@@ -488,9 +501,9 @@ const s = {
     lineHeight: 1.05,
   },
   btnSmMint: {
-    background: '#ccfbf1',
-    color: '#0f766e',
-    border: '1px solid #99f6e4',
+    background: isDarkMode ? 'rgba(13, 148, 136, 0.16)' : '#ccfbf1',
+    color: isDarkMode ? '#99f6e4' : '#0f766e',
+    border: `1px solid ${isDarkMode ? 'rgba(153, 246, 228, 0.28)' : '#99f6e4'}`,
     borderRadius: 7,
     padding: '4px 8px',
     cursor: 'pointer',
@@ -500,9 +513,9 @@ const s = {
     lineHeight: 1.05,
   },
   btnSmSunset: {
-    background: '#ffedd5',
-    color: '#c2410c',
-    border: '1px solid #fdba74',
+    background: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5',
+    color: isDarkMode ? '#fdba74' : '#c2410c',
+    border: `1px solid ${isDarkMode ? 'rgba(253, 186, 116, 0.28)' : '#fdba74'}`,
     borderRadius: 7,
     padding: '4px 8px',
     cursor: 'pointer',
@@ -511,7 +524,7 @@ const s = {
     whiteSpace: 'nowrap',
     lineHeight: 1.05,
   },
-};
+});
 
 export default TeacherPermissionsPage;
 

@@ -16,6 +16,7 @@
   max-width: none;
   margin: 0 auto;
   padding: 16px 24px 40px;
+  box-sizing: border-box;
 }
 
 .userProfilePage__shell--withNavbar {
@@ -752,6 +753,161 @@
   height: 140px;
 }
 
+body.dark-mode .userProfilePage {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 24%),
+    linear-gradient(180deg, #081122 0%, #0f172a 42%, #111827 100%);
+  color: #e2e8f0;
+}
+
+body.dark-mode .userProfilePage__heroCard {
+  background: linear-gradient(135deg, #0b1120 0%, #1d4ed8 52%, #172554 100%);
+  box-shadow: 0 30px 60px rgba(2, 6, 23, 0.42);
+}
+
+body.dark-mode .userProfilePage__heroCard::after {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.09), transparent 34%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.04), transparent 40%);
+}
+
+body.dark-mode .userProfilePage__heroStat {
+  background: rgba(15, 23, 42, 0.64);
+  border-color: rgba(96, 165, 250, 0.16);
+}
+
+body.dark-mode .userProfilePage__heroStatLabel,
+body.dark-mode .userProfilePage__avatarHint,
+body.dark-mode .userProfilePage__eyebrow {
+  color: rgba(191, 219, 254, 0.82);
+}
+
+body.dark-mode .userProfilePage__tabBar {
+  border-color: rgba(71, 85, 105, 0.68);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(17, 24, 39, 0.88) 100%);
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.28);
+}
+
+body.dark-mode .userProfilePage__tab {
+  --userProfilePage-tab-base-start: rgba(15, 23, 42, 0.94);
+  --userProfilePage-tab-base-end: rgba(30, 41, 59, 0.92);
+  border-color: rgba(71, 85, 105, 0.56);
+}
+
+body.dark-mode .userProfilePage__tab--info {
+  --userProfilePage-tab-base-start: rgba(6, 78, 59, 0.64);
+  --userProfilePage-tab-base-end: rgba(15, 118, 110, 0.38);
+  --userProfilePage-tab-active-start: rgba(22, 163, 74, 0.38);
+  --userProfilePage-tab-active-mid: rgba(34, 197, 94, 0.6);
+  --userProfilePage-tab-active-end: rgba(6, 78, 59, 0.76);
+  --userProfilePage-tab-label-active: #dcfce7;
+  --userProfilePage-tab-meta-active: #bbf7d0;
+}
+
+body.dark-mode .userProfilePage__tab--security {
+  --userProfilePage-tab-base-start: rgba(88, 28, 135, 0.5);
+  --userProfilePage-tab-base-end: rgba(76, 29, 149, 0.28);
+  --userProfilePage-tab-active-start: rgba(126, 34, 206, 0.42);
+  --userProfilePage-tab-active-mid: rgba(168, 85, 247, 0.64);
+  --userProfilePage-tab-active-end: rgba(76, 29, 149, 0.72);
+  --userProfilePage-tab-label-active: #f3e8ff;
+  --userProfilePage-tab-meta-active: #e9d5ff;
+}
+
+body.dark-mode .userProfilePage__tabLabel,
+body.dark-mode .userProfilePage__cardTitle,
+body.dark-mode .userProfilePage__fieldLabel,
+body.dark-mode .userProfilePage__summaryValue,
+body.dark-mode .userProfilePage__bodyCopy,
+body.dark-mode .userProfilePage__readonlyBanner,
+body.dark-mode .userProfilePage__statusBadge,
+body.dark-mode .userProfilePage__message {
+  color: #e2e8f0;
+}
+
+body.dark-mode .userProfilePage__tabMeta,
+body.dark-mode .userProfilePage__cardMeta,
+body.dark-mode .userProfilePage__fieldHint,
+body.dark-mode .userProfilePage__summaryLabel,
+body.dark-mode .userProfilePage__tipList,
+body.dark-mode .userProfilePage__heroStatMeta {
+  color: #94a3b8;
+}
+
+body.dark-mode .userProfilePage__cardEyebrow {
+  color: #93c5fd;
+}
+
+body.dark-mode .userProfilePage__card,
+body.dark-mode .userProfilePage__dialogCard {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(51, 65, 85, 0.88);
+  box-shadow: 0 24px 48px rgba(2, 6, 23, 0.34);
+}
+
+body.dark-mode .userProfilePage__summaryItem,
+body.dark-mode .userProfilePage__readonlyBanner--subtle {
+  background: rgba(17, 24, 39, 0.9);
+  border-color: rgba(51, 65, 85, 0.82);
+}
+
+body.dark-mode .userProfilePage__readonlyBanner {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.96) 100%);
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+body.dark-mode .userProfilePage__button--ghost {
+  background-image:
+    linear-gradient(120deg, transparent 36%, rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0.26) 50%, rgba(255, 255, 255, 0.08) 54%, transparent 64%),
+    linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.92) 100%);
+  color: #e2e8f0;
+  border-color: rgba(71, 85, 105, 0.72);
+  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.24);
+}
+
+body.dark-mode .userProfilePage__message--success {
+  background: rgba(6, 78, 59, 0.28);
+  color: #a7f3d0;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+body.dark-mode .userProfilePage__message--error {
+  background: rgba(76, 5, 25, 0.36);
+  color: #fecdd3;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+body.dark-mode .userProfilePage__statusBadge--verified {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.74) 0%, rgba(5, 150, 105, 0.36) 100%);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #dcfce7;
+}
+
+body.dark-mode .userProfilePage__statusBadge--warning {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.72) 0%, rgba(180, 83, 9, 0.4) 100%);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #fde68a;
+}
+
+body.dark-mode .userProfilePage__statusBadge--muted {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(51, 65, 85, 0.8) 100%);
+  border-color: rgba(100, 116, 139, 0.3);
+  color: #cbd5e1;
+}
+
+body.dark-mode .userProfilePage__dialogBackdrop {
+  background: rgba(2, 6, 23, 0.78);
+}
+
+body.dark-mode .userProfilePage__cropStage {
+  background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+}
+
+body.dark-mode .userProfilePage__skeleton {
+  background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
+}
+
 @keyframes userProfilePagePulse {
   0% {
     background-position: 100% 0;
@@ -863,6 +1019,212 @@
   }
 }
 
+@media (max-width: 480px) {
+  .userProfilePage__shell {
+    padding-right: 10px;
+    padding-bottom: 28px;
+    padding-left: 10px;
+  }
+
+  .userProfilePage__shell--withNavbar {
+    padding-top: 76px;
+  }
+
+  .userProfilePage__workspace {
+    gap: 14px;
+  }
+
+  .userProfilePage__heroCard,
+  .userProfilePage__card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .userProfilePage__heroCard {
+    gap: 12px;
+  }
+
+  .userProfilePage__heroMain {
+    gap: 10px;
+  }
+
+  .userProfilePage__avatarCluster {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
+    width: 100%;
+  }
+
+  .userProfilePage__avatarFrame {
+    width: 76px;
+    height: 76px;
+  }
+
+  .userProfilePage__avatarFallback {
+    font-size: 24px;
+  }
+
+  .userProfilePage__avatarHint {
+    font-size: 10px;
+  }
+
+  .userProfilePage__avatarActions {
+    gap: 5px;
+  }
+
+  .userProfilePage__eyebrow,
+  .userProfilePage__cardEyebrow {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .userProfilePage__title {
+    font-size: 20px;
+  }
+
+  .userProfilePage__subtitle,
+  .userProfilePage__bodyCopy,
+  .userProfilePage__tipList {
+    font-size: 13px;
+  }
+
+  .userProfilePage__chipRow {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .userProfilePage__chip {
+    min-height: 24px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .userProfilePage__heroStats,
+  .userProfilePage__stack,
+  .userProfilePage__securityStack,
+  .userProfilePage__summaryList {
+    gap: 8px;
+  }
+
+  .userProfilePage__heroStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .userProfilePage__heroStat:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .userProfilePage__heroStat,
+  .userProfilePage__summaryItem,
+  .userProfilePage__readonlyBanner {
+    padding: 9px 10px;
+    border-radius: 13px;
+  }
+
+  .userProfilePage__heroStatLabel,
+  .userProfilePage__summaryLabel {
+    font-size: 11px;
+  }
+
+  .userProfilePage__heroStatValue,
+  .userProfilePage__summaryValue {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .userProfilePage__tabBar {
+    justify-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 5px;
+    border-radius: 18px;
+  }
+
+  .userProfilePage__tab {
+    width: min(100%, 240px);
+    padding: 10px 14px;
+    border-radius: 16px;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .userProfilePage__tabLabel {
+    font-size: 14px;
+  }
+
+  .userProfilePage__tabMeta {
+    display: none;
+  }
+
+  .userProfilePage__cardHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .userProfilePage__cardTitle {
+    font-size: 19px;
+  }
+
+  .userProfilePage__cardMeta,
+  .userProfilePage__fieldHint,
+  .userProfilePage__message {
+    font-size: 12px;
+  }
+
+  .userProfilePage__form,
+  .userProfilePage__actions,
+  .userProfilePage__inlineActions {
+    gap: 10px;
+  }
+
+  .userProfilePage__field {
+    gap: 6px;
+  }
+
+  .userProfilePage__input,
+  .userProfilePage__textarea {
+    border-radius: 14px;
+    padding: 11px 12px;
+  }
+
+  .userProfilePage__textarea {
+    min-height: 128px;
+  }
+
+  .userProfilePage__button {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.84rem;
+  }
+
+  .userProfilePage__avatarActions .userProfilePage__button {
+    width: 100%;
+  }
+
+  .userProfilePage__button--full {
+    width: 100%;
+  }
+
+  .userProfilePage__card--summary {
+    display: none;
+  }
+
+  .userProfilePage__dialogCard {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .userProfilePage__cropStage {
+    height: 240px;
+    border-radius: 16px;
+  }
+
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 66px;
+  }
+}
+
 .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
   top: 82px;
 }
@@ -876,6 +1238,12 @@
 @media (max-width: 720px) {
   .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
     top: 70px;
+  }
+}
+
+@media (max-width: 480px) {
+  .userProfilePage__shell--withNavbar .userProfilePage__tabBar {
+    top: 66px;
   }
 }
 
