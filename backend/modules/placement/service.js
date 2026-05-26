@@ -97,6 +97,140 @@ const summarizeAttemptItems = (items = []) => {
   );
 };
 
+const buildAttemptItemMatchKey = (item) => {
+  return [
+    normalizeLower(item?.platform),
+    normalizeLower(item?.skill),
+    normalizeText(item?.testId),
+    normalizeLower(item?.testType),
+  ].join("::");
+};
+
+const isPrunableAttemptItem = (item) => {
+  return (
+    normalizeLower(item?.status) === "assigned" &&
+    !Number(item?.runtimeSubmissionId) &&
+    !item?.startedAt &&
+    !item?.submittedAt
+  );
+};
+
+const buildAttemptItemUpdatePayload = (attemptItem, packageItem) => {
+  const nextValues = {};
+
+  if (Number(attemptItem?.packageItemId || 0) !== Number(packageItem?.id || 0)) {
+    nextValues.packageItemId = packageItem.id;
+  }
+  if (normalizeLower(attemptItem?.platform) !== normalizeLower(packageItem?.platform)) {
+    nextValues.platform = packageItem.platform;
+  }
+  if (normalizeLower(attemptItem?.skill) !== normalizeLower(packageItem?.skill)) {
+    nextValues.skill = packageItem.skill;
+  }
+  if (normalizeText(attemptItem?.testId) !== normalizeText(packageItem?.testId)) {
+    nextValues.testId = String(packageItem.testId);
+  }
+  if (normalizeLower(attemptItem?.testType) !== normalizeLower(packageItem?.testType)) {
+    nextValues.testType = packageItem.testType || null;
+  }
+  if (normalizeText(attemptItem?.title) !== normalizeText(packageItem?.title)) {
+    nextValues.title = packageItem.title;
+  }
+  if (normalizeText(attemptItem?.subtitle) !== normalizeText(packageItem?.subtitle)) {
+    nextValues.subtitle = packageItem.subtitle || null;
+  }
+  if (normalizeText(attemptItem?.badge) !== normalizeText(packageItem?.badge)) {
+    nextValues.badge = packageItem.badge || null;
+  }
+  if (
+    normalizeText(attemptItem?.questionsLabel) !==
+    normalizeText(packageItem?.questionsLabel)
+  ) {
+    nextValues.questionsLabel = packageItem.questionsLabel || null;
+  }
+  if (
+    normalizeText(attemptItem?.durationLabel) !==
+    normalizeText(packageItem?.durationLabel)
+  ) {
+    nextValues.durationLabel = packageItem.durationLabel || null;
+  }
+  if (Number(attemptItem?.sortOrder || 0) !== Number(packageItem?.sortOrder || 0)) {
+    nextValues.sortOrder = Number.isFinite(Number(packageItem?.sortOrder))
+      ? Number(packageItem.sortOrder)
+      : 0;
+  }
+
+  return nextValues;
+};
+
+const syncAttemptItemsFromPackage = async ({ attempt, packageItems = [] }) => {
+  const existingAttemptItems = await getAttemptItems(attempt.id);
+  const attemptQueues = new Map();
+
+  existingAttemptItems.forEach((attemptItem) => {
+    const key = buildAttemptItemMatchKey(attemptItem);
+    if (!attemptQueues.has(key)) {
+      attemptQueues.set(key, []);
+    }
+    attemptQueues.get(key).push(attemptItem);
+  });
+
+  const matchedAttemptItemIds = new Set();
+  const itemsToCreate = [];
+
+  for (const packageItem of sortByOrder(packageItems)) {
+    const key = buildAttemptItemMatchKey(packageItem);
+    const queue = attemptQueues.get(key) || [];
+    const matchedAttemptItem = queue.shift();
+
+    if (!matchedAttemptItem) {
+      itemsToCreate.push(packageItem);
+      continue;
+    }
+
+    matchedAttemptItemIds.add(matchedAttemptItem.id);
+    const nextValues = buildAttemptItemUpdatePayload(matchedAttemptItem, packageItem);
+
+    if (Object.keys(nextValues).length) {
+      await matchedAttemptItem.update(nextValues);
+    }
+  }
+
+  const staleAssignedAttemptItemIds = existingAttemptItems
+    .filter(
+      (attemptItem) =>
+        !matchedAttemptItemIds.has(attemptItem.id) && isPrunableAttemptItem(attemptItem)
+    )
+    .map((attemptItem) => attemptItem.id);
+
+  if (itemsToCreate.length) {
+    await PlacementAttemptItem.bulkCreate(
+      itemsToCreate.map((item) => ({
+        attemptId: attempt.id,
+        packageItemId: item.id,
+        attemptItemToken: createOpaqueToken("item"),
+        platform: item.platform,
+        skill: item.skill,
+        testId: String(item.testId),
+        testType: item.testType || null,
+        title: item.title,
+        subtitle: item.subtitle || null,
+        badge: item.badge || null,
+        questionsLabel: item.questionsLabel || null,
+        durationLabel: item.durationLabel || null,
+        sortOrder: item.sortOrder || 0,
+        status: "assigned",
+      }))
+    );
+  }
+
+  if (staleAssignedAttemptItemIds.length) {
+    await PlacementAttemptItem.destroy({
+      where: { id: { [Op.in]: staleAssignedAttemptItemIds } },
+    });
+  }
+};
+
 const serializeAttemptItem = (item) => {
   const data = item?.toJSON ? item.toJSON() : { ...item };
   return {
@@ -375,9 +509,11 @@ const createOrResumeAttemptForShareToken = async ({
   });
 
   if (attempt) {
+    const packageItems = await getPackageItems(placementPackage.id);
     if (normalizedStudentName && attempt.studentName !== normalizedStudentName) {
       await attempt.update({ studentName: normalizedStudentName });
     }
+    await syncAttemptItemsFromPackage({ attempt, packageItems });
     return serializeAttempt(attempt);
   }
 
