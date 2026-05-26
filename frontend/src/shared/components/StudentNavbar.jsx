@@ -457,6 +457,7 @@ const StudentNavbar = () => {
     pathname.startsWith("/cambridge/") ||
     pathname.startsWith("/pet-writing");
   const isFeedbackCurrent = pathname.startsWith("/my-feedback");
+  const isProfileCurrent = pathname.startsWith("/profile");
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
@@ -529,6 +530,12 @@ const StudentNavbar = () => {
         </div>
 
         <div className="studentNavbar__mobileSectionTitle">Account</div>
+        {renderMobileQuickLink(
+          "/profile",
+          "Profile",
+          "Update your personal information and account details",
+          "user"
+        )}
         <button
           type="button"
           className="studentNavbar__mobileLogout"
@@ -821,10 +828,14 @@ const StudentNavbar = () => {
 
       <div className="studentNavbar__right">
         <ThemeToggle />
-        <span className="studentNavbar__user">
+        <Link
+          to="/profile"
+          className={`studentNavbar__user${isProfileCurrent ? " studentNavbar__user--active" : ""}`}
+          title={`Open profile for ${user.name}`}
+        >
           <span className="studentNavbar__icon studentNavbar__icon--user" aria-hidden="true"><NavIcon name="user" /></span>
           <span>{user.name}</span>
-        </span>
+        </Link>
         <button
           onClick={handleLogout}
           className="studentNavbar__logout"

@@ -269,7 +269,8 @@
 
 .studentNavbar__link:hover,
 .studentNavbar__moreToggle:hover,
-.studentNavbar__notificationPill:hover {
+.studentNavbar__notificationPill:hover,
+.studentNavbar__user:hover {
   background: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(4, 18, 60, 0.18);
@@ -280,7 +281,8 @@
 }
 
 .studentNavbar__link--active,
-.studentNavbar__notificationPill--current {
+.studentNavbar__notificationPill--current,
+.studentNavbar__user--active {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
   border-color: rgba(255, 255, 255, 0.24);
   box-shadow: 0 14px 26px rgba(4, 18, 60, 0.24);
@@ -726,6 +728,9 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .studentNavbar__logout {
@@ -827,7 +832,8 @@ body.dark-mode .studentNavbar__user {
 }
 
 body.dark-mode .studentNavbar__link--active,
-body.dark-mode .studentNavbar__notificationPill--current {
+body.dark-mode .studentNavbar__notificationPill--current,
+body.dark-mode .studentNavbar__user--active {
   background: linear-gradient(135deg, rgba(147, 197, 253, 0.22) 0%, rgba(59, 130, 246, 0.12) 100%);
   border-color: rgba(191, 219, 254, 0.3);
 }
