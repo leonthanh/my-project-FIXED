@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { useNavigate, useParams } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
+import StudentNavbar from '../../../shared/components/StudentNavbar';
 import {
   apiPath,
   authFetch,
@@ -164,10 +165,13 @@ const UserProfilePage = () => {
   const canChangePassword = isOwnProfile;
   const canVerifyEmail = isOwnProfile;
   const profileChanged = canEditProfile && !areProfileFormsEqual(profileForm, mapUserToProfileForm(profile));
-  const isTeacherShell = viewerUser?.role === 'teacher' || viewerUser?.role === 'admin';
+  const isAdminShell = viewerUser?.role === 'teacher' || viewerUser?.role === 'admin';
+  const hasStudentNavbar = isOwnProfile && viewerUser?.role === 'student';
+  const hasTopNavbar = isAdminShell || hasStudentNavbar;
   const avatarUrl = currentUser?.avatarUrl ? hostPath(currentUser.avatarUrl) : null;
   const initials = getInitials(currentUser?.name);
   const roleLabel = getRoleLabel(currentUser?.role);
+  const profileEyebrow = isAdminReviewMode ? 'Admin profile review' : `${roleLabel} account profile`;
   const bioCount = profileForm.bio.length;
   const emailVerificationTone = getEmailVerificationTone(currentUser);
   const emailVerificationLabel = getEmailVerificationLabel(currentUser);
@@ -834,14 +838,15 @@ const UserProfilePage = () => {
 
   return (
     <div className="userProfilePage">
-      {isTeacherShell ? <AdminNavbar /> : null}
+      {isAdminShell ? <AdminNavbar /> : null}
+      {hasStudentNavbar ? <StudentNavbar /> : null}
 
       <main
         className={`userProfilePage__shell${
-          isTeacherShell ? ' userProfilePage__shell--withNavbar' : ''
+          hasTopNavbar ? ' userProfilePage__shell--withNavbar' : ''
         }`}
       >
-        <div className={`userProfilePage__workspace${isTeacherShell ? ' userProfilePage__workspace--withNavbar' : ''}`}>
+        <div className={`userProfilePage__workspace${hasTopNavbar ? ' userProfilePage__workspace--withNavbar' : ''}`}>
           <aside className="userProfilePage__heroSidebar">
             <section className="userProfilePage__hero">
               <div className="userProfilePage__heroCard">
@@ -914,7 +919,7 @@ const UserProfilePage = () => {
 
                   <div className="userProfilePage__heroText">
                     <span className="userProfilePage__eyebrow">
-                      {isAdminReviewMode ? 'Admin profile review' : 'Teacher account profile'}
+                      {profileEyebrow}
                     </span>
                     <h1 className="userProfilePage__title">
                       {currentUser?.name || 'Hồ sơ người dùng'}

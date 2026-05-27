@@ -18,6 +18,8 @@ import {
 } from "../components/SubmissionCardList";
 import AdminConfirmModal from "../components/AdminConfirmModal";
 import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
+import SubmissionHeaderSurface from "../components/SubmissionHeaderSurface";
+import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
@@ -63,7 +65,6 @@ const AdminReadingSubmissions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkHandledRef = useRef("");
 
-  // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [feedbackText, setFeedbackText] = useState("");
@@ -76,7 +77,6 @@ const AdminReadingSubmissions = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [expandedItems, setExpandedItems] = useState(new Set());
 
-  // Search/filter state
   const [searchClassCode, setSearchClassCode] = useState("");
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchStudent, setSearchStudent] = useState("");
@@ -92,11 +92,11 @@ const AdminReadingSubmissions = () => {
       setLoading(true);
       try {
         const res = await fetch(apiPath("reading-submissions/admin/list"));
-        if (!res.ok) throw new Error("Fetch failed");
         const data = await res.json();
-        setSubs(data || []);
+        const nextSubs = Array.isArray(data) ? data : [];
+        setSubs(nextSubs);
       } catch (err) {
-        console.error("Error fetching reading submissions:", err);
+        console.error("Failed to load reading submissions", err);
         setSubs([]);
       } finally {
         setLoading(false);
@@ -592,83 +592,101 @@ const AdminReadingSubmissions = () => {
             </>
           )}
         >
-          <SubmissionStatCards
-            compact
-            dense
-            stats={[
-              {
-                label: "Total",
-                count: subs.length,
-                bg: "#eff6ff",
-                color: "#1d4ed8",
-                border: "#bfdbfe",
-              },
-              {
-                label: "Pending",
-                count: pendingCount,
-                bg: "#fffbeb",
-                color: "#92400e",
-                border: "#fde68a",
-              },
-              {
-                label: "Reviewed",
-                count: reviewedCount,
-                bg: "#f0fdf4",
-                color: "#166534",
-                border: "#bbf7d0",
-              },
-            ]}
-          />
-
-          <SubmissionFilterPanel
-            compact
-            dense
-            fields={[
-              {
-                key: "student",
-                label: "Student Name",
-                placeholder: "Student name",
-                value: searchStudent,
-                onChange: setSearchStudent,
-              },
-              {
-                key: "phone",
-                label: "Phone",
-                placeholder: "Phone number",
-                value: searchPhone,
-                onChange: setSearchPhone,
-              },
-              {
-                key: "classCode",
-                label: "Class Code",
-                placeholder: "e.g. 148-IX-3A-S1",
-                value: searchClassCode,
-                onChange: setSearchClassCode,
-              },
-              {
-                key: "teacher",
-                label: "Test Teacher",
-                placeholder: "Teacher name",
-                value: searchTeacher,
-                onChange: setSearchTeacher,
-              },
-              {
-                key: "reviewedBy",
-                label: "Reviewed By",
-                placeholder: "Reviewer name",
-                value: searchReviewedBy,
-                onChange: setSearchReviewedBy,
-              },
-            ]}
-            sortValue={sortOrder}
-            onSortChange={setSortOrder}
-            statusValue={statusTab}
-            onStatusChange={setStatusTab}
-            onReset={resetFilters}
-            filteredCount={filteredSubs.length}
-            totalCount={subs.length}
-            summaryLabel="submissions"
-            summaryHint="Click a row to view the score summary, feedback, and actions."
+          <SubmissionHeaderSurface
+            sticky
+            topRowLeft={(
+              <SubmissionStatCards
+                compact
+                dense
+                containerStyle={{ marginBottom: 0, gap: 8 }}
+                stats={[
+                  {
+                    label: "Total",
+                    count: subs.length,
+                    bg: "#eff6ff",
+                    color: "#1d4ed8",
+                    border: "#bfdbfe",
+                  },
+                  {
+                    label: "Pending",
+                    count: pendingCount,
+                    bg: "#fffbeb",
+                    color: "#92400e",
+                    border: "#fde68a",
+                  },
+                  {
+                    label: "Reviewed",
+                    count: reviewedCount,
+                    bg: "#f0fdf4",
+                    color: "#166534",
+                    border: "#bbf7d0",
+                  },
+                ]}
+              />
+            )}
+            middleLabel="Submission Type"
+            middleContent={(
+              <SubmissionTypeTabs
+                activeKey="reading"
+                title={null}
+                allowMobileWrap
+                showZeroBadge
+                countMode="ix"
+              />
+            )}
+            bottomContent={(
+              <SubmissionFilterPanel
+                embedded
+                compact
+                dense
+                fields={[
+                  {
+                    key: "student",
+                    label: "Student Name",
+                    placeholder: "Student name",
+                    value: searchStudent,
+                    onChange: setSearchStudent,
+                  },
+                  {
+                    key: "phone",
+                    label: "Phone",
+                    placeholder: "Phone number",
+                    value: searchPhone,
+                    onChange: setSearchPhone,
+                  },
+                  {
+                    key: "classCode",
+                    label: "Class Code",
+                    placeholder: "e.g. 148-IX-3A-S1",
+                    value: searchClassCode,
+                    onChange: setSearchClassCode,
+                  },
+                  {
+                    key: "teacher",
+                    label: "Test Teacher",
+                    placeholder: "Teacher name",
+                    value: searchTeacher,
+                    onChange: setSearchTeacher,
+                  },
+                  {
+                    key: "reviewedBy",
+                    label: "Reviewed By",
+                    placeholder: "Reviewer name",
+                    value: searchReviewedBy,
+                    onChange: setSearchReviewedBy,
+                  },
+                ]}
+                sortValue={sortOrder}
+                onSortChange={setSortOrder}
+                statusValue={statusTab}
+                onStatusChange={setStatusTab}
+                onReset={resetFilters}
+                filteredCount={filteredSubs.length}
+                totalCount={subs.length}
+                summaryLabel="submissions"
+                summaryHint="Click a row to view the score summary, feedback, and actions."
+              />
+            )}
           />
 
           {canDeleteSubmissions && (

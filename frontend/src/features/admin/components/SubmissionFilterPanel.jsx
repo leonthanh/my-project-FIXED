@@ -80,9 +80,11 @@ const SubmissionFilterPanel = ({
   compact = false,
   dense = false,
   compactPrimaryFieldCount = 4,
+  embedded = false,
 }) => {
   const { isDarkMode } = useTheme();
   const compactDense = compact && dense;
+  const inlineCompactLayout = compact && embedded;
   const statusTones = getStatusTones(isDarkMode);
   const hasCounts =
     Number.isFinite(Number(filteredCount)) && Number.isFinite(Number(totalCount));
@@ -160,14 +162,32 @@ const SubmissionFilterPanel = ({
       ? { ...styles.compactActionRowField, minWidth: 136, flex: "1 1 136px" }
       : styles.compactActionRowField
     : styles.actionRowField;
+  const inlineFieldStyle = inlineCompactLayout
+    ? compactDense
+      ? { ...styles.compactInlineField, minWidth: 150, flex: "1 1 150px" }
+      : { ...styles.compactInlineField, minWidth: 164, flex: "1 1 164px" }
+    : null;
+  const inlineSortFieldStyle = inlineCompactLayout
+    ? compactDense
+      ? { ...styles.compactInlineField, minWidth: 136, flex: "0 1 136px" }
+      : { ...styles.compactInlineField, minWidth: 148, flex: "0 1 148px" }
+    : null;
   const statusContainerStyle = compact
     ? compactDense
       ? { ...styles.compactStatusContainer, minWidth: 220, flex: "1 1 220px" }
       : styles.compactStatusContainer
     : styles.statusContainer;
+  const inlineStatusContainerStyle = inlineCompactLayout
+    ? compactDense
+      ? { ...styles.compactInlineStatusContainer, minWidth: 214, flex: "0 1 214px" }
+      : { ...styles.compactInlineStatusContainer, minWidth: 228, flex: "0 1 228px" }
+    : null;
   const resetContainerStyle = compact
     ? styles.compactResetContainer
     : styles.resetContainer;
+  const inlineResetContainerStyle = inlineCompactLayout
+    ? styles.compactInlineResetContainer
+    : null;
   const statusTabsStyle = compact
     ? { ...styles.statusTabs, gap: compactDense ? 5 : 6 }
     : styles.statusTabs;
@@ -186,49 +206,28 @@ const SubmissionFilterPanel = ({
         style={{
           width: "100%",
           alignSelf: "stretch",
-          background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#fff",
-          border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
-          borderRadius: 10,
-          padding: panelPadding,
-          marginBottom: panelMarginBottom,
-          boxShadow: isDarkMode ? "0 16px 34px rgba(2, 6, 23, 0.22)" : "none",
+          background: embedded
+            ? "transparent"
+            : isDarkMode
+            ? "rgba(15, 23, 42, 0.9)"
+            : "#fff",
+          border: embedded
+            ? "none"
+            : `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
+          borderRadius: embedded ? 0 : 10,
+          padding: embedded ? 0 : panelPadding,
+          marginBottom: embedded ? 0 : panelMarginBottom,
+          boxShadow: embedded
+            ? "none"
+            : isDarkMode
+            ? "0 16px 34px rgba(2, 6, 23, 0.22)"
+            : "none",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: compact
-              ? `repeat(${Math.max(primaryFields.length, 1)}, minmax(0, 1fr))`
-              : "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: fieldGap,
-            alignItems: "end",
-          }}
-        >
-          {primaryFields.map((field) => (
-            <div
-              key={field.key || field.label}
-              style={compact ? styles.compactField : undefined}
-            >
-              <label style={labelStyle}>{field.label}</label>
-              <input
-                type={field.type || "text"}
-                placeholder={field.placeholder}
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          ))}
-        </div>
-
-        {(compact || secondaryFields.length > 0 || onSortChange || onStatusChange || onReset) && (
-          <div
-            style={{
-              ...(compact ? styles.compactDividerRow : styles.dividerRow),
-            }}
-          >
-            {secondaryFields.map((field) => (
-              <div key={field.key || field.label} style={actionRowFieldStyle}>
+        {inlineCompactLayout ? (
+          <div style={{ ...styles.compactInlineRow, gap: fieldGap }}>
+            {fields.map((field) => (
+              <div key={field.key || field.label} style={inlineFieldStyle}>
                 <label style={labelStyle}>{field.label}</label>
                 <input
                   type={field.type || "text"}
@@ -241,12 +240,12 @@ const SubmissionFilterPanel = ({
             ))}
 
             {onSortChange && (
-              <div style={actionRowFieldStyle}>
+              <div style={inlineSortFieldStyle}>
                 <label style={labelStyle}>Sort By</label>
                 <select
                   value={sortValue}
                   onChange={(e) => onSortChange(e.target.value)}
-                    style={{ ...inputStyle, background: isDarkMode ? "#111827" : "#fff" }}
+                  style={{ ...inputStyle, background: isDarkMode ? "#111827" : "#fff" }}
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -258,7 +257,7 @@ const SubmissionFilterPanel = ({
             )}
 
             {onStatusChange && (
-              <div style={statusContainerStyle}>
+              <div style={inlineStatusContainerStyle}>
                 <span style={statusLabelStyle}>Status</span>
                 <div style={statusTabsStyle}>
                   {statusOptions.map((option) => {
@@ -285,13 +284,115 @@ const SubmissionFilterPanel = ({
             )}
 
             {onReset && (
-              <div style={resetContainerStyle}>
+              <div style={inlineResetContainerStyle}>
                 <button onClick={onReset} style={resetButtonStyle}>
                   Reset
                 </button>
               </div>
             )}
           </div>
+        ) : (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: compact
+                  ? `repeat(${Math.max(primaryFields.length, 1)}, minmax(0, 1fr))`
+                  : "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: fieldGap,
+                alignItems: "end",
+              }}
+            >
+              {primaryFields.map((field) => (
+                <div
+                  key={field.key || field.label}
+                  style={compact ? styles.compactField : undefined}
+                >
+                  <label style={labelStyle}>{field.label}</label>
+                  <input
+                    type={field.type || "text"}
+                    placeholder={field.placeholder}
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {(compact || secondaryFields.length > 0 || onSortChange || onStatusChange || onReset) && (
+              <div
+                style={{
+                  ...(compact ? styles.compactDividerRow : styles.dividerRow),
+                }}
+              >
+                {secondaryFields.map((field) => (
+                  <div key={field.key || field.label} style={actionRowFieldStyle}>
+                    <label style={labelStyle}>{field.label}</label>
+                    <input
+                      type={field.type || "text"}
+                      placeholder={field.placeholder}
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                ))}
+
+                {onSortChange && (
+                  <div style={actionRowFieldStyle}>
+                    <label style={labelStyle}>Sort By</label>
+                    <select
+                      value={sortValue}
+                      onChange={(e) => onSortChange(e.target.value)}
+                      style={{ ...inputStyle, background: isDarkMode ? "#111827" : "#fff" }}
+                    >
+                      {sortOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {onStatusChange && (
+                  <div style={statusContainerStyle}>
+                    <span style={statusLabelStyle}>Status</span>
+                    <div style={statusTabsStyle}>
+                      {statusOptions.map((option) => {
+                        const isActive = statusValue === option.value;
+                        const tone = statusTones[option.value] || statusTones.all;
+
+                        return (
+                          <button
+                            key={option.value}
+                            onClick={() => onStatusChange(option.value)}
+                            style={{
+                              ...statusTabStyle,
+                              borderColor: isActive ? tone.activeBorder : tone.softBorder,
+                              background: isActive ? tone.activeBackground : tone.softBackground,
+                              color: isActive ? tone.activeText : tone.softText,
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {onReset && (
+                  <div style={resetContainerStyle}>
+                    <button onClick={onReset} style={resetButtonStyle}>
+                      Reset
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -347,6 +448,16 @@ const styles = {
     gap: 3,
     minWidth: 0,
   },
+  compactInlineRow: {
+    display: "flex",
+    alignItems: "end",
+    flexWrap: "wrap",
+  },
+  compactInlineField: {
+    display: "grid",
+    gap: 3,
+    minWidth: 0,
+  },
   dividerRow: {
     display: "flex",
     alignItems: "center",
@@ -389,6 +500,12 @@ const styles = {
     minWidth: 232,
     flex: "1 1 232px",
   },
+  compactInlineStatusContainer: {
+    display: "grid",
+    gap: 3,
+    alignSelf: "end",
+    minWidth: 0,
+  },
   resetContainer: {
     alignSelf: "end",
     width: 120,
@@ -398,6 +515,13 @@ const styles = {
     alignSelf: "end",
     width: "auto",
     flex: "0 0 auto",
+  },
+  compactInlineResetContainer: {
+    alignSelf: "end",
+    width: "auto",
+    display: "flex",
+    flex: "0 0 auto",
+    marginLeft: "auto",
   },
   statusLabel: {
     fontSize: 12,

@@ -1643,20 +1643,28 @@ const DoListeningTest = () => {
       if (!m) return;
       const qNum = Number(m[1]);
       const ans = answers[key];
+      const requiredSlots = requiredMap[qNum];
 
       // If the answer is an array (checkbox multi-select), count number of selections
       if (Array.isArray(ans)) {
         const selected = ans.filter((x) => x != null).length;
-        const cap = requiredMap[qNum] || 2;
-        count += Math.min(selected, cap);
+        if (Number.isFinite(requiredSlots) && requiredSlots > 1) {
+          count += Math.min(selected, requiredSlots);
+        } else if (selected > 0) {
+          count += 1;
+        }
         return;
       }
 
-      // If it's a string that looks like a multi selection (csv, pipe or slash), split and count
-      if (typeof ans === 'string' && (ans.includes(',') || ans.includes('|') || ans.includes('/'))) {
-        const parts = ans.split(new RegExp('[,|/]')).map((s) => s.trim()).filter(Boolean);
-        const cap = requiredMap[qNum] || 2;
-        count += Math.min(parts.length, cap);
+      // Only split legacy multi-select strings for questions that actually occupy multiple slots.
+      if (
+        typeof ans === 'string' &&
+        Number.isFinite(requiredSlots) &&
+        requiredSlots > 1 &&
+        (ans.includes(',') || ans.includes('|'))
+      ) {
+        const parts = ans.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
+        count += Math.min(parts.length, requiredSlots);
         return;
       }
 

@@ -9,6 +9,10 @@ jest.mock('../../../../shared/components/AdminNavbar', () => () => (
   <div data-testid="admin-navbar" />
 ));
 
+jest.mock('../../../../shared/components/StudentNavbar', () => () => (
+  <div data-testid="student-navbar" />
+));
+
 jest.mock('../../../../shared/utils/api', () => ({
   apiPath: jest.fn((value) => `/api/${value}`),
   authFetch: jest.fn(),
@@ -50,8 +54,35 @@ describe('UserProfilePage', () => {
     );
 
     expect(screen.getByTestId('admin-navbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('student-navbar')).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue('0901123456')).toBeDisabled();
     expect(screen.getByDisplayValue('Thanh Le')).toBeInTheDocument();
+  });
+
+  test('renders student navbar for student self-profile', async () => {
+    const studentUser = {
+      ...baseUser,
+      role: 'student',
+      name: 'Test Student',
+      email: 'student@example.com',
+    };
+
+    getStoredUser.mockReturnValue(studentUser);
+    authFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: studentUser }),
+    });
+
+    render(
+      <MemoryRouter>
+        <UserProfilePage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('student-navbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('admin-navbar')).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Test Student')).toBeInTheDocument();
+    expect(screen.getByText('Student account profile')).toBeInTheDocument();
   });
 
   test('saves edited profile details and syncs stored auth user', async () => {
