@@ -109,6 +109,14 @@ const getInitials = (name) => {
     .join('');
 };
 
+const createTemporaryPassword = (length = 10) => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  return Array.from({ length }, () => {
+    const index = Math.floor(Math.random() * alphabet.length);
+    return alphabet.charAt(index);
+  }).join('');
+};
+
 const syncStoredProfile = (updatedUser) => {
   if (!updatedUser) return;
 
@@ -151,6 +159,8 @@ const UserProfilePage = () => {
   const [verificationSending, setVerificationSending] = useState(false);
   const [verificationConfirming, setVerificationConfirming] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [adminResetPassword, setAdminResetPassword] = useState('');
+  const [adminResetSaving, setAdminResetSaving] = useState(false);
   const [messageState, setMessageState] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
   const [cropAsset, setCropAsset] = useState(null);
@@ -164,6 +174,7 @@ const UserProfilePage = () => {
   const canManageAvatar = isOwnProfile;
   const canChangePassword = isOwnProfile;
   const canVerifyEmail = isOwnProfile;
+  const canAdminResetPassword = Boolean(isAdminReviewMode && viewerUser?.role === 'admin');
   const profileChanged = canEditProfile && !areProfileFormsEqual(profileForm, mapUserToProfileForm(profile));
   const isAdminShell = viewerUser?.role === 'teacher' || viewerUser?.role === 'admin';
   const hasStudentNavbar = isOwnProfile && viewerUser?.role === 'student';
@@ -216,6 +227,7 @@ const UserProfilePage = () => {
         setProfileForm(mapUserToProfileForm(nextUser));
         setPasswordForm(emptyPasswordForm);
         setVerificationForm(emptyVerificationForm);
+        setAdminResetPassword('');
         if (isOwnProfile) {
           syncStoredProfile(nextUser);
         }
@@ -362,6 +374,60 @@ const UserProfilePage = () => {
       );
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const handleGenerateAdminPassword = () => {
+    if (!canAdminResetPassword || adminResetSaving) {
+      return;
+    }
+
+    setAdminResetPassword(createTemporaryPassword());
+    setMessageState(null);
+  };
+
+  const handleAdminResetPassword = async (event) => {
+    event.preventDefault();
+
+    if (!canAdminResetPassword) {
+      return;
+    }
+
+    const nextPassword = String(adminResetPassword || '').trim();
+    if (nextPassword.length < 6) {
+      setMessageState(
+        createMessage('error', 'Mật khẩu tạm phải có ít nhất 6 ký tự.')
+      );
+      return;
+    }
+
+    try {
+      setAdminResetSaving(true);
+      setMessageState(null);
+
+      const res = await authFetch(apiPath(`admin/users/${userId}/password`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: nextPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Không thể đặt lại mật khẩu cho người dùng.');
+      }
+
+      setMessageState(
+        createMessage(
+          'success',
+          `${data.message || 'Đã đặt lại mật khẩu cho người dùng.'} Mật khẩu tạm mới: ${nextPassword}`
+        )
+      );
+    } catch (err) {
+      setMessageState(
+        createMessage('error', err.message || 'Không thể đặt lại mật khẩu cho người dùng.')
+      );
+    } finally {
+      setAdminResetSaving(false);
     }
   };
 
@@ -826,6 +892,46 @@ const UserProfilePage = () => {
               {passwordSaving ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
             </button>
           </form>
+        ) : canAdminResetPassword ? (
+          <>
+            <form className="userProfilePage__form" onSubmit={handleAdminResetPassword}>
+              <label className="userProfilePage__field">
+                <span className="userProfilePage__fieldLabel">Mật khẩu tạm mới</span>
+                <input
+                  type="text"
+                  value={adminResetPassword}
+                  onChange={(event) => setAdminResetPassword(event.target.value)}
+                  className="userProfilePage__input"
+                  placeholder="Nhập hoặc tạo mật khẩu tạm"
+                  aria-label="Mật khẩu tạm mới"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                <span className="userProfilePage__fieldHint">
+                  Nhập hoặc tạo mật khẩu mới để cấp lại cho người dùng.
+                </span>
+              </label>
+
+              <div className="userProfilePage__inlineActions">
+                <button
+                  type="button"
+                  className="userProfilePage__button userProfilePage__button--ghost"
+                  onClick={handleGenerateAdminPassword}
+                  disabled={adminResetSaving}
+                >
+                  Tạo mật khẩu tạm
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className="userProfilePage__button userProfilePage__button--primary userProfilePage__button--full"
+                disabled={adminResetSaving}
+              >
+                {adminResetSaving ? 'Đang cập nhật...' : 'Đặt lại mật khẩu'}
+              </button>
+            </form>
+          </>
         ) : (
           <div className="userProfilePage__readonlyBanner userProfilePage__readonlyBanner--subtle">
             <strong>Không chỉnh sửa tại đây</strong>
@@ -1062,7 +1168,7 @@ const UserProfilePage = () => {
                       <>
                         <li>Avatar, bio và địa chỉ hiện được lấy từ hồ sơ chi tiết thay vì dữ liệu rút gọn ở trang quản lý user.</li>
                         <li>Trạng thái xác thực email giúp admin biết nhanh tài khoản đã sẵn sàng cho các luồng thông báo qua email hay chưa.</li>
-                        <li>Đổi mật khẩu cho user khác vẫn nên thực hiện ở trang quản lý user để tránh nhầm lẫn thao tác tự phục vụ.</li>
+                        <li>Tab Bảo mật cho phép admin đặt lại mật khẩu tạm mới và gửi lại cho người dùng khi cần.</li>
                       </>
                     ) : (
                       <>

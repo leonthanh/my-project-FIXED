@@ -213,4 +213,66 @@ describe('UserProfilePage', () => {
     expect(screen.queryByRole('button', { name: 'Lưu thay đổi' })).not.toBeInTheDocument();
     expect(authFetch).toHaveBeenCalledWith('/api/admin/users/19/profile');
   });
+
+  test('allows admin review mode to reset another user password with a new temporary value', async () => {
+    const adminViewer = {
+      ...baseUser,
+      id: 1,
+      role: 'admin',
+      name: 'System Admin',
+      phone: '0988000111',
+      email: 'admin@example.com',
+    };
+    const targetUser = {
+      ...baseUser,
+      id: 19,
+      name: 'Target Teacher',
+      phone: '0909988776',
+      email: 'target@example.com',
+    };
+
+    getStoredUser.mockImplementation(() => adminViewer);
+    authFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: targetUser }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: 'Đã đặt lại mật khẩu cho "Target Teacher".' }),
+      });
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users/19/profile']}>
+        <Routes>
+          <Route path="/admin/users/:userId/profile" element={<UserProfilePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Target Teacher');
+    fireEvent.click(screen.getByRole('tab', { name: /Bảo mật/i }));
+
+    expect(screen.queryByText(/Không thể xem mật khẩu hiện tại/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Mật khẩu tạm mới'), {
+      target: { value: 'TempPass88' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }));
+
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledTimes(2);
+    });
+
+    expect(authFetch).toHaveBeenLastCalledWith(
+      '/api/admin/users/19/password',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: 'TempPass88' }),
+      })
+    );
+
+    expect(await screen.findByText(/Mật khẩu tạm mới: TempPass88/)).toBeInTheDocument();
+  });
 });
