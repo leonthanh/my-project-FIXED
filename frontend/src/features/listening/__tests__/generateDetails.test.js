@@ -63,7 +63,7 @@ describe('generateDetailsFromSections', () => {
     expect(details.length).toBe(30);
   });
 
-  test('keeps numeric slash dates literal while still supporting slash answer variants', () => {
+  test('keeps slash dates literal and only accepts pipe-separated text variants', () => {
     const testObj = {
       partInstructions: [
         { sections: [{ sectionTitle: 'Questions 1-2', questionType: 'cloze-test', startingQuestionNumber: 1 }] },
@@ -84,7 +84,11 @@ describe('generateDetailsFromSections', () => {
               },
               {
                 cells: ['Port', '[BLANK]'],
-                cellBlankAnswers: [[], ['harbour/harbor']],
+                cellBlankAnswers: [[], ['harbour|harbor']],
+              },
+              {
+                cells: ['Legacy format', '[BLANK]'],
+                cellBlankAnswers: [[], ['centre/center']],
               },
             ],
           },
@@ -95,10 +99,11 @@ describe('generateDetailsFromSections', () => {
     const details = generateDetailsFromSections(testObj, {
       q1: '23/07/1970',
       q2: 'harbor',
+      q3: 'center',
     });
 
-    expect(details).toHaveLength(2);
-    expect(details.map((detail) => detail.isCorrect)).toEqual([true, true]);
+    expect(details).toHaveLength(3);
+    expect(details.map((detail) => detail.isCorrect)).toEqual([true, true, false]);
     expect(details[0].correctAnswer).toBe('23/07/1970');
   });
 });

@@ -465,26 +465,23 @@ router.post('/:id/submit', async (req, res) => {
         .toLowerCase()
         .replace(/\s+/g, ' ');
 
-    const isNumericThousands = (s) => /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(String(s).trim());
-    const isNumericSlashLiteral = (s) => /^\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)+$/.test(String(s || '').trim());
-
     const explodeAccepted = (val) => {
       if (val == null) return [];
-      if (Array.isArray(val)) return val;
-      const s = String(val).trim();
+      const parsed = parseIfJsonString(val);
+      if (Array.isArray(parsed)) return parsed.flatMap((entry) => explodeAccepted(entry));
+      const s = String(parsed).trim();
       if (!s) return [];
-
-      // Prioritize explicit variant separators.
       if (s.includes('|')) return s.split('|').map((x) => x.trim()).filter(Boolean);
-      if (s.includes('/') && !isNumericSlashLiteral(s)) return s.split('/').map((x) => x.trim()).filter(Boolean);
-      if (s.includes(';')) return s.split(';').map((x) => x.trim()).filter(Boolean);
-
-      // Avoid splitting numeric thousands separators like "10,000".
-      if (s.includes(',') && !isNumericThousands(s)) {
-        return s.split(',').map((x) => x.trim()).filter(Boolean);
-      }
-
       return [s];
+    };
+
+    const explodeChoiceList = (val) => {
+      if (val == null) return [];
+      const parsed = parseIfJsonString(val);
+      if (Array.isArray(parsed)) return parsed.flatMap((entry) => explodeChoiceList(entry));
+      const s = String(parsed).trim();
+      if (!s) return [];
+      return s.split(/[^0-9A-Za-z]+/).map((x) => x.trim()).filter(Boolean);
     };
 
     const parseEnglishNumber = (raw) => {
@@ -997,7 +994,7 @@ router.post('/:id/submit', async (req, res) => {
 
               const studentIndices = Array.isArray(student)
                 ? student.map((x) => Number(x)).filter((n) => Number.isFinite(n))
-                : explodeAccepted(student)
+                : explodeChoiceList(student)
                     .map((x) => {
                       const t = String(x).trim();
                       if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
@@ -1006,7 +1003,7 @@ router.post('/:id/submit', async (req, res) => {
                     })
                     .filter((n) => n != null);
 
-              const expectedIndices = explodeAccepted(expectedRaw)
+              const expectedIndices = explodeChoiceList(expectedRaw)
                 .map((x) => {
                   const t = String(x).trim();
                   if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
@@ -1226,7 +1223,7 @@ router.post('/:id/submit', async (req, res) => {
 
           const studentIndices = Array.isArray(student)
             ? student.map((x) => Number(x)).filter((n) => Number.isFinite(n))
-            : explodeAccepted(student).map((x) => {
+            : explodeChoiceList(student).map((x) => {
                 const t = String(x).trim();
                 if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
                 const n = Number(t);
@@ -1240,7 +1237,7 @@ router.post('/:id/submit', async (req, res) => {
                 const n = Number(t);
                 return Number.isFinite(n) ? n : null;
               }).filter((n) => n != null)
-            : explodeAccepted(expectedRaw).map((x) => {
+            : explodeChoiceList(expectedRaw).map((x) => {
                 const t = String(x).trim();
                 if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
                 const n = Number(t);

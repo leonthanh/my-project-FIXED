@@ -22,16 +22,13 @@ const parseIfJsonString = (val) => {
 
 const normalize = (val) => (val == null ? '' : String(val)).trim().toLowerCase();
 
-const isNumericSlashLiteral = (val) => /^\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)+$/.test(String(val || '').trim());
-
 const explodeAccepted = (val) => {
   if (val == null) return [];
-  if (Array.isArray(val)) return val;
-  const s = String(val);
+  const parsed = parseIfJsonString(val);
+  if (Array.isArray(parsed)) return parsed.flatMap((entry) => explodeAccepted(entry));
+  const s = String(parsed).trim();
+  if (!s) return [];
   if (s.includes('|')) return s.split('|').map((x) => x.trim()).filter(Boolean);
-  if (s.includes('/') && !isNumericSlashLiteral(s)) return s.split('/').map((x) => x.trim()).filter(Boolean);
-  if (s.includes(',')) return s.split(',').map((x) => x.trim()).filter(Boolean);
-  if (s.includes(';')) return s.split(';').map((x) => x.trim()).filter(Boolean);
   return [s];
 };
 

@@ -15,6 +15,7 @@ import {
 import {
   countListeningSectionQuestions,
   getListeningSectionType,
+  getListeningTableBlankEntries,
   getListeningTableQuestionData,
   LISTENING_CLOZE_TYPE,
 } from "../utils/clozeTableSchema";
@@ -1554,6 +1555,10 @@ const ListeningTestEditor = ({
                             {/* TABLE COMPLETION */}
                             {getListeningSectionType(section, section.questions[0]) === LISTENING_CLOZE_TYPE && section.questions[0] && (() => {
                               const tableQuestion = getListeningTableQuestionData(section.questions[0]);
+                              const tableAnswerEntries = getListeningTableBlankEntries(
+                                section.questions[0],
+                                sectionStartQ
+                              );
 
                               return (
                                 <div>
@@ -1598,148 +1603,38 @@ const ListeningTestEditor = ({
                                     gap: "6px",
                                     marginTop: "8px",
                                   }}>
-                                    {/* Render blanks (cost + comment lines) numbered sequentially and show editable inputs when no answers map provided */}
-                                    {(() => {
-                                      const BLANK_REGEX = /_{2,}|[\u2026]+/g;
-                                      function splitIntoParts(text = '') {
-                                        const parts = [];
-                                        let lastIndex = 0;
-                                        let match;
-                                        while ((match = BLANK_REGEX.exec(text)) !== null) {
-                                          if (match.index > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
-                                          parts.push({ type: 'blank', raw: match[0] });
-                                          lastIndex = match.index + match[0].length;
-                                        }
-                                        if (lastIndex < text.length) parts.push({ type: 'text', value: text.slice(lastIndex) });
-                                        return parts;
-                                      }
-
-                                      // Build a live preview answers map from current rows/cells (ROW-major: left→right within row, then next row)
-                                      const buildPreviewAnswers = () => {
-                                        const map = {};
-                                        const BLANK_DETECT = /\[BLANK\]|_{2,}|[\u2026]+/g;
-                                        let num = sectionStartQ;
-                                        const cols2 = section.questions[0].columns || [];
-                                        const rows2 = section.questions[0].rows || [];
-                                        let foundAny = false;
-
-                                        const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
-                                          if (!Array.isArray(commentBlankAnswers)) return undefined;
-                                          let acc = 0;
-                                          for (let li = 0; li < commentBlankAnswers.length; li++) {
-                                            const arr = commentBlankAnswers[li] || [];
-                                            if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
-                                            acc += (arr.length || 0);
-                                          }
-                                          return undefined;
+                                    {tableAnswerEntries.length > 0 ? (
+                                      tableAnswerEntries.map(({ num, expected }) => {
+                                        const value = expected || '';
+                                        const handleChange = (nextValue) => {
+                                          const newMap = { ...(section.questions[0].answers || {}) };
+                                          newMap[String(num)] = nextValue;
+                                          onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
                                         };
 
-                                        for (let r = 0; r < rows2.length; r++) {
-                                          const rawRow = rows2[r];
-                                          const row = Array.isArray(rawRow.cells)
-                                            ? rawRow
-                                            : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [], correct: rawRow.correct };
-
-                                          for (let c = 0; c < cols2.length; c++) {
-                                            const isCommentsCol = /comment/i.test(cols2[c]);
-                                            const text = String(row.cells[c] || '');
-                                            BLANK_DETECT.lastIndex = 0;
-                                            let localIdx = 0;
-
-                                            while (BLANK_DETECT.exec(text) !== null) {
-                                              foundAny = true;
-                                              const key = String(num++);
-                                              let cbVal = '';
-                                              if (isCommentsCol) {
-                                                cbVal = getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '';
-                                              } else {
-                                                cbVal = (row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '';
-                                              }
-
-                                              if (cbVal) map[key] = cbVal;
-                                              else if (c === 1 && row.correct) map[key] = row.correct;
-                                              localIdx++;
-                                            }
-                                          }
-                                        }
-
-                                        if (!foundAny) {
-                                          // fallback: one blank per row
-                                          for (let r = 0; r < (section.questions[0].rows || []).length; r++) {
-                                            const key = String(num++);
-                                            const row = section.questions[0].rows[r];
-                                            map[key] = (row?.correct ?? row?.cost ?? '') || '';
-                                          }
-                                        }
-
-                                        return map;
-                                      };
-
-                                      const previewMap = buildPreviewAnswers();
-
-                                      // Build editable inputs for each blank in table (ROW-major: left→right in row then next row)
-                                      const map = previewMap;
-                                      let qnum = sectionStartQ;
-                                      const cols = section.questions[0].columns || [];
-                                      const rowsArr = section.questions[0].rows || [];
-                                      const inputs = [];
-
-                                      for (let rIdx = 0; rIdx < rowsArr.length; rIdx++) {
-                                        const rawRow = rowsArr[rIdx];
-                                        const row = Array.isArray(rawRow.cells)
-                                          ? rawRow
-                                          : { cells: [rawRow.vehicle || '', rawRow.cost || '', Array.isArray(rawRow.comments) ? rawRow.comments.join('\n') : rawRow.comments || ''], cellBlankAnswers: rawRow.cellBlankAnswers || rawRow.commentBlankAnswers || [], commentBlankAnswers: rawRow.commentBlankAnswers || [] };
-
-                                        for (let c = 0; c < cols.length; c++) {
-                                          const parts = splitIntoParts(String(row.cells[c] || ''));
-                                          let localIdx = 0;
-                                          for (const p of parts) {
-                                            if (p.type !== 'blank') continue;
-                                            const qNum = qnum++;
-
-                                            // handle commentBlankAnswers (per-line) by flattening index when needed
-                                            const getFlatCommentAnswer = (commentBlankAnswers, flatIdx) => {
-                                              if (!Array.isArray(commentBlankAnswers)) return undefined;
-                                              let acc = 0;
-                                              for (let li = 0; li < commentBlankAnswers.length; li++) {
-                                                const arr = commentBlankAnswers[li] || [];
-                                                if (flatIdx < acc + (arr.length || 0)) return arr[flatIdx - acc];
-                                                acc += (arr.length || 0);
-                                              }
-                                              return undefined;
-                                            };
-
-                                            const cbVal = /comment/i.test((section.questions[0].columns || [])[c])
-                                              ? (getFlatCommentAnswer(row.commentBlankAnswers, localIdx) || '')
-                                              : ((row.cellBlankAnswers && row.cellBlankAnswers[c] && row.cellBlankAnswers[c][localIdx]) || '');
-                                            const value = map[String(qNum)] ?? cbVal ?? (c === 1 ? (row.correct ?? '') : '');
-
-                                            const onChange = (v) => {
-                                              const newMap = { ...(section.questions[0].answers || {}) };
-                                              newMap[String(qNum)] = v;
-                                              onQuestionChange(partIdx, sIdx, 0, 'answers', newMap);
-                                            };
-
-                                            inputs.push(
-                                              <div key={`tbl-${qNum}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
-                                                <strong style={{ display: 'block', marginBottom: 6 }}>{qNum}.</strong>
-                                                <input type="text" value={value} placeholder="(Chưa có)" onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, width: '100%' }} />
-                                                {/* If teacher entered multiple variants (separated by | / ;), show them as visual hint */}
-                                                {typeof value === 'string' && /\||\//.test(value) && (
-                                                  <div style={{ marginTop: 6, fontSize: 12, color: '#374151' }}>
-                                                    <em>Accepted variants:</em> {String(value).split(/\||\//).map(s => s.trim()).filter(Boolean).join(' | ')}
-                                                  </div>
-                                                )}
+                                        return (
+                                          <div key={`tbl-${num}`} style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px' }}>
+                                            <strong style={{ display: 'block', marginBottom: 6 }}>{num}.</strong>
+                                            <input
+                                              type="text"
+                                              value={value}
+                                              placeholder="(Chưa có)"
+                                              onChange={(e) => handleChange(e.target.value)}
+                                              style={{ ...compactInputStyle, width: '100%' }}
+                                            />
+                                            {typeof value === 'string' && /\|/.test(value) && (
+                                              <div style={{ marginTop: 6, fontSize: 12, color: '#374151' }}>
+                                                <em>Accepted variants:</em> {String(value).split(/\|/).map((entry) => entry.trim()).filter(Boolean).join(' | ')}
                                               </div>
-                                            );
-
-                                            localIdx++;
-                                          }
-                                        }
-                                      }
-
-                                      return inputs;
-                                    })()}
+                                            )}
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <span style={{ padding: '4px 8px', backgroundColor: 'white', borderRadius: '4px', fontSize: '12px', color: '#6b7280' }}>
+                                        (Chưa có đáp án)
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>

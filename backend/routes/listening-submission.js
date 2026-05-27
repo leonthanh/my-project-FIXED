@@ -483,14 +483,13 @@ router.get('/admin/list', async (req, res) => {
             const num = finalStart + idx;
             const expected = q?.correctAnswer;
             const student = normalizedAnswers[`q${num}`];
-            // Hỗ trợ nhiều đáp án chấp nhận (phân cách bằng /)
+            // Hỗ trợ nhiều đáp án chấp nhận (phân cách bằng |)
             const accepted = (() => {
               if (expected == null) return [];
               if (Array.isArray(expected)) return expected;
               const s = String(expected);
-              // Support both / and | as multiple-answer separators (e.g. 'SCHOOL|school' or 'cat/cats')
-              if (s.includes('|') || s.includes('/')) {
-                return s.split(/[|/]/).map((x) => x.trim()).filter(Boolean);
+              if (s.includes('|')) {
+                return s.split('|').map((x) => x.trim()).filter(Boolean);
               }
               return [s];
             })();

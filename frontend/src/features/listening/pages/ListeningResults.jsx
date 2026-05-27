@@ -459,9 +459,6 @@ const normalizeText = (v) =>
     .toLowerCase()
     .replace(/\s+/g, " ");
 
-const isNumericThousands = (s) => /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(String(s).trim());
-const isNumericSlashLiteral = (s) => /^\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)+$/.test(String(s || "").trim());
-
 const parseEnglishNumber = (raw) => {
   const s = normalizeText(raw)
     .replace(/-/g, " ")
@@ -578,19 +575,19 @@ const explodeAccepted = (raw) => {
   if (typeof parsed === "string") {
     const s = parsed.trim();
     if (!s) return [];
-    // Prioritize explicit variant separators (|, /, ;).
     if (s.includes("|")) return s.split("|").map((t) => t.trim()).filter(Boolean);
-    if (s.includes("/") && !isNumericSlashLiteral(s)) return s.split("/").map((t) => t.trim()).filter(Boolean);
-    if (s.includes(";")) return s.split(";").map((t) => t.trim()).filter(Boolean);
-
-    // Avoid splitting numeric thousands separators like "10,000".
-    if (s.includes(",") && !isNumericThousands(s)) {
-      return s.split(",").map((t) => t.trim()).filter(Boolean);
-    }
-
     return [s];
   }
   return [parsed];
+};
+
+const explodeChoiceList = (raw) => {
+  if (raw == null) return [];
+  const parsed = safeParseJson(raw);
+  if (Array.isArray(parsed)) return parsed.flatMap((entry) => explodeChoiceList(entry));
+  const s = String(parsed).trim();
+  if (!s) return [];
+  return s.split(/[^0-9A-Za-z]+/).map((entry) => entry.trim()).filter(Boolean);
 };
 
 const candidateKeys = (raw) => {
@@ -838,7 +835,7 @@ const generateDetailsFromSections = (test, answers) => {
 
           const studentIndicesArr = Array.isArray(studentRaw)
             ? studentRaw.map((x) => Number(x)).filter((n) => Number.isFinite(n))
-            : explodeAccepted(studentRaw)
+            : explodeChoiceList(studentRaw)
                 .map((x) => {
                   const t = String(x).trim();
                   if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
@@ -847,7 +844,7 @@ const generateDetailsFromSections = (test, answers) => {
                 })
                 .filter((n) => n != null);
 
-          const expectedIndicesArr = explodeAccepted(expectedRaw)
+          const expectedIndicesArr = explodeChoiceList(expectedRaw)
             .map((x) => {
               const t = String(x).trim();
               if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;

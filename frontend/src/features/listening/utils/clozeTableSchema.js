@@ -24,6 +24,14 @@ const normalizeType = (value) => String(value || '').trim().toLowerCase();
 
 const stripHtml = (html) => String(html || '').replace(/<[^>]+>/g, ' ');
 
+const pickPreferredArray = (primary, fallback) => {
+  if (Array.isArray(primary) && primary.length > 0) return primary;
+  if (Array.isArray(fallback) && fallback.length > 0) return fallback;
+  if (Array.isArray(primary)) return primary;
+  if (Array.isArray(fallback)) return fallback;
+  return [];
+};
+
 const getParsedClozeTable = (question = {}) => {
   const parsed = safeParseJson(question?.clozeTable);
   return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
@@ -36,16 +44,8 @@ export const getListeningTableQuestionData = (question = {}) => {
   const questionRows = safeParseJson(question?.rows);
   const tableRows = safeParseJson(clozeTable?.rows);
 
-  const columns = Array.isArray(questionColumns)
-    ? questionColumns
-    : Array.isArray(tableColumns)
-      ? tableColumns
-      : [];
-  const rawRows = Array.isArray(questionRows)
-    ? questionRows
-    : Array.isArray(tableRows)
-      ? tableRows
-      : [];
+  const columns = pickPreferredArray(questionColumns, tableColumns);
+  const rawRows = pickPreferredArray(questionRows, tableRows);
   const rows = normalizeClozeTableRows(rawRows, columns);
 
   return {
