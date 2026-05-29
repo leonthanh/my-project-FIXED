@@ -30,6 +30,8 @@ describe('UserProfilePage', () => {
     name: 'Thanh Le',
     phone: '0901123456',
     email: 'thanh@example.com',
+    googleId: null,
+    facebookId: null,
     address: 'Hai Ba Trung, Ha Noi',
     bio: 'Teacher profile bio',
     createdAt: '2026-05-01T00:00:00.000Z',
@@ -57,6 +59,72 @@ describe('UserProfilePage', () => {
     expect(screen.queryByTestId('student-navbar')).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue('0901123456')).toBeDisabled();
     expect(screen.getByDisplayValue('Thanh Le')).toBeInTheDocument();
+  });
+
+  test('allows a social account without phone to add it once from profile', async () => {
+    const socialUser = {
+      ...baseUser,
+      phone: null,
+      googleId: 'google-user-123',
+      email: 'social@example.com',
+    };
+
+    getStoredUser.mockReturnValue(socialUser);
+    authFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: socialUser }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Cập nhật hồ sơ thành công.',
+          user: {
+            ...socialUser,
+            phone: '0912345678',
+          },
+        }),
+      });
+
+    render(
+      <MemoryRouter>
+        <UserProfilePage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Bổ sung số điện thoại')).toBeInTheDocument();
+
+    const phoneInput = screen.getByPlaceholderText('Ví dụ: 0912345678');
+    expect(phoneInput).not.toBeDisabled();
+
+    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledTimes(2);
+    });
+
+    expect(authFetch).toHaveBeenLastCalledWith(
+      '/api/auth/me',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const patchCall = authFetch.mock.calls[1];
+    expect(JSON.parse(patchCall[1].body)).toEqual(
+      expect.objectContaining({
+        phone: '0912345678',
+      })
+    );
+
+    expect(await screen.findByDisplayValue('0912345678')).toBeDisabled();
+    expect(storeAuthSession).toHaveBeenLastCalledWith({
+      user: expect.objectContaining({
+        phone: '0912345678',
+      }),
+    });
   });
 
   test('renders student navbar for student self-profile', async () => {
@@ -116,7 +184,7 @@ describe('UserProfilePage', () => {
       target: { value: 'teacher@example.com' },
     });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
 
     await waitFor(() => {
       expect(authFetch).toHaveBeenCalledTimes(2);
@@ -127,6 +195,13 @@ describe('UserProfilePage', () => {
       expect.objectContaining({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const patchCall = authFetch.mock.calls[1];
+    expect(JSON.parse(patchCall[1].body)).toEqual(
+      expect.objectContaining({
+        phone: '0901123456',
       })
     );
 

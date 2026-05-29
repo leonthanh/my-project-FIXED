@@ -379,6 +379,8 @@ const nullableEmailSchema = z.preprocess(
   z.string().email().max(100).nullable()
 );
 
+const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+
 const nullableAddressSchema = z.preprocess(
   normalizeNullableTrimmedString,
   z.string().max(255).nullable()
@@ -392,6 +394,10 @@ const nullableBioSchema = z.preprocess(
 const updateProfileSchema = z.object({
   name: z.preprocess(trimStringValue, z.string().min(1).max(100)).optional(),
   email: nullableEmailSchema.optional(),
+  phone: z.preprocess(
+    (value) => (value === undefined ? undefined : String(value).trim()),
+    z.string().regex(vnPhoneRegex)
+  ).optional(),
   address: nullableAddressSchema.optional(),
   bio: nullableBioSchema.optional(),
 });
@@ -497,8 +503,6 @@ async function issueTokens({ user, req, res }) {
   };
 }
 
-const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-
 const registerSchema = z.object({
   name: z.string().min(1),
   phone: z.string().regex(vnPhoneRegex),
@@ -564,9 +568,10 @@ router.patch(
   async (req, res, next) => {
     try {
       const user = await getCurrentUserOrThrow(req.user.id);
-      const { name, email, address, bio } = req.body;
+      const { name, email, phone, address, bio } = req.body;
       const updates = {};
       const currentEmail = normalizeEmailValue(user.email);
+      const currentPhone = String(user.phone || '').trim();
 
       if (name !== undefined) updates.name = name;
       if (email !== undefined) {
@@ -583,6 +588,23 @@ router.patch(
         if (nextEmail !== currentEmail) {
           updates.emailVerifiedAt = null;
           clearEmailVerificationCode(user.id);
+        }
+      }
+      if (phone !== undefined) {
+        const nextPhone = String(phone || '').trim();
+
+        if (currentPhone && nextPhone !== currentPhone) {
+          throw AppError.badRequest('Số điện thoại đã được khóa và không thể chỉnh sửa.');
+        }
+
+        if (!currentPhone && nextPhone) {
+          const existingPhoneUser = await User.findOne({ where: { phone: nextPhone } });
+          const phoneInUse = existingPhoneUser && Number(existingPhoneUser.id) !== Number(user.id);
+          if (phoneInUse) {
+            throw AppError.badRequest('Số điện thoại này đã được sử dụng bởi tài khoản khác.');
+          }
+
+          updates.phone = nextPhone;
         }
       }
       if (address !== undefined) updates.address = address;

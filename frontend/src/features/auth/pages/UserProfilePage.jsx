@@ -16,9 +16,12 @@ import './UserProfilePage.css';
 const emptyProfileForm = {
   name: '',
   email: '',
+  phone: '',
   address: '',
   bio: '',
 };
+
+const profilePhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
 const emptyPasswordForm = {
   currentPassword: '',
@@ -46,6 +49,7 @@ const profileTabs = [
 const mapUserToProfileForm = (user) => ({
   name: String(user?.name || '').trim(),
   email: String(user?.email || '').trim(),
+  phone: String(user?.phone || '').trim(),
   address: String(user?.address || '').trim(),
   bio: String(user?.bio || '').trim(),
 });
@@ -53,6 +57,7 @@ const mapUserToProfileForm = (user) => ({
 const normalizeProfileForm = (form = emptyProfileForm) => ({
   name: String(form.name || '').trim(),
   email: String(form.email || '').trim(),
+  phone: String(form.phone || '').trim(),
   address: String(form.address || '').trim(),
   bio: String(form.bio || '').trim(),
 });
@@ -64,6 +69,7 @@ const areProfileFormsEqual = (left, right) => {
   return (
     nextLeft.name === nextRight.name &&
     nextLeft.email === nextRight.email &&
+    nextLeft.phone === nextRight.phone &&
     nextLeft.address === nextRight.address &&
     nextLeft.bio === nextRight.bio
   );
@@ -189,6 +195,17 @@ const UserProfilePage = () => {
   const hasEmail = Boolean(String(currentUser?.email || '').trim());
   const isEmailVerified = Boolean(currentUser?.emailVerifiedAt);
   const emailDirty = normalizeProfileForm(profileForm).email !== String(currentUser?.email || '').trim();
+  const currentPhone = String(currentUser?.phone || '').trim();
+  const profilePhone = String(profileForm.phone || '').trim();
+  const hasSocialProvider = Boolean(currentUser?.googleId || currentUser?.facebookId);
+  const canEditPhone = canEditProfile && !currentPhone;
+  const requiresPhoneCompletion = canEditPhone && hasSocialProvider;
+  const phoneDisplayValue = currentPhone || profilePhone;
+  const phoneChipLabel = canEditPhone
+    ? 'Cần bổ sung số điện thoại'
+    : currentPhone
+      ? 'Số điện thoại khóa chỉnh sửa'
+      : 'Chưa có số điện thoại';
 
   const closeCropModal = () => {
     setCropAsset((current) => {
@@ -283,6 +300,23 @@ const UserProfilePage = () => {
 
     if (!normalizedProfile.name) {
       setMessageState(createMessage('error', 'Tên hiển thị không được để trống.'));
+      return;
+    }
+
+    if (canEditPhone && !normalizedProfile.phone) {
+      setMessageState(
+        createMessage('error', 'Vui lòng bổ sung số điện thoại để hoàn tất hồ sơ.')
+      );
+      return;
+    }
+
+    if (canEditPhone && !profilePhoneRegex.test(normalizedProfile.phone)) {
+      setMessageState(
+        createMessage(
+          'error',
+          'Số điện thoại không hợp lệ. Vui lòng nhập đúng số điện thoại Việt Nam, ví dụ 0912345678.'
+        )
+      );
       return;
     }
 
@@ -661,6 +695,17 @@ const UserProfilePage = () => {
           </div>
         ) : null}
 
+        {canEditPhone ? (
+          <div className="userProfilePage__readonlyBanner userProfilePage__readonlyBanner--subtle">
+            <strong>Bổ sung số điện thoại</strong>
+            <span>
+              {requiresPhoneCompletion
+                ? 'Tài khoản đăng nhập bằng Google hoặc Facebook cần cung cấp số điện thoại một lần. Sau khi lưu thành công, trường này sẽ tự khóa.'
+                : 'Bạn có thể bổ sung số điện thoại một lần trên trang hồ sơ này. Sau khi lưu thành công, trường này sẽ tự khóa.'}
+            </span>
+          </div>
+        ) : null}
+
         <div className="userProfilePage__formGrid">
           <label className="userProfilePage__field">
             <span className="userProfilePage__fieldLabel">User name</span>
@@ -691,13 +736,21 @@ const UserProfilePage = () => {
           <label className="userProfilePage__field">
             <span className="userProfilePage__fieldLabel">Số điện thoại</span>
             <input
-              type="text"
-              value={currentUser?.phone || ''}
-              disabled
-              className="userProfilePage__input userProfilePage__input--locked"
+              type="tel"
+              name="phone"
+              value={canEditPhone ? profileForm.phone : currentPhone}
+              onChange={canEditPhone ? handleProfileFieldChange : undefined}
+              disabled={!canEditPhone}
+              required={canEditPhone}
+              className={`userProfilePage__input${canEditPhone ? '' : ' userProfilePage__input--locked'}`}
+              placeholder={canEditPhone ? 'Ví dụ: 0912345678' : undefined}
             />
             <span className="userProfilePage__fieldHint">
-              Trường này đang khóa theo yêu cầu để tránh thay đổi mã định danh tài khoản.
+              {canEditPhone
+                ? requiresPhoneCompletion
+                  ? 'Tài khoản social cần thêm số điện thoại để hoàn tất hồ sơ. Sau khi lưu, trường này sẽ bị khóa.'
+                  : 'Số điện thoại sẽ được dùng làm mã định danh tài khoản và sẽ bị khóa sau khi lưu.'
+                : 'Trường này đang khóa theo yêu cầu để tránh thay đổi mã định danh tài khoản.'}
             </span>
           </label>
 
@@ -1038,7 +1091,9 @@ const UserProfilePage = () => {
 
                     <div className="userProfilePage__chipRow">
                       <span className="userProfilePage__chip">{roleLabel}</span>
-                      <span className="userProfilePage__chip">Số điện thoại khóa chỉnh sửa</span>
+                      <span className={`userProfilePage__chip${canEditPhone ? ' userProfilePage__chip--warning' : !currentPhone ? ' userProfilePage__chip--muted' : ''}`}>
+                        {phoneChipLabel}
+                      </span>
                       <span className={`userProfilePage__chip userProfilePage__chip--${emailVerificationTone}`}>
                         {emailVerificationLabel}
                       </span>
@@ -1053,7 +1108,7 @@ const UserProfilePage = () => {
                   <div className="userProfilePage__heroStat">
                     <span className="userProfilePage__heroStatLabel">Số điện thoại</span>
                     <strong className="userProfilePage__heroStatValue">
-                      {currentUser?.phone || 'Chưa có số điện thoại'}
+                      {phoneDisplayValue || 'Chưa có số điện thoại'}
                     </strong>
                   </div>
                   <div className="userProfilePage__heroStat">
@@ -1136,7 +1191,7 @@ const UserProfilePage = () => {
                   <div className="userProfilePage__summaryList">
                     <div className="userProfilePage__summaryItem">
                       <span className="userProfilePage__summaryLabel">Phone</span>
-                      <strong className="userProfilePage__summaryValue">{currentUser?.phone || '—'}</strong>
+                      <strong className="userProfilePage__summaryValue">{phoneDisplayValue || '—'}</strong>
                     </div>
                     <div className="userProfilePage__summaryItem">
                       <span className="userProfilePage__summaryLabel">Email</span>
