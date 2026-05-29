@@ -16,9 +16,12 @@ import './UserProfilePage.css';
 const emptyProfileForm = {
   name: '',
   email: '',
+  phone: '',
   address: '',
   bio: '',
 };
+
+const profilePhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
 const emptyPasswordForm = {
   currentPassword: '',
@@ -46,6 +49,7 @@ const profileTabs = [
 const mapUserToProfileForm = (user) => ({
   name: String(user?.name || '').trim(),
   email: String(user?.email || '').trim(),
+  phone: String(user?.phone || '').trim(),
   address: String(user?.address || '').trim(),
   bio: String(user?.bio || '').trim(),
 });
@@ -53,6 +57,7 @@ const mapUserToProfileForm = (user) => ({
 const normalizeProfileForm = (form = emptyProfileForm) => ({
   name: String(form.name || '').trim(),
   email: String(form.email || '').trim(),
+  phone: String(form.phone || '').trim(),
   address: String(form.address || '').trim(),
   bio: String(form.bio || '').trim(),
 });
@@ -64,6 +69,7 @@ const areProfileFormsEqual = (left, right) => {
   return (
     nextLeft.name === nextRight.name &&
     nextLeft.email === nextRight.email &&
+    nextLeft.phone === nextRight.phone &&
     nextLeft.address === nextRight.address &&
     nextLeft.bio === nextRight.bio
   );
@@ -109,6 +115,14 @@ const getInitials = (name) => {
     .join('');
 };
 
+const createTemporaryPassword = (length = 10) => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  return Array.from({ length }, () => {
+    const index = Math.floor(Math.random() * alphabet.length);
+    return alphabet.charAt(index);
+  }).join('');
+};
+
 const syncStoredProfile = (updatedUser) => {
   if (!updatedUser) return;
 
@@ -151,6 +165,8 @@ const UserProfilePage = () => {
   const [verificationSending, setVerificationSending] = useState(false);
   const [verificationConfirming, setVerificationConfirming] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [adminResetPassword, setAdminResetPassword] = useState('');
+  const [adminResetSaving, setAdminResetSaving] = useState(false);
   const [messageState, setMessageState] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
   const [cropAsset, setCropAsset] = useState(null);
@@ -164,6 +180,7 @@ const UserProfilePage = () => {
   const canManageAvatar = isOwnProfile;
   const canChangePassword = isOwnProfile;
   const canVerifyEmail = isOwnProfile;
+  const canAdminResetPassword = Boolean(isAdminReviewMode && viewerUser?.role === 'admin');
   const profileChanged = canEditProfile && !areProfileFormsEqual(profileForm, mapUserToProfileForm(profile));
   const isAdminShell = viewerUser?.role === 'teacher' || viewerUser?.role === 'admin';
   const hasStudentNavbar = isOwnProfile && viewerUser?.role === 'student';
@@ -178,6 +195,17 @@ const UserProfilePage = () => {
   const hasEmail = Boolean(String(currentUser?.email || '').trim());
   const isEmailVerified = Boolean(currentUser?.emailVerifiedAt);
   const emailDirty = normalizeProfileForm(profileForm).email !== String(currentUser?.email || '').trim();
+  const currentPhone = String(currentUser?.phone || '').trim();
+  const profilePhone = String(profileForm.phone || '').trim();
+  const hasSocialProvider = Boolean(currentUser?.googleId || currentUser?.facebookId);
+  const canEditPhone = canEditProfile && !currentPhone;
+  const requiresPhoneCompletion = canEditPhone && hasSocialProvider;
+  const phoneDisplayValue = currentPhone || profilePhone;
+  const phoneChipLabel = canEditPhone
+    ? 'Cần bổ sung số điện thoại'
+    : currentPhone
+      ? 'Số điện thoại khóa chỉnh sửa'
+      : 'Chưa có số điện thoại';
 
   const closeCropModal = () => {
     setCropAsset((current) => {
@@ -216,6 +244,7 @@ const UserProfilePage = () => {
         setProfileForm(mapUserToProfileForm(nextUser));
         setPasswordForm(emptyPasswordForm);
         setVerificationForm(emptyVerificationForm);
+        setAdminResetPassword('');
         if (isOwnProfile) {
           syncStoredProfile(nextUser);
         }
@@ -271,6 +300,23 @@ const UserProfilePage = () => {
 
     if (!normalizedProfile.name) {
       setMessageState(createMessage('error', 'Tên hiển thị không được để trống.'));
+      return;
+    }
+
+    if (canEditPhone && !normalizedProfile.phone) {
+      setMessageState(
+        createMessage('error', 'Vui lòng bổ sung số điện thoại để hoàn tất hồ sơ.')
+      );
+      return;
+    }
+
+    if (canEditPhone && !profilePhoneRegex.test(normalizedProfile.phone)) {
+      setMessageState(
+        createMessage(
+          'error',
+          'Số điện thoại không hợp lệ. Vui lòng nhập đúng số điện thoại Việt Nam, ví dụ 0912345678.'
+        )
+      );
       return;
     }
 
@@ -362,6 +408,60 @@ const UserProfilePage = () => {
       );
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const handleGenerateAdminPassword = () => {
+    if (!canAdminResetPassword || adminResetSaving) {
+      return;
+    }
+
+    setAdminResetPassword(createTemporaryPassword());
+    setMessageState(null);
+  };
+
+  const handleAdminResetPassword = async (event) => {
+    event.preventDefault();
+
+    if (!canAdminResetPassword) {
+      return;
+    }
+
+    const nextPassword = String(adminResetPassword || '').trim();
+    if (nextPassword.length < 6) {
+      setMessageState(
+        createMessage('error', 'Mật khẩu tạm phải có ít nhất 6 ký tự.')
+      );
+      return;
+    }
+
+    try {
+      setAdminResetSaving(true);
+      setMessageState(null);
+
+      const res = await authFetch(apiPath(`admin/users/${userId}/password`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: nextPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Không thể đặt lại mật khẩu cho người dùng.');
+      }
+
+      setMessageState(
+        createMessage(
+          'success',
+          `${data.message || 'Đã đặt lại mật khẩu cho người dùng.'} Mật khẩu tạm mới: ${nextPassword}`
+        )
+      );
+    } catch (err) {
+      setMessageState(
+        createMessage('error', err.message || 'Không thể đặt lại mật khẩu cho người dùng.')
+      );
+    } finally {
+      setAdminResetSaving(false);
     }
   };
 
@@ -595,6 +695,17 @@ const UserProfilePage = () => {
           </div>
         ) : null}
 
+        {canEditPhone ? (
+          <div className="userProfilePage__readonlyBanner userProfilePage__readonlyBanner--subtle">
+            <strong>Bổ sung số điện thoại</strong>
+            <span>
+              {requiresPhoneCompletion
+                ? 'Tài khoản đăng nhập bằng Google hoặc Facebook cần cung cấp số điện thoại một lần. Sau khi lưu thành công, trường này sẽ tự khóa.'
+                : 'Bạn có thể bổ sung số điện thoại một lần trên trang hồ sơ này. Sau khi lưu thành công, trường này sẽ tự khóa.'}
+            </span>
+          </div>
+        ) : null}
+
         <div className="userProfilePage__formGrid">
           <label className="userProfilePage__field">
             <span className="userProfilePage__fieldLabel">User name</span>
@@ -625,13 +736,21 @@ const UserProfilePage = () => {
           <label className="userProfilePage__field">
             <span className="userProfilePage__fieldLabel">Số điện thoại</span>
             <input
-              type="text"
-              value={currentUser?.phone || ''}
-              disabled
-              className="userProfilePage__input userProfilePage__input--locked"
+              type="tel"
+              name="phone"
+              value={canEditPhone ? profileForm.phone : currentPhone}
+              onChange={canEditPhone ? handleProfileFieldChange : undefined}
+              disabled={!canEditPhone}
+              required={canEditPhone}
+              className={`userProfilePage__input${canEditPhone ? '' : ' userProfilePage__input--locked'}`}
+              placeholder={canEditPhone ? 'Ví dụ: 0912345678' : undefined}
             />
             <span className="userProfilePage__fieldHint">
-              Trường này đang khóa theo yêu cầu để tránh thay đổi mã định danh tài khoản.
+              {canEditPhone
+                ? requiresPhoneCompletion
+                  ? 'Tài khoản social cần thêm số điện thoại để hoàn tất hồ sơ. Sau khi lưu, trường này sẽ bị khóa.'
+                  : 'Số điện thoại sẽ được dùng làm mã định danh tài khoản và sẽ bị khóa sau khi lưu.'
+                : 'Trường này đang khóa theo yêu cầu để tránh thay đổi mã định danh tài khoản.'}
             </span>
           </label>
 
@@ -826,6 +945,46 @@ const UserProfilePage = () => {
               {passwordSaving ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
             </button>
           </form>
+        ) : canAdminResetPassword ? (
+          <>
+            <form className="userProfilePage__form" onSubmit={handleAdminResetPassword}>
+              <label className="userProfilePage__field">
+                <span className="userProfilePage__fieldLabel">Mật khẩu tạm mới</span>
+                <input
+                  type="text"
+                  value={adminResetPassword}
+                  onChange={(event) => setAdminResetPassword(event.target.value)}
+                  className="userProfilePage__input"
+                  placeholder="Nhập hoặc tạo mật khẩu tạm"
+                  aria-label="Mật khẩu tạm mới"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                <span className="userProfilePage__fieldHint">
+                  Nhập hoặc tạo mật khẩu mới để cấp lại cho người dùng.
+                </span>
+              </label>
+
+              <div className="userProfilePage__inlineActions">
+                <button
+                  type="button"
+                  className="userProfilePage__button userProfilePage__button--ghost"
+                  onClick={handleGenerateAdminPassword}
+                  disabled={adminResetSaving}
+                >
+                  Tạo mật khẩu tạm
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className="userProfilePage__button userProfilePage__button--primary userProfilePage__button--full"
+                disabled={adminResetSaving}
+              >
+                {adminResetSaving ? 'Đang cập nhật...' : 'Đặt lại mật khẩu'}
+              </button>
+            </form>
+          </>
         ) : (
           <div className="userProfilePage__readonlyBanner userProfilePage__readonlyBanner--subtle">
             <strong>Không chỉnh sửa tại đây</strong>
@@ -932,7 +1091,9 @@ const UserProfilePage = () => {
 
                     <div className="userProfilePage__chipRow">
                       <span className="userProfilePage__chip">{roleLabel}</span>
-                      <span className="userProfilePage__chip">Số điện thoại khóa chỉnh sửa</span>
+                      <span className={`userProfilePage__chip${canEditPhone ? ' userProfilePage__chip--warning' : !currentPhone ? ' userProfilePage__chip--muted' : ''}`}>
+                        {phoneChipLabel}
+                      </span>
                       <span className={`userProfilePage__chip userProfilePage__chip--${emailVerificationTone}`}>
                         {emailVerificationLabel}
                       </span>
@@ -947,7 +1108,7 @@ const UserProfilePage = () => {
                   <div className="userProfilePage__heroStat">
                     <span className="userProfilePage__heroStatLabel">Số điện thoại</span>
                     <strong className="userProfilePage__heroStatValue">
-                      {currentUser?.phone || 'Chưa có số điện thoại'}
+                      {phoneDisplayValue || 'Chưa có số điện thoại'}
                     </strong>
                   </div>
                   <div className="userProfilePage__heroStat">
@@ -1030,7 +1191,7 @@ const UserProfilePage = () => {
                   <div className="userProfilePage__summaryList">
                     <div className="userProfilePage__summaryItem">
                       <span className="userProfilePage__summaryLabel">Phone</span>
-                      <strong className="userProfilePage__summaryValue">{currentUser?.phone || '—'}</strong>
+                      <strong className="userProfilePage__summaryValue">{phoneDisplayValue || '—'}</strong>
                     </div>
                     <div className="userProfilePage__summaryItem">
                       <span className="userProfilePage__summaryLabel">Email</span>
@@ -1062,7 +1223,7 @@ const UserProfilePage = () => {
                       <>
                         <li>Avatar, bio và địa chỉ hiện được lấy từ hồ sơ chi tiết thay vì dữ liệu rút gọn ở trang quản lý user.</li>
                         <li>Trạng thái xác thực email giúp admin biết nhanh tài khoản đã sẵn sàng cho các luồng thông báo qua email hay chưa.</li>
-                        <li>Đổi mật khẩu cho user khác vẫn nên thực hiện ở trang quản lý user để tránh nhầm lẫn thao tác tự phục vụ.</li>
+                        <li>Tab Bảo mật cho phép admin đặt lại mật khẩu tạm mới và gửi lại cho người dùng khi cần.</li>
                       </>
                     ) : (
                       <>

@@ -10,6 +10,51 @@ import {
   storeAuthSession,
 } from "../../../shared/utils/api";
 
+const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services-sdk";
+const FACEBOOK_SDK_SCRIPT_ID = "facebook-jssdk";
+
+const loadExternalScript = (id, src, options = {}) =>
+  new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error(`Document is unavailable while loading ${src}.`));
+      return;
+    }
+
+    const existingScript = document.getElementById(id);
+    if (existingScript?.dataset?.loaded === "true") {
+      resolve();
+      return;
+    }
+
+    const handleLoad = () => resolve();
+    const handleError = () => reject(new Error(`Unable to load ${src}.`));
+
+    if (existingScript) {
+      existingScript.addEventListener("load", handleLoad, { once: true });
+      existingScript.addEventListener("error", handleError, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    if (options.crossOrigin) {
+      script.crossOrigin = options.crossOrigin;
+    }
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.loaded = "true";
+        resolve();
+      },
+      { once: true }
+    );
+    script.addEventListener("error", handleError, { once: true });
+    document.head.appendChild(script);
+  });
+
 const InlineIcon = ({ name, size = 16, style }) => (
   <span
     style={{
@@ -26,6 +71,34 @@ const InlineIcon = ({ name, size = 16, style }) => (
   >
     <LineIcon name={name} size={size} />
   </span>
+);
+
+const GoogleMark = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path
+      d="M21.805 12.23c0-.68-.061-1.334-.174-1.963H12v3.713h5.5a4.705 4.705 0 0 1-2.041 3.087v2.563h3.302c1.933-1.78 3.044-4.404 3.044-7.4Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 22c2.76 0 5.075-.914 6.76-2.47l-3.302-2.563c-.916.615-2.088.98-3.458.98-2.658 0-4.91-1.794-5.715-4.206H2.872v2.644A9.998 9.998 0 0 0 12 22Z"
+      fill="#34A853"
+    />
+    <path
+      d="M6.285 13.741A6.008 6.008 0 0 1 5.965 12c0-.605.109-1.191.32-1.741V7.615H2.872A10 10 0 0 0 2 12c0 1.611.386 3.137 1.072 4.385l3.213-2.644Z"
+      fill="#FBBC04"
+    />
+    <path
+      d="M12 6.053c1.5 0 2.846.516 3.907 1.53l2.93-2.93C17.07 2.999 14.756 2 12 2a9.998 9.998 0 0 0-9.128 5.615l3.413 2.644C7.09 7.847 9.342 6.053 12 6.053Z"
+      fill="#EA4335"
+    />
+  </svg>
 );
 
 const AUTH_MESSAGE_TRANSLATIONS = {
@@ -52,6 +125,8 @@ const AUTH_MESSAGE_TRANSLATIONS = {
     "Too many requests. Please try again later.",
   "Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.":
     "Too many verification code requests. Please try again later.",
+  "Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.":
+    "This email is already registered. Please sign in or use a different email.",
 };
 
 const translateAuthMessage = (message) => {
@@ -75,12 +150,20 @@ const Login = () => {
   const loginPhoneRef = useRef(null);
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
+  const googleButtonContainerRef = useRef(null);
   const loginSubmittingRef = useRef(false);
   const registerSubmittingRef = useRef(false);
+  const socialSubmittingRef = useRef(false);
+  const socialLoginHandlerRef = useRef(null);
 
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [facebookReady, setFacebookReady] = useState(false);
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+  const facebookAppId = String(import.meta.env.VITE_FACEBOOK_APP_ID || "").trim();
+  const hasSocialProviders = Boolean(googleClientId || facebookAppId);
 
   const redirectAfterAuth = (targetPath) => {
     window.dispatchEvent(new CustomEvent("auth:changed"));
@@ -96,6 +179,27 @@ const Login = () => {
     }
 
     navigate("/", { replace: true });
+  };
+
+  const completeAuthFlow = (data) => {
+    storeAuthSession({
+      user: data.user,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    });
+
+    setMessage(translateAuthMessage(data.message));
+
+    const redirectTo = localStorage.getItem("postLoginRedirect");
+    if (redirectTo) {
+      localStorage.removeItem("postLoginRedirect");
+      redirectAfterAuth(redirectTo);
+      return;
+    }
+
+    redirectAfterAuth(
+      ["teacher", "admin"].includes(data.user.role) ? "/admin" : "/"
+    );
   };
 
   useEffect(() => {
@@ -114,6 +218,116 @@ const Login = () => {
       navigate(['teacher', 'admin'].includes(user.role) ? "/admin" : "/");
     }
   }, [navigate, location.search]);
+
+  useEffect(() => {
+    if (!googleClientId) return undefined;
+
+    let cancelled = false;
+
+    const setupGoogle = async () => {
+      try {
+        await loadExternalScript(
+          GOOGLE_IDENTITY_SCRIPT_ID,
+          "https://accounts.google.com/gsi/client"
+        );
+
+        if (cancelled || !googleButtonContainerRef.current || !window.google?.accounts?.id) {
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response) => {
+            if (!response?.credential) {
+              setMessage("Google login did not return a credential.");
+              return;
+            }
+
+            socialLoginHandlerRef.current?.({
+              provider: "google",
+              credential: response.credential,
+            });
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        googleButtonContainerRef.current.innerHTML = "";
+        const googleButtonWidth = Math.max(
+          240,
+          Math.round(
+            googleButtonContainerRef.current.parentElement?.getBoundingClientRect().width || 304
+          )
+        );
+
+        window.google.accounts.id.renderButton(
+          googleButtonContainerRef.current,
+          {
+            theme: "outline",
+            size: "large",
+            text: "signin_with",
+            locale: "en",
+            shape: "pill",
+            width: googleButtonWidth,
+          }
+        );
+
+        setGoogleReady(true);
+      } catch (err) {
+        console.error("Unable to initialize Google sign-in:", err);
+        if (!cancelled) {
+          setGoogleReady(false);
+        }
+      }
+    };
+
+    setupGoogle();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId]);
+
+  useEffect(() => {
+    if (!facebookAppId) return undefined;
+
+    let cancelled = false;
+
+    const setupFacebook = async () => {
+      try {
+        if (!window.FB) {
+          await loadExternalScript(
+            FACEBOOK_SDK_SCRIPT_ID,
+            "https://connect.facebook.net/en_US/sdk.js"
+          );
+        }
+
+        if (cancelled || !window.FB?.init) {
+          return;
+        }
+
+        window.FB.init({
+          appId: facebookAppId,
+          cookie: true,
+          xfbml: false,
+          version: "v23.0",
+        });
+
+        setFacebookReady(true);
+      } catch (err) {
+        console.error("Unable to initialize Facebook sign-in:", err);
+        if (!cancelled) {
+          setFacebookReady(false);
+        }
+      }
+    };
+
+    setupFacebook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [facebookAppId]);
 
   const handleLogin = async () => {
     if (loginSubmittingRef.current) return;
@@ -145,22 +359,7 @@ const Login = () => {
 
       const data = await res.json();
       if (res.ok) {
-        storeAuthSession({
-          user: data.user,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-        });
-
-        setMessage(translateAuthMessage(data.message));
-        // If a redirect was requested before login, go back there
-        const redirectTo = localStorage.getItem('postLoginRedirect');
-        if (redirectTo) {
-          localStorage.removeItem('postLoginRedirect');
-          redirectAfterAuth(redirectTo);
-          return;
-        }
-
-        redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
+        completeAuthFlow(data);
       } else {
         setMessage(translateAuthMessage(data.message));
       }
@@ -171,6 +370,66 @@ const Login = () => {
       loginSubmittingRef.current = false;
       setLoading(false);
     }
+  };
+
+  const handleSocialLogin = async ({ provider, credential, accessToken }) => {
+    if (socialSubmittingRef.current || loading) return;
+
+    try {
+      socialSubmittingRef.current = true;
+      setLoading(true);
+      setMessage("");
+
+      const res = await fetch(`${API_BASE}/auth/social-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ provider, credential, accessToken }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        completeAuthFlow(data);
+        return;
+      }
+
+      setMessage(
+        translateAuthMessage(data.message) ||
+          `Unable to sign in with ${provider}. Please try again.`
+      );
+    } catch (err) {
+      setMessage("Unable to connect to the server.");
+      console.error("Social login error:", err);
+    } finally {
+      socialSubmittingRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  socialLoginHandlerRef.current = handleSocialLogin;
+
+  const handleFacebookLogin = () => {
+    if (loading || socialSubmittingRef.current) return;
+    if (!facebookReady || !window.FB?.login) {
+      setMessage("Facebook login is not available right now.");
+      return;
+    }
+
+    window.FB.login(
+      (response) => {
+        const token = response?.authResponse?.accessToken;
+        if (!token) {
+          setMessage("Facebook login was cancelled.");
+          return;
+        }
+
+        socialLoginHandlerRef.current?.({
+          provider: "facebook",
+          accessToken: token,
+        });
+      },
+      { scope: "public_profile,email" }
+    );
   };
 
   const handleRegister = async () => {
@@ -385,6 +644,55 @@ const Login = () => {
               without signing in or registering first.
             </p>
           </div>
+
+          {hasSocialProviders ? (
+            <div className="login-page-socialSection">
+              <div className="login-page-socialDivider">
+                <span>Continue faster</span>
+              </div>
+
+              {googleClientId ? (
+                <div className="login-page-googleButtonShell login-page-socialButton login-page-socialButton--facebook">
+                  <div
+                    ref={googleButtonContainerRef}
+                    className="login-page-googleButtonMount"
+                    aria-label="Login with Google"
+                  />
+                  {googleReady ? (
+                    <div
+                      className="login-page-googleButtonFace"
+                      aria-hidden="true"
+                    >
+                      <span className="login-page-googleButtonIcon">
+                        <GoogleMark />
+                      </span>
+                      <span className="login-page-googleButtonLabel">
+                        Login with Google
+                      </span>
+                    </div>
+                  ) : null}
+                  {!googleReady ? (
+                    <span className="login-page-socialLoading">
+                      Loading Google...
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {facebookAppId ? (
+                <button
+                  type="button"
+                  className="login-page-socialButton login-page-socialButton--facebook"
+                  onClick={handleFacebookLogin}
+                  disabled={loading || !facebookReady}
+                >
+                  <span>
+                    {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Tab Switcher */}
           <div className="login-page-toggleGroup">

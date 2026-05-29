@@ -42,7 +42,8 @@ body {
 
 .login-page-toggleButton,
 .login-page-primaryButton,
-.login-page-placementButton {
+.login-page-placementButton,
+.login-page-socialButton {
   position: relative;
   overflow: hidden;
   border: none;
@@ -69,7 +70,8 @@ body {
 
 .login-page-toggleButton::after,
 .login-page-primaryButton::after,
-.login-page-placementButton::after {
+.login-page-placementButton::after,
+.login-page-socialButton::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -85,28 +87,152 @@ body {
 .login-page-primaryButton:hover::after,
 .login-page-primaryButton:focus-visible::after,
 .login-page-placementButton:hover::after,
-.login-page-placementButton:focus-visible::after {
+.login-page-placementButton:focus-visible::after,
+.login-page-socialButton:hover::after,
+.login-page-socialButton:focus-visible::after {
   transform: translateX(130%);
 }
 
 .login-page-toggleButton > span,
 .login-page-primaryButton > span,
-.login-page-placementButton > span {
+.login-page-placementButton > span,
+.login-page-socialButton > span {
   position: relative;
   z-index: 1;
 }
 
 .login-page-toggleButton:focus-visible,
 .login-page-primaryButton:focus-visible,
-.login-page-placementButton:focus-visible {
+.login-page-placementButton:focus-visible,
+.login-page-socialButton:focus-visible {
   outline: 3px solid rgba(56, 189, 248, 0.3);
   outline-offset: 2px;
 }
 
 .login-page-toggleButton:hover,
 .login-page-primaryButton:hover:not(:disabled),
-.login-page-placementButton:hover:not(:disabled) {
+.login-page-placementButton:hover:not(:disabled),
+.login-page-socialButton:hover:not(:disabled) {
   transform: translateY(-2px);
+}
+
+.login-page-socialSection {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.login-page-socialDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.login-page-socialDivider::before,
+.login-page-socialDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.6), rgba(148, 163, 184, 0.12));
+}
+
+.login-page-googleButtonShell {
+  position: relative;
+  min-height: 48px;
+  padding: 0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.login-page-googleButtonShell:focus-within {
+  outline: 3px solid rgba(56, 189, 248, 0.3);
+  outline-offset: 2px;
+}
+
+.login-page-googleButtonFace {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+.login-page-googleButtonIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.login-page-googleButtonLabel {
+  line-height: 1;
+}
+
+.login-page-googleButtonMount {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.login-page-googleButtonShell .login-page-socialLoading {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.login-page-socialLoading {
+  position: relative;
+  z-index: 3;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-page-socialButton {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 16px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-page-socialButton:disabled {
+  cursor: wait;
+  opacity: 0.76;
+  transform: none;
+}
+
+.login-page-socialButton--facebook {
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
+  box-shadow: 0 16px 28px rgba(24, 119, 242, 0.2);
 }
 
 .login-page-toggleButton {

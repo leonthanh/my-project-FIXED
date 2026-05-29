@@ -17,6 +17,11 @@ env:
   DB_USER: ${{ secrets.DB_USER }}
   DB_PASS: ${{ secrets.DB_PASS }}
   REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
+  VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+  VITE_FACEBOOK_APP_ID: ${{ secrets.VITE_FACEBOOK_APP_ID }}
+  GOOGLE_CLIENT_IDS: ${{ secrets.GOOGLE_CLIENT_IDS }}
+  FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+  FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
 
 concurrency:
   group: deploy-to-cpanel
@@ -59,7 +64,7 @@ jobs:
           cd frontend
           zip -r ../frontend-artifact.zip \
             package.json package-lock.json index.html public src \
-            .env.production vite.config.mjs postcss.config.js tailwind.config.js || true
+            vite.config.mjs postcss.config.js tailwind.config.js || true
       - name: Create backend artifact
         if: steps.hash.outputs.backend != ''
         run: |
@@ -103,6 +108,10 @@ jobs:
       - name: Install & Build Frontend
         run: |
           cd frontend
+          echo "VITE_API_URL=${{ env.REACT_APP_API_URL }}" > .env.production
+          echo "VITE_GOOGLE_CLIENT_ID=${{ env.VITE_GOOGLE_CLIENT_ID }}" >> .env.production
+          echo "VITE_FACEBOOK_APP_ID=${{ env.VITE_FACEBOOK_APP_ID }}" >> .env.production
+          echo "VITE_TEST_TIMER_GRACE_SECONDS=0" >> .env.production
           cp .env.production .env
           npm ci --prefer-offline --no-audit --no-progress || exit 1
           npm run build --no-progress || exit 1
@@ -182,6 +191,9 @@ jobs:
           echo "EMAIL_PASS=${{ env.EMAIL_PASS }}" >> backend-temp/.env
           echo "EMAIL_TO=${{ env.EMAIL_TO }}" >> backend-temp/.env
           echo "REACT_APP_API_URL=${{ env.REACT_APP_API_URL }}" >> backend-temp/.env
+          echo "GOOGLE_CLIENT_IDS=${{ env.GOOGLE_CLIENT_IDS }}" >> backend-temp/.env
+          echo "FACEBOOK_APP_ID=${{ env.FACEBOOK_APP_ID }}" >> backend-temp/.env
+          echo "FACEBOOK_APP_SECRET=${{ env.FACEBOOK_APP_SECRET }}" >> backend-temp/.env
           echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
           echo "GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}" >> backend-temp/.env
           echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env

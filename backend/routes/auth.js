@@ -5,6 +5,8 @@ const multer = require('multer');
 const nodemailer = require("nodemailer");
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const { OAuth2Client } = require('google-auth-library');
+const { fn, col, where } = require('sequelize');
 const { z } = require('zod');
 const User = require("../models/User"); // Sequelize model
 const RefreshToken = require('../models/RefreshToken');
@@ -131,6 +133,18 @@ const sanitizeUser = (user) => {
   return userResponse;
 };
 
+const googleOAuthClient = new OAuth2Client();
+
+const socialProviderLabels = {
+  google: 'Google',
+  facebook: 'Facebook',
+};
+
+const socialProviderColumns = {
+  google: 'googleId',
+  facebook: 'facebookId',
+};
+
 const normalizeNullableTrimmedString = (value) => {
   if (value === undefined) return undefined;
   if (value === null) return null;
@@ -140,10 +154,232 @@ const normalizeNullableTrimmedString = (value) => {
 
 const trimStringValue = (value) => String(value ?? '').trim();
 
+const normalizeEmailValue = (value) => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized || null;
+};
+
+const getSocialProviderLabel = (provider) => socialProviderLabels[provider] || 'social';
+
+const getSocialProviderColumn = (provider) => {
+  const providerColumn = socialProviderColumns[provider];
+  if (!providerColumn) {
+    throw AppError.badRequest('Unsupported social login provider.');
+  }
+
+  return providerColumn;
+};
+
+const getConfiguredGoogleClientIds = () => {
+  const raw = process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '';
+  return String(raw)
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
+const normalizeSocialAvatarUrl = (value) => {
+  const normalized = String(value || '').trim();
+  return normalized || null;
+};
+
+const findUsersByNormalizedEmail = async (email) => {
+  if (!email) return [];
+
+  return User.findAll({
+    where: where(fn('LOWER', col('email')), email),
+  });
+};
+
+const fetchJsonOrThrow = async (url, errorMessage, options = {}) => {
+  let response;
+
+  try {
+    response = await fetch(url, options);
+  } catch (err) {
+    logWarn('Social auth upstream request failed', err);
+    throw AppError.unauthorized(errorMessage);
+  }
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data) {
+    throw AppError.unauthorized(errorMessage);
+  }
+
+  return data;
+};
+
+const buildLinkedProvidersLabel = (user) => {
+  const providers = [
+    user.googleId ? socialProviderLabels.google : null,
+    user.facebookId ? socialProviderLabels.facebook : null,
+  ].filter(Boolean);
+
+  if (!providers.length) return 'your linked provider';
+  if (providers.length === 1) return providers[0];
+  return `${providers.slice(0, -1).join(', ')} or ${providers[providers.length - 1]}`;
+};
+
+const applySocialProfileToExistingUser = async (user, socialProfile) => {
+  const updates = {};
+  const providerColumn = getSocialProviderColumn(socialProfile.provider);
+  const currentEmail = normalizeEmailValue(user.email);
+
+  if (!user[providerColumn]) {
+    updates[providerColumn] = socialProfile.providerUserId;
+  }
+
+  if (!currentEmail && socialProfile.email) {
+    updates.email = socialProfile.email;
+  }
+
+  if (!user.name && socialProfile.name) {
+    updates.name = socialProfile.name;
+  }
+
+  if ((!user.avatarUrl || /^https?:\/\//i.test(String(user.avatarUrl))) && socialProfile.avatarUrl) {
+    updates.avatarUrl = socialProfile.avatarUrl;
+  }
+
+  if (!user.emailVerifiedAt && socialProfile.emailVerified) {
+    updates.emailVerifiedAt = new Date();
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await user.update(updates);
+  }
+
+  return user;
+};
+
+const resolveSocialUser = async (socialProfile) => {
+  const providerColumn = getSocialProviderColumn(socialProfile.provider);
+  const providerLabel = getSocialProviderLabel(socialProfile.provider);
+
+  let user = await User.findOne({ where: { [providerColumn]: socialProfile.providerUserId } });
+  if (user) {
+    await applySocialProfileToExistingUser(user, socialProfile);
+    return { user, created: false, linkedExistingAccount: false };
+  }
+
+  const emailMatches = await findUsersByNormalizedEmail(socialProfile.email);
+  if (emailMatches.length > 1) {
+    throw AppError.badRequest('This email is already attached to multiple accounts. Please contact admin before using social login.');
+  }
+
+  user = emailMatches[0] || null;
+  if (user) {
+    if (user[providerColumn] && user[providerColumn] !== socialProfile.providerUserId) {
+      throw AppError.badRequest(`${providerLabel} login could not be linked to this account.`);
+    }
+
+    await applySocialProfileToExistingUser(user, socialProfile);
+    return { user, created: false, linkedExistingAccount: true };
+  }
+
+  user = await User.create({
+    name: socialProfile.name || `${providerLabel} user`,
+    phone: null,
+    email: socialProfile.email,
+    password: null,
+    role: 'student',
+    avatarUrl: socialProfile.avatarUrl,
+    emailVerifiedAt: socialProfile.emailVerified ? new Date() : null,
+    [providerColumn]: socialProfile.providerUserId,
+  });
+
+  return { user, created: true, linkedExistingAccount: false };
+};
+
+const verifyGoogleCredential = async (credential) => {
+  const audiences = getConfiguredGoogleClientIds();
+  if (!audiences.length) {
+    throw AppError.badRequest('Google login is not configured on the server.');
+  }
+
+  let ticket;
+  try {
+    ticket = await googleOAuthClient.verifyIdToken({
+      idToken: credential,
+      audience: audiences,
+    });
+  } catch (err) {
+    logWarn('Google token verification failed', err);
+    throw AppError.unauthorized('Google account verification failed.');
+  }
+
+  const payload = ticket.getPayload();
+  const email = normalizeEmailValue(payload?.email);
+
+  if (!payload?.sub || !email || payload.email_verified !== true) {
+    throw AppError.unauthorized('Google account verification failed. Please use an email-verified Google account.');
+  }
+
+  return {
+    provider: 'google',
+    providerUserId: String(payload.sub),
+    email,
+    name: trimStringValue(payload.name || 'Google user'),
+    avatarUrl: normalizeSocialAvatarUrl(payload.picture),
+    emailVerified: true,
+  };
+};
+
+const verifyFacebookAccessToken = async (accessToken) => {
+  const appId = String(process.env.FACEBOOK_APP_ID || '').trim();
+  const appSecret = String(process.env.FACEBOOK_APP_SECRET || '').trim();
+  if (!appId || !appSecret) {
+    throw AppError.badRequest('Facebook login is not configured on the server.');
+  }
+
+  const debugTokenUrl = new URL('https://graph.facebook.com/debug_token');
+  debugTokenUrl.search = new URLSearchParams({
+    input_token: accessToken,
+    access_token: `${appId}|${appSecret}`,
+  }).toString();
+
+  const debugPayload = await fetchJsonOrThrow(
+    debugTokenUrl,
+    'Facebook account verification failed.'
+  );
+
+  const tokenData = debugPayload?.data;
+  if (!tokenData?.is_valid || String(tokenData.app_id) !== appId || !tokenData.user_id) {
+    throw AppError.unauthorized('Facebook account verification failed.');
+  }
+
+  const profileUrl = new URL('https://graph.facebook.com/me');
+  profileUrl.search = new URLSearchParams({
+    fields: 'id,name,email,picture.type(large)',
+    access_token: accessToken,
+  }).toString();
+
+  const profilePayload = await fetchJsonOrThrow(
+    profileUrl,
+    'Unable to load Facebook profile.'
+  );
+
+  const email = normalizeEmailValue(profilePayload?.email);
+  if (!profilePayload?.id || !email) {
+    throw AppError.badRequest('Facebook login requires access to your email address.');
+  }
+
+  return {
+    provider: 'facebook',
+    providerUserId: String(profilePayload.id),
+    email,
+    name: trimStringValue(profilePayload.name || 'Facebook user'),
+    avatarUrl: normalizeSocialAvatarUrl(profilePayload?.picture?.data?.url),
+    emailVerified: true,
+  };
+};
+
 const nullableEmailSchema = z.preprocess(
   normalizeNullableTrimmedString,
   z.string().email().max(100).nullable()
 );
+
+const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
 const nullableAddressSchema = z.preprocess(
   normalizeNullableTrimmedString,
@@ -158,6 +394,10 @@ const nullableBioSchema = z.preprocess(
 const updateProfileSchema = z.object({
   name: z.preprocess(trimStringValue, z.string().min(1).max(100)).optional(),
   email: nullableEmailSchema.optional(),
+  phone: z.preprocess(
+    (value) => (value === undefined ? undefined : String(value).trim()),
+    z.string().regex(vnPhoneRegex)
+  ).optional(),
   address: nullableAddressSchema.optional(),
   bio: nullableBioSchema.optional(),
 });
@@ -263,14 +503,34 @@ async function issueTokens({ user, req, res }) {
   };
 }
 
-const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-
 const registerSchema = z.object({
   name: z.string().min(1),
   phone: z.string().regex(vnPhoneRegex),
   email: z.string().email().optional().nullable(),
   password: z.string().min(6),
   // role field is accepted but silently ignored — public registration always creates students
+});
+
+const socialLoginSchema = z.object({
+  provider: z.enum(['google', 'facebook']),
+  credential: z.string().min(1).optional(),
+  accessToken: z.string().min(1).optional(),
+}).superRefine((value, ctx) => {
+  if (value.provider === 'google' && !value.credential) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['credential'],
+      message: 'Google credential is required.',
+    });
+  }
+
+  if (value.provider === 'facebook' && !value.accessToken) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['accessToken'],
+      message: 'Facebook access token is required.',
+    });
+  }
 });
 
 const loginSchema = z.object({
@@ -308,17 +568,43 @@ router.patch(
   async (req, res, next) => {
     try {
       const user = await getCurrentUserOrThrow(req.user.id);
-      const { name, email, address, bio } = req.body;
+      const { name, email, phone, address, bio } = req.body;
       const updates = {};
-      const currentEmail = String(user.email || '').trim().toLowerCase();
+      const currentEmail = normalizeEmailValue(user.email);
+      const currentPhone = String(user.phone || '').trim();
 
       if (name !== undefined) updates.name = name;
       if (email !== undefined) {
-        const nextEmail = String(email || '').trim().toLowerCase();
-        updates.email = email;
+        const nextEmail = normalizeEmailValue(email);
+        if (nextEmail && nextEmail !== currentEmail) {
+          const emailUsers = await findUsersByNormalizedEmail(nextEmail);
+          const emailInUse = emailUsers.some((candidate) => Number(candidate.id) !== Number(user.id));
+          if (emailInUse) {
+            throw AppError.badRequest('Email này đã được sử dụng bởi tài khoản khác.');
+          }
+        }
+
+        updates.email = nextEmail;
         if (nextEmail !== currentEmail) {
           updates.emailVerifiedAt = null;
           clearEmailVerificationCode(user.id);
+        }
+      }
+      if (phone !== undefined) {
+        const nextPhone = String(phone || '').trim();
+
+        if (currentPhone && nextPhone !== currentPhone) {
+          throw AppError.badRequest('Số điện thoại đã được khóa và không thể chỉnh sửa.');
+        }
+
+        if (!currentPhone && nextPhone) {
+          const existingPhoneUser = await User.findOne({ where: { phone: nextPhone } });
+          const phoneInUse = existingPhoneUser && Number(existingPhoneUser.id) !== Number(user.id);
+          if (phoneInUse) {
+            throw AppError.badRequest('Số điện thoại này đã được sử dụng bởi tài khoản khác.');
+          }
+
+          updates.phone = nextPhone;
         }
       }
       if (address !== undefined) updates.address = address;
@@ -515,6 +801,7 @@ router.post(
   validate({ body: registerSchema }),
   async (req, res) => {
     const { name, phone, email, password } = req.body; // ✅ Thêm email
+    const normalizedEmail = normalizeEmailValue(email);
 
   try {
     const existing = await User.findOne({ where: { phone } });
@@ -525,12 +812,21 @@ router.post(
       });
     }
 
+    if (normalizedEmail) {
+      const existingEmailUsers = await findUsersByNormalizedEmail(normalizedEmail);
+      if (existingEmailUsers.length) {
+        return res.status(409).json({
+          message: 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.',
+        });
+      }
+    }
+
     // ✅ Tạo người dùng mới với mật khẩu
     // Role is always forced to 'student' — teacher/admin must be assigned by an admin after registration
     const newUser = await User.create({
       name,
       phone,
-      email: email || null,
+      email: normalizedEmail,
       password,
       role: 'student',
     });
@@ -567,6 +863,12 @@ router.post(
         .json({ message: "Số điện thoại không tồn tại. Vui lòng đăng ký." });
     }
 
+    if (!user.password) {
+      return res.status(400).json({
+        message: `This account uses ${buildLinkedProvidersLabel(user)} sign-in. Please continue with the linked provider instead.`,
+      });
+    }
+
     // ✅ So sánh mật khẩu
     const isMatch = await user.comparePassword(password);
 
@@ -590,6 +892,37 @@ router.post(
     logError("Lỗi khi đăng nhập", err); // ✅ Ghi log vào error.log
     res.status(500).json({ message: "Lỗi server khi đăng nhập." });
   }
+  }
+);
+
+router.post(
+  '/social-login',
+  loginLimiter,
+  validate({ body: socialLoginSchema }),
+  async (req, res, next) => {
+    try {
+      const { provider, credential, accessToken } = req.body;
+      const socialProfile = provider === 'google'
+        ? await verifyGoogleCredential(credential)
+        : await verifyFacebookAccessToken(accessToken);
+
+      const { user, created, linkedExistingAccount } = await resolveSocialUser(socialProfile);
+      const tokens = await issueTokens({ user, req, res });
+      const providerLabel = getSocialProviderLabel(provider);
+
+      res.json({
+        message: created
+          ? `Created a new student account with ${providerLabel}.`
+          : `Signed in with ${providerLabel} successfully.`,
+        user: sanitizeUser(user),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        created,
+        linkedExistingAccount,
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 );
 
