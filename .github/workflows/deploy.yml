@@ -233,7 +233,6 @@ jobs:
             -x '(^|/)(node_modules|uploads)(/|$)' \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.md$' \
-            -x '(^|/)package-lock\.json$' \
             backend-temp/ /ix.star-siec.edu.vn/backend/
           bye
           LFTP_CMDS
@@ -252,7 +251,8 @@ jobs:
       - name: Notify Manual Restart
         run: |
           echo "✅ Backend đã được deploy lên cPanel."
-          echo "📌 Vui lòng đăng nhập vào cPanel → Setup Node.js App → chọn app → nhấn Restart để khởi động lại server."
+          echo "📌 Nếu backend vừa thêm package mới, vào cPanel → Setup Node.js App → chọn app → nhấn Run NPM Install trước."
+          echo "📌 Sau đó nhấn Restart để khởi động lại server với dependencies mới nhất."
 
       - name: Post-deploy smoke check (non-blocking)
         run: |

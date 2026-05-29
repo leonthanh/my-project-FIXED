@@ -5,7 +5,6 @@ const multer = require('multer');
 const nodemailer = require("nodemailer");
 const path = require('path');
 const rateLimit = require('express-rate-limit');
-const { OAuth2Client } = require('google-auth-library');
 const { fn, col, where } = require('sequelize');
 const { z } = require('zod');
 const User = require("../models/User"); // Sequelize model
@@ -133,7 +132,38 @@ const sanitizeUser = (user) => {
   return userResponse;
 };
 
-const googleOAuthClient = new OAuth2Client();
+let googleOAuthClient = null;
+let googleAuthLibraryUnavailable = false;
+
+const createGoogleLoginUnavailableError = () => new AppError({
+  code: 'SERVICE_UNAVAILABLE',
+  message: 'Google login is temporarily unavailable on the server.',
+  statusCode: 503,
+});
+
+const getGoogleOAuthClient = () => {
+  if (googleOAuthClient) {
+    return googleOAuthClient;
+  }
+
+  if (googleAuthLibraryUnavailable) {
+    throw createGoogleLoginUnavailableError();
+  }
+
+  try {
+    const { OAuth2Client } = require('google-auth-library');
+    googleOAuthClient = new OAuth2Client();
+    return googleOAuthClient;
+  } catch (err) {
+    if (err?.code === 'MODULE_NOT_FOUND') {
+      googleAuthLibraryUnavailable = true;
+      logError('Google auth library could not be loaded on the server.', err);
+      throw createGoogleLoginUnavailableError();
+    }
+
+    throw err;
+  }
+};
 
 const socialProviderLabels = {
   google: 'Google',
@@ -297,9 +327,11 @@ const verifyGoogleCredential = async (credential) => {
     throw AppError.badRequest('Google login is not configured on the server.');
   }
 
+  const googleClient = getGoogleOAuthClient();
+
   let ticket;
   try {
-    ticket = await googleOAuthClient.verifyIdToken({
+    ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: audiences,
     });
