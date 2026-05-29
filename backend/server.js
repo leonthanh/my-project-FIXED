@@ -315,6 +315,24 @@ app.use(
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
+        "script-src": [
+          "'self'",
+          'https://accounts.google.com',
+          'https://connect.facebook.net',
+          'https://www.facebook.com',
+        ],
+        "connect-src": [
+          "'self'",
+          'https://accounts.google.com',
+          'https://connect.facebook.net',
+          'https://graph.facebook.com',
+          'https://www.facebook.com',
+        ],
+        "frame-src": [
+          "'self'",
+          'https://accounts.google.com',
+          'https://www.facebook.com',
+        ],
         "img-src": ["'self'", "data:", "https:", "blob:"],
       },
     },
