@@ -143,14 +143,9 @@ body {
 
 .login-page-googleButtonShell {
   position: relative;
-  min-height: 52px;
-  padding: 4px;
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.86),
-    0 12px 24px rgba(15, 23, 42, 0.08);
+  min-height: 48px;
+  padding: 0;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,18 +162,18 @@ body {
   position: relative;
   z-index: 2;
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   padding: 0 18px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  color: #334155;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.01em;
   pointer-events: none;
 }
@@ -198,12 +193,16 @@ body {
 
 .login-page-googleButtonMount {
   position: absolute;
-  inset: 4px;
+  inset: 0;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
+}
+
+.login-page-googleButtonShell .login-page-socialLoading {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .login-page-socialLoading {
@@ -232,7 +231,7 @@ body {
 }
 
 .login-page-socialButton--facebook {
-  background: linear-gradient(135deg, #0f5bd7 0%, #1877f2 100%);
+  background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
   box-shadow: 0 16px 28px rgba(24, 119, 242, 0.2);
 }
 

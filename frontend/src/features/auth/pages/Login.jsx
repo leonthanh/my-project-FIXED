@@ -256,7 +256,7 @@ const Login = () => {
         const googleButtonWidth = Math.max(
           240,
           Math.round(
-            (googleButtonContainerRef.current.parentElement?.getBoundingClientRect().width || 304) - 8
+            googleButtonContainerRef.current.parentElement?.getBoundingClientRect().width || 304
           )
         );
 
@@ -652,7 +652,7 @@ const Login = () => {
               </div>
 
               {googleClientId ? (
-                <div className="login-page-googleButtonShell">
+                <div className="login-page-googleButtonShell login-page-socialButton login-page-socialButton--facebook">
                   <div
                     ref={googleButtonContainerRef}
                     className="login-page-googleButtonMount"
