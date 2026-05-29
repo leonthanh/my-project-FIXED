@@ -16,10 +16,18 @@ const User = sequelize.define(
     },
     phone: {
       type: DataTypes.STRING(20),
-      allowNull: false,
+      allowNull: true,
     },
     email: {
       type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    googleId: {
+      type: DataTypes.STRING(120),
+      allowNull: true,
+    },
+    facebookId: {
+      type: DataTypes.STRING(120),
       allowNull: true,
     },
     avatarUrl: {
@@ -41,7 +49,7 @@ const User = sequelize.define(
     password: {
       // ✅ Trường password
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     role: {
       type: DataTypes.ENUM("student", "teacher", "admin"),
@@ -62,9 +70,11 @@ const User = sequelize.define(
 
 // Check for duplicate phone before create
 User.beforeCreate(async (user, options) => {
-  const existingUser = await User.findOne({ where: { phone: user.phone } });
-  if (existingUser) {
-    throw new Error("Phone number already exists");
+  if (user.phone) {
+    const existingUser = await User.findOne({ where: { phone: user.phone } });
+    if (existingUser) {
+      throw new Error("Phone number already exists");
+    }
   }
 
   if (user.password) {
@@ -76,7 +86,7 @@ User.beforeCreate(async (user, options) => {
 
 // Check for duplicate phone before update
 User.beforeUpdate(async (user, options) => {
-  if (user.changed("phone")) {
+  if (user.changed("phone") && user.phone) {
     const existingUser = await User.findOne({
       where: {
         phone: user.phone,
@@ -97,6 +107,10 @@ User.beforeUpdate(async (user, options) => {
 
 // ✅ Phương thức so sánh mật khẩu
 User.prototype.comparePassword = async function (candidatePassword) {
+  if (!this.password || !candidatePassword) {
+    return false;
+  }
+
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
