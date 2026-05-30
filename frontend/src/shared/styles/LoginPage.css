@@ -143,13 +143,15 @@ body {
 
 .login-page-googleButtonShell {
   position: relative;
+  width: 100%;
   min-height: 48px;
   padding: 0;
   border-radius: 16px;
+  /* background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%); */
+  box-shadow: 0 16px 28px rgba(24, 119, 242, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   overflow: hidden;
 }
 
@@ -158,51 +160,27 @@ body {
   outline-offset: 2px;
 }
 
-.login-page-googleButtonFace {
+.login-page-googleButtonMount {
   position: relative;
   z-index: 2;
-  width: 100%;
-  min-height: 48px;
-  padding: 0 18px;
-  border-radius: 16px;
-  background: transparent;
-  box-shadow: none;
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  pointer-events: none;
-}
-
-.login-page-googleButtonIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-}
-
-.login-page-googleButtonLabel {
-  line-height: 1;
-}
-
-.login-page-googleButtonMount {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  width: 100%;
+  min-height: 48px;
+}
+
+.login-page-googleButtonMount > div {
+  width: 100% !important;
 }
 
 .login-page-googleButtonShell .login-page-socialLoading {
-  color: rgba(255, 255, 255, 0.92);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
 }
 
 .login-page-socialLoading {
@@ -215,13 +193,24 @@ body {
 
 .login-page-socialButton {
   width: 100%;
-  min-height: 48px;
+  min-height: 43px;
   padding: 0 18px;
   border-radius: 16px;
   color: #ffffff;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.login-page-socialButtonContent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .login-page-socialButton:disabled {

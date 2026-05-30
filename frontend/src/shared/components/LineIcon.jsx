@@ -168,6 +168,12 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           <path d="M9 15 15 9" />
         </svg>
       );
+    case "facebook":
+      return (
+        <svg {...props} viewBox="0 0 24 24">
+          <path d="M15.5 2H18v4.5h-2.5V12H12V6.5H9.5V3.5A1.5 1.5 0 0 1 11 2h2.5V0H11a3.5 3.5 0 0 0-3.5 3.5v3H4v4h3.5V22h4v-8h2.5l.5-4.5H11.5V6.5H15.5V2Z" />
+        </svg>
+      );
     case "document":
       return (
         <svg {...props}>

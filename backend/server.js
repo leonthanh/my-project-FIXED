@@ -336,6 +336,7 @@ app.use(
         "img-src": ["'self'", "data:", "https:", "blob:"],
       },
     },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );

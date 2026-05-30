@@ -73,34 +73,6 @@ const InlineIcon = ({ name, size = 16, style }) => (
   </span>
 );
 
-const GoogleMark = ({ size = 18 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-  >
-    <path
-      d="M21.805 12.23c0-.68-.061-1.334-.174-1.963H12v3.713h5.5a4.705 4.705 0 0 1-2.041 3.087v2.563h3.302c1.933-1.78 3.044-4.404 3.044-7.4Z"
-      fill="#4285F4"
-    />
-    <path
-      d="M12 22c2.76 0 5.075-.914 6.76-2.47l-3.302-2.563c-.916.615-2.088.98-3.458.98-2.658 0-4.91-1.794-5.715-4.206H2.872v2.644A9.998 9.998 0 0 0 12 22Z"
-      fill="#34A853"
-    />
-    <path
-      d="M6.285 13.741A6.008 6.008 0 0 1 5.965 12c0-.605.109-1.191.32-1.741V7.615H2.872A10 10 0 0 0 2 12c0 1.611.386 3.137 1.072 4.385l3.213-2.644Z"
-      fill="#FBBC04"
-    />
-    <path
-      d="M12 6.053c1.5 0 2.846.516 3.907 1.53l2.93-2.93C17.07 2.999 14.756 2 12 2a9.998 9.998 0 0 0-9.128 5.615l3.413 2.644C7.09 7.847 9.342 6.053 12 6.053Z"
-      fill="#EA4335"
-    />
-  </svg>
-);
-
 const AUTH_MESSAGE_TRANSLATIONS = {
   "Đăng nhập thành công": "Login successful.",
   "Đăng ký thành công!": "Registration successful.",
@@ -263,7 +235,7 @@ const Login = () => {
         window.google.accounts.id.renderButton(
           googleButtonContainerRef.current,
           {
-            theme: "outline",
+            theme: "filled_blue",
             size: "large",
             text: "signin_with",
             locale: "en",
@@ -652,25 +624,12 @@ const Login = () => {
               </div>
 
               {googleClientId ? (
-                <div className="login-page-googleButtonShell login-page-socialButton login-page-socialButton--facebook">
+                <div className="login-page-googleButtonShell">
                   <div
                     ref={googleButtonContainerRef}
                     className="login-page-googleButtonMount"
                     aria-label="Login with Google"
                   />
-                  {googleReady ? (
-                    <div
-                      className="login-page-googleButtonFace"
-                      aria-hidden="true"
-                    >
-                      <span className="login-page-googleButtonIcon">
-                        <GoogleMark />
-                      </span>
-                      <span className="login-page-googleButtonLabel">
-                        Login with Google
-                      </span>
-                    </div>
-                  ) : null}
                   {!googleReady ? (
                     <span className="login-page-socialLoading">
                       Loading Google...
@@ -686,8 +645,11 @@ const Login = () => {
                   onClick={handleFacebookLogin}
                   disabled={loading || !facebookReady}
                 >
-                  <span>
-                    {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                  <span className="login-page-socialButtonContent">
+                    <InlineIcon name="facebook" size={18} />
+                    <span>
+                      {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                    </span>
                   </span>
                 </button>
               ) : null}
