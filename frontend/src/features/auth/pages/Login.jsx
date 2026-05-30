@@ -645,8 +645,11 @@ const Login = () => {
                   onClick={handleFacebookLogin}
                   disabled={loading || !facebookReady}
                 >
-                  <span>
-                    {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                  <span className="login-page-socialButtonContent">
+                    <InlineIcon name="facebook" size={18} />
+                    <span>
+                      {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                    </span>
                   </span>
                 </button>
               ) : null}
