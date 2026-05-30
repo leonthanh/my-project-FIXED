@@ -247,6 +247,6 @@ git config --global core.editor nano
 git merge --abort
 ```
 
-Bạn thử nhấn `Ctrl+Q` trước, rồi `:wq` nhé! Nếu vẫn không được, paste screenshot terminal cho tôi. 🚀
+Bạn thử nhấn `Ctrl+Q` trước, rồi `:wq` nhé! Nếu vẫn không được, paste screenshot terminal . 🚀
 
 *P.S.: Ctrl+S trong terminal = stop output, Ctrl+Q = resume.*
