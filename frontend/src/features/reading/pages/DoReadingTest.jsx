@@ -3058,7 +3058,7 @@ const DoReadingTest = () => {
   };
 
   return (
-    <div className="reading-test-container">
+    <div className="reading-test-container" data-student-annotation-layout="true">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Enhanced Header */}
@@ -3085,6 +3085,7 @@ const DoReadingTest = () => {
           <div className="reading-header-actions">
             <StudentAnnotations
               containerRef={passageRef}
+              layoutRef={containerRef}
               storageKey={annotationStorageKey}
               scopeKey={`passage:${currentPartIndex}`}
               scopeLabel={currentPassage?.passageTitle || `Passage ${currentPartIndex + 1}`}

@@ -9,16 +9,20 @@ const originalGetClientRects = Range.prototype.getClientRects;
 
 const Harness = () => {
   const containerRef = React.useRef(null);
+  const layoutRef = React.useRef(null);
 
   return (
-    <div>
+    <div data-testid="annotation-page-root">
       <StudentAnnotations
         containerRef={containerRef}
+        layoutRef={layoutRef}
         storageKey="student-annotations:test"
         scopeKey="part-3"
         scopeLabel="Part 3"
       />
-      <div ref={containerRef}>Alpha beta gamma delta.</div>
+      <main ref={layoutRef} data-testid="annotation-layout-root">
+        <div ref={containerRef}>Alpha beta gamma delta.</div>
+      </main>
     </div>
   );
 };
@@ -84,6 +88,14 @@ describe("StudentAnnotations", () => {
     const noteButton = await screen.findByRole("button", { name: /^note$/i });
     await userEvent.click(noteButton);
 
+    expect(screen.getByTestId("annotation-layout-root")).toHaveAttribute(
+      "data-student-annotation-panel-open",
+      "true"
+    );
+    expect(screen.getByTestId("annotation-page-root")).not.toHaveAttribute(
+      "data-student-annotation-panel-open"
+    );
+
     expect(await screen.findByLabelText("Notes panel")).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText("Start typing your note");
@@ -104,6 +116,12 @@ describe("StudentAnnotations", () => {
     await waitFor(() => {
       expect(document.querySelectorAll("mark[data-student-annotation-id]")).toHaveLength(2);
     });
+
+    expect(
+      Array.from(document.querySelectorAll("mark[data-student-annotation-id]"), (mark) =>
+        mark.textContent
+      )
+    ).toEqual(["beta", "gamma"]);
 
     expect(screen.getByRole("button", { name: /open notes/i })).toHaveTextContent("2");
   });

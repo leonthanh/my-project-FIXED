@@ -182,6 +182,7 @@ const DoListeningTest = () => {
   const audioRef = useRef(null);
   const questionRefs = useRef({});
   const listQuestionRef = useRef(null);
+  const mainContentRef = useRef(null);
   const flowchartDropdownRefs = useRef({});
 
   // When switching parts via navigator/arrows, we may need to wait for the new part
@@ -2912,7 +2913,7 @@ const DoListeningTest = () => {
   const startDurationMinutes = Math.max(1, Math.round(timeRemaining / 60));
 
   return (
-    <div style={styles.pageWrapper}>
+    <div style={styles.pageWrapper} data-student-annotation-layout="true">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Global Styles */}
@@ -2943,6 +2944,7 @@ const DoListeningTest = () => {
         headerActions={(
           <StudentAnnotations
             containerRef={listQuestionRef}
+            layoutRef={mainContentRef}
             storageKey={annotationStorageKey}
             scopeKey={`part:${currentPartIndex}`}
             scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
@@ -2985,7 +2987,7 @@ const DoListeningTest = () => {
       </div>
 
       {/* Main Content Area */}
-      <main style={styles.mainContent}>
+      <main ref={mainContentRef} style={styles.mainContent}>
       {audioUrl && started && (
         <div style={styles.audioContainer}>
           {/* Hidden audio element (no native controls). We surface status messages instead. */}
