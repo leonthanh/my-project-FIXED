@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
-import { apiPath, hostPath, authFetch } from "../../../shared/utils/api";
+import { apiPath, hostPath, authFetch, getStoredUser } from "../../../shared/utils/api";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
 } from "../../../shared/utils/placementTests";
 import TestHeader from "../../../shared/components/TestHeader";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import StudentAnnotations from "../../../shared/components/StudentAnnotations.jsx";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import TestStartModal from "../../../shared/components/TestStartModal";
@@ -201,6 +202,18 @@ const DoListeningTest = () => {
       return "anon";
     }
   }, [placementContext.placementAttemptItemToken]);
+
+  const currentStudentName = useMemo(() => {
+    const user = getStoredUser();
+    return String(
+      user?.name || user?.username || user?.fullName || user?.email || "Student"
+    ).trim();
+  }, []);
+
+  const annotationStorageKey = useMemo(
+    () => `listening:${id}:annotations:${storageUserId}`,
+    [id, storageUserId]
+  );
 
   // Keys include userId so each student's timer and answers are isolated on shared devices.
   const expiresKey = `listening:${id}:expiresAt:${storageUserId}`;
@@ -2926,6 +2939,16 @@ const DoListeningTest = () => {
         timeRemaining={timeRemaining}
         answeredCount={totalAnswered}
         totalQuestions={totalQuestions}
+        studentName={currentStudentName}
+        headerActions={(
+          <StudentAnnotations
+            containerRef={listQuestionRef}
+            storageKey={annotationStorageKey}
+            scopeKey={`part:${currentPartIndex}`}
+            scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
+            disabled={!started || submitted}
+          />
+        )}
         onSubmit={handleSubmit}
         submitted={submitted}
         timerWarning={timerWarning}

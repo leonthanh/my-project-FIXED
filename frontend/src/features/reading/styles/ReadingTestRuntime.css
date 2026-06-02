@@ -90,6 +90,40 @@
   gap: 10px;
 }
 
+.reading-header-student {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 180px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.reading-header-student-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.reading-header-student-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.reading-header-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Auto-save in header - compact */
 .header-right .auto-save-indicator {
   display: flex;
@@ -2043,6 +2077,10 @@
   .header-right {
     width: 100%;
     justify-content: center;
+  }
+
+  .reading-header-student {
+    max-width: 150px;
   }
 
   .test-info h1 {

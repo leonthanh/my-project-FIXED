@@ -8,6 +8,7 @@ import {
 } from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
+import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../../shared/components/ConfirmModal";
 import InlineIcon from "../../../../shared/components/InlineIcon.jsx";
@@ -143,6 +144,7 @@ const DoCambridgeReadingTest = ({
   const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
   const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
   const camReadSubmissionKey = useMemo(() => `cambridge_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
+  const annotationStorageKey = useMemo(() => `${camReadAnsKey}:annotations`, [camReadAnsKey]);
   const expiresAtRef = useRef(null);
   const submissionIdRef = useRef(null);
   const confirmSubmitRef = useRef(null);
@@ -190,6 +192,7 @@ const DoCambridgeReadingTest = ({
     typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
   ));
   const containerRef = useRef(null);
+  const annotationContentRef = useRef(null);
 
   /* eslint-disable-next-line no-unused-vars */
   const questionRefs = useRef({});
@@ -229,6 +232,13 @@ const DoCambridgeReadingTest = ({
     if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
     return testConfig.name || 'Reading & Writing';
   }, [examType, testConfig.name]);
+
+  const currentStudentName = useMemo(() => {
+    const user = getStoredUser();
+    return String(
+      user?.name || user?.username || user?.fullName || user?.email || "Student"
+    ).trim();
+  }, []);
 
   const effectiveDuration = useMemo(() => {
     // Prefer the authoritative config duration for the test's type (avoids DB default of 60
@@ -1607,7 +1617,7 @@ const DoCambridgeReadingTest = ({
   }
 
   return (
-    <div className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
+    <div ref={annotationContentRef} className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Start Modal (only starts timer after click) */}
@@ -1707,6 +1717,16 @@ const DoCambridgeReadingTest = ({
         timeRemaining={timeRemaining}
         answeredCount={answeredCount}
         totalQuestions={totalQuestions}
+        studentName={currentStudentName}
+        headerActions={(
+          <StudentAnnotations
+            containerRef={annotationContentRef}
+            storageKey={annotationStorageKey}
+            scopeKey={`part:${currentPartIndex}`}
+            scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
+            disabled={!started || submitted}
+          />
+        )}
         onSubmit={handleSubmit}
         submitted={submitted}
         examType={examType}

@@ -51,6 +51,42 @@
   gap: 20px;
 }
 
+.test-header .header-student {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f8fafc;
+}
+
+.test-header .header-student-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.test-header .header-student-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.test-header .header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Audio status */
 .test-header .audio-status {
   display: flex;
@@ -258,6 +294,11 @@
 
   .test-header .header-right {
     gap: 12px;
+  }
+
+  .test-header .header-student {
+    max-width: 160px;
+    padding: 5px 10px;
   }
 
   .test-header .timer-container {
