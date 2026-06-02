@@ -11,6 +11,7 @@ import {
   getQuestionTypesForTest,
   getDefaultQuestionData,
   getTestConfig,
+  QUESTION_TYPES,
   TEST_CONFIGS,
 } from "../../../../shared/config/questionTypes";
 import { getOrangeSelectTestPathForTestType } from '../../config/navigation';
@@ -346,6 +347,15 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
 
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
+  const questionTypeOptions = useMemo(() => {
+    const currentTypeId = currentSection?.questionType;
+    if (!currentTypeId || availableTypes.some((type) => type.id === currentTypeId)) {
+      return availableTypes;
+    }
+
+    const legacyType = QUESTION_TYPES[currentTypeId];
+    return legacyType ? [...availableTypes, legacyType] : availableTypes;
+  }, [availableTypes, currentSection?.questionType]);
   const isMoversReading = !isListeningTest && String(testType || '').toLowerCase() === 'movers';
   const moversReadingPartThemes = useMemo(() => ([
     { color: '#3b82f6', bg: '#eff6ff' },
@@ -2038,7 +2048,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   </label>
                   <QuestionTypeSelector
                     testType={testType}
-                    questionTypes={availableTypes}
+                    questionTypes={questionTypeOptions}
                     value={currentSection.questionType}
                     onChange={handleQuestionTypeChange}
                     style={{ maxWidth: '400px' }}

@@ -389,13 +389,7 @@ export const QUESTION_TYPES = {
     defaultData: {
       passageTitle: '',
       passage: '',
-      blanks: [
-        { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 18, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 19, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 20, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-      ],
+      blanks: [],
     },
     supportedTests: ['ket-reading', 'pet-reading'],
   },
@@ -673,7 +667,7 @@ export const QUESTION_TYPES = {
 // TEST TYPE CONFIGURATIONS
 // ============================================
 
-// Keep KET Listening + KET Reading builder question types in sync
+// Keep shared Cambridge builder question types centralized.
 const KET_UNIFIED_QUESTION_TYPES = [
   // KET Reading & Writing (Part-specific)
   'sign-message',
@@ -691,6 +685,8 @@ const KET_UNIFIED_QUESTION_TYPES = [
   'matching',
   'gap-match',
 ];
+
+const KET_LISTENING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES.filter((typeId) => typeId !== 'gap-match');
 
 const PET_READING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES.concat('inline-choice');
 
@@ -777,7 +773,7 @@ export const TEST_CONFIGS = {
     totalQuestions: 25,
     parts: 5,
     duration: 30, // minutes
-    questionTypes: KET_UNIFIED_QUESTION_TYPES,
+    questionTypes: KET_LISTENING_QUESTION_TYPES,
     partStructure: [
       { part: 1, questions: '1-5', description: 'Short Conversations - 3-option Multiple Choice' },
       { part: 2, questions: '6-10', description: 'Longer Conversation - Gap Fill' },

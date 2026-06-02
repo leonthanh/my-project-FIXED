@@ -34,21 +34,46 @@ const ClozeMCEditor = ({
   const isPet = String(testType || '').toLowerCase().includes('pet');
   const defaultOptionCount = isPet ? 8 : 3;
   const buildDefaultOptions = (count) => Array.from({ length: count }, (_, idx) => `${String.fromCharCode(65 + idx)}. `);
+  const buildDefaultBlanks = (baseNumber, count = 5, optionCount = defaultOptionCount) => (
+    Array.from({ length: count }, (_, idx) => ({
+      number: baseNumber + idx,
+      options: buildDefaultOptions(optionCount),
+      correctAnswer: '',
+    }))
+  );
   const initialSharedOptions = Array.isArray(question?.sharedOptions) && question.sharedOptions.length > 0
     ? question.sharedOptions
     : buildDefaultOptions(defaultOptionCount);
-  const blanks = question?.blanks || [ 
-    { number: 16, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
-    { number: 17, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
-    { number: 18, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
-    { number: 19, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
-    { number: 20, options: buildDefaultOptions(defaultOptionCount), correctAnswer: '' },
-  ];
+  const blanks = Array.isArray(question?.blanks) ? question.blanks : [];
   const maxOptionLength = Math.max(
     defaultOptionCount,
     ...blanks.map((b) => (Array.isArray(b?.options) ? b.options.length : 0))
   );
   const optionLabels = Array.from({ length: maxOptionLength }, (_, idx) => String.fromCharCode(65 + idx));
+
+  useEffect(() => {
+    if (blanks.length > 0) return;
+    onChange("blanks", buildDefaultBlanks(startingNumber));
+  }, [blanks.length, onChange, startingNumber]);
+
+  useEffect(() => {
+    if (!blanks.length || passageValue.trim()) return;
+
+    const isSequential = blanks.every((blank, idx) => {
+      const expectedNumber = Number(blanks[0]?.number) + idx;
+      return Number(blank?.number) === expectedNumber;
+    });
+
+    if (!isSequential || Number(blanks[0]?.number) === startingNumber) return;
+
+    onChange(
+      "blanks",
+      blanks.map((blank, idx) => ({
+        ...blank,
+        number: startingNumber + idx,
+      }))
+    );
+  }, [blanks, onChange, passageValue, startingNumber]);
 
   useEffect(() => {
     const needsNormalize = blanks.some((b) => (Array.isArray(b?.options) ? b.options.length : 0) < maxOptionLength);
@@ -187,7 +212,7 @@ const ClozeMCEditor = ({
         border: "1px solid #fecaca",
       }}>
         <p style={{ margin: 0, fontSize: "13px", color: "#991b1b" }}>
-          <strong>Hướng dẫn:</strong> Paste đoạn văn có các số trong ngoặc như (16), (17)... 
+          <strong>Hướng dẫn:</strong> Paste đoạn văn có các số trong ngoặc như ({startingNumber}), ({startingNumber + 1})... 
           đánh dấu chỗ trống. Sau đó nhập {isPet ? 'options A-H' : '3 options A/B/C'} cho mỗi chỗ trống.
         </p>
       </div>
@@ -227,7 +252,7 @@ const ClozeMCEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          Dùng (16), (17)... để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
+          Dùng ({startingNumber}), ({startingNumber + 1})... để đánh dấu chỗ trống. Có thể thêm hình, định dạng text...
         </p>
       </div>
 
