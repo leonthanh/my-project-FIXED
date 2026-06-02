@@ -3292,13 +3292,27 @@ const DoCambridgeListeningTest = () => {
       {/* Footer Navigation (match Cambridge Reading) */}
       <footer className="cambridge-footer cambridge-footer--centered-nav">
         {/* Navigation Arrows - Top Right */}
-        <div className="cambridge-footer-arrows cambridge-footer-arrows--static" aria-hidden="true">
-          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
-            <i className="fa fa-arrow-left"></i>
-          </span>
-          <span className="cambridge-nav-arrow-btn cambridge-nav-arrow-btn--static">
-            <i className="fa fa-arrow-right"></i>
-          </span>
+        <div className="cambridge-footer-arrows">
+          <button
+            type="button"
+            className="cambridge-nav-arrow-btn"
+            onClick={() => goToKeyIndex(currentKeyIndex - 1)}
+            disabled={currentKeyIndex === 0}
+            aria-label="Previous"
+            title="Previous question"
+          >
+            <i className="fa fa-chevron-left"></i>
+          </button>
+          <button
+            type="button"
+            className="cambridge-nav-arrow-btn"
+            onClick={() => goToKeyIndex(currentKeyIndex + 1)}
+            disabled={currentKeyIndex === totalQuestions - 1}
+            aria-label="Next"
+            title="Next question"
+          >
+            <i className="fa fa-chevron-right"></i>
+          </button>
         </div>
 
         {/* Parts Tabs with Question Numbers */}
