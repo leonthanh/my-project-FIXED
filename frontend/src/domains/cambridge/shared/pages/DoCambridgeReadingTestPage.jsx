@@ -37,6 +37,61 @@ import "./DoCambridgeReadingTest.css";
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
 
+const resolvePartIllustrationUrl = (imageUrl) => {
+  const normalized = String(imageUrl || '').trim();
+  if (!normalized) return '';
+  return /^https?:\/\//i.test(normalized) ? normalized : hostPath(normalized);
+};
+
+const PartIllustrationCard = ({ imageUrl, alt = 'Part illustration' }) => {
+  const resolvedImageUrl = resolvePartIllustrationUrl(imageUrl);
+  if (!resolvedImageUrl) return null;
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '18px' }}>
+      <div
+        style={{
+          width: 'min(100%, 640px)',
+          padding: '10px',
+          borderRadius: '22px',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+          border: '1px solid rgba(148, 163, 184, 0.28)',
+          boxShadow: '0 18px 34px rgba(15, 23, 42, 0.08)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '10px',
+            color: '#475569',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <InlineIcon name="image" size={14} />
+          <span>Part illustration</span>
+        </div>
+        <img
+          src={resolvedImageUrl}
+          alt={alt}
+          style={{
+            display: 'block',
+            width: '100%',
+            maxHeight: '300px',
+            objectFit: 'contain',
+            borderRadius: '16px',
+            background: '#f8fafc',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
 /**
  * DoCambridgeReadingTest - Cambridge Reading Test (Authentic UI)
  * Replicate real Cambridge test interface for KET, PET, FLYERS, etc.
@@ -2063,7 +2118,10 @@ const DoCambridgeReadingTest = ({
                 };
                 
                 return (
-                  <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
+                    style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
+                  >
                     {/* Flag Button */}
                     <button
                       className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
@@ -2073,6 +2131,11 @@ const DoCambridgeReadingTest = ({
                     >
                       <InlineIcon name="flag" size={14} />
                     </button>
+
+                    <PartIllustrationCard
+                      imageUrl={currentQuestion.part?.imageUrl}
+                      alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
+                    />
 
                     {/* Passage Title */}
                     {passageTitle && (
@@ -2091,12 +2154,13 @@ const DoCambridgeReadingTest = ({
                     <div 
                       className="cambridge-passage-content"
                       style={{
-                        padding: '20px',
-                        backgroundColor: '#f0f9ff',
-                        border: '2px solid #0284c7',
-                        borderRadius: '12px',
+                        padding: '24px clamp(16px, 2vw, 24px)',
+                        background: 'linear-gradient(180deg, #f8fcff 0%, #eef6ff 100%)',
+                        border: '1px solid #93c5fd',
+                        boxShadow: '0 12px 28px rgba(14, 39, 111, 0.08)',
+                        borderRadius: '18px',
                         fontSize: '15px',
-                        lineHeight: 2,
+                        lineHeight: 2.02,
                       }}
                     >
                       {renderPassageWithInputs()}
@@ -2191,8 +2255,8 @@ const DoCambridgeReadingTest = ({
                 if (isPetReading) {
                   return (
                     <div
-                      className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
-                      style={{ position: 'relative', width: '100%' }}
+                      className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
+                      style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
                     >
                       <button
                         className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
@@ -2202,6 +2266,11 @@ const DoCambridgeReadingTest = ({
                       >
                         <InlineIcon name="flag" size={14} />
                       </button>
+
+                      <PartIllustrationCard
+                        imageUrl={currentQuestion.part?.imageUrl}
+                        alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
+                      />
 
                       {passageTitle && (
                         <h3 
@@ -2319,8 +2388,8 @@ const DoCambridgeReadingTest = ({
                 
                 return (
                   <div
-                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
-                    style={{ position: 'relative', width: '100%' }}
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
+                    style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
                   >
                     {/* Flag Button */}
                     <button
@@ -2331,6 +2400,11 @@ const DoCambridgeReadingTest = ({
                     >
                       <InlineIcon name="flag" size={14} />
                     </button>
+
+                    <PartIllustrationCard
+                      imageUrl={currentQuestion.part?.imageUrl}
+                      alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
+                    />
 
                     {/* Passage Title */}
                     {passageTitle && (
@@ -2349,12 +2423,13 @@ const DoCambridgeReadingTest = ({
                     <div 
                       className="cambridge-passage-content"
                       style={{
-                        padding: '20px',
-                        backgroundColor: '#fefce8',
-                        border: '2px solid #fde047',
-                        borderRadius: '12px',
+                        padding: '24px clamp(16px, 2vw, 24px)',
+                        background: 'linear-gradient(180deg, #fffef5 0%, #fff9dc 100%)',
+                        border: '1px solid #facc15',
+                        boxShadow: '0 12px 28px rgba(202, 138, 4, 0.10)',
+                        borderRadius: '18px',
                         fontSize: '15px',
-                        lineHeight: 2,
+                        lineHeight: 2.02,
                       }}
                     >
                       {renderPassageWithDropdowns()}
@@ -2994,6 +3069,15 @@ const DoCambridgeReadingTest = ({
                   {/* Passage - check both part.passage and question.passage for long-text-mc */}
                   {currentQuestion.part.passage ? (
                     <div className="cambridge-passage-container">
+                      {currentQuestion.part.imageUrl ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <img
+                            src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
+                            alt={currentQuestion.part.title || 'Part illustration'}
+                            style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                          />
+                        </div>
+                      ) : null}
                       {currentQuestion.part.title && (
                         <h3 className="cambridge-passage-title">
                           {currentQuestion.part.title}
@@ -3007,6 +3091,15 @@ const DoCambridgeReadingTest = ({
                   ) : currentQuestion.question.passage && currentQuestion.question.passage !== '<p><br></p>' ? (
                     /* For long-text-mc: passage is in question object */
                     <div className="cambridge-passage-container">
+                      {currentQuestion.part.imageUrl ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <img
+                            src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
+                            alt={currentQuestion.question.passageTitle || currentQuestion.part.title || 'Part illustration'}
+                            style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                          />
+                        </div>
+                      ) : null}
                       {currentQuestion.question.passageTitle && (
                         <h3 className="cambridge-passage-title">
                           {currentQuestion.question.passageTitle}

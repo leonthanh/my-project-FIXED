@@ -55,8 +55,9 @@ const loadExternalScript = (id, src, options = {}) =>
     document.head.appendChild(script);
   });
 
-const InlineIcon = ({ name, size = 16, style }) => (
+const InlineIcon = ({ name, size = 16, style, className }) => (
   <span
+    className={className}
     style={{
       display: "inline-flex",
       alignItems: "center",
@@ -636,7 +637,11 @@ const Login = () => {
                 >
                   <span className="login-page-socialButtonContent">
                     <span className="login-page-socialIconBadge login-page-socialIconBadge--google">
-                      <InlineIcon name="google" size={18} />
+                      <InlineIcon
+                        name="google"
+                        size={18}
+                        className="login-page-socialIcon login-page-socialIcon--google"
+                      />
                     </span>
                     <span>
                       {googleReady ? "Sign in with Google" : "Loading Google..."}
@@ -654,7 +659,12 @@ const Login = () => {
                 >
                   <span className="login-page-socialButtonContent">
                     <span className="login-page-socialIconBadge login-page-socialIconBadge--facebook">
-                      <InlineIcon name="facebook" size={17} style={{ color: "#1d4ed8" }} />
+                      <InlineIcon
+                        name="facebook"
+                        size={18}
+                        style={{ color: "#1d4ed8" }}
+                        className="login-page-socialIcon login-page-socialIcon--facebook"
+                      />
                     </span>
                     <span>
                       {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
