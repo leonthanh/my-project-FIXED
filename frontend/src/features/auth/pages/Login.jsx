@@ -122,7 +122,7 @@ const Login = () => {
   const loginPhoneRef = useRef(null);
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
-  const googleButtonContainerRef = useRef(null);
+  const googleTokenClientRef = useRef(null);
   const loginSubmittingRef = useRef(false);
   const registerSubmittingRef = useRef(false);
   const socialSubmittingRef = useRef(false);
@@ -203,46 +203,33 @@ const Login = () => {
           "https://accounts.google.com/gsi/client"
         );
 
-        if (cancelled || !googleButtonContainerRef.current || !window.google?.accounts?.id) {
+        if (cancelled || !window.google?.accounts?.oauth2) {
           return;
         }
 
-        window.google.accounts.id.initialize({
+        googleTokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
           client_id: googleClientId,
+          scope: "openid email profile",
           callback: (response) => {
-            if (!response?.credential) {
-              setMessage("Google login did not return a credential.");
+            if (!response?.access_token) {
+              setMessage("Google login did not return an access token.");
               return;
             }
 
             socialLoginHandlerRef.current?.({
               provider: "google",
-              credential: response.credential,
+              accessToken: response.access_token,
             });
           },
-          auto_select: false,
-          cancel_on_tap_outside: true,
+          error_callback: (error) => {
+            if (error?.type === "popup_closed") {
+              setMessage("Google login was cancelled.");
+              return;
+            }
+
+            setMessage("Google login is not available right now.");
+          },
         });
-
-        googleButtonContainerRef.current.innerHTML = "";
-        const googleButtonWidth = Math.max(
-          240,
-          Math.round(
-            googleButtonContainerRef.current.parentElement?.getBoundingClientRect().width || 304
-          )
-        );
-
-        window.google.accounts.id.renderButton(
-          googleButtonContainerRef.current,
-          {
-            theme: "filled_blue",
-            size: "large",
-            text: "signin_with",
-            locale: "en",
-            shape: "pill",
-            width: googleButtonWidth,
-          }
-        );
 
         setGoogleReady(true);
       } catch (err) {
@@ -402,6 +389,23 @@ const Login = () => {
       },
       { scope: "public_profile,email" }
     );
+  };
+
+  const handleGoogleLogin = () => {
+    if (loading || socialSubmittingRef.current) return;
+
+    if (
+      !googleReady ||
+      typeof googleTokenClientRef.current?.requestAccessToken !== "function"
+    ) {
+      setMessage("Google login is not available right now.");
+      return;
+    }
+
+    setMessage("");
+    googleTokenClientRef.current.requestAccessToken({
+      prompt: "select_account",
+    });
   };
 
   const handleRegister = async () => {
@@ -624,18 +628,21 @@ const Login = () => {
               </div>
 
               {googleClientId ? (
-                <div className="login-page-googleButtonShell">
-                  <div
-                    ref={googleButtonContainerRef}
-                    className="login-page-googleButtonMount"
-                    aria-label="Login with Google"
-                  />
-                  {!googleReady ? (
-                    <span className="login-page-socialLoading">
-                      Loading Google...
+                <button
+                  type="button"
+                  className="login-page-socialButton login-page-socialButton--google"
+                  onClick={handleGoogleLogin}
+                  disabled={loading || !googleReady}
+                >
+                  <span className="login-page-socialButtonContent">
+                    <span className="login-page-socialIconBadge login-page-socialIconBadge--google">
+                      <InlineIcon name="google" size={18} />
                     </span>
-                  ) : null}
-                </div>
+                    <span>
+                      {googleReady ? "Sign in with Google" : "Loading Google..."}
+                    </span>
+                  </span>
+                </button>
               ) : null}
 
               {facebookAppId ? (
@@ -646,7 +653,9 @@ const Login = () => {
                   disabled={loading || !facebookReady}
                 >
                   <span className="login-page-socialButtonContent">
-                    <InlineIcon name="facebook" size={18} />
+                    <span className="login-page-socialIconBadge login-page-socialIconBadge--facebook">
+                      <InlineIcon name="facebook" size={17} style={{ color: "#1d4ed8" }} />
+                    </span>
                     <span>
                       {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
                     </span>
