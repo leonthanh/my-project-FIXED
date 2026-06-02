@@ -12,6 +12,7 @@ import ResultModal from "../../../shared/components/ResultModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
+import StudentAnnotations from "../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import "../styles/ReadingTestRuntime.css";
 import {
@@ -174,6 +175,18 @@ const DoReadingTest = () => {
       return false;
     }
   }, []);
+
+  const currentStudentName = useMemo(() => {
+    const user = getStoredUser();
+    return String(
+      user?.name || user?.username || user?.fullName || user?.email || "Student"
+    ).trim();
+  }, []);
+
+  const annotationStorageKey = useMemo(
+    () => `reading:${id}:annotations:${storageUserId}`,
+    [id, storageUserId]
+  );
 
   const readingAnswersKey = `reading_test_${id}_answers:${storageUserId}`;
   const readingExpiresKey = `reading_test_${id}_expiresAt:${storageUserId}`;
@@ -3062,6 +3075,23 @@ const DoReadingTest = () => {
         </div>
 
         <div className="header-right">
+          <div className="reading-header-student" title={currentStudentName}>
+            <span className="reading-header-student-icon">
+              <LineIcon name="student" size={14} strokeWidth={2.1} />
+            </span>
+            <span className="reading-header-student-text">{currentStudentName}</span>
+          </div>
+
+          <div className="reading-header-actions">
+            <StudentAnnotations
+              containerRef={passageRef}
+              storageKey={annotationStorageKey}
+              scopeKey={`passage:${currentPartIndex}`}
+              scopeLabel={currentPassage?.passageTitle || `Passage ${currentPartIndex + 1}`}
+              disabled={!started || submitted}
+            />
+          </div>
+
           {/* Enhanced Timer */}
           <div
             className={`timer-container ${timerWarning ? "warning" : ""} ${

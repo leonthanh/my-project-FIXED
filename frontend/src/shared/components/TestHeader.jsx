@@ -21,6 +21,8 @@ import "./TestHeader.css";
  * @param {boolean} showAutoSave - Show auto-save indicator
  * @param {string} audioStatusText - Optional audio status label (e.g., "Audio is playing")
  * @param {string} examType - "IELTS" | "KET" | "PET" | "FLYERS" | etc.
+ * @param {string} studentName - Optional student display name shown in the header
+ * @param {React.ReactNode} headerActions - Optional action buttons rendered beside the student name
  */
 const TestHeader = ({
   testType = "LISTENING",
@@ -39,6 +41,8 @@ const TestHeader = ({
   showAutoSave = true,
   audioStatusText = '',
   examType, // Auto-detect from title or classCode
+  studentName = '',
+  headerActions = null,
 }) => {
   // Auto-detect exam type from props
   const detectedExamType = examType || (
@@ -86,6 +90,19 @@ const TestHeader = ({
       </div>
 
       <div className="header-right">
+        {studentName && (
+          <div className="header-student" title={studentName} aria-label={`Student ${studentName}`}>
+            <span className="header-student-icon">
+              <LineIcon name="student" size={14} strokeWidth={2.1} />
+            </span>
+            <span className="header-student-text">{studentName}</span>
+          </div>
+        )}
+
+        {headerActions && (
+          <div className="header-actions">{headerActions}</div>
+        )}
+
         {audioStatusText && (
           <div className="audio-status" aria-live="polite">
             <span className="audio-status-icon">

@@ -7,6 +7,7 @@ import {
 } from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
+import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../../shared/components/ConfirmModal";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
@@ -121,6 +122,7 @@ const DoCambridgeListeningTest = () => {
   const [leftWidth, setLeftWidth] = useState(42);
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
+  const annotationContentRef = useRef(null);
 
   // Get test config
   const testConfig = useMemo(() => {
@@ -140,6 +142,15 @@ const DoCambridgeListeningTest = () => {
       return `cambridgeListeningProgress-${testType || 'listening'}-${id || 'unknown'}-anon`;
     }
   }, [id, placementContext.placementAttemptItemToken, testType]);
+
+  const annotationStorageKey = useMemo(() => `${storageKey}:annotations`, [storageKey]);
+
+  const currentStudentName = useMemo(() => {
+    const user = getStoredUser();
+    return String(
+      user?.name || user?.username || user?.fullName || user?.email || "Student"
+    ).trim();
+  }, []);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -1975,7 +1986,7 @@ const DoCambridgeListeningTest = () => {
   }
 
   return (
-    <div className="cambridge-test-container">
+    <div ref={annotationContentRef} className="cambridge-test-container">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
@@ -1987,6 +1998,16 @@ const DoCambridgeListeningTest = () => {
         timeRemaining={formatTime(timeRemaining)}
         answeredCount={answeredCount}
         totalQuestions={totalQuestions}
+        studentName={currentStudentName}
+        headerActions={(
+          <StudentAnnotations
+            containerRef={annotationContentRef}
+            storageKey={annotationStorageKey}
+            scopeKey={`part:${currentPartIndex}`}
+            scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
+            disabled={!testStarted || submitted}
+          />
+        )}
         audioStatusText={hasAnyAudio && isAudioPlaying ? 'Audio is playing' : ''}
         onSubmit={handleSubmit}
         submitted={submitted}
