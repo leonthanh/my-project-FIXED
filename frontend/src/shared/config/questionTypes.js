@@ -389,13 +389,7 @@ export const QUESTION_TYPES = {
     defaultData: {
       passageTitle: '',
       passage: '',
-      blanks: [
-        { number: 16, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 17, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 18, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 19, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-        { number: 20, options: ['A. ', 'B. ', 'C. '], correctAnswer: '' },
-      ],
+      blanks: [],
     },
     supportedTests: ['ket-reading', 'pet-reading'],
   },
