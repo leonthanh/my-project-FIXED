@@ -357,6 +357,63 @@ const verifyGoogleCredential = async (credential) => {
   };
 };
 
+const verifyGoogleAccessToken = async (accessToken) => {
+  const audiences = getConfiguredGoogleClientIds();
+  if (!audiences.length) {
+    throw AppError.badRequest('Google login is not configured on the server.');
+  }
+
+  const tokenInfoUrl = new URL('https://oauth2.googleapis.com/tokeninfo');
+  tokenInfoUrl.search = new URLSearchParams({
+    access_token: accessToken,
+  }).toString();
+
+  const tokenInfo = await fetchJsonOrThrow(
+    tokenInfoUrl,
+    'Google account verification failed.'
+  );
+
+  const tokenAudience = String(
+    tokenInfo?.aud || tokenInfo?.issued_to || tokenInfo?.audience || ''
+  ).trim();
+  const tokenEmail = normalizeEmailValue(tokenInfo?.email);
+  const tokenEmailVerified =
+    tokenInfo?.email_verified === true ||
+    String(tokenInfo?.email_verified || '').toLowerCase() === 'true' ||
+    String(tokenInfo?.verified_email || '').toLowerCase() === 'true';
+
+  if (!tokenAudience || !audiences.includes(tokenAudience)) {
+    throw AppError.unauthorized('Google account verification failed.');
+  }
+
+  const profilePayload = await fetchJsonOrThrow(
+    'https://openidconnect.googleapis.com/v1/userinfo',
+    'Unable to load Google profile.',
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  const email = normalizeEmailValue(profilePayload?.email || tokenEmail);
+  const emailVerified =
+    profilePayload?.email_verified === true || tokenEmailVerified;
+
+  if (!profilePayload?.sub || !email || !emailVerified) {
+    throw AppError.unauthorized('Google account verification failed. Please use an email-verified Google account.');
+  }
+
+  return {
+    provider: 'google',
+    providerUserId: String(profilePayload.sub),
+    email,
+    name: trimStringValue(profilePayload.name || tokenInfo?.name || 'Google user'),
+    avatarUrl: normalizeSocialAvatarUrl(profilePayload.picture || tokenInfo?.picture),
+    emailVerified: true,
+  };
+};
+
 const verifyFacebookAccessToken = async (accessToken) => {
   const appId = String(process.env.FACEBOOK_APP_ID || '').trim();
   const appSecret = String(process.env.FACEBOOK_APP_SECRET || '').trim();
@@ -548,11 +605,11 @@ const socialLoginSchema = z.object({
   credential: z.string().min(1).optional(),
   accessToken: z.string().min(1).optional(),
 }).superRefine((value, ctx) => {
-  if (value.provider === 'google' && !value.credential) {
+  if (value.provider === 'google' && !value.credential && !value.accessToken) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['credential'],
-      message: 'Google credential is required.',
+      message: 'Google credential or access token is required.',
     });
   }
 
@@ -935,7 +992,9 @@ router.post(
     try {
       const { provider, credential, accessToken } = req.body;
       const socialProfile = provider === 'google'
-        ? await verifyGoogleCredential(credential)
+        ? credential
+          ? await verifyGoogleCredential(credential)
+          : await verifyGoogleAccessToken(accessToken)
         : await verifyFacebookAccessToken(accessToken);
 
       const { user, created, linkedExistingAccount } = await resolveSocialUser(socialProfile);
