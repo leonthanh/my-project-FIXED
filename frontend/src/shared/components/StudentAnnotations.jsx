@@ -159,9 +159,6 @@ const collectTextNodes = (container) => {
     acceptNode(node) {
       if (!node.textContent) return NodeFilter.FILTER_REJECT;
       if (!node.parentElement) return NodeFilter.FILTER_REJECT;
-      if (node.parentElement.closest("mark[data-student-annotation-id]")) {
-        return NodeFilter.FILTER_REJECT;
-      }
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -174,6 +171,21 @@ const collectTextNodes = (container) => {
   }
 
   return nodes;
+};
+
+const getLayoutRoot = (container) => {
+  if (!container) return null;
+
+  const explicitRoot = container.closest("[data-student-annotation-layout]");
+  if (explicitRoot) return explicitRoot;
+
+  const namedRoot = container.closest(
+    ".reading-test-container, .cambridge-test-container"
+  );
+  if (namedRoot) return namedRoot;
+
+  const owningMain = container.closest("main");
+  return owningMain?.parentElement || null;
 };
 
 const unwrapAppliedHighlights = (container) => {
@@ -233,6 +245,7 @@ const applyAnnotationHighlight = (container, annotation) => {
 
 const StudentAnnotations = ({
   containerRef,
+  layoutRef = null,
   storageKey,
   scopeKey,
   scopeLabel,
@@ -428,6 +441,23 @@ const StudentAnnotations = ({
       window.removeEventListener("resize", handleViewportChange);
     };
   }, [disabled, refreshPendingSelection]);
+
+  useEffect(() => {
+    const layoutRoot = layoutRef?.current || getLayoutRoot(containerRef?.current);
+    if (!layoutRoot) return undefined;
+
+    layoutRoot.setAttribute("data-student-annotation-layout", "true");
+
+    if (panelOpen) {
+      layoutRoot.setAttribute("data-student-annotation-panel-open", "true");
+    } else {
+      layoutRoot.removeAttribute("data-student-annotation-panel-open");
+    }
+
+    return () => {
+      layoutRoot.removeAttribute("data-student-annotation-panel-open");
+    };
+  }, [containerRef, layoutRef, panelOpen]);
 
   useLayoutEffect(() => {
     const container = containerRef?.current;

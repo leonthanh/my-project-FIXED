@@ -49,6 +49,21 @@
   font-weight: 700;
 }
 
+[data-student-annotation-layout="true"] {
+  --student-annotation-panel-reserve: 344px;
+}
+
+@media (min-width: 901px) {
+  [data-student-annotation-layout="true"] {
+    transition: padding-right 0.24s ease;
+  }
+
+  [data-student-annotation-layout="true"][data-student-annotation-panel-open="true"] {
+    box-sizing: border-box;
+    padding-right: var(--student-annotation-panel-reserve);
+  }
+}
+
 .student-annotation-toolbar {
   position: fixed;
   z-index: 1200;
@@ -83,11 +98,11 @@
 .student-annotation-panel {
   position: fixed;
   top: 88px;
-  right: 24px;
+  right: 18px;
   z-index: 1150;
   display: flex;
   flex-direction: column;
-  width: min(340px, calc(100vw - 32px));
+  width: min(308px, calc(100vw - 28px));
   max-height: calc(100vh - 120px);
   border-radius: 18px;
   background: #f8fbff;
@@ -192,7 +207,10 @@
 }
 
 .student-annotation-textarea {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 92px;
   margin-top: 12px;
   padding: 12px 14px;

@@ -20,6 +20,14 @@
   position: relative;
 }
 
+.cambridge-student-content-shell {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
 /* Left Column - Passage */
 .cambridge-passage-column {
   overflow-y: auto;

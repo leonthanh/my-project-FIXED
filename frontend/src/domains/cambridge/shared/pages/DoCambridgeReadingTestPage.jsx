@@ -192,6 +192,7 @@ const DoCambridgeReadingTest = ({
     typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
   ));
   const containerRef = useRef(null);
+  const annotationLayoutRef = useRef(null);
   const annotationContentRef = useRef(null);
 
   /* eslint-disable-next-line no-unused-vars */
@@ -1617,7 +1618,7 @@ const DoCambridgeReadingTest = ({
   }
 
   return (
-    <div ref={annotationContentRef} className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`}>
+    <div ref={annotationContentRef} className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`} data-student-annotation-layout="true">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Start Modal (only starts timer after click) */}
@@ -1721,6 +1722,7 @@ const DoCambridgeReadingTest = ({
         headerActions={(
           <StudentAnnotations
             containerRef={annotationContentRef}
+            layoutRef={annotationLayoutRef}
             storageKey={annotationStorageKey}
             scopeKey={`part:${currentPartIndex}`}
             scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
@@ -1752,6 +1754,7 @@ const DoCambridgeReadingTest = ({
         </div>
       )}
 
+      <div ref={annotationLayoutRef} className="cambridge-student-content-shell">
       {/* Main Content - Split View or Single Column based on question type */}
       {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (
         /* Part 1 (Sign & Message): instruction on top, sign left, options right */
@@ -3563,6 +3566,7 @@ const DoCambridgeReadingTest = ({
       </div>
         </>
       )}
+      </div>
 
       {/* Footer Navigation */}
       <footer className="cambridge-footer">

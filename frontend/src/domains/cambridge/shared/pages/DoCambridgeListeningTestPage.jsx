@@ -122,6 +122,7 @@ const DoCambridgeListeningTest = () => {
   const [leftWidth, setLeftWidth] = useState(42);
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
+  const annotationLayoutRef = useRef(null);
   const annotationContentRef = useRef(null);
 
   // Get test config
@@ -1986,7 +1987,7 @@ const DoCambridgeListeningTest = () => {
   }
 
   return (
-    <div ref={annotationContentRef} className="cambridge-test-container">
+    <div ref={annotationContentRef} className="cambridge-test-container" data-student-annotation-layout="true">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
@@ -2002,6 +2003,7 @@ const DoCambridgeListeningTest = () => {
         headerActions={(
           <StudentAnnotations
             containerRef={annotationContentRef}
+            layoutRef={annotationLayoutRef}
             storageKey={annotationStorageKey}
             scopeKey={`part:${currentPartIndex}`}
             scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
@@ -2143,6 +2145,7 @@ const DoCambridgeListeningTest = () => {
         />
       )}
 
+      <div ref={annotationLayoutRef} className="cambridge-student-content-shell">
       {/* Letter-matching instruction – sits above both panels */}
       {!isSinglePanelPart && currentPart && (() => {
         const isLetterMatchPart = currentPart?.sections?.some(
@@ -3308,6 +3311,7 @@ const DoCambridgeListeningTest = () => {
             </div>
           </>
         )}
+      </div>
       </div>
 
       {/* Footer Navigation (match Cambridge Reading) */}
