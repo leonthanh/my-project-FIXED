@@ -12,6 +12,94 @@ import {
 
 const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services-sdk";
 const FACEBOOK_SDK_SCRIPT_ID = "facebook-jssdk";
+const ZALO_PKCE_STORAGE_KEY = "auth:zalo:pkce";
+const ZALO_PKCE_CHARSET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+
+const getBrowserCrypto = () => {
+  if (typeof window === "undefined") return null;
+  return window.crypto || null;
+};
+
+const createRandomToken = (length = 64) => {
+  const cryptoApi = getBrowserCrypto();
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error("Secure random values are unavailable.");
+  }
+
+  const bytes = new Uint8Array(length);
+  cryptoApi.getRandomValues(bytes);
+  return Array.from(
+    bytes,
+    (value) => ZALO_PKCE_CHARSET[value % ZALO_PKCE_CHARSET.length]
+  ).join("");
+};
+
+const encodeBase64Url = (buffer) => {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let binary = "";
+
+  bytes.forEach((value) => {
+    binary += String.fromCharCode(value);
+  });
+
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+const createZaloCodeChallenge = async (codeVerifier) => {
+  const cryptoApi = getBrowserCrypto();
+  if (!cryptoApi?.subtle) {
+    throw new Error("PKCE code challenge is unavailable.");
+  }
+
+  const digest = await cryptoApi.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(codeVerifier)
+  );
+  return encodeBase64Url(digest);
+};
+
+const buildZaloAuthorizationUrl = ({ appId, redirectUri, codeChallenge, state }) => {
+  const url = new URL("https://oauth.zaloapp.com/v4/permission");
+  url.search = new URLSearchParams({
+    app_id: appId,
+    redirect_uri: redirectUri,
+    code_challenge: codeChallenge,
+    state,
+  }).toString();
+  return url.toString();
+};
+
+const readZaloPkceSession = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawValue = window.sessionStorage.getItem(ZALO_PKCE_STORAGE_KEY);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch {
+    return null;
+  }
+};
+
+const storeZaloPkceSession = (value) => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(ZALO_PKCE_STORAGE_KEY, JSON.stringify(value));
+};
+
+const clearZaloPkceSession = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(ZALO_PKCE_STORAGE_KEY);
+};
+
+const resolveZaloRedirectUri = (pathname, configuredRedirectUri) => {
+  const normalizedConfiguredUri = String(configuredRedirectUri || "").trim();
+  if (normalizedConfiguredUri) {
+    return normalizedConfiguredUri;
+  }
+
+  if (typeof window === "undefined") return "";
+  return new URL(pathname || "/login", window.location.origin).toString();
+};
 
 const loadExternalScript = (id, src, options = {}) =>
   new Promise((resolve, reject) => {
@@ -136,7 +224,14 @@ const Login = () => {
   const [facebookReady, setFacebookReady] = useState(false);
   const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
   const facebookAppId = String(import.meta.env.VITE_FACEBOOK_APP_ID || "").trim();
-  const hasSocialProviders = Boolean(googleClientId || facebookAppId);
+  const zaloAppId = String(import.meta.env.VITE_ZALO_APP_ID || "").trim();
+  const zaloRedirectUri = resolveZaloRedirectUri(
+    location.pathname,
+    import.meta.env.VITE_ZALO_REDIRECT_URI
+  );
+  const hasSocialProviders = Boolean(
+    googleClientId || facebookAppId || zaloAppId
+  );
 
   const redirectAfterAuth = (targetPath) => {
     window.dispatchEvent(new CustomEvent("auth:changed"));
@@ -191,6 +286,71 @@ const Login = () => {
       navigate(['teacher', 'admin'].includes(user.role) ? "/admin" : "/");
     }
   }, [navigate, location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const authorizationCode = String(params.get("code") || "").trim();
+    const returnedState = String(params.get("state") || "").trim();
+    const errorReason = String(
+      params.get("error_reason") || params.get("error") || ""
+    ).trim();
+
+    if (!authorizationCode && !returnedState && !errorReason) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const completeZaloCallback = async () => {
+      const savedSession = readZaloPkceSession();
+      navigate(location.pathname, { replace: true });
+
+      if (errorReason) {
+        clearZaloPkceSession();
+        if (!cancelled) {
+          setMessage("Zalo login was cancelled.");
+        }
+        return;
+      }
+
+      const sessionAgeMs = Date.now() - Number(savedSession?.createdAt || 0);
+      if (
+        !authorizationCode ||
+        !returnedState ||
+        !savedSession?.state ||
+        savedSession.state !== returnedState ||
+        !savedSession?.codeVerifier ||
+        !savedSession?.redirectUri ||
+        sessionAgeMs > 15 * 60 * 1000
+      ) {
+        clearZaloPkceSession();
+        if (!cancelled) {
+          setMessage("Zalo login session expired. Please try again.");
+        }
+        return;
+      }
+
+      clearZaloPkceSession();
+      await socialLoginHandlerRef.current?.({
+        provider: "zalo",
+        authorizationCode,
+        codeVerifier: savedSession.codeVerifier,
+        redirectUri: savedSession.redirectUri,
+      });
+    };
+
+    completeZaloCallback().catch((err) => {
+      console.error("Unable to complete Zalo sign-in:", err);
+      clearZaloPkceSession();
+      if (!cancelled) {
+        setMessage("Zalo login is not available right now.");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!googleClientId) return undefined;
@@ -332,7 +492,14 @@ const Login = () => {
     }
   };
 
-  const handleSocialLogin = async ({ provider, credential, accessToken }) => {
+  const handleSocialLogin = async ({
+    provider,
+    credential,
+    accessToken,
+    authorizationCode,
+    codeVerifier,
+    redirectUri,
+  }) => {
     if (socialSubmittingRef.current || loading) return;
 
     try {
@@ -344,7 +511,14 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ provider, credential, accessToken }),
+        body: JSON.stringify({
+          provider,
+          credential,
+          accessToken,
+          authorizationCode,
+          codeVerifier,
+          redirectUri,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -367,6 +541,46 @@ const Login = () => {
   };
 
   socialLoginHandlerRef.current = handleSocialLogin;
+
+  const handleZaloLogin = async () => {
+    if (loading || socialSubmittingRef.current) return;
+    if (!zaloAppId) {
+      setMessage("Zalo login is not available right now.");
+      return;
+    }
+
+    if (!zaloRedirectUri) {
+      setMessage("Zalo login redirect is not configured.");
+      return;
+    }
+
+    try {
+      const codeVerifier = createRandomToken(64);
+      const codeChallenge = await createZaloCodeChallenge(codeVerifier);
+      const state = createRandomToken(32);
+
+      storeZaloPkceSession({
+        state,
+        codeVerifier,
+        redirectUri: zaloRedirectUri,
+        createdAt: Date.now(),
+      });
+
+      setMessage("");
+      window.location.assign(
+        buildZaloAuthorizationUrl({
+          appId: zaloAppId,
+          redirectUri: zaloRedirectUri,
+          codeChallenge,
+          state,
+        })
+      );
+    } catch (err) {
+      console.error("Unable to initialize Zalo sign-in:", err);
+      clearZaloPkceSession();
+      setMessage("Zalo login is not available right now.");
+    }
+  };
 
   const handleFacebookLogin = () => {
     if (loading || socialSubmittingRef.current) return;
@@ -669,6 +883,27 @@ const Login = () => {
                     <span>
                       {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
                     </span>
+                  </span>
+                </button>
+              ) : null}
+
+              {zaloAppId ? (
+                <button
+                  type="button"
+                  className="login-page-socialButton login-page-socialButton--zalo"
+                  onClick={handleZaloLogin}
+                  disabled={loading}
+                >
+                  <span className="login-page-socialButtonContent">
+                    <span className="login-page-socialIconBadge login-page-socialIconBadge--zalo">
+                      <InlineIcon
+                        name="zalo"
+                        size={18}
+                        style={{ color: "#0068ff" }}
+                        className="login-page-socialIcon login-page-socialIcon--zalo"
+                      />
+                    </span>
+                    <span>Continue with Zalo</span>
                   </span>
                 </button>
               ) : null}

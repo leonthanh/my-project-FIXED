@@ -37,6 +37,9 @@ Workflow hiện tại đọc các secrets sau trong GitHub Actions:
 | EMAIL_USER | Tài khoản email dùng ở production |
 | EMAIL_PASS | Mật khẩu hoặc app password email production |
 | EMAIL_TO | Email nhận thông báo mặc định |
+| VITE_ZALO_APP_ID | App ID Zalo dùng để render nút đăng nhập nhanh ở frontend |
+| ZALO_APP_ID | App ID Zalo dùng để đổi authorization code ở backend |
+| ZALO_APP_SECRET | App Secret Zalo giữ ở backend để đổi code và gửi `appsecret_proof` |
 | OPENAI_API_KEY | OpenAI key cho tính năng AI ở production |
 | GEMINI_API_KEY | Gemini key cho tính năng AI ở production |
 

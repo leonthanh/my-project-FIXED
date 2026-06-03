@@ -194,6 +194,10 @@ body {
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
+.login-page-socialIconBadge--zalo {
+  background: linear-gradient(180deg, #ffffff 0%, #e0f2ff 100%);
+}
+
 .login-page-socialIcon {
   display: inline-flex;
   align-items: center;
@@ -220,6 +224,12 @@ body {
   transform: translateY(0.35px);
 }
 
+.login-page-socialIcon--zalo {
+  width: 19px;
+  height: 19px;
+  transform: translateY(0.15px);
+}
+
 .login-page-socialButton:disabled {
   cursor: wait;
   opacity: 0.76;
@@ -234,6 +244,11 @@ body {
 .login-page-socialButton--facebook {
   background: linear-gradient(135deg, #0f3f94 0%, #2563eb 62%, #3b82f6 100%);
   box-shadow: 0 16px 28px rgba(24, 119, 242, 0.24);
+}
+
+.login-page-socialButton--zalo {
+  background: linear-gradient(135deg, #0057d9 0%, #0b75ff 58%, #49a3ff 100%);
+  box-shadow: 0 16px 30px rgba(0, 104, 255, 0.24);
 }
 
 .login-page-toggleButton {

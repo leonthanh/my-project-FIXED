@@ -198,6 +198,27 @@ const LineIcon = ({ name, size = 18, strokeWidth = 1.9, className }) => {
           />
         </svg>
       );
+    case "zalo":
+      return (
+        <svg {...props} viewBox="0 0 24 24" fill="none" stroke="none">
+          <path
+            fill="currentColor"
+            opacity="0.12"
+            d="M5.75 4.5h12.5A1.75 1.75 0 0 1 20 6.25v8.5a1.75 1.75 0 0 1-1.75 1.75H10.3l-4.55 3.2v-3.2h-.01A1.74 1.74 0 0 1 4 14.75v-8.5A1.75 1.75 0 0 1 5.75 4.5Z"
+          />
+          <text
+            x="12"
+            y="14.6"
+            textAnchor="middle"
+            fontSize="7.4"
+            fontWeight="700"
+            fontFamily="Arial, sans-serif"
+            fill="currentColor"
+          >
+            Zalo
+          </text>
+        </svg>
+      );
     case "document":
       return (
         <svg {...props}>
