@@ -30,6 +30,10 @@ const User = sequelize.define(
       type: DataTypes.STRING(120),
       allowNull: true,
     },
+    zaloId: {
+      type: DataTypes.STRING(120),
+      allowNull: true,
+    },
     avatarUrl: {
       type: DataTypes.STRING(255),
       allowNull: true,

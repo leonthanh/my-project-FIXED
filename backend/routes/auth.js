@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const crypto = require('crypto');
 const fs = require('fs');
 const multer = require('multer');
 const nodemailer = require("nodemailer");
@@ -168,11 +169,13 @@ const getGoogleOAuthClient = () => {
 const socialProviderLabels = {
   google: 'Google',
   facebook: 'Facebook',
+  zalo: 'Zalo',
 };
 
 const socialProviderColumns = {
   google: 'googleId',
   facebook: 'facebookId',
+  zalo: 'zaloId',
 };
 
 const normalizeNullableTrimmedString = (value) => {
@@ -207,6 +210,10 @@ const getConfiguredGoogleClientIds = () => {
     .map((value) => value.trim())
     .filter(Boolean);
 };
+
+const getConfiguredZaloAppId = () => String(process.env.ZALO_APP_ID || '').trim();
+
+const getConfiguredZaloAppSecret = () => String(process.env.ZALO_APP_SECRET || '').trim();
 
 const normalizeSocialAvatarUrl = (value) => {
   const normalized = String(value || '').trim();
@@ -243,6 +250,7 @@ const buildLinkedProvidersLabel = (user) => {
   const providers = [
     user.googleId ? socialProviderLabels.google : null,
     user.facebookId ? socialProviderLabels.facebook : null,
+    user.zaloId ? socialProviderLabels.zalo : null,
   ].filter(Boolean);
 
   if (!providers.length) return 'your linked provider';
@@ -463,6 +471,106 @@ const verifyFacebookAccessToken = async (accessToken) => {
   };
 };
 
+const buildZaloAppSecretProof = (accessToken) => {
+  const appSecret = getConfiguredZaloAppSecret();
+  if (!appSecret || !accessToken) {
+    return null;
+  }
+
+  return crypto
+    .createHmac('sha256', appSecret)
+    .update(accessToken)
+    .digest('hex');
+};
+
+const verifyZaloAccessToken = async (accessToken) => {
+  const headers = {
+    access_token: accessToken,
+  };
+
+  const appSecretProof = buildZaloAppSecretProof(accessToken);
+  if (appSecretProof) {
+    headers.appsecret_proof = appSecretProof;
+  }
+
+  const profileUrl = new URL('https://graph.zalo.me/v2.0/me');
+  profileUrl.search = new URLSearchParams({
+    fields: 'id,name,picture',
+  }).toString();
+
+  const profilePayload = await fetchJsonOrThrow(
+    profileUrl,
+    'Unable to load Zalo profile.',
+    { headers }
+  );
+
+  const providerUserId = trimStringValue(profilePayload?.id);
+  if (!providerUserId) {
+    throw AppError.unauthorized('Zalo account verification failed.');
+  }
+
+  return {
+    provider: 'zalo',
+    providerUserId,
+    email: null,
+    name: trimStringValue(profilePayload?.name || 'Zalo user'),
+    avatarUrl: normalizeSocialAvatarUrl(
+      profilePayload?.picture?.data?.url ||
+        profilePayload?.picture?.url ||
+        profilePayload?.picture
+    ),
+    emailVerified: false,
+  };
+};
+
+const verifyZaloAuthorizationCode = async ({ authorizationCode, codeVerifier, redirectUri }) => {
+  const appId = getConfiguredZaloAppId();
+  if (!appId) {
+    throw AppError.badRequest('Zalo login is not configured on the server.');
+  }
+
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  const appSecret = getConfiguredZaloAppSecret();
+  if (appSecret) {
+    headers.secret_key = appSecret;
+  }
+
+  const requestBody = new URLSearchParams({
+    app_id: appId,
+    grant_type: 'authorization_code',
+    code: authorizationCode,
+    code_verifier: codeVerifier,
+  });
+  if (redirectUri) {
+    requestBody.set('redirect_uri', redirectUri);
+  }
+
+  let response;
+  try {
+    response = await fetch('https://oauth.zaloapp.com/v4/access_token', {
+      method: 'POST',
+      headers,
+      body: requestBody.toString(),
+    });
+  } catch (err) {
+    logWarn('Zalo token exchange request failed', err);
+    throw AppError.unauthorized('Zalo account verification failed.');
+  }
+
+  const tokenPayload = await response.json().catch(() => null);
+  if (!response.ok || !tokenPayload?.access_token) {
+    logWarn('Zalo token exchange failed', {
+      statusCode: response.status,
+      payload: tokenPayload,
+    });
+    throw AppError.unauthorized('Zalo account verification failed.');
+  }
+
+  return verifyZaloAccessToken(tokenPayload.access_token);
+};
+
 const nullableEmailSchema = z.preprocess(
   normalizeNullableTrimmedString,
   z.string().email().max(100).nullable()
@@ -601,9 +709,12 @@ const registerSchema = z.object({
 });
 
 const socialLoginSchema = z.object({
-  provider: z.enum(['google', 'facebook']),
+  provider: z.enum(['google', 'facebook', 'zalo']),
   credential: z.string().min(1).optional(),
   accessToken: z.string().min(1).optional(),
+  authorizationCode: z.string().min(1).optional(),
+  codeVerifier: z.string().min(43).max(128).optional(),
+  redirectUri: z.string().url().optional(),
 }).superRefine((value, ctx) => {
   if (value.provider === 'google' && !value.credential && !value.accessToken) {
     ctx.addIssue({
@@ -618,6 +729,30 @@ const socialLoginSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ['accessToken'],
       message: 'Facebook access token is required.',
+    });
+  }
+
+  if (value.provider === 'zalo' && !value.authorizationCode) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['authorizationCode'],
+      message: 'Zalo authorization code is required.',
+    });
+  }
+
+  if (value.provider === 'zalo' && !value.codeVerifier) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['codeVerifier'],
+      message: 'Zalo PKCE code verifier is required.',
+    });
+  }
+
+  if (value.provider === 'zalo' && !value.redirectUri) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['redirectUri'],
+      message: 'Zalo redirect URI is required.',
     });
   }
 });
@@ -990,12 +1125,29 @@ router.post(
   validate({ body: socialLoginSchema }),
   async (req, res, next) => {
     try {
-      const { provider, credential, accessToken } = req.body;
-      const socialProfile = provider === 'google'
-        ? credential
+      const {
+        provider,
+        credential,
+        accessToken,
+        authorizationCode,
+        codeVerifier,
+        redirectUri,
+      } = req.body;
+
+      let socialProfile;
+      if (provider === 'google') {
+        socialProfile = credential
           ? await verifyGoogleCredential(credential)
-          : await verifyGoogleAccessToken(accessToken)
-        : await verifyFacebookAccessToken(accessToken);
+          : await verifyGoogleAccessToken(accessToken);
+      } else if (provider === 'facebook') {
+        socialProfile = await verifyFacebookAccessToken(accessToken);
+      } else {
+        socialProfile = await verifyZaloAuthorizationCode({
+          authorizationCode,
+          codeVerifier,
+          redirectUri,
+        });
+      }
 
       const { user, created, linkedExistingAccount } = await resolveSocialUser(socialProfile);
       const tokens = await issueTokens({ user, req, res });

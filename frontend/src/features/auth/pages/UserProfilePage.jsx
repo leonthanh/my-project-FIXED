@@ -197,7 +197,9 @@ const UserProfilePage = () => {
   const emailDirty = normalizeProfileForm(profileForm).email !== String(currentUser?.email || '').trim();
   const currentPhone = String(currentUser?.phone || '').trim();
   const profilePhone = String(profileForm.phone || '').trim();
-  const hasSocialProvider = Boolean(currentUser?.googleId || currentUser?.facebookId);
+  const hasSocialProvider = Boolean(
+    currentUser?.googleId || currentUser?.facebookId || currentUser?.zaloId
+  );
   const canEditPhone = canEditProfile && !currentPhone;
   const requiresPhoneCompletion = canEditPhone && hasSocialProvider;
   const phoneDisplayValue = currentPhone || profilePhone;
@@ -700,7 +702,7 @@ const UserProfilePage = () => {
             <strong>Bổ sung số điện thoại</strong>
             <span>
               {requiresPhoneCompletion
-                ? 'Tài khoản đăng nhập bằng Google hoặc Facebook cần cung cấp số điện thoại một lần. Sau khi lưu thành công, trường này sẽ tự khóa.'
+                ? 'Tài khoản đăng nhập bằng Google, Facebook hoặc Zalo cần cung cấp số điện thoại một lần. Sau khi lưu thành công, trường này sẽ tự khóa.'
                 : 'Bạn có thể bổ sung số điện thoại một lần trên trang hồ sơ này. Sau khi lưu thành công, trường này sẽ tự khóa.'}
             </span>
           </div>
