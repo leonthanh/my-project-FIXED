@@ -15,6 +15,7 @@ const DoCambridgeTestEntry = lazy(() => import('../../domains/cambridge/shared/p
 
 export const buildCoreRoutes = ({ isAuthenticated }) => [
   <Route key="login" path="/login" element={<Login />} />,
+  <Route key="login-zalo" path="/login/zalo" element={<Login />} />,
   <Route key="placement-test" path="/placement-test" element={<PlacementEntry />} />,
   <Route key="placement-test-share" path="/placement-test/:shareToken" element={<PlacementEntry />} />,
   <Route key="placement-attempt" path="/placement-attempt/:attemptToken" element={<PlacementAttempt />} />,
