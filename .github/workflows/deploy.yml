@@ -20,6 +20,7 @@ env:
   VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
   VITE_FACEBOOK_APP_ID: ${{ secrets.VITE_FACEBOOK_APP_ID }}
   VITE_ZALO_APP_ID: ${{ secrets.VITE_ZALO_APP_ID }}
+  VITE_ZALO_REDIRECT_URI: ${{ secrets.VITE_ZALO_REDIRECT_URI }}
   GOOGLE_CLIENT_IDS: ${{ secrets.GOOGLE_CLIENT_IDS }}
   FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
   FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
@@ -115,6 +116,7 @@ jobs:
           echo "VITE_GOOGLE_CLIENT_ID=${{ env.VITE_GOOGLE_CLIENT_ID }}" >> .env.production
           echo "VITE_FACEBOOK_APP_ID=${{ env.VITE_FACEBOOK_APP_ID }}" >> .env.production
           echo "VITE_ZALO_APP_ID=${{ env.VITE_ZALO_APP_ID }}" >> .env.production
+          echo "VITE_ZALO_REDIRECT_URI=${{ env.VITE_ZALO_REDIRECT_URI }}" >> .env.production
           echo "VITE_TEST_TIMER_GRACE_SECONDS=0" >> .env.production
           cp .env.production .env
           npm ci --prefer-offline --no-audit --no-progress || exit 1
