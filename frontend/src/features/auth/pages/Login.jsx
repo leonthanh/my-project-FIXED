@@ -804,6 +804,7 @@ const Login = () => {
           alignItems: "center",
           justifyContent: "center",
           padding: "20px",
+          background: "radial-gradient(circle at 12% 14%, rgba(0, 86, 225, 0.18), transparent 22%), radial-gradient(circle at 88% 18%, rgba(6, 251, 170, 0.16), rgba(221, 18, 18, 0) 18%), radial-gradient(circle at 82% 78%, rgba(249, 115, 22, 0.14), transparent 18%), linear-gradient(177deg, #2563eb 0%, rgb(255 255 255) 48%, rgb(255 255 255) 100%)",
         }}
       >
         <div
