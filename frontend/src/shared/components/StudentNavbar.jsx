@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiPath, hostPath, clearAuth } from "../utils/api";
+import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import { IX_HUB_PATH, ORANGE_HUB_PATH } from "../config/examRegistry";
 import ThemeToggle from "./ThemeToggle";
@@ -402,10 +402,7 @@ const StudentNavbar = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
-    } catch (_) { /* ignore network errors on logout */ }
-    clearAuth();
+    await logoutAuthSession();
     navigate('/login');
   };
 

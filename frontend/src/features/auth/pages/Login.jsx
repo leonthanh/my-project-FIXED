@@ -5,8 +5,13 @@ import LineIcon from "../../../shared/components/LineIcon";
 import {
   API_BASE,
   clearAuth,
+  clearRecentLoggedOutUser,
+  disconnectSocialProviderSession,
   getStoredUser,
   hasStoredSession,
+  isRecentlyLoggedOutUser,
+  rememberRecentLogout,
+  rememberSocialLoginSession,
   storeAuthSession,
 } from "../../../shared/utils/api";
 
@@ -36,7 +41,7 @@ const createRandomToken = (length = 64) => {
 };
 
 const encodeBase64Url = (buffer) => {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  const bytes = buffer instanceof Uint8Array? buffer : new Uint8Array(buffer);
   let binary = "";
 
   bytes.forEach((value) => {
@@ -59,23 +64,40 @@ const createZaloCodeChallenge = async (codeVerifier) => {
   return encodeBase64Url(digest);
 };
 
-const buildZaloAuthorizationUrl = ({ appId, redirectUri, codeChallenge, state }) => {
+const buildZaloAuthorizationUrl = ({
+  appId,
+  redirectUri,
+  codeChallenge,
+  state,
+  forceLogin = false,
+}) => {
   const url = new URL("https://oauth.zaloapp.com/v4/permission");
-  url.search = new URLSearchParams({
+  const params = new URLSearchParams({
     app_id: appId,
     redirect_uri: redirectUri,
     code_challenge: codeChallenge,
     state,
-  }).toString();
+  });
+
+  if (forceLogin) {
+    // PATCH: 3 tham số này là tối đa Zalo cho phép để ép hiện QR
+    params.set("prompt", "login consent");
+    params.set("display", "popup");
+    params.set("auth_type", "reauthenticate");
+    // Bỏ force_login=1 vì Zalo v4 không dùng
+  }
+
+  url.search = params.toString();
   return url.toString();
 };
+
 
 const readZaloPkceSession = () => {
   if (typeof window === "undefined") return null;
 
   try {
     const rawValue = window.sessionStorage.getItem(ZALO_PKCE_STORAGE_KEY);
-    return rawValue ? JSON.parse(rawValue) : null;
+    return rawValue? JSON.parse(rawValue) : null;
   } catch {
     return null;
   }
@@ -154,7 +176,7 @@ const InlineIcon = ({ name, size = 16, style, className }) => (
       height: size,
       lineHeight: 0,
       flex: "0 0 auto",
-      ...style,
+     ...style,
     }}
     aria-hidden="true"
   >
@@ -196,18 +218,21 @@ const translateAuthMessage = (message) => {
   return AUTH_MESSAGE_TRANSLATIONS[normalizedMessage] || normalizedMessage;
 };
 
+const getAuthErrorMessage = (data) =>
+  translateAuthMessage(data?.message || data?.error?.message || "");
+
 const Login = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState(""); // Thêm state cho email
-  const [password, setPassword] = useState(""); // Thêm state cho mật khẩu
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPhone, setResetPhone] = useState("");
   const [resetVerificationCode, setResetVerificationCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [isLoginMode, setIsLoginMode] = useState(true); // Tab mode: true = Login, false = Register
+  const [isLoginMode, setIsLoginMode] = useState(true);
   const loginPhoneRef = useRef(null);
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
@@ -250,6 +275,8 @@ const Login = () => {
   };
 
   const completeAuthFlow = (data) => {
+    clearRecentLoggedOutUser();
+
     storeAuthSession({
       user: data.user,
       accessToken: data.accessToken,
@@ -266,24 +293,24 @@ const Login = () => {
     }
 
     redirectAfterAuth(
-      ["teacher", "admin"].includes(data.user.role) ? "/admin" : "/"
+      ["teacher", "admin"].includes(data.user.role)? "/admin" : "/"
     );
   };
 
+
   useEffect(() => {
-    // Show session-expired message if redirected due to token expiry
     const params = new URLSearchParams(location.search);
     if (params.get('reason') === 'expired') {
       setMessage('Your session has expired. Please sign in again.');
     }
     let user = getStoredUser();
     const hasToken = hasStoredSession();
-    if (user && !hasToken) {
+    if (user &&!hasToken) {
       clearAuth();
       user = null;
     }
-    if (user && hasToken && params.get('reason') !== 'expired') {
-      navigate(['teacher', 'admin'].includes(user.role) ? "/admin" : "/");
+    if (user && hasToken && params.get('reason')!== 'expired') {
+      navigate(['teacher', 'admin'].includes(user.role)? "/admin" : "/");
     }
   }, [navigate, location.search]);
 
@@ -295,7 +322,7 @@ const Login = () => {
       params.get("error_reason") || params.get("error") || ""
     ).trim();
 
-    if (!authorizationCode && !returnedState && !errorReason) {
+    if (!authorizationCode &&!returnedState &&!errorReason) {
       return undefined;
     }
 
@@ -315,12 +342,12 @@ const Login = () => {
 
       const sessionAgeMs = Date.now() - Number(savedSession?.createdAt || 0);
       if (
-        !authorizationCode ||
-        !returnedState ||
-        !savedSession?.state ||
-        savedSession.state !== returnedState ||
-        !savedSession?.codeVerifier ||
-        !savedSession?.redirectUri ||
+       !authorizationCode ||
+       !returnedState ||
+       !savedSession?.state ||
+        savedSession.state!== returnedState ||
+       !savedSession?.codeVerifier ||
+       !savedSession?.redirectUri ||
         sessionAgeMs > 15 * 60 * 1000
       ) {
         clearZaloPkceSession();
@@ -364,7 +391,7 @@ const Login = () => {
           "https://accounts.google.com/gsi/client"
         );
 
-        if (cancelled || !window.google?.accounts?.oauth2) {
+        if (cancelled ||!window.google?.accounts?.oauth2) {
           return;
         }
 
@@ -422,7 +449,7 @@ const Login = () => {
           );
         }
 
-        if (cancelled || !window.FB?.init) {
+        if (cancelled ||!window.FB?.init) {
           return;
         }
 
@@ -451,13 +478,11 @@ const Login = () => {
 
   const handleLogin = async () => {
     if (loginSubmittingRef.current) return;
-    // Logic đăng nhập: chỉ cần phone và password
-    if (!phone.trim() || !password.trim()) {
+    if (!phone.trim() ||!password.trim()) {
       setMessage("Please enter both phone number and password.");
       return;
     }
 
-    // Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
@@ -474,14 +499,14 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone, password }), // Chỉ gửi phone và password
+        body: JSON.stringify({ phone, password }),
       });
 
       const data = await res.json();
       if (res.ok) {
         completeAuthFlow(data);
       } else {
-        setMessage(translateAuthMessage(data.message));
+        setMessage(getAuthErrorMessage(data));
       }
     } catch (err) {
       setMessage("Unable to connect to the server.");
@@ -523,12 +548,35 @@ const Login = () => {
 
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        rememberSocialLoginSession({ provider, accessToken });
+
+        if (isRecentlyLoggedOutUser(data.user, provider)) {
+          try {
+            await fetch(`${API_BASE}/auth/logout`, {
+              method: "POST",
+              credentials: "include",
+            });
+          } catch (_err) {
+            // The local guard still prevents accidental same-account reuse.
+          }
+
+          rememberRecentLogout(data.user, provider);
+          await disconnectSocialProviderSession();
+          clearAuth();
+          setMessage(
+            provider === "zalo"
+             ? "Zalo is still returning the account that just signed out. Please scan the QR code again with the next student's Zalo account."
+              : `This browser just signed out of that ${provider} account. Please choose a different account for the next student or teacher.`
+          );
+          return;
+        }
+
         completeAuthFlow(data);
         return;
       }
 
       setMessage(
-        translateAuthMessage(data.message) ||
+        getAuthErrorMessage(data) ||
           `Unable to sign in with ${provider}. Please try again.`
       );
     } catch (err) {
@@ -555,6 +603,7 @@ const Login = () => {
     }
 
     try {
+      clearZaloPkceSession();
       const codeVerifier = createRandomToken(64);
       const codeChallenge = await createZaloCodeChallenge(codeVerifier);
       const state = createRandomToken(32);
@@ -573,6 +622,7 @@ const Login = () => {
           redirectUri: zaloRedirectUri,
           codeChallenge,
           state,
+          forceLogin: true,
         })
       );
     } catch (err) {
@@ -584,7 +634,7 @@ const Login = () => {
 
   const handleFacebookLogin = () => {
     if (loading || socialSubmittingRef.current) return;
-    if (!facebookReady || !window.FB?.login) {
+    if (!facebookReady ||!window.FB?.login) {
       setMessage("Facebook login is not available right now.");
       return;
     }
@@ -610,8 +660,8 @@ const Login = () => {
     if (loading || socialSubmittingRef.current) return;
 
     if (
-      !googleReady ||
-      typeof googleTokenClientRef.current?.requestAccessToken !== "function"
+     !googleReady ||
+      typeof googleTokenClientRef.current?.requestAccessToken!== "function"
     ) {
       setMessage("Google login is not available right now.");
       return;
@@ -625,22 +675,19 @@ const Login = () => {
 
   const handleRegister = async () => {
     if (registerSubmittingRef.current || loading) return;
-    // Logic đăng ký: cần name, phone, email và password
-    if (!name.trim() || !phone.trim() || !email.trim() || !password.trim()) {
+    if (!name.trim() ||!phone.trim() ||!email.trim() ||!password.trim()) {
       setMessage(
         "Please enter your full name, phone number, email, and password."
       );
       return;
     }
 
-    // Kiểm tra email hợp lệ
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       setMessage("Invalid email address. Please enter a valid email.");
       return;
     }
 
-    // Kiểm tra số điện thoại Việt Nam (đầu số thực tế)
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
     if (!vnPhoneRegex.test(phone.trim())) {
       setMessage(
@@ -652,8 +699,6 @@ const Login = () => {
     try {
       registerSubmittingRef.current = true;
       setLoading(true);
-      // Log API_URL để kiểm tra đúng endpoint chưa
-      // (debug log removed)
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,9 +713,8 @@ const Login = () => {
           refreshToken: data.refreshToken,
         });
         setMessage(translateAuthMessage(data.message));
-        redirectAfterAuth(['teacher', 'admin'].includes(data.user.role) ? "/admin" : "/");
+        redirectAfterAuth(['teacher', 'admin'].includes(data.user.role)? "/admin" : "/");
       } else {
-        // Hiển thị status code và message để dễ debug
         setMessage(
           `[${res.status}] ${
             translateAuthMessage(data.message) || "Registration failed. Please try again later."
@@ -691,10 +735,10 @@ const Login = () => {
 
   const handleResetPassword = async () => {
     if (
-      !resetPhone.trim() ||
-      !resetVerificationCode.trim() ||
-      !resetPassword.trim() ||
-      !resetConfirmPassword.trim()
+     !resetPhone.trim() ||
+     !resetVerificationCode.trim() ||
+     !resetPassword.trim() ||
+     !resetConfirmPassword.trim()
     ) {
       alert("Please complete all fields.");
       return;
@@ -706,7 +750,7 @@ const Login = () => {
       return;
     }
 
-    if (resetPassword !== resetConfirmPassword) {
+    if (resetPassword!== resetConfirmPassword) {
       alert("Passwords do not match.");
       return;
     }
@@ -756,10 +800,6 @@ const Login = () => {
       const data = await res.json();
       if (res.ok) {
         alert(translateAuthMessage(data.message));
-        // Dev mode: OTP available in response (not logged)
-        if (data.testOtp) {
-          /* OTP test available in dev response */
-        }
       } else {
         alert(translateAuthMessage(data.message));
       }
@@ -770,19 +810,19 @@ const Login = () => {
   };
 
   const handleLoginPhoneKeyDown = (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key!== "Enter") return;
     e.preventDefault();
     loginPasswordRef.current?.focus();
   };
 
   const handleLoginPasswordKeyDown = (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key!== "Enter") return;
     e.preventDefault();
     handleLogin();
   };
 
   const handleLoginButtonKeyDown = (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key!== "Enter") return;
     e.preventDefault();
     handleLogin();
   };
@@ -837,18 +877,18 @@ const Login = () => {
             </p>
           </div>
 
-          {hasSocialProviders ? (
+          {hasSocialProviders? (
             <div className="login-page-socialSection">
               <div className="login-page-socialDivider">
                 <span>Continue faster</span>
               </div>
 
-              {googleClientId ? (
+              {googleClientId? (
                 <button
                   type="button"
                   className="login-page-socialButton login-page-socialButton--google"
                   onClick={handleGoogleLogin}
-                  disabled={loading || !googleReady}
+                  disabled={loading ||!googleReady}
                 >
                   <span className="login-page-socialButtonContent">
                     <span className="login-page-socialIconBadge login-page-socialIconBadge--google">
@@ -859,18 +899,18 @@ const Login = () => {
                       />
                     </span>
                     <span>
-                      {googleReady ? "Sign in with Google" : "Loading Google..."}
+                      {googleReady? "Sign in with Google" : "Loading Google..."}
                     </span>
                   </span>
                 </button>
               ) : null}
 
-              {facebookAppId ? (
+              {facebookAppId? (
                 <button
                   type="button"
                   className="login-page-socialButton login-page-socialButton--facebook"
                   onClick={handleFacebookLogin}
-                  disabled={loading || !facebookReady}
+                  disabled={loading ||!facebookReady}
                 >
                   <span className="login-page-socialButtonContent">
                     <span className="login-page-socialIconBadge login-page-socialIconBadge--facebook">
@@ -882,13 +922,13 @@ const Login = () => {
                       />
                     </span>
                     <span>
-                      {facebookReady ? "Continue with Facebook" : "Loading Facebook..."}
+                      {facebookReady? "Continue with Facebook" : "Loading Facebook..."}
                     </span>
                   </span>
                 </button>
               ) : null}
 
-              {zaloAppId ? (
+              {zaloAppId? (
                 <button
                   type="button"
                   className="login-page-socialButton login-page-socialButton--zalo"
@@ -911,26 +951,24 @@ const Login = () => {
             </div>
           ) : null}
 
-          {/* Tab Switcher */}
           <div className="login-page-toggleGroup">
             <button
               type="button"
               onClick={() => setIsLoginMode(true)}
-              className={`login-page-toggleButton${isLoginMode ? " login-page-toggleButton--active" : ""}`}
+              className={`login-page-toggleButton${isLoginMode? " login-page-toggleButton--active" : ""}`}
             >
               <span>Login</span>
             </button>
             <button
               type="button"
               onClick={() => setIsLoginMode(false)}
-              className={`login-page-toggleButton${!isLoginMode ? " login-page-toggleButton--active" : ""}`}
+              className={`login-page-toggleButton${!isLoginMode? " login-page-toggleButton--active" : ""}`}
             >
               <span>Register</span>
             </button>
           </div>
 
-          {/* Login Form */}
-          {isLoginMode ? (
+          {isLoginMode? (
             <>
               <input
                 ref={loginPhoneRef}
@@ -959,7 +997,7 @@ const Login = () => {
                 className="login-page-primaryButton"
                 disabled={loading}
               >
-                <span>{loading ? "Signing in..." : "Login"}</span>
+                <span>{loading? "Signing in..." : "Login"}</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
@@ -984,7 +1022,6 @@ const Login = () => {
             </>
           ) : (
             <>
-              {/* Register Form */}
               <input
                 type="text"
                 placeholder="Full Name"
@@ -1050,7 +1087,7 @@ const Login = () => {
                 className="login-page-primaryButton"
                 disabled={loading}
               >
-                <span>{loading ? "Creating account..." : "Register"}</span>
+                <span>{loading? "Creating account..." : "Register"}</span>
               </button>
 
               <p style={{ color: "#d00", margin: "10px 0" }}>{message}</p>
