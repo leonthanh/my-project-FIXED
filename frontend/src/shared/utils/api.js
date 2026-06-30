@@ -98,6 +98,160 @@ function storeAuthSession({ user, accessToken, refreshToken }) {
   }
 }
 
+const SOCIAL_AUTH_SESSION_KEY = "auth:social:last";
+const RECENT_LOGOUT_KEY = "auth:recentLogout";
+const RECENT_LOGOUT_BLOCK_MS = 12 * 60 * 60 * 1000;
+
+function readJsonStorage(storage, key) {
+  try {
+    const rawValue = storage.getItem(key);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch (_err) {
+    storage.removeItem(key);
+    return null;
+  }
+}
+
+function rememberSocialLoginSession({ provider, accessToken } = {}) {
+  if (typeof window === "undefined" || !provider) return;
+
+  sessionStorage.setItem(
+    SOCIAL_AUTH_SESSION_KEY,
+    JSON.stringify({
+      provider,
+      accessToken: accessToken || "",
+      rememberedAt: Date.now(),
+    })
+  );
+}
+
+function getRememberedSocialLoginSession() {
+  if (typeof window === "undefined") return null;
+  return readJsonStorage(sessionStorage, SOCIAL_AUTH_SESSION_KEY);
+}
+
+function clearRememberedSocialLoginSession() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(SOCIAL_AUTH_SESSION_KEY);
+  sessionStorage.removeItem("auth:zalo:pkce");
+}
+
+function rememberRecentLogout(user = getStoredUser(), provider = "") {
+  if (typeof window === "undefined" || !user?.id) return;
+
+  localStorage.setItem(
+    RECENT_LOGOUT_KEY,
+    JSON.stringify({
+      userId: user.id,
+      provider: String(provider || "").trim().toLowerCase(),
+      loggedOutAt: Date.now(),
+    })
+  );
+}
+
+function getRecentLoggedOutUser(maxAgeMs = RECENT_LOGOUT_BLOCK_MS) {
+  if (typeof window === "undefined") return null;
+
+  const record = readJsonStorage(localStorage, RECENT_LOGOUT_KEY);
+  const loggedOutAt = Number(record?.loggedOutAt || 0);
+
+  if (!record?.userId || !loggedOutAt || Date.now() - loggedOutAt > maxAgeMs) {
+    localStorage.removeItem(RECENT_LOGOUT_KEY);
+    return null;
+  }
+
+  return record;
+}
+
+function isRecentlyLoggedOutUser(user, provider = "", maxAgeMs = RECENT_LOGOUT_BLOCK_MS) {
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
+  const record = getRecentLoggedOutUser(maxAgeMs);
+  if (!record || !user?.id) return false;
+  if (record.provider && normalizedProvider && record.provider !== normalizedProvider) {
+    return false;
+  }
+
+  return String(record.userId) === String(user.id);
+}
+
+function clearRecentLoggedOutUser() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(RECENT_LOGOUT_KEY);
+}
+
+function revokeGoogleSocialSession(session) {
+  if (typeof window === "undefined") return Promise.resolve();
+
+  try {
+    window.google?.accounts?.id?.disableAutoSelect?.();
+  } catch (_err) {
+    // Best-effort cleanup only; app logout must still continue.
+  }
+
+  const token = String(session?.accessToken || "").trim();
+  const revoke = window.google?.accounts?.oauth2?.revoke;
+  if (!token || typeof revoke !== "function") return Promise.resolve();
+
+  return new Promise((resolve) => {
+    try {
+      revoke(token, () => resolve());
+    } catch (_err) {
+      resolve();
+    }
+  });
+}
+
+function logoutFacebookSocialSession() {
+  if (typeof window === "undefined" || !window.FB?.getLoginStatus) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    try {
+      window.FB.getLoginStatus((statusResponse) => {
+        if (statusResponse?.status !== "connected" || !window.FB?.logout) {
+          resolve();
+          return;
+        }
+
+        window.FB.logout(() => resolve());
+      });
+    } catch (_err) {
+      resolve();
+    }
+  });
+}
+
+async function disconnectSocialProviderSession() {
+  const socialSession = getRememberedSocialLoginSession();
+  clearRememberedSocialLoginSession();
+
+  await Promise.allSettled([
+    revokeGoogleSocialSession(socialSession),
+    logoutFacebookSocialSession(),
+  ]);
+}
+
+async function logoutAuthSession() {
+  const socialSession = getRememberedSocialLoginSession();
+  rememberRecentLogout(getStoredUser(), socialSession?.provider);
+  await disconnectSocialProviderSession();
+
+  try {
+    await fetch(apiPath("auth/logout"), {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (_err) {
+    // Ignore network errors on logout; local auth state still needs clearing.
+  }
+
+  clearAuth();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("auth:changed"));
+  }
+}
+
 function hasStoredSession() {
   return Boolean(getStoredUser()) && Boolean(getAuthValue("accessToken") || getAuthValue("refreshToken"));
 }
@@ -154,6 +308,7 @@ function clearAuth() {
   sessionStorage.removeItem("refreshToken");
   sessionStorage.removeItem("user");
   sessionStorage.removeItem("auth:lastRefreshAt");
+  clearRememberedSocialLoginSession();
 }
 
 /**
@@ -308,8 +463,14 @@ export {
   isAccessTokenUsable,
   clearAuth,
   forceLogout,
+  logoutAuthSession,
   getStoredUser,
   storeAuthSession,
+  rememberSocialLoginSession,
+  rememberRecentLogout,
+  isRecentlyLoggedOutUser,
+  clearRecentLoggedOutUser,
+  disconnectSocialProviderSession,
   hasStoredSession,
 };
 export default API_BASE;

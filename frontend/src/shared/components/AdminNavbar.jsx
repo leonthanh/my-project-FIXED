@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from "re
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
-import { apiPath, hostPath, clearAuth, getStoredUser } from "../utils/api";
+import { apiPath, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
 import resolveAuthUserDisplayName from "../utils/authUserDisplayName";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
@@ -561,12 +561,9 @@ const AdminNavbar = () => {
   }, [location.pathname]);
 
   const handleLogout = async () => {
-    try {
-      await fetch(apiPath('auth/logout'), { method: 'POST', credentials: 'include' });
-    } catch (_) { /* ignore network errors on logout */ }
     setDesktopDrawerMode(null);
     setMobileDrawerOpen(false);
-    clearAuth();
+    await logoutAuthSession();
     navigate('/login');
   };
 
