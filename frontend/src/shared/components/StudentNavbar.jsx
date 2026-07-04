@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import { IX_HUB_PATH, ORANGE_HUB_PATH } from "../config/examRegistry";
-import ThemeToggle from "./ThemeToggle";
 import "./StudentNavbar.css";
 
 const NavIcon = ({ name }) => {
@@ -505,7 +504,7 @@ const StudentNavbar = () => {
       <div className="studentNavbar__mobileMenuTop">
         <div className="studentNavbar__mobileMenuTitle">{user.name}</div>
         <div className="studentNavbar__mobileMenuHint">
-          Compact mobile menu for tests, feedback, appearance, and account actions.
+          Compact mobile menu for tests, feedback, and account actions.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
@@ -519,11 +518,6 @@ const StudentNavbar = () => {
             "See teacher comments and marked submissions",
             "feedback"
           )}
-        </div>
-
-        <div className="studentNavbar__mobileSectionTitle">Appearance</div>
-        <div className="studentNavbar__mobileThemeWrap">
-          <ThemeToggle style={{ width: "100%", justifyContent: "center" }} />
         </div>
 
         <div className="studentNavbar__mobileSectionTitle">Account</div>
@@ -824,7 +818,6 @@ const StudentNavbar = () => {
       </div>
 
       <div className="studentNavbar__right">
-        <ThemeToggle />
         <Link
           to="/profile"
           className={`studentNavbar__user${isProfileCurrent ? " studentNavbar__user--active" : ""}`}

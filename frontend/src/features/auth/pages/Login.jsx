@@ -850,12 +850,14 @@ const Login = () => {
         <div
           style={{
             background: "#fff",
-            padding: "30px",
+            padding: "0 30px",
             borderRadius: "12px",
             boxShadow: "0 0 20px rgba(0,0,0,0.1)",
             width: "100%",
             maxWidth: "360px",
             textAlign: "center",
+            marginTop: "-50px",
+
           }}
         >
           <h2 style={{ marginBottom: 20, fontWeight: 700, color: "#0e276f" }}>

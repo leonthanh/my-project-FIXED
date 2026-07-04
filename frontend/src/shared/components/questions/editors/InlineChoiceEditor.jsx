@@ -1,9 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import useQuillImageUpload from '../../../hooks/useQuillImageUpload';
 import InlineIcon from '../../InlineIcon.jsx';
 import InlineChoiceDisplay from '../displays/InlineChoiceDisplay';
+
+class InlineChoicePreviewBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('Inline choice preview crashed:', error);
+  }
+
+  componentDidUpdate(prevProps) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? null;
+    }
+
+    return this.props.children;
+  }
+}
 
 /**
  * InlineChoiceEditor - PET Part 5: Inline choice dropdowns in passage
@@ -19,6 +48,10 @@ const InlineChoiceEditor = ({
   const passageTitle = question?.passageTitle || '';
   const passage = question?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
+  const previewResetKey = useMemo(
+    () => JSON.stringify({ passageTitle, passageValue, blanks: question?.blanks || [] }),
+    [passageTitle, passageValue, question?.blanks]
+  );
 
   const buildDefaultOptions = () => ['', '', '', ''];
   const normalizeOptions = (options = []) => {
@@ -202,23 +235,32 @@ const InlineChoiceEditor = ({
               />
             )}
 
-            <InlineChoiceDisplay
-              section={{
-                id: 'inline-choice-preview',
-                passage: passageValue,
-                blanks,
-              }}
-              startingNumber={startingNumber}
-              onAnswerChange={(key, value) => {
-                setPreviewAnswers((prev) => ({
-                  ...prev,
-                  [key]: value,
-                }));
-              }}
-              answers={previewAnswers}
-              submitted={false}
-              answerKeyPrefix="inline-choice-preview"
-            />
+            <InlineChoicePreviewBoundary
+              resetKey={previewResetKey}
+              fallback={
+                <div style={styles.previewFallback}>
+                  Xem trước đang tạm ẩn trong lúc nội dung đoạn văn thay đổi. Nội dung giáo viên vừa nhập vẫn được giữ nguyên.
+                </div>
+              }
+            >
+              <InlineChoiceDisplay
+                section={{
+                  id: 'inline-choice-preview',
+                  passage: passageValue,
+                  blanks,
+                }}
+                startingNumber={startingNumber}
+                onAnswerChange={(key, value) => {
+                  setPreviewAnswers((prev) => ({
+                    ...prev,
+                    [key]: value,
+                  }));
+                }}
+                answers={previewAnswers}
+                submitted={false}
+                answerKeyPrefix="inline-choice-preview"
+              />
+            </InlineChoicePreviewBoundary>
           </div>
         </div>
       )}
@@ -370,6 +412,15 @@ const styles = {
     backgroundColor: '#ffffff',
     borderRadius: '10px',
     border: '1px solid #dbeafe',
+  },
+  previewFallback: {
+    padding: '14px 16px',
+    borderRadius: '10px',
+    border: '1px solid #bfdbfe',
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    fontSize: '13px',
+    lineHeight: 1.6,
   },
   previewTitle: {
     margin: '0 0 16px 0',

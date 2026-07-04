@@ -3,8 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import StudentNavbar from '../StudentNavbar';
 
-jest.mock('../ThemeToggle', () => () => <div data-testid="theme-toggle" />);
-
 describe('StudentNavbar profile navigation', () => {
   const originalFetch = global.fetch;
 

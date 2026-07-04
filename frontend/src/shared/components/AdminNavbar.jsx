@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import ThemeToggle from "./ThemeToggle";
 import { apiPath, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
 import resolveAuthUserDisplayName from "../utils/authUserDisplayName";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
@@ -1351,7 +1350,7 @@ const AdminNavbar = () => {
       <div className="adminNavbar__mobileMenuTop">
         <div className="adminNavbar__mobileMenuTitle">{user?.name || "Teacher"}</div>
         <div className="adminNavbar__mobileMenuHint">
-          Open the sections below to manage tests, review submissions, and switch appearance.
+          Open the sections below to manage tests, review submissions, and account actions.
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
@@ -1359,11 +1358,6 @@ const AdminNavbar = () => {
         <div className="adminNavbar__mobileQuickGrid">
           {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "review")}
           {renderMobileQuickLink("/select-test", "Test List", "Browse and edit available tests", "tests")}
-        </div>
-
-        <div className="adminNavbar__mobileSectionTitle">Appearance</div>
-        <div className="adminNavbar__mobileThemeWrap">
-          <ThemeToggle style={{ width: "100%", justifyContent: "center" }} />
         </div>
 
         <div className="adminNavbar__mobileSectionTitle">Account</div>
@@ -1722,7 +1716,6 @@ const AdminNavbar = () => {
 
       {/* Hiển thị tên giáo viên và nút logout */}
       <div className="adminNavbar__right">
-        <ThemeToggle />
         <Link
           to="/profile"
           className={`adminNavbar__teacherName${isProfileCurrent ? " adminNavbar__teacherName--active" : ""}`}

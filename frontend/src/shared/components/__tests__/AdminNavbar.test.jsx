@@ -3,8 +3,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import AdminNavbar from '../AdminNavbar';
 
-jest.mock('../ThemeToggle', () => () => <div data-testid="theme-toggle" />);
-
 jest.mock('../../utils/api', () => ({
   apiPath: jest.fn((path) => path),
   hostPath: jest.fn((path) => path),

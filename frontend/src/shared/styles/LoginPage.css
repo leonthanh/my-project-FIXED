@@ -6,8 +6,7 @@ footer {
   position: relative;
   width: 100%;
   background: #3586ff;
-  min-height: 120px;
-  padding: 20px 50px;
+  min-height: fit-content;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -15,8 +14,16 @@ footer {
   color: white;
   margin-top: auto;
   overflow: visible;
+  padding: 20px;
 }
-
+.copyright {
+  position: relative;
+  z-index: 5;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
 /* Ẩn scrollbar */
 body,
 html {
@@ -341,10 +348,10 @@ body {
 
 footer .wave {
   position: absolute;
-  top: -80px;
+  top: -60px;
   left: 0;
   width: 100%;
-  height: 100px;
+  height: 75px;
   background: url(https://i.ibb.co/rZt4Nhg/wave.png);
   background-size: 1000px 100px;
 }
