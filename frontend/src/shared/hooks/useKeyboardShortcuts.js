@@ -7,7 +7,6 @@ import { useEffect, useCallback } from "react";
  * @param {Function} handlers.onSave - Ctrl+S handler
  * @param {Function} handlers.onAddQuestion - Ctrl+N handler
  * @param {Function} handlers.onPreview - Ctrl+P handler
- * @param {Function} handlers.onToggleTheme - Ctrl+D handler
  * @param {boolean} enabled - Bật/tắt shortcuts
  */
 
@@ -51,15 +50,6 @@ const useKeyboardShortcuts = (handlers = {}, enabled = true) => {
         return;
       }
 
-      // Ctrl+D - Toggle dark mode
-      if (e.ctrlKey && e.key === "d") {
-        e.preventDefault();
-        if (handlers.onToggleTheme) {
-          handlers.onToggleTheme();
-        }
-        return;
-      }
-
       // Ctrl+B - Toggle sidebar (future feature)
       if (e.ctrlKey && e.key === "b") {
         e.preventDefault();
@@ -98,11 +88,6 @@ const useKeyboardShortcuts = (handlers = {}, enabled = true) => {
         key: "Ctrl+P",
         action: "Xem trước (Preview)",
         enabled: !!handlers.onPreview,
-      },
-      {
-        key: "Ctrl+D",
-        action: "Dark/Light mode",
-        enabled: !!handlers.onToggleTheme,
       },
       { key: "Esc", action: "Đóng modal", enabled: !!handlers.onCloseModal },
     ],

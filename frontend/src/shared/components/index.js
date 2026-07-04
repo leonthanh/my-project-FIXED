@@ -10,7 +10,6 @@ export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as TestHeader } from './TestHeader';
 
 // Theme & UX
-export { default as ThemeToggle } from './ThemeToggle';
 export { default as AutoSaveIndicator } from './AutoSaveIndicator';
 export { default as KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 export { default as IeltsTestEditorShell } from './IeltsTestEditorShell';
