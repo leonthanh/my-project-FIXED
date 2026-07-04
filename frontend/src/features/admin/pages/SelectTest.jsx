@@ -26,6 +26,21 @@ import {
   matchesOrangeTestType,
 } from '../../../domains/cambridge/config/navigation';
 import {
+  DEFAULT_BAY_SKILL,
+  DEFAULT_BAY_TYPE,
+  BAY_LEVEL_META,
+  BAY_SKILL_META,
+  BAY_SKILLS,
+} from '../../../domains/bay/config';
+import {
+  getBayCreatePath,
+  getBayEditPath,
+  getBayHubStateForTestType,
+  getBayStudentPath,
+  getBayTestConfig,
+  matchesBayTestType,
+} from '../../../domains/bay/config/navigation';
+import {
   PLATFORM_TABS,
   buildSelectTestPath,
   parseSelectTestSearch,
@@ -55,11 +70,13 @@ const SelectTest = () => {
     reading: [],
     listening: [],
     cambridge: [],
+    bay: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
   const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
+  const [activeBayTab, setActiveBayTab] = useState(DEFAULT_BAY_SKILL);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -89,12 +106,19 @@ const SelectTest = () => {
   const updateSelectRoute = (next = {}) => {
     const nextPlatform = next.platform || activePlatform || "ix";
 
+    let nextTab;
+    if (nextPlatform === "orange") {
+      nextTab = next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL;
+    } else if (nextPlatform === "bay") {
+      nextTab = next.tab || activeBayTab || DEFAULT_BAY_SKILL;
+    } else {
+      nextTab = next.tab || activeIxTab || DEFAULT_IX_SKILL;
+    }
+
     navigate(buildSelectTestPath({
       platform: nextPlatform,
       type: next.type || activeOrangeType || DEFAULT_ORANGE_TYPE,
-      tab: nextPlatform === "orange"
-        ? next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL
-        : next.tab || activeIxTab || DEFAULT_IX_SKILL,
+      tab: nextTab,
     }));
   };
 
@@ -125,12 +149,15 @@ const SelectTest = () => {
         const cambridgeWithWriting = cambridgeList.concat(
           petWriting.map((t) => ({ ...t, category: "writing", testType: "pet-writing" }))
         );
+        const orangeCambridge = cambridgeWithWriting.filter((t) => !matchesBayTestType(t?.testType));
+        const bayCambridge = cambridgeWithWriting.filter((t) => matchesBayTestType(t?.testType));
 
         setTests({
           writing: ieltsWriting,
           reading: Array.isArray(readingData) ? readingData : [],
           listening: Array.isArray(listeningData) ? listeningData : [],
-          cambridge: cambridgeWithWriting,
+          cambridge: orangeCambridge,
+          bay: bayCambridge,
         });
       } catch (err) {
         console.error("Failed to load tests:", err);
@@ -139,6 +166,7 @@ const SelectTest = () => {
           reading: [],
           listening: [],
           cambridge: [],
+          bay: [],
         });
       } finally {
         setLoading(false);
@@ -155,13 +183,14 @@ const SelectTest = () => {
     setActiveIxTab(nextState.ixTab);
     setActiveOrangeType(nextState.orangeType);
     setActiveOrangeTab(nextState.orangeTab);
+    setActiveBayTab(nextState.bayTab);
   }, [location.search]);
 
   useEffect(() => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab]);
+  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab, activeBayTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -252,6 +281,12 @@ const SelectTest = () => {
     navigate(getOrangeStudentPath(type, tab, test.id));
   };
 
+  const handleSelectBay = (test) => {
+    const rawTestType = String(test.testType || 'bay-reading').toLowerCase();
+    const { tab } = getBayHubStateForTestType(rawTestType);
+    navigate(getBayStudentPath(tab, test.id));
+  };
+
   const handleEdit = (testId, testType, test = null) => {
     if (testType === "writing") {
       if (test?.testType === "pet-writing") {
@@ -269,8 +304,17 @@ const SelectTest = () => {
         return;
       }
       const rawTestType = String(test.testType || '').toLowerCase();
+      if (matchesBayTestType(rawTestType)) {
+        const { tab } = getBayHubStateForTestType(rawTestType);
+        navigate(getBayEditPath(tab, testId));
+        return;
+      }
       const { type, tab } = getOrangeHubStateForTestType(rawTestType);
       navigate(getOrangeEditPath(type, tab, testId));
+    } else if (testType === "bay" && test) {
+      const rawTestType = String(test.testType || '').toLowerCase();
+      const { tab } = getBayHubStateForTestType(rawTestType);
+      navigate(getBayEditPath(tab, testId));
     }
   };
 
@@ -371,6 +415,19 @@ const SelectTest = () => {
 
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
   const orangeTotalCount = tests.cambridge?.length || 0;
+  const bayTotalCount = tests.bay?.length || 0;
+
+  const baySkillTabs = useMemo(
+    () => BAY_SKILLS.map((skill) => ({
+      key: skill.key,
+      label: skill.label,
+      count: (tests.bay || []).filter((test) => getCambridgeCategory(test) === skill.key).length,
+      icon: skill.icon,
+    })),
+    [tests.bay]
+  );
+
+  const bayConfig = useMemo(() => getBayTestConfig(activeBayTab), [activeBayTab]);
 
   const currentContext = useMemo(() => {
     if (activePlatform === "ix") {
@@ -379,6 +436,19 @@ const SelectTest = () => {
         displayType: activeIxTab,
         categoryForPermission: activeIxTab,
         isOrange: false,
+        isBay: false,
+      };
+    }
+
+    if (activePlatform === "bay") {
+      const selected = (tests.bay || []).filter((test) => getCambridgeCategory(test) === activeBayTab);
+
+      return {
+        list: selected,
+        displayType: "bay",
+        categoryForPermission: activeBayTab,
+        isOrange: false,
+        isBay: true,
       };
     }
 
@@ -394,8 +464,9 @@ const SelectTest = () => {
       displayType: "cambridge",
       categoryForPermission: activeOrangeTab,
       isOrange: true,
+      isBay: false,
     };
-  }, [activePlatform, activeIxTab, activeOrangeTab, tests, orangeFilteredByType]);
+  }, [activePlatform, activeIxTab, activeOrangeTab, activeBayTab, tests, orangeFilteredByType]);
 
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
@@ -410,16 +481,27 @@ const SelectTest = () => {
     [placementShareToken]
   );
   const activeOrangeLevel = getOrangeLevelMeta(activeOrangeType);
-  const currentSkillInfo = SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
-  const currentShelfTitle = activePlatform === "ix"
-    ? `IX ${currentSkillInfo.label}`
-    : `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
+  const currentSkillInfo =
+    activePlatform === "bay"
+      ? BAY_SKILL_META[activeBayTab] || BAY_SKILL_META.reading
+      : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
+  const currentShelfTitle = (() => {
+    if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
+    if (activePlatform === "bay") return `Cty Bay ${currentSkillInfo.label}`;
+    return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
+  })();
   const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
   const orangeCreateLabel = `Create ${activeOrangeLevel.shortLabel} ${currentSkillInfo.label} Test`;
+  const bayCreatePath = getBayCreatePath(activeBayTab);
+  const bayCreateLabel = `Create Cty Bay ${currentSkillInfo.label} Test`;
   const heroTags = [
     {
-      icon: activePlatform === "orange" ? activeOrangeLevel.iconName || "orange" : "tests",
-      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : "IX",
+      icon: activePlatform === "orange"
+        ? activeOrangeLevel.iconName || "orange"
+        : activePlatform === "bay"
+          ? BAY_LEVEL_META.iconName || "tests"
+          : "tests",
+      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : activePlatform === "bay" ? "Cty Bay" : "IX",
     },
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
     { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
@@ -457,6 +539,24 @@ const SelectTest = () => {
       badge: activeOrangeLevel.shortLabel,
       questionsLabel: `${orangeConfig.totalQuestions || "?"} Q`,
       durationLabel: `${orangeConfig.duration || "?"} min`,
+    });
+  };
+
+  const buildBayPlacementSelection = (test, title, displayTitle) => {
+    return createPlacementSelection({
+      platform: "bay",
+      skill: activeBayTab,
+      testId: test.id,
+      testType: test.testType,
+      title,
+      subtitle: buildPlacementSubtitle(
+        "Cty Bay",
+        displayTitle,
+        test.classCode || ""
+      ),
+      badge: "Bay",
+      questionsLabel: `${bayConfig.totalQuestions || "?"} Q`,
+      durationLabel: `${bayConfig.duration || "?"} min`,
     });
   };
 
@@ -540,7 +640,9 @@ const SelectTest = () => {
                         updateSelectRoute(
                           tab.key === "orange"
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
-                            : { platform: "ix", tab: activeIxTab }
+                            : tab.key === "bay"
+                              ? { platform: "bay", type: DEFAULT_BAY_TYPE, tab: activeBayTab }
+                              : { platform: "ix", tab: activeIxTab }
                         )
                       }
                       className={`select-test-sidePlatform select-test-sidePlatform--${tab.key}${activePlatform === tab.key ? " is-active" : ""}`}
@@ -553,11 +655,13 @@ const SelectTest = () => {
                         <span className="select-test-sidePlatformHint">
                           {tab.key === "ix"
                             ? "Writing, reading, listening"
-                            : "KET, PET, Flyers, Movers, Starters"}
+                            : tab.key === "bay"
+                              ? "Placement-style combined skills"
+                              : "KET, PET, Flyers, Movers, Starters"}
                         </span>
                       </span>
                       <span className="select-test-sidePlatformCount">
-                        {tab.key === "ix" ? ixTotalCount : orangeTotalCount}
+                        {tab.key === "ix" ? ixTotalCount : tab.key === "bay" ? bayTotalCount : orangeTotalCount}
                       </span>
                     </button>
                   ))}
@@ -585,6 +689,36 @@ const SelectTest = () => {
                           <span className="select-test-pillCount">{tests[tab.key]?.length ?? 0}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+                ) : activePlatform === "bay" ? (
+                  <div className="select-test-sidebarPanel">
+                    <div className="select-test-sidebarPanelHeader">
+                      <span className="select-test-sidebarPanelTitle">Cty Bay skills</span>
+                      <span className="select-test-sidebarPanelMeta">{bayTotalCount} tests</span>
+                    </div>
+
+                    <div className="select-test-pillRow select-test-pillRow--sidebar">
+                      {baySkillTabs.map((skill) => (
+                        <button
+                          key={skill.key}
+                          type="button"
+                          onClick={() => updateSelectRoute({ platform: "bay", type: DEFAULT_BAY_TYPE, tab: skill.key })}
+                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeBayTab === skill.key ? "active" : ""}`}
+                        >
+                          <span className="select-test-skillIcon" aria-hidden="true">
+                            <LineIcon name={skill.icon} size={16} />
+                          </span>
+                          <span className="select-test-pillLabel">{skill.label}</span>
+                          <span className="select-test-pillCount">{skill.count}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="select-test-shelfMeta">
+                      <span className="select-test-shelfMetaItem">Cty Bay</span>
+                      <span className="select-test-shelfMetaItem">{bayConfig.totalQuestions || "?"} Q</span>
+                      <span className="select-test-shelfMetaItem">{bayConfig.duration || "?"} min</span>
                     </div>
                   </div>
                 ) : (
@@ -658,7 +792,7 @@ const SelectTest = () => {
                 <div className="select-test-toolbarMain">
                   <div className="select-test-toolbarIdentity">
                     <span className="select-test-toolbarEyebrow">
-                      {activePlatform === "orange" ? "Orange library" : "IX library"}
+                      {activePlatform === "orange" ? "Orange library" : activePlatform === "bay" ? "Cty Bay library" : "IX library"}
                     </span>
                     <h2 className="select-test-toolbarTitle">{currentShelfTitle}</h2>
                     <div className="select-test-toolbarPills">
@@ -679,6 +813,17 @@ const SelectTest = () => {
                     >
                       <LineIcon name="create" size={16} />
                       <span>{orangeCreateLabel}</span>
+                    </button>
+                  ) : null}
+
+                  {currentContext.isBay && canManageCurrentSelection ? (
+                    <button
+                      type="button"
+                      className="select-test-create select-test-create--toolbar"
+                      onClick={() => navigate(bayCreatePath)}
+                    >
+                      <LineIcon name="create" size={16} />
+                      <span>{bayCreateLabel}</span>
                     </button>
                   ) : null}
                 </div>
@@ -797,6 +942,19 @@ const SelectTest = () => {
                         </button>
                       </div>
                     ) : null}
+
+                    {currentContext.isBay && canManageCurrentSelection ? (
+                      <div className="select-test-adminActions">
+                        <button
+                          type="button"
+                          className="select-test-create"
+                          onClick={() => navigate(bayCreatePath)}
+                        >
+                          <LineIcon name="create" size={16} />
+                          <span>{bayCreateLabel}</span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <>
@@ -867,6 +1025,93 @@ const SelectTest = () => {
                                       type="button"
                                       className="select-test-edit select-test-edit--orange"
                                       onClick={() => handleEdit(test.id, "cambridge", test)}
+                                    >
+                                      <span>Edit Test</span>
+                                    </button>
+                                  ) : null}
+
+                                  {placementEligible ? (
+                                    <button
+                                      type="button"
+                                      className={`select-test-placementToggle${placementShown ? " is-active" : ""}`}
+                                      disabled={placementSaving}
+                                      onClick={() => handleTogglePlacement(placementSelection)}
+                                    >
+                                      <LineIcon name={placementShown ? "publish" : "target"} size={16} />
+                                      <span>{placementShown ? "Show Off" : "Show On"}</span>
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      ) : currentContext.isBay ? (
+                        visibleList.map((test, index) => {
+                          const classCode = test.classCode || "N/A";
+                          const teacherName = test.teacherName || "N/A";
+                          const displayTitle = BAY_SKILL_META[activeBayTab]?.label || "Cty Bay";
+                          const bayCardTitle = test.title || `Cty Bay ${displayTitle}`;
+                          const placementSelection = buildBayPlacementSelection(test, bayCardTitle, displayTitle);
+                          const placementEligible = isPlacementAdmin && isPlacementEligible({
+                            platform: "bay",
+                            skill: activeBayTab,
+                            testType: test.testType,
+                          });
+                          const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
+
+                          return (
+                            <div
+                              key={`bay-${test.category || "unknown"}-${test.id}`}
+                              className={`select-test-card select-test-card--${activeBayTab} select-test-card--bay`}
+                            >
+                              <button
+                                type="button"
+                                className="select-test-cardMain"
+                                onClick={() => handleSelectBay(test)}
+                              >
+                                <div className="select-test-cardHeader">
+                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeBayTab}`}>
+                                    <LineIcon name={BAY_SKILL_META[activeBayTab]?.icon || "tests"} size={16} />
+                                    <span>{displayTitle}</span>
+                                  </span>
+                                  <span className="select-test-cardNum">#{index + 1}</span>
+                                </div>
+
+                                <div className="select-test-cardTitle">
+                                  <span className="select-test-cardText">{bayCardTitle}</span>
+                                </div>
+
+                                <div className="select-test-cardMeta select-test-cardMeta--grid">
+                                  <span className="select-test-chip">{classCode}</span>
+                                  <span className="select-test-cardPill">
+                                    <LineIcon name="teacher" size={14} />
+                                    <span>Teacher: {teacherName}</span>
+                                  </span>
+                                </div>
+
+                                <div className="select-test-cardFooter">
+                                  <span className="select-test-cardFootnote">
+                                    {bayConfig.totalQuestions || "?"} Q • {bayConfig.duration || "?"} min
+                                  </span>
+                                  <div className="select-test-cardFooterMeta">
+                                    {placementEligible ? (
+                                      <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
+                                        {placementShown ? "Placement On" : "Placement Off"}
+                                      </span>
+                                    ) : null}
+                                    <span className="select-test-cardActionHint">Open test</span>
+                                  </div>
+                                </div>
+                              </button>
+
+                              {canManageCurrentSelection || placementEligible ? (
+                                <div className="select-test-cardActions">
+                                  {canManageCurrentSelection ? (
+                                    <button
+                                      type="button"
+                                      className="select-test-edit select-test-edit--bay"
+                                      onClick={() => handleEdit(test.id, "bay", test)}
                                     >
                                       <span>Edit Test</span>
                                     </button>

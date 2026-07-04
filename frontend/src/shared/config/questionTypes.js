@@ -930,6 +930,59 @@ export const TEST_CONFIGS = {
       { part: 5, questions: '21-25', description: 'Picture Description' },
     ],
   },
+
+  'bay-reading': {
+    id: 'bay-reading',
+    name: 'Cty Bay Reading & Writing',
+    nameVi: 'Cty Bay Reading & Writing',
+    totalQuestions: 80,
+    parts: 9,
+    duration: 60, // minutes
+    questionTypes: [
+      'abc',
+      'abcd',
+      'fill',
+      'matching',
+      'cloze-test',
+      'long-text-mc',
+      'word-form',
+      'sentence-transformation',
+      'short-message',
+      'story-writing',
+    ],
+    partStructure: [
+      { part: 1, questions: '1-5', description: 'Match the phrases' },
+      { part: 2, questions: '6-17', description: 'Prepositions' },
+      { part: 3, questions: '18-25', description: 'Odd One Out' },
+      { part: 4, questions: '26-35', description: 'Complete the conversation' },
+      { part: 5, questions: '36-45', description: 'Correct the sentences' },
+      { part: 6, questions: '46-55', description: 'Reading Comprehension' },
+      { part: 7, questions: '56-60', description: 'Complete the questions' },
+      { part: 8, questions: '61-70', description: 'Best Response' },
+      { part: 9, questions: 'Writing', description: 'Writing task' },
+    ],
+  },
+
+  'bay-listening': {
+    id: 'bay-listening',
+    name: 'Cty Bay Listening',
+    nameVi: 'Cty Bay Listening',
+    totalQuestions: 20,
+    parts: 4,
+    duration: 20, // minutes
+    questionTypes: [
+      'abc',
+      'fill',
+      'matching',
+      'true-false-not-given',
+    ],
+    partStructure: [
+      { part: 1, questions: '1-5', description: 'Listen and choose the correct answer' },
+      { part: 2, questions: '6-10', description: 'Write ONE word / number / date / time' },
+      { part: 3, questions: '11-15', description: 'Choose the correct answer' },
+      { part: 4, questions: '16-20', description: 'Right or Wrong' },
+    ],
+  },
 };
 
 // ============================================

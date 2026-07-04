@@ -254,7 +254,7 @@ const stopSelectionEvent = (event) => {
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
  */
-const CambridgeSubmissionsPage = () => {
+const CambridgeSubmissionsPage = ({ platformFilter = null } = {}) => {
   const { isDarkMode } = useTheme();
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
@@ -390,7 +390,14 @@ const CambridgeSubmissionsPage = () => {
         if (!res.ok) throw new Error("Could not load submissions.");
 
         const data = await res.json();
-        setSubmissions(data.submissions || []);
+        let fetchedSubmissions = data.submissions || [];
+        if (platformFilter) {
+          const prefix = `${platformFilter}-`;
+          fetchedSubmissions = fetchedSubmissions.filter(
+            (submission) => String(submission.testType || '').toLowerCase().startsWith(prefix)
+          );
+        }
+        setSubmissions(fetchedSubmissions);
         setPagination(prev => ({
           ...prev,
           total: data.pagination?.total || 0,

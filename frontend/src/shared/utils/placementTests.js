@@ -107,6 +107,10 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
     return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
 
+  if (normalizedPlatform === "bay") {
+    return normalizedSkill === "reading" || normalizedSkill === "listening";
+  }
+
   return false;
 };
 
