@@ -2054,10 +2054,8 @@ const reviewContentStackStyle = {
 
 const reviewHubSurfaceStyle = (isDarkMode) => ({
   display: "grid",
-  gap: 8,
-  position: "sticky",
-  top: 92,
-  zIndex: 12,
+  gap: 8,  
+  top: 92,  
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
   borderRadius: 16,
   padding: "12px 14px 14px",

@@ -1443,7 +1443,7 @@ const CambridgeSubmissionsPage = () => {
           )}
         >
         <SubmissionHeaderSurface
-          sticky
+          // sticky
           topRowLeft={(
             <SubmissionStatCards
               compact
