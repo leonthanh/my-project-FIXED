@@ -163,6 +163,7 @@
   color: #ffffff;
   border-color: transparent;
   box-shadow: 0 20px 38px rgba(30, 41, 59, 0.2);
+  background: linear-gradient(135deg, rgb(26 161 213) 0%, rgb(26 161 213) 100%);
 }
 
 .select-test-sidePlatform--ix.is-active {
