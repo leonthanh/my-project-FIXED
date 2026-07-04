@@ -1093,6 +1093,65 @@ const DoCambridgeReadingTest = ({
     return { start: startNum, end: count > 0 ? startNum + count - 1 : startNum };
   }, [test?.parts, questionStarts]);
 
+  const getStructuredSectionPrimaryQuestionIndex = useCallback((section) => {
+    const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
+    if (sectionQuestions.length <= 1) return 0;
+
+    if (section?.questionType === 'long-text-mc') {
+      const matchIndex = sectionQuestions.findIndex(
+        (question) => Array.isArray(question?.questions) && question.questions.length > 0
+      );
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    if (section?.questionType === 'cloze-mc' || section?.questionType === 'inline-choice') {
+      const matchIndex = sectionQuestions.findIndex(
+        (question) => Array.isArray(question?.blanks) && question.blanks.length > 0
+      );
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    if (section?.questionType === 'cloze-test') {
+      const matchIndex = sectionQuestions.findIndex((question) => {
+        if (Array.isArray(question?.blanks) && question.blanks.length > 0) return true;
+        return Boolean(String(question?.passageText || question?.passage || question?.clozeText || '').trim());
+      });
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    return 0;
+  }, []);
+
+  const getStructuredSectionPrimaryQuestion = useCallback((section) => {
+    const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
+    if (sectionQuestions.length === 0) return null;
+    return sectionQuestions[getStructuredSectionPrimaryQuestionIndex(section)] || sectionQuestions[0] || null;
+  }, [getStructuredSectionPrimaryQuestionIndex]);
+
+  const resolveExplicitQuestionNumber = useCallback((entry) => {
+    const candidates = [
+      entry?.blank?.questionNum,
+      entry?.blank?.number,
+      entry?.nestedQuestion?.questionNumber,
+      entry?.nestedQuestion?.number,
+      entry?.item?.questionNumber,
+      entry?.item?.number,
+      entry?.prompt?.questionNumber,
+      entry?.prompt?.number,
+      entry?.question?.questionNumber,
+      entry?.question?.number,
+    ];
+
+    for (const candidate of candidates) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }, []);
+
   // Get all questions flattened
   const allQuestions = useMemo(() => {
     if (!test?.parts) return [];
@@ -1120,6 +1179,19 @@ const DoCambridgeReadingTest = ({
         }
 
         section.questions?.forEach((q, qIdx) => {
+          const shouldRestrictToPrimaryStructuredQuestion =
+            section.questionType === 'long-text-mc' ||
+            section.questionType === 'cloze-mc' ||
+            section.questionType === 'inline-choice' ||
+            section.questionType === 'cloze-test';
+
+          if (
+            shouldRestrictToPrimaryStructuredQuestion &&
+            qIdx !== getStructuredSectionPrimaryQuestionIndex(section)
+          ) {
+            return;
+          }
+
           // Check if this is long-text-mc with nested questions
           if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
             // For long-text-mc: create separate entries for each nested question
@@ -1345,8 +1417,53 @@ const DoCambridgeReadingTest = ({
       });
     });
     
-    return questions;
-  }, [examType, test?.parts]);
+    const explicitNumbers = new Set(
+      questions
+        .map((entry) => resolveExplicitQuestionNumber(entry))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    );
+
+    if (explicitNumbers.size === 0) {
+      return questions;
+    }
+
+    const maxExplicitNumber = Math.max(...explicitNumbers);
+    const assignedNumbers = new Set();
+    let nextFallbackNumber = 1;
+
+    return questions.reduce((normalizedEntries, entry) => {
+      const explicitQuestionNumber = resolveExplicitQuestionNumber(entry);
+
+      if (Number.isFinite(explicitQuestionNumber) && explicitQuestionNumber > 0) {
+        assignedNumbers.add(explicitQuestionNumber);
+        normalizedEntries.push({
+          ...entry,
+          questionNumber: explicitQuestionNumber,
+        });
+        return normalizedEntries;
+      }
+
+      while (explicitNumbers.has(nextFallbackNumber) || assignedNumbers.has(nextFallbackNumber)) {
+        nextFallbackNumber += 1;
+      }
+
+      const isWritingTask =
+        entry?.section?.questionType === 'short-message' ||
+        entry?.section?.questionType === 'story-writing';
+
+      if (!isWritingTask && nextFallbackNumber > maxExplicitNumber) {
+        return normalizedEntries;
+      }
+
+      assignedNumbers.add(nextFallbackNumber);
+      normalizedEntries.push({
+        ...entry,
+        questionNumber: nextFallbackNumber,
+      });
+      nextFallbackNumber += 1;
+      return normalizedEntries;
+    }, []);
+  }, [examType, getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
@@ -2207,7 +2324,7 @@ const DoCambridgeReadingTest = ({
           <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-3">
             <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
               {(() => {
-                const questionData = currentQuestion.section.questions?.[0] || {};
+                const questionData = currentQuestion.question || getStructuredSectionPrimaryQuestion(currentQuestion.section) || {};
                 const { passageTitle = '' } = questionData;
                 const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
 
@@ -2270,7 +2387,7 @@ const DoCambridgeReadingTest = ({
           <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-3">
             <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
               {(() => {
-                const questionData = currentQuestion.section.questions?.[0] || {};
+                const questionData = currentQuestion.question || getStructuredSectionPrimaryQuestion(currentQuestion.section) || {};
                 const { passage = '', blanks = [], passageTitle = '' } = questionData;
                 const isPetReading = String(testType || test?.testType || '').toLowerCase().includes('pet');
                 const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;

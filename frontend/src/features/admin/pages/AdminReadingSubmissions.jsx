@@ -593,7 +593,7 @@ const AdminReadingSubmissions = () => {
           )}
         >
           <SubmissionHeaderSurface
-            sticky
+            // sticky
             topRowLeft={(
               <SubmissionStatCards
                 compact
