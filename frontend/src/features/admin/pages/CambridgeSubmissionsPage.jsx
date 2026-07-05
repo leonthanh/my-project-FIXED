@@ -254,7 +254,7 @@ const stopSelectionEvent = (event) => {
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
  */
-const CambridgeSubmissionsPage = ({ platformFilter = null } = {}) => {
+const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Orange', platformLabelLower = 'orange' } = {}) => {
   const { isDarkMode } = useTheme();
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
@@ -823,7 +823,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null } = {}) => {
       }
 
       if (!data?.suggestion) {
-        throw new Error('AI returned an empty Orange feedback result.');
+        throw new Error(`AI returned an empty ${platformLabel} feedback result.`);
       }
 
       setFeedbackDraftById((prev) => ({
@@ -1427,9 +1427,9 @@ const CambridgeSubmissionsPage = ({ platformFilter = null } = {}) => {
 
       <div style={styles.content} className="admin-page admin-submission-page">
         <AdminStickySidebarLayout
-          eyebrow="Orange"
-          title="Cambridge submissions"
-          description="Review Orange Reading and Listening attempts, open essay review, and manage result actions from one sticky sidebar."
+          eyebrow={platformLabel}
+          title={`${platformLabel} submissions`}
+          description={`Review ${platformLabel} Reading and Listening attempts, open essay review, and manage result actions from one sticky sidebar.`}
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
@@ -2099,7 +2099,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null } = {}) => {
             <aside style={styles.drawerPanel} onClick={(event) => event.stopPropagation()}>
               <div style={styles.drawerHeader}>
                 <div>
-                  <div style={styles.drawerEyebrow}>Orange Essay Review</div>
+                  <div style={styles.drawerEyebrow}>{platformLabel} Essay Review</div>
                   <h2 style={styles.drawerTitle}>{activeReviewSubmission.testTitle || 'Reading Submission'}</h2>
                   <div style={styles.drawerMetaRow}>
                     <span style={styles.drawerMetaChip}>{activeReviewSubmission.studentName || '--'}</span>
@@ -3160,5 +3160,3 @@ const getCambridgePageStyles = (isDarkMode) => {
 };
 
 export default CambridgeSubmissionsPage;
-
-

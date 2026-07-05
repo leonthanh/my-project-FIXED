@@ -109,3 +109,34 @@ test('scoreListening keeps slash answers literal and only accepts pipe-separated
   expect(res.correctCount).toBe(2);
   expect(res.details.map((detail) => detail.isCorrect)).toEqual([true, true, false]);
 });
+
+test('scoreListening ignores stale answer keys for notes-completion', () => {
+  const testDef = {
+    partInstructions: [
+      {
+        sections: [
+          { sectionTitle: 'Questions 31-40', questionType: 'notes-completion', startingQuestionNumber: 31 },
+        ],
+      },
+    ],
+    questions: [
+      {
+        partIndex: 0,
+        sectionIndex: 0,
+        questionIndex: 0,
+        questionType: 'notes-completion',
+        notesText: '- one ___\n- two ___\n- three ___\n- four ___\n- five ___\n- six ___\n- seven ___\n- eight ___\n- nine ___\n- ten ___',
+        answers: { 28: 'stale', 31: 'a', 32: 'b', 33: 'c', 34: 'd', 35: 'e', 36: 'f', 37: 'g', 38: 'h', 39: 'i', 40: 'j' },
+      },
+    ],
+  };
+
+  const answers = {
+    q31: 'a', q32: 'b', q33: 'c', q34: 'd', q35: 'e', q36: 'f', q37: 'g', q38: 'h', q39: 'i', q40: 'j',
+  };
+  const res = scoreListening({ test: testDef, answers });
+
+  expect(res.totalCount).toBe(10);
+  expect(res.correctCount).toBe(10);
+  expect(res.details.map((d) => d.questionNumber)).toEqual([31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
+});

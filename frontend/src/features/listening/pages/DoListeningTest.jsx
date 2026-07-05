@@ -1150,12 +1150,14 @@ const DoListeningTest = () => {
 
     if (sectionType === "notes-completion") {
       const firstQ = sectionQuestions[0] || {};
+      // Count blanks from the notes text (same source the student sees) so stale
+      // answer keys cannot inflate the section/question totals.
+      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+      if (matches.length) return matches.length;
       const keys = firstQ?.answers && typeof firstQ.answers === "object" && !Array.isArray(firstQ.answers)
         ? Object.keys(firstQ.answers).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n))
         : [];
-      if (keys.length) return keys.length;
-      const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
-      return matches.length || 0;
+      return keys.length || 0;
     }
 
     if (sectionType === "matching") {
@@ -1386,12 +1388,13 @@ const DoListeningTest = () => {
         }
 
         if (sectionType === "notes-completion") {
-          const keys = numericKeys(firstQ?.answers);
-          if (keys.length) {
-            keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
-          } else {
-            const notesText = String(firstQ?.notesText || "");
-            const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+          // Prefer blanks parsed from notesText so the navigator matches what the
+          // student actually sees. This also ignores stale answer keys that may
+          // remain in the answers object from earlier edits (e.g. a leftover key
+          // 28 after the section was renumbered to 31-40).
+          const notesText = String(firstQ?.notesText || "");
+          const matches = stripHtml(notesText).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+          if (matches.length) {
             let autoNum = sectionStartNum;
             matches.forEach((token) => {
               const m = String(token).match(/^(\d+)/);
@@ -1406,12 +1409,15 @@ const DoListeningTest = () => {
                 autoNum += 1;
               }
             });
+          } else {
+            // Fallback to answer keys only when the notes text has no blanks.
+            const keys = numericKeys(firstQ?.answers);
+            keys.forEach((n) => slots.push({ type: "single", key: `q${n}` }));
           }
           // Update currentStart for next section
           if (!(typeof section.startingQuestionNumber === "number" && section.startingQuestionNumber > 0)) {
             const keys = numericKeys(firstQ?.answers);
-            const matches = stripHtml(String(firstQ?.notesText || "")).match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
-            const questionCount = keys.length || matches.length;
+            const questionCount = matches.length || keys.length;
             currentStart += questionCount;
           }
           return;
