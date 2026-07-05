@@ -723,10 +723,26 @@ const generateDetailsFromSections = (test, answers) => {
             ? firstQ.answers
             : null;
         if (map) {
-          const keys = Object.keys(map)
+          let keys = Object.keys(map)
             .map((k) => parseInt(k, 10))
             .filter((n) => Number.isFinite(n))
             .sort((a, b) => a - b);
+
+          // For notes-completion, derive question numbers from the actual blanks in
+          // notesText so stale answer keys do not appear in the results table.
+          if (sectionType === "notes-completion") {
+            const matches = String(firstQ?.notesText || "").match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+            if (matches.length) {
+              let autoNum = sectionStart;
+              keys = matches
+                .map((token) => {
+                  const m = String(token).match(/^(\d+)/);
+                  const num = m ? parseInt(m[1], 10) : autoNum++;
+                  return Number.isFinite(num) ? num : null;
+                })
+                .filter((n) => n != null);
+            }
+          }
 
           for (const num of keys) {
             const expected = map[String(num)];

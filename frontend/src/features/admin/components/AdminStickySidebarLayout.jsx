@@ -46,6 +46,14 @@ const buildBaseWorkspaceLinks = (navigate, currentKey) => [
     active: currentKey === "cambridge",
     onClick: () => navigate("/admin/cambridge-submissions"),
   },
+  {
+    key: "bay",
+    label: "Cty Bay",
+    hint: "Bay submissions",
+    tone: "cyan",
+    active: currentKey === "bay",
+    onClick: () => navigate("/admin/bay-submissions"),
+  },
 ];
 
 const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [

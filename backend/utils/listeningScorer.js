@@ -118,7 +118,23 @@ const scoreListening = ({ test, answers }) => {
         if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
           const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
           if (map) {
-            const keys = numericKeys(map);
+            let keys = numericKeys(map);
+            // For notes-completion, derive question numbers from the actual blanks in
+            // notesText so stale answer keys (e.g. a leftover key 28 after renumbering
+            // to 31-40) do not inflate the score or detail list.
+            if (sectionType === 'notes-completion') {
+              const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+              if (matches.length) {
+                let autoNum = sectionStart;
+                keys = matches
+                  .map((token) => {
+                    const m = String(token).match(/^(\d+)/);
+                    const num = m ? parseInt(m[1], 10) : autoNum++;
+                    return Number.isFinite(num) ? num : null;
+                  })
+                  .filter((n) => n != null);
+              }
+            }
             for (const num of keys) {
               totalCount++;
               const expected = map[String(num)];

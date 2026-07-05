@@ -209,18 +209,17 @@ router.get('/admin/list', async (req, res) => {
 
           if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
             const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
-            if (map) {
+            if (sectionType === 'notes-completion') {
+              // Count actual blanks in notesText so stale answer keys cannot inflate totals.
+              const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+              total += matches.length || (map ? Object.keys(map).length : 0);
+            } else if (map) {
               const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n));
               total += keys.length;
             } else {
-              if (sectionType === 'notes-completion') {
-                const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
-                total += matches.length;
-              } else {
-                const rows = Array.isArray(firstQ?.formRows) ? firstQ.formRows : [];
-                const blanks = rows.filter((r) => r && r.isBlank);
-                total += blanks.length;
-              }
+              const rows = Array.isArray(firstQ?.formRows) ? firstQ.formRows : [];
+              const blanks = rows.filter((r) => r && r.isBlank);
+              total += blanks.length;
             }
             continue;
           }

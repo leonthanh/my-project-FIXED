@@ -152,6 +152,35 @@ const mixedTypeTest = {
   ],
 };
 
+const staleKeyTest = {
+  id: 9,
+  partInstructions: [
+    { title: 'Part 1', sections: [{ sectionTitle: 'Questions 1-10', questionType: 'notes-completion' }] },
+    { title: 'Part 2', sections: [{ sectionTitle: 'Questions 11-14', questionType: 'abc' }, { sectionTitle: 'Questions 15-20', questionType: 'matching' }] },
+    { title: 'Part 3', sections: [
+      { sectionTitle: 'Questions 21-22', questionType: 'multi-select' },
+      { sectionTitle: 'Questions 23-27', questionType: 'matching' },
+      { sectionTitle: 'Questions 28-30', questionType: 'abc' }
+    ] },
+    { title: 'Part 4', sections: [{ sectionTitle: 'Questions 31-40', questionType: 'notes-completion' }] },
+  ],
+  questions: [
+    { partIndex: 0, sectionIndex: 0, questionIndex: 0, questionType: 'notes-completion', notesText: '1___ 2___ 3___ 4___ 5___ 6___ 7___ 8___ 9___ 10___', answers: { 1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h', 9: 'i', 10: 'j' } },
+    { partIndex: 1, sectionIndex: 0, questionIndex: 0, questionType: 'abc' },
+    { partIndex: 1, sectionIndex: 0, questionIndex: 1, questionType: 'abc' },
+    { partIndex: 1, sectionIndex: 0, questionIndex: 2, questionType: 'abc' },
+    { partIndex: 1, sectionIndex: 0, questionIndex: 3, questionType: 'abc' },
+    { partIndex: 1, sectionIndex: 1, questionIndex: 0, questionType: 'matching', leftItems: ['A', 'B', 'C', 'D', 'E', 'F'] },
+    { partIndex: 2, sectionIndex: 0, questionIndex: 0, questionType: 'fill', requiredAnswers: 2, questionText: 'Which TWO ...' },
+    { partIndex: 2, sectionIndex: 1, questionIndex: 0, questionType: 'fill', answers: { '23': 'D', '24': 'A', '25': 'C', '26': 'G', '27': 'F' }, leftItems: ['Sid', 'Jack', 'Naomi', 'Anya', 'Zara'], rightItems: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
+    { partIndex: 2, sectionIndex: 2, questionIndex: 0, questionType: 'abc' },
+    { partIndex: 2, sectionIndex: 2, questionIndex: 1, questionType: 'abc' },
+    { partIndex: 2, sectionIndex: 2, questionIndex: 2, questionType: 'abc' },
+    // Stale answer key 28 should not appear in the navigator; only blanks 31-40 from notesText.
+    { partIndex: 3, sectionIndex: 0, questionIndex: 0, questionType: 'notes-completion', notesText: '- Displays emphasized the power of the ___\n- Scientists aimed to provide ___\n- Italian specialists became influential\n- Servandoni\'s display followed the same pattern as an ___\n- The appeal extended to the middle classes\n- Some displays demonstrated new scientific discoveries such as ___\n- Later they investigated ___ uses\n- Various features of ___ were shown\n- To make human ___ possible\n- To show the formation of ___\n- Another point about ___\n- Final detail in the ___', answers: { 28: 'stale', 31: 'a', 32: 'b', 33: 'c', 34: 'd', 35: 'e', 36: 'f', 37: 'g', 38: 'h', 39: 'i', 40: 'j' } },
+  ]
+};
+
 describe('Listening test numbering', () => {
   beforeEach(() => {
     jest.spyOn(window, 'fetch').mockImplementation((url) => {
@@ -352,5 +381,34 @@ describe('Listening test numbering', () => {
     expect(part3Tab.style.flex.startsWith('1 1 ')).toBe(true);
     expect(Number.parseInt(part3Tab.style.minWidth, 10)).toBeGreaterThan(Number.parseInt(part4Tab.style.minWidth, 10));
     expect(part3Tab.style.maxWidth).toBe('none');
+  });
+
+  test('ignores stale answer keys when building notes-completion navigator slots', async () => {
+    window.fetch.mockImplementation((url) => {
+      const normalizedUrl = String(url || '');
+      if (normalizedUrl.includes('/listening-submissions/9/active')) {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(staleKeyTest) });
+    });
+    localStorage.setItem('listening:9:state:anon', JSON.stringify({ started: true, audioPlayed: {}, answers: {} }));
+
+    render(
+      <MemoryRouter initialEntries={['/listening/9']}>
+        <Routes>
+          <Route path="/listening/:id" element={<DoListeningTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await userEvent.click(await screen.findByText(/Part 4/));
+
+    // The navigator should show 31-40, not the stale key 28, and the total
+    // question count should be based on actual blanks, not stale answer keys.
+    expect(screen.queryByText('28')).not.toBeInTheDocument();
+    expect(screen.getByText(/40 Questions/)).toBeInTheDocument();
+    for (let n = 31; n <= 40; n += 1) {
+      expect(screen.queryAllByText(String(n)).length).toBeGreaterThan(0);
+    }
   });
 });
