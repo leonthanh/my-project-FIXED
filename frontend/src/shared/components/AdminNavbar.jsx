@@ -185,9 +185,9 @@ const adminRoutePreloaders = {
   "/admin/create/starters": () => import("../../domains/cambridge/starters/reading/teacher/pages/CreateStartersReadingPage"),
   "/admin/create-movers-listening": () => import("../../domains/cambridge/movers/listening/pages/CreateMoversListeningTestPage"),
   "/admin/cambridge-submissions": () => import("../../features/admin/pages/CambridgeSubmissionsPage"),
-  "/admin/bay-submissions": () => import("../../domains/bay/pages/BaySubmissionsPage"),
-  "/admin/create-bay-reading": () => import("../../domains/bay/reading/pages/CreateBayReadingTestPage"),
-  "/admin/create-bay-listening": () => import("../../domains/bay/listening/pages/CreateBayListeningTestPage"),
+  "/admin/fce-submissions": () => import("../../domains/fce/pages/FceSubmissionsPage"),
+  "/admin/create-fce-reading": () => import("../../domains/fce/reading/pages/CreateFceReadingTestPage"),
+  "/admin/create-fce-listening": () => import("../../domains/fce/listening/pages/CreateFceListeningTestPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
 };
@@ -321,13 +321,13 @@ const AdminNavbar = () => {
   const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
   const [mobileSubmissionSection, setMobileSubmissionSection] =
     useState("create");
-  const [mobileBaySection, setMobileBaySection] = useState("create");
+  const [mobileFceSection, setMobileFceSection] = useState("create");
   const [desktopDrawerMode, setDesktopDrawerMode] = useState(null);
   const [desktopCambridgeSection, setDesktopCambridgeSection] = useState("ket");
   const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
   const [desktopSubmissionSection, setDesktopSubmissionSection] =
     useState("create");
-  const [desktopBaySection, setDesktopBaySection] = useState("create");
+  const [desktopFceSection, setDesktopFceSection] = useState("create");
   const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const notificationDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
@@ -582,8 +582,8 @@ const AdminNavbar = () => {
 
     if (pathname.startsWith("/review")) return "review";
     if (pathname.includes("cambridge")) return "orange";
-    if (pathname.includes("/bay") || pathname.includes("create-bay") || pathname.includes("bay-submissions")) {
-      return "bay";
+    if (pathname.includes("/fce") || pathname.includes("create-fce") || pathname.includes("fce-submissions")) {
+      return "fce";
     }
     if (
       pathname === "/select-test" ||
@@ -630,10 +630,10 @@ const AdminNavbar = () => {
     return { section: "ket", group: "flyers" };
   };
 
-  const getPreferredDesktopBaySection = () => {
+  const getPreferredDesktopFceSection = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
-    if (pathname.includes("/admin/bay-submissions")) {
+    if (pathname.includes("/admin/fce-submissions")) {
       return "submissions";
     }
 
@@ -670,8 +670,8 @@ const AdminNavbar = () => {
       setDesktopSubmissionSection(getPreferredDesktopSubmissionSection());
     }
 
-    if (mode === "bay") {
-      setDesktopBaySection(getPreferredDesktopBaySection());
+    if (mode === "fce") {
+      setDesktopFceSection(getPreferredDesktopFceSection());
     }
 
     setDesktopDrawerMode(mode);
@@ -902,7 +902,7 @@ const AdminNavbar = () => {
     [canManageListening, canManageReading, canManageWriting]
   );
 
-  const baySections = useMemo(
+  const fceSections = useMemo(
     () =>
       [
         {
@@ -912,15 +912,15 @@ const AdminNavbar = () => {
           iconName: "create",
           items: [
             buildAdminLinkItem(
-              "create-bay-reading",
-              "/admin/create-bay-reading",
+              "create-fce-reading",
+              "/admin/create-fce-reading",
               "Reading & Writing",
               canManageReading,
               "reading"
             ),
             buildAdminLinkItem(
-              "create-bay-listening",
-              "/admin/create-bay-listening",
+              "create-fce-listening",
+              "/admin/create-fce-listening",
               "Listening",
               canManageListening,
               "listening"
@@ -934,8 +934,8 @@ const AdminNavbar = () => {
           iconName: "submissions",
           items: [
             buildAdminLinkItem(
-              "bay-submissions",
-              "/admin/bay-submissions",
+              "fce-submissions",
+              "/admin/fce-submissions",
               "View submissions",
               true,
               "submissions"
@@ -985,9 +985,9 @@ const AdminNavbar = () => {
         return;
       }
 
-      if (mobileDrawerTab === "bay") {
-        preloadAdminItems(flattenAdminSections(baySections));
-        preloadAdminRoute("/admin/bay-submissions");
+      if (mobileDrawerTab === "fce") {
+        preloadAdminItems(flattenAdminSections(fceSections));
+        preloadAdminRoute("/admin/fce-submissions");
         return;
       }
 
@@ -1013,7 +1013,7 @@ const AdminNavbar = () => {
       window.clearTimeout(timerId);
       window.clearTimeout(warmupTimerId);
     };
-  }, [mobileDrawerOpen, mobileDrawerTab, adminItems, baySections, cambridgeSections, ieltsSections]);
+  }, [mobileDrawerOpen, mobileDrawerTab, adminItems, fceSections, cambridgeSections, ieltsSections]);
 
   useEffect(() => {
     if (isCompactMenu || !desktopDrawerMode || typeof window === "undefined") {
@@ -1032,16 +1032,16 @@ const AdminNavbar = () => {
         return;
       }
 
-      if (desktopDrawerMode === "bay") {
-        preloadAdminItems(flattenAdminSections(baySections));
-        preloadAdminRoute("/admin/bay-submissions");
+      if (desktopDrawerMode === "fce") {
+        preloadAdminItems(flattenAdminSections(fceSections));
+        preloadAdminRoute("/admin/fce-submissions");
       }
     }, 0);
 
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [isCompactMenu, desktopDrawerMode, baySections, cambridgeSections, ieltsSections]);
+  }, [isCompactMenu, desktopDrawerMode, fceSections, cambridgeSections, ieltsSections]);
 
   const activeCambridgeSection =
     cambridgeSections.find((section) => section.key === mobileCambridgeSection) ||
@@ -1057,9 +1057,9 @@ const AdminNavbar = () => {
     ieltsSections.find((section) => section.key === mobileSubmissionSection) ||
     ieltsSections[0] ||
     null;
-  const activeBaySection =
-    baySections.find((section) => section.key === mobileBaySection) ||
-    baySections[0] ||
+  const activeFceSection =
+    fceSections.find((section) => section.key === mobileFceSection) ||
+    fceSections[0] ||
     null;
   const desktopDrawerVisible = Boolean(desktopDrawerMode);
   const activeDesktopCambridgeSection =
@@ -1074,20 +1074,20 @@ const AdminNavbar = () => {
     ieltsSections.find((section) => section.key === desktopSubmissionSection) ||
     ieltsSections[0] ||
     null;
-  const activeDesktopBaySection =
-    baySections.find((section) => section.key === desktopBaySection) ||
-    baySections[0] ||
+  const activeDesktopFceSection =
+    fceSections.find((section) => section.key === desktopFceSection) ||
+    fceSections[0] ||
     null;
 
   const pendingNotificationCount = pendingNotifications.length;
   const pathname = String(location.pathname || "").toLowerCase();
   const isOrangeCurrent = pathname.includes("cambridge") || pathname.includes("pet-writing");
-  const isBayCurrent =
-    pathname.includes("/bay") ||
-    pathname.includes("create-bay") ||
-    pathname.includes("bay-submissions");
+  const isFceCurrent =
+    pathname.includes("/fce") ||
+    pathname.includes("create-fce") ||
+    pathname.includes("fce-submissions");
   const isIxCurrent =
-    (pathname.startsWith("/admin/create") && !isBayCurrent) ||
+    (pathname.startsWith("/admin/create") && !isFceCurrent) ||
     pathname.includes("writing-submissions") ||
     pathname.includes("reading-submissions") ||
     pathname.includes("listening-submissions");
@@ -1105,7 +1105,7 @@ const AdminNavbar = () => {
     },
     { key: "ix", label: "IX" },
     { key: "orange", label: "Orange" },
-    { key: "bay", label: "Cty Bay" },
+    { key: "fce", label: "FCE" },
     { key: "overview", label: "Overview" },
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
@@ -1306,23 +1306,23 @@ const AdminNavbar = () => {
     );
   };
 
-  const renderDesktopBayDrawerContent = () => {
-    if (!activeDesktopBaySection) return null;
+  const renderDesktopFceDrawerContent = () => {
+    if (!activeDesktopFceSection) return null;
 
     return (
       <>
         {renderDesktopDrawerTabs(
-          baySections,
-          activeDesktopBaySection.key,
-          setDesktopBaySection
+          fceSections,
+          activeDesktopFceSection.key,
+          setDesktopFceSection
         )}
         <div className="adminNavbar__desktopDrawerBody">
           <div className="adminNavbar__desktopDrawerSectionTitle">
-            {activeDesktopBaySection.title}
+            {activeDesktopFceSection.title}
           </div>
           <div className="adminNavbar__desktopDrawerList">
             {renderMenuItems(
-              activeDesktopBaySection.items,
+              activeDesktopFceSection.items,
               closeDesktopDrawer,
               "drawer"
             )}
@@ -1448,31 +1448,31 @@ const AdminNavbar = () => {
     );
   };
 
-  const renderMobileBayMenu = () => {
-    if (!activeBaySection) return null;
+  const renderMobileFceMenu = () => {
+    if (!activeFceSection) return null;
 
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">Cty Bay</div>
+          <div className="adminNavbar__mobileMenuTitle">FCE</div>
           <div className="adminNavbar__mobileMenuHint">
-            Create Bay reading, listening, and review student submissions.
+            Create FCE reading, listening, and review student submissions.
           </div>
         </div>
         {renderMobileTabs(
-          baySections,
-          activeBaySection.key,
-          setMobileBaySection
+          fceSections,
+          activeFceSection.key,
+          setMobileFceSection
         )}
         <div
-          key={activeBaySection.key}
+          key={activeFceSection.key}
           className="adminNavbar__mobileAnimatedStage"
         >
           <div className="adminNavbar__mobileMenuBody">
             <div className="adminNavbar__mobileSectionTitle">
-              {activeBaySection.title}
+              {activeFceSection.title}
             </div>
-            {renderMenuItems(activeBaySection.items, closeMobileDrawer, "mobile")}
+            {renderMenuItems(activeFceSection.items, closeMobileDrawer, "mobile")}
           </div>
         </div>
       </>
@@ -1585,8 +1585,8 @@ const AdminNavbar = () => {
       return renderMobileSubmissionMenu();
     }
 
-    if (mobileDrawerTab === "bay") {
-      return renderMobileBayMenu();
+    if (mobileDrawerTab === "fce") {
+      return renderMobileFceMenu();
     }
 
     if (mobileDrawerTab === "admin") {
@@ -1661,8 +1661,8 @@ const AdminNavbar = () => {
               aria-label={
                 desktopDrawerMode === "orange"
                   ? "Orange menu"
-                  : desktopDrawerMode === "bay"
-                  ? "Cty Bay menu"
+                  : desktopDrawerMode === "fce"
+                  ? "FCE menu"
                   : "IX menu"
               }
             >
@@ -1680,15 +1680,15 @@ const AdminNavbar = () => {
                     <div className="adminNavbar__desktopDrawerTitle">
                       {desktopDrawerMode === "orange"
                         ? "Orange Drawer"
-                        : desktopDrawerMode === "bay"
-                        ? "Cty Bay Drawer"
+                        : desktopDrawerMode === "fce"
+                        ? "FCE Drawer"
                         : "IX Drawer"}
                     </div>
                     <div className="adminNavbar__desktopDrawerMeta">
                       {desktopDrawerMode === "orange"
                         ? "Cambridge creation and submissions collected into a cleaner side panel."
-                        : desktopDrawerMode === "bay"
-                        ? "Cty Bay creation and submissions in a dedicated side panel."
+                        : desktopDrawerMode === "fce"
+                        ? "FCE creation and submissions in a dedicated side panel."
                         : "Create and review IELTS tests without a crowded dropdown menu."}
                     </div>
                   </div>
@@ -1709,7 +1709,7 @@ const AdminNavbar = () => {
               >
                 {desktopDrawerMode === "orange" && renderDesktopCambridgeDrawerContent()}
                 {desktopDrawerMode === "ix" && renderDesktopSubmissionDrawerContent()}
-                {desktopDrawerMode === "bay" && renderDesktopBayDrawerContent()}
+                {desktopDrawerMode === "fce" && renderDesktopFceDrawerContent()}
               </div>
             </aside>
           </>,
@@ -1801,12 +1801,12 @@ const AdminNavbar = () => {
 
         <div className="adminNavbar__dropdown">
           <span
-            className={`adminNavbar__link adminNavbar__dropdownToggle${isBayCurrent || desktopDrawerMode === "bay" ? " adminNavbar__link--active" : ""}`}
-            onClick={() => toggleDesktopDrawer("bay")}
-            title="Cty Bay"
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isFceCurrent || desktopDrawerMode === "fce" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("fce")}
+            title="FCE"
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">Cty Bay</span>
+            <span className="adminNavbar__label">FCE</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
         </div>

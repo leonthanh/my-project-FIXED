@@ -47,12 +47,12 @@ const buildBaseWorkspaceLinks = (navigate, currentKey) => [
     onClick: () => navigate("/admin/cambridge-submissions"),
   },
   {
-    key: "bay",
-    label: "Cty Bay",
-    hint: "Bay submissions",
+    key: "fce",
+    label: "FCE",
+    hint: "FCE submissions",
     tone: "cyan",
-    active: currentKey === "bay",
-    onClick: () => navigate("/admin/bay-submissions"),
+    active: currentKey === "fce",
+    onClick: () => navigate("/admin/fce-submissions"),
   },
 ];
 

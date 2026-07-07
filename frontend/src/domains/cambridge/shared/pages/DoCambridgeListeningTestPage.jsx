@@ -70,7 +70,7 @@ const DoCambridgeListeningTest = () => {
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("bay")) return "BAY";
+    if (s.includes("fce")) return "FCE";
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
   }, [testType]);
@@ -2115,7 +2115,7 @@ const DoCambridgeListeningTest = () => {
       {isStartGateVisible && (
         <TestStartModal
           iconName="listening"
-          eyebrow={examType === "BAY" ? "Cty Bay" : `Cambridge ${examType}`}
+          eyebrow={examType === "FCE" ? "FCE" : `Cambridge ${examType}`}
           subtitle="Listening Test"
           title={test?.title || testConfig.name || 'Cambridge Listening'}
           stats={[

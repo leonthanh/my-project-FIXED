@@ -26,20 +26,20 @@ import {
   matchesOrangeTestType,
 } from '../../../domains/cambridge/config/navigation';
 import {
-  DEFAULT_BAY_SKILL,
-  DEFAULT_BAY_TYPE,
-  BAY_LEVEL_META,
-  BAY_SKILL_META,
-  BAY_SKILLS,
-} from '../../../domains/bay/config';
+  DEFAULT_FCE_SKILL,
+  DEFAULT_FCE_TYPE,
+  FCE_LEVEL_META,
+  FCE_SKILL_META,
+  FCE_SKILLS,
+} from '../../../domains/fce/config';
 import {
-  getBayCreatePath,
-  getBayEditPath,
-  getBayHubStateForTestType,
-  getBayStudentPath,
-  getBayTestConfig,
-  matchesBayTestType,
-} from '../../../domains/bay/config/navigation';
+  getFceCreatePath,
+  getFceEditPath,
+  getFceHubStateForTestType,
+  getFceStudentPath,
+  getFceTestConfig,
+  matchesFceTestType,
+} from '../../../domains/fce/config/navigation';
 import {
   PLATFORM_TABS,
   buildSelectTestPath,
@@ -70,13 +70,13 @@ const SelectTest = () => {
     reading: [],
     listening: [],
     cambridge: [],
-    bay: [],
+    fce: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
   const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
-  const [activeBayTab, setActiveBayTab] = useState(DEFAULT_BAY_SKILL);
+  const [activeFceTab, setActiveFceTab] = useState(DEFAULT_FCE_SKILL);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -109,8 +109,8 @@ const SelectTest = () => {
     let nextTab;
     if (nextPlatform === "orange") {
       nextTab = next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL;
-    } else if (nextPlatform === "bay") {
-      nextTab = next.tab || activeBayTab || DEFAULT_BAY_SKILL;
+    } else if (nextPlatform === "fce") {
+      nextTab = next.tab || activeFceTab || DEFAULT_FCE_SKILL;
     } else {
       nextTab = next.tab || activeIxTab || DEFAULT_IX_SKILL;
     }
@@ -149,15 +149,15 @@ const SelectTest = () => {
         const cambridgeWithWriting = cambridgeList.concat(
           petWriting.map((t) => ({ ...t, category: "writing", testType: "pet-writing" }))
         );
-        const orangeCambridge = cambridgeWithWriting.filter((t) => !matchesBayTestType(t?.testType));
-        const bayCambridge = cambridgeWithWriting.filter((t) => matchesBayTestType(t?.testType));
+        const orangeCambridge = cambridgeWithWriting.filter((t) => !matchesFceTestType(t?.testType));
+        const fceCambridge = cambridgeWithWriting.filter((t) => matchesFceTestType(t?.testType));
 
         setTests({
           writing: ieltsWriting,
           reading: Array.isArray(readingData) ? readingData : [],
           listening: Array.isArray(listeningData) ? listeningData : [],
           cambridge: orangeCambridge,
-          bay: bayCambridge,
+          fce: fceCambridge,
         });
       } catch (err) {
         console.error("Failed to load tests:", err);
@@ -166,7 +166,7 @@ const SelectTest = () => {
           reading: [],
           listening: [],
           cambridge: [],
-          bay: [],
+          fce: [],
         });
       } finally {
         setLoading(false);
@@ -183,14 +183,14 @@ const SelectTest = () => {
     setActiveIxTab(nextState.ixTab);
     setActiveOrangeType(nextState.orangeType);
     setActiveOrangeTab(nextState.orangeTab);
-    setActiveBayTab(nextState.bayTab);
+    setActiveFceTab(nextState.fceTab);
   }, [location.search]);
 
   useEffect(() => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab, activeBayTab]);
+  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab, activeFceTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -281,10 +281,10 @@ const SelectTest = () => {
     navigate(getOrangeStudentPath(type, tab, test.id));
   };
 
-  const handleSelectBay = (test) => {
-    const rawTestType = String(test.testType || 'bay-reading').toLowerCase();
-    const { tab } = getBayHubStateForTestType(rawTestType);
-    navigate(getBayStudentPath(tab, test.id));
+  const handleSelectFce = (test) => {
+    const rawTestType = String(test.testType || 'fce-reading').toLowerCase();
+    const { tab } = getFceHubStateForTestType(rawTestType);
+    navigate(getFceStudentPath(tab, test.id));
   };
 
   const handleEdit = (testId, testType, test = null) => {
@@ -304,17 +304,17 @@ const SelectTest = () => {
         return;
       }
       const rawTestType = String(test.testType || '').toLowerCase();
-      if (matchesBayTestType(rawTestType)) {
-        const { tab } = getBayHubStateForTestType(rawTestType);
-        navigate(getBayEditPath(tab, testId));
+      if (matchesFceTestType(rawTestType)) {
+        const { tab } = getFceHubStateForTestType(rawTestType);
+        navigate(getFceEditPath(tab, testId));
         return;
       }
       const { type, tab } = getOrangeHubStateForTestType(rawTestType);
       navigate(getOrangeEditPath(type, tab, testId));
-    } else if (testType === "bay" && test) {
+    } else if (testType === "fce" && test) {
       const rawTestType = String(test.testType || '').toLowerCase();
-      const { tab } = getBayHubStateForTestType(rawTestType);
-      navigate(getBayEditPath(tab, testId));
+      const { tab } = getFceHubStateForTestType(rawTestType);
+      navigate(getFceEditPath(tab, testId));
     }
   };
 
@@ -415,19 +415,19 @@ const SelectTest = () => {
 
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
   const orangeTotalCount = tests.cambridge?.length || 0;
-  const bayTotalCount = tests.bay?.length || 0;
+  const fceTotalCount = tests.fce?.length || 0;
 
-  const baySkillTabs = useMemo(
-    () => BAY_SKILLS.map((skill) => ({
+  const fceSkillTabs = useMemo(
+    () => FCE_SKILLS.map((skill) => ({
       key: skill.key,
       label: skill.label,
-      count: (tests.bay || []).filter((test) => getCambridgeCategory(test) === skill.key).length,
+      count: (tests.fce || []).filter((test) => getCambridgeCategory(test) === skill.key).length,
       icon: skill.icon,
     })),
-    [tests.bay]
+    [tests.fce]
   );
 
-  const bayConfig = useMemo(() => getBayTestConfig(activeBayTab), [activeBayTab]);
+  const fceConfig = useMemo(() => getFceTestConfig(activeFceTab), [activeFceTab]);
 
   const currentContext = useMemo(() => {
     if (activePlatform === "ix") {
@@ -436,19 +436,19 @@ const SelectTest = () => {
         displayType: activeIxTab,
         categoryForPermission: activeIxTab,
         isOrange: false,
-        isBay: false,
+        isFce: false,
       };
     }
 
-    if (activePlatform === "bay") {
-      const selected = (tests.bay || []).filter((test) => getCambridgeCategory(test) === activeBayTab);
+    if (activePlatform === "fce") {
+      const selected = (tests.fce || []).filter((test) => getCambridgeCategory(test) === activeFceTab);
 
       return {
         list: selected,
-        displayType: "bay",
-        categoryForPermission: activeBayTab,
+        displayType: "fce",
+        categoryForPermission: activeFceTab,
         isOrange: false,
-        isBay: true,
+        isFce: true,
       };
     }
 
@@ -464,9 +464,9 @@ const SelectTest = () => {
       displayType: "cambridge",
       categoryForPermission: activeOrangeTab,
       isOrange: true,
-      isBay: false,
+      isFce: false,
     };
-  }, [activePlatform, activeIxTab, activeOrangeTab, activeBayTab, tests, orangeFilteredByType]);
+  }, [activePlatform, activeIxTab, activeOrangeTab, activeFceTab, tests, orangeFilteredByType]);
 
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
@@ -482,26 +482,26 @@ const SelectTest = () => {
   );
   const activeOrangeLevel = getOrangeLevelMeta(activeOrangeType);
   const currentSkillInfo =
-    activePlatform === "bay"
-      ? BAY_SKILL_META[activeBayTab] || BAY_SKILL_META.reading
+    activePlatform === "fce"
+      ? FCE_SKILL_META[activeFceTab] || FCE_SKILL_META.reading
       : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = (() => {
     if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
-    if (activePlatform === "bay") return `Cty Bay ${currentSkillInfo.label}`;
+    if (activePlatform === "fce") return `FCE ${currentSkillInfo.label}`;
     return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   })();
   const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
   const orangeCreateLabel = `Create ${activeOrangeLevel.shortLabel} ${currentSkillInfo.label} Test`;
-  const bayCreatePath = getBayCreatePath(activeBayTab);
-  const bayCreateLabel = `Create Cty Bay ${currentSkillInfo.label} Test`;
+  const fceCreatePath = getFceCreatePath(activeFceTab);
+  const fceCreateLabel = `Create FCE ${currentSkillInfo.label} Test`;
   const heroTags = [
     {
       icon: activePlatform === "orange"
         ? activeOrangeLevel.iconName || "orange"
-        : activePlatform === "bay"
-          ? BAY_LEVEL_META.iconName || "tests"
+        : activePlatform === "fce"
+          ? FCE_LEVEL_META.iconName || "tests"
           : "tests",
-      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : activePlatform === "bay" ? "Cty Bay" : "IX",
+      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : activePlatform === "fce" ? "FCE" : "IX",
     },
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
     { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
@@ -542,21 +542,21 @@ const SelectTest = () => {
     });
   };
 
-  const buildBayPlacementSelection = (test, title, displayTitle) => {
+  const buildFcePlacementSelection = (test, title, displayTitle) => {
     return createPlacementSelection({
-      platform: "bay",
-      skill: activeBayTab,
+      platform: "fce",
+      skill: activeFceTab,
       testId: test.id,
       testType: test.testType,
       title,
       subtitle: buildPlacementSubtitle(
-        "Cty Bay",
+        "FCE",
         displayTitle,
         test.classCode || ""
       ),
-      badge: "Bay",
-      questionsLabel: `${bayConfig.totalQuestions || "?"} Q`,
-      durationLabel: `${bayConfig.duration || "?"} min`,
+      badge: "FCE",
+      questionsLabel: `${fceConfig.totalQuestions || "?"} Q`,
+      durationLabel: `${fceConfig.duration || "?"} min`,
     });
   };
 
@@ -640,8 +640,8 @@ const SelectTest = () => {
                         updateSelectRoute(
                           tab.key === "orange"
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
-                            : tab.key === "bay"
-                              ? { platform: "bay", type: DEFAULT_BAY_TYPE, tab: activeBayTab }
+                            : tab.key === "fce"
+                              ? { platform: "fce", type: DEFAULT_FCE_TYPE, tab: activeFceTab }
                               : { platform: "ix", tab: activeIxTab }
                         )
                       }
@@ -655,13 +655,13 @@ const SelectTest = () => {
                         <span className="select-test-sidePlatformHint">
                           {tab.key === "ix"
                             ? "Writing, reading, listening"
-                            : tab.key === "bay"
+                            : tab.key === "fce"
                               ? "Placement-style combined skills"
                               : "KET, PET, Flyers, Movers, Starters"}
                         </span>
                       </span>
                       <span className="select-test-sidePlatformCount">
-                        {tab.key === "ix" ? ixTotalCount : tab.key === "bay" ? bayTotalCount : orangeTotalCount}
+                        {tab.key === "ix" ? ixTotalCount : tab.key === "fce" ? fceTotalCount : orangeTotalCount}
                       </span>
                     </button>
                   ))}
@@ -691,20 +691,20 @@ const SelectTest = () => {
                       ))}
                     </div>
                   </div>
-                ) : activePlatform === "bay" ? (
+                ) : activePlatform === "fce" ? (
                   <div className="select-test-sidebarPanel">
                     <div className="select-test-sidebarPanelHeader">
-                      <span className="select-test-sidebarPanelTitle">Cty Bay skills</span>
-                      <span className="select-test-sidebarPanelMeta">{bayTotalCount} tests</span>
+                      <span className="select-test-sidebarPanelTitle">FCE skills</span>
+                      <span className="select-test-sidebarPanelMeta">{fceTotalCount} tests</span>
                     </div>
 
                     <div className="select-test-pillRow select-test-pillRow--sidebar">
-                      {baySkillTabs.map((skill) => (
+                      {fceSkillTabs.map((skill) => (
                         <button
                           key={skill.key}
                           type="button"
-                          onClick={() => updateSelectRoute({ platform: "bay", type: DEFAULT_BAY_TYPE, tab: skill.key })}
-                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeBayTab === skill.key ? "active" : ""}`}
+                          onClick={() => updateSelectRoute({ platform: "fce", type: DEFAULT_FCE_TYPE, tab: skill.key })}
+                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeFceTab === skill.key ? "active" : ""}`}
                         >
                           <span className="select-test-skillIcon" aria-hidden="true">
                             <LineIcon name={skill.icon} size={16} />
@@ -716,9 +716,9 @@ const SelectTest = () => {
                     </div>
 
                     <div className="select-test-shelfMeta">
-                      <span className="select-test-shelfMetaItem">Cty Bay</span>
-                      <span className="select-test-shelfMetaItem">{bayConfig.totalQuestions || "?"} Q</span>
-                      <span className="select-test-shelfMetaItem">{bayConfig.duration || "?"} min</span>
+                      <span className="select-test-shelfMetaItem">FCE</span>
+                      <span className="select-test-shelfMetaItem">{fceConfig.totalQuestions || "?"} Q</span>
+                      <span className="select-test-shelfMetaItem">{fceConfig.duration || "?"} min</span>
                     </div>
                   </div>
                 ) : (
@@ -792,7 +792,7 @@ const SelectTest = () => {
                 <div className="select-test-toolbarMain">
                   <div className="select-test-toolbarIdentity">
                     <span className="select-test-toolbarEyebrow">
-                      {activePlatform === "orange" ? "Orange library" : activePlatform === "bay" ? "Cty Bay library" : "IX library"}
+                      {activePlatform === "orange" ? "Orange library" : activePlatform === "fce" ? "FCE library" : "IX library"}
                     </span>
                     <h2 className="select-test-toolbarTitle">{currentShelfTitle}</h2>
                     <div className="select-test-toolbarPills">
@@ -816,14 +816,14 @@ const SelectTest = () => {
                     </button>
                   ) : null}
 
-                  {currentContext.isBay && canManageCurrentSelection ? (
+                  {currentContext.isFce && canManageCurrentSelection ? (
                     <button
                       type="button"
                       className="select-test-create select-test-create--toolbar"
-                      onClick={() => navigate(bayCreatePath)}
+                      onClick={() => navigate(fceCreatePath)}
                     >
                       <LineIcon name="create" size={16} />
-                      <span>{bayCreateLabel}</span>
+                      <span>{fceCreateLabel}</span>
                     </button>
                   ) : null}
                 </div>
@@ -943,15 +943,15 @@ const SelectTest = () => {
                       </div>
                     ) : null}
 
-                    {currentContext.isBay && canManageCurrentSelection ? (
+                    {currentContext.isFce && canManageCurrentSelection ? (
                       <div className="select-test-adminActions">
                         <button
                           type="button"
                           className="select-test-create"
-                          onClick={() => navigate(bayCreatePath)}
+                          onClick={() => navigate(fceCreatePath)}
                         >
                           <LineIcon name="create" size={16} />
-                          <span>{bayCreateLabel}</span>
+                          <span>{fceCreateLabel}</span>
                         </button>
                       </div>
                     ) : null}
@@ -1046,40 +1046,40 @@ const SelectTest = () => {
                             </div>
                           );
                         })
-                      ) : currentContext.isBay ? (
+                      ) : currentContext.isFce ? (
                         visibleList.map((test, index) => {
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
-                          const displayTitle = BAY_SKILL_META[activeBayTab]?.label || "Cty Bay";
-                          const bayCardTitle = test.title || `Cty Bay ${displayTitle}`;
-                          const placementSelection = buildBayPlacementSelection(test, bayCardTitle, displayTitle);
+                          const displayTitle = FCE_SKILL_META[activeFceTab]?.label || "FCE";
+                          const fceCardTitle = test.title || `FCE ${displayTitle}`;
+                          const placementSelection = buildFcePlacementSelection(test, fceCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
-                            platform: "bay",
-                            skill: activeBayTab,
+                            platform: "fce",
+                            skill: activeFceTab,
                             testType: test.testType,
                           });
                           const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
 
                           return (
                             <div
-                              key={`bay-${test.category || "unknown"}-${test.id}`}
-                              className={`select-test-card select-test-card--${activeBayTab} select-test-card--bay`}
+                              key={`fce-${test.category || "unknown"}-${test.id}`}
+                              className={`select-test-card select-test-card--${activeFceTab} select-test-card--fce`}
                             >
                               <button
                                 type="button"
                                 className="select-test-cardMain"
-                                onClick={() => handleSelectBay(test)}
+                                onClick={() => handleSelectFce(test)}
                               >
                                 <div className="select-test-cardHeader">
-                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeBayTab}`}>
-                                    <LineIcon name={BAY_SKILL_META[activeBayTab]?.icon || "tests"} size={16} />
+                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeFceTab}`}>
+                                    <LineIcon name={FCE_SKILL_META[activeFceTab]?.icon || "tests"} size={16} />
                                     <span>{displayTitle}</span>
                                   </span>
                                   <span className="select-test-cardNum">#{index + 1}</span>
                                 </div>
 
                                 <div className="select-test-cardTitle">
-                                  <span className="select-test-cardText">{bayCardTitle}</span>
+                                  <span className="select-test-cardText">{fceCardTitle}</span>
                                 </div>
 
                                 <div className="select-test-cardMeta select-test-cardMeta--grid">
@@ -1092,7 +1092,7 @@ const SelectTest = () => {
 
                                 <div className="select-test-cardFooter">
                                   <span className="select-test-cardFootnote">
-                                    {bayConfig.totalQuestions || "?"} Q • {bayConfig.duration || "?"} min
+                                    {fceConfig.totalQuestions || "?"} Q • {fceConfig.duration || "?"} min
                                   </span>
                                   <div className="select-test-cardFooterMeta">
                                     {placementEligible ? (
@@ -1110,8 +1110,8 @@ const SelectTest = () => {
                                   {canManageCurrentSelection ? (
                                     <button
                                       type="button"
-                                      className="select-test-edit select-test-edit--bay"
-                                      onClick={() => handleEdit(test.id, "bay", test)}
+                                      className="select-test-edit select-test-edit--fce"
+                                      onClick={() => handleEdit(test.id, "fce", test)}
                                     >
                                       <span>Edit Test</span>
                                     </button>

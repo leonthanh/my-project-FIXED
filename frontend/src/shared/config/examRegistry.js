@@ -9,15 +9,15 @@ import {
   normalizeOrangeType,
 } from '../../domains/cambridge/config/levels';
 import {
-  DEFAULT_BAY_SKILL,
-  DEFAULT_BAY_TYPE,
-  normalizeBaySkill,
-} from '../../domains/bay/config';
+  DEFAULT_FCE_SKILL,
+  DEFAULT_FCE_TYPE,
+  normalizeFceSkill,
+} from '../../domains/fce/config';
 
 export const PLATFORM_TABS = [
   { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
   { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
-  { key: 'bay', label: 'Cty Bay', icon: 'tests', hint: 'Placement-style combined skills.' },
+  { key: 'fce', label: 'FCE', icon: 'tests', hint: 'Placement-style combined skills.' },
 ];
 
 export function normalizeSelectTestState({ platform, type, tab }) {
@@ -29,17 +29,17 @@ export function normalizeSelectTestState({ platform, type, tab }) {
       ixTab: DEFAULT_IX_SKILL,
       orangeType,
       orangeTab: normalizeOrangeSkill(orangeType, tab),
-      bayTab: DEFAULT_BAY_SKILL,
+      fceTab: DEFAULT_FCE_SKILL,
     };
   }
 
-  if (platform === 'bay') {
+  if (platform === 'fce') {
     return {
-      platform: 'bay',
+      platform: 'fce',
       ixTab: DEFAULT_IX_SKILL,
       orangeType: normalizeOrangeType(type),
       orangeTab: normalizeOrangeSkill(type, tab),
-      bayTab: normalizeBaySkill(tab),
+      fceTab: normalizeFceSkill(tab),
     };
   }
 
@@ -48,7 +48,7 @@ export function normalizeSelectTestState({ platform, type, tab }) {
     ixTab: normalizeIxSkill(tab),
     orangeType: normalizeOrangeType(type),
     orangeTab: normalizeOrangeSkill(type, tab),
-    bayTab: DEFAULT_BAY_SKILL,
+    fceTab: DEFAULT_FCE_SKILL,
   };
 }
 
@@ -70,10 +70,10 @@ export function buildSelectTestPath({ platform = 'ix', type = DEFAULT_ORANGE_TYP
     params.set('platform', 'orange');
     params.set('type', normalized.orangeType);
     params.set('tab', normalized.orangeTab);
-  } else if (normalized.platform === 'bay') {
-    params.set('platform', 'bay');
-    params.set('type', DEFAULT_BAY_TYPE);
-    params.set('tab', normalized.bayTab);
+  } else if (normalized.platform === 'fce') {
+    params.set('platform', 'fce');
+    params.set('type', DEFAULT_FCE_TYPE);
+    params.set('tab', normalized.fceTab);
   } else {
     params.set('platform', 'ix');
     params.set('tab', normalized.ixTab);
@@ -93,8 +93,8 @@ export const ORANGE_HUB_PATH = buildSelectTestPath({
   tab: DEFAULT_ORANGE_SKILL,
 });
 
-export const BAY_HUB_PATH = buildSelectTestPath({
-  platform: 'bay',
-  type: DEFAULT_BAY_TYPE,
-  tab: DEFAULT_BAY_SKILL,
+export const FCE_HUB_PATH = buildSelectTestPath({
+  platform: 'fce',
+  type: DEFAULT_FCE_TYPE,
+  tab: DEFAULT_FCE_SKILL,
 });
