@@ -27,6 +27,8 @@ import {
   WordDragClozeEditor,
   StoryCompletionEditor,
   LookReadWriteEditor,
+  TrueFalseNotGivenEditor,
+  StoryWritingEditor,
 } from "./editors";
 
 /**
@@ -160,14 +162,18 @@ const QuestionEditorFactory = ({
     case 'look-read-write':
       return <LookReadWriteEditor {...commonProps} />;
 
-    // Placeholder for future types
     case 'true-false-not-given':
+      return <TrueFalseNotGivenEditor {...commonProps} />;
+
+    case 'story-writing':
+      return <StoryWritingEditor {...commonProps} />;
+
+    // Placeholder for future types
     case 'yes-no-not-given':
     case 'matching-headings':
     case 'paragraph-matching':
     case 'sentence-completion':
     case 'tick-cross':
-    case 'story-writing':
       return (
         <div style={{
           padding: "20px",

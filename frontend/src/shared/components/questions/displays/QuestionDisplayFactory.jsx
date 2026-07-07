@@ -11,6 +11,9 @@ import {
   MatchingPicturesDisplay,
   ImageClozeDisplay,
   WordDragClozeDisplay,
+  TrueFalseNotGivenDisplay,
+  SentenceTransformationDisplay,
+  StoryWritingDisplay,
 } from './index';
 
 /**
@@ -425,6 +428,42 @@ const QuestionDisplayFactory = ({
           questionNumber={startingNumber}
           onAnswerChange={(value) => onAnswerChange(`${section.id}-0`, value)}
           userAnswer={answers[`${section.id}-0`]}
+          submitted={submitted}
+        />
+      );
+
+    case 'true-false-not-given':
+      return (
+        <TrueFalseNotGivenDisplay
+          section={section}
+          startingNumber={startingNumber}
+          answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'sentence-transformation':
+      return (
+        <SentenceTransformationDisplay
+          section={section}
+          startingNumber={startingNumber}
+          answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'story-writing':
+      return (
+        <StoryWritingDisplay
+          section={section}
+          startingNumber={startingNumber}
+          answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
           submitted={submitted}
         />
       );

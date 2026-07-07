@@ -6,6 +6,7 @@
  *   node backend/scripts/migrate-bay-to-fce.js --apply
  */
 
+const { Op } = require('sequelize');
 const sequelize = require('../db');
 const {
   CambridgeReading,
@@ -80,7 +81,7 @@ async function updatePlatform(Model) {
 async function updateSubtitle(Model) {
   const tableName = Model.getTableName();
   const rows = await Model.findAll({
-    where: { subtitle: { [sequelize.Op.like]: '%Cty Bay%' } },
+    where: { subtitle: { [Op.like]: '%Cty Bay%' } },
     attributes: ['id', 'subtitle'],
     raw: true,
   });

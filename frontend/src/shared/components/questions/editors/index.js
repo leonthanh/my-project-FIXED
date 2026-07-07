@@ -35,3 +35,5 @@ export { default as SummaryCompletionEditor } from './SummaryCompletionEditor';
 export { default as WordDragClozeEditor } from './WordDragClozeEditor';
 export { default as StoryCompletionEditor } from './StoryCompletionEditor';
 export { default as LookReadWriteEditor } from './LookReadWriteEditor';
+export { default as TrueFalseNotGivenEditor } from './TrueFalseNotGivenEditor';
+export { default as StoryWritingEditor } from './StoryWritingEditor';
