@@ -34,12 +34,12 @@ import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
 
-const CAMBRIDGE_SUBMISSION_TABS = [
+const getCambridgeSubmissionTabs = (platformFilter) => [
   {
     key: 'all',
     shortLabel: 'All',
     label: 'All Submissions',
-    tone: 'cambridge',
+    tone: platformFilter === 'fce' ? 'cyan' : 'cambridge',
   },
   {
     key: 'listening',
@@ -49,8 +49,8 @@ const CAMBRIDGE_SUBMISSION_TABS = [
   },
   {
     key: 'reading',
-    shortLabel: 'Reading',
-    label: 'Reading Submissions',
+    shortLabel: platformFilter === 'fce' ? 'Reading + Writing' : 'Reading',
+    label: platformFilter === 'fce' ? 'Reading + Writing Submissions' : 'Reading Submissions',
     tone: 'reading',
   },
 ];
@@ -1222,13 +1222,16 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
     ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
+  const workspaceCurrentKey = platformFilter === 'fce' ? 'fce' : 'cambridge';
   const workspaceLinks = buildAdminWorkspaceLinks(
     navigate,
-    "cambridge",
+    workspaceCurrentKey,
     undefined,
     "review"
   );
-  const submissionViewLinks = CAMBRIDGE_SUBMISSION_TABS.map((tab) => ({
+  const platformTone = platformFilter === 'fce' ? 'cyan' : 'orange';
+  const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(platformFilter);
+  const submissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({
     key: tab.key,
     label: tab.shortLabel || tab.label,
     hint: tab.label,
@@ -1237,7 +1240,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
         ? "violet"
         : tab.key === "listening"
         ? "green"
-        : "orange",
+        : platformTone,
     active: activeTab === tab.key,
     onClick: () => setActiveTab(tab.key),
   }));
@@ -1437,7 +1440,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
               </AdminSidebarPanel>
 
               <AdminSidebarPanel eyebrow="View" title="Submission type" meta={activeTab}>
-                <AdminSidebarNavList items={submissionViewLinks} ariaLabel="Cambridge submission filters" />
+                <AdminSidebarNavList items={submissionViewLinks} ariaLabel={`${platformLabel} submission filters`} />
               </AdminSidebarPanel>
 
               <AdminSidebarPanel eyebrow="Summary" title="Result queue" meta={`Page ${pagination.page}`}>
@@ -1485,7 +1488,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
           middleContent={(
             <SubmissionTypeTabs
               activeKey={activeTab}
-              items={CAMBRIDGE_SUBMISSION_TABS}
+              items={cambridgeSubmissionTabs}
               title={null}
               allowMobileWrap
               showZeroBadge
@@ -2051,13 +2054,13 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
           open={Boolean(deleteConfirm)}
           title={
             deleteConfirm?.mode === 'bulk'
-              ? `Delete ${deleteConfirm?.ids?.length || 0} Cambridge submissions?`
-              : 'Delete Cambridge submission?'
+              ? `Delete ${deleteConfirm?.ids?.length || 0} ${platformLabel} submissions?`
+              : `Delete ${platformLabel} submission?`
           }
           description={
             deleteConfirm?.mode === 'bulk'
-              ? 'This removes the selected Cambridge submissions from the queue immediately and cannot be undone.'
-              : 'This permanently removes the selected Cambridge submission, including saved feedback and review drawer state for that record.'
+              ? `This removes the selected ${platformLabel} submissions from the queue immediately and cannot be undone.`
+              : `This permanently removes the selected ${platformLabel} submission, including saved feedback and review drawer state for that record.`
           }
           confirmLabel="Delete Permanently"
           busy={
@@ -2074,7 +2077,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
             <>
               <p style={styles.confirmMetaHeading}>Selection summary</p>
               <p style={styles.confirmMetaText}>
-                <strong>{deleteConfirm?.ids?.length || 0}</strong> visible Cambridge submissions will be deleted.
+                <strong>{deleteConfirm?.ids?.length || 0}</strong> visible {platformLabel} submissions will be deleted.
               </p>
               <p style={styles.confirmMetaText}>The current filtered selection will be removed from this page and the list will refresh to keep pagination in sync.</p>
             </>
