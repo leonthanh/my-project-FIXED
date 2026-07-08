@@ -72,10 +72,15 @@ const submitReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   const finalClassCode = classCode || test.classCode;
   const finalStudentPhone = studentPhone || placementContext?.attempt?.studentPhone || null;
 
-  if (userId) {
+  // Treat 'Unknown' as if not provided, so we can get from placement attempt
+  if (finalStudentName === 'Unknown') {
+    finalStudentName = placementContext?.attempt?.studentName || null;
+  }
+
+  if (userId && !finalStudentName) {
     const user = await User.findByPk(userId);
     if (user) {
-      finalStudentName = finalStudentName || user.name || user.username;
+      finalStudentName = user.name || user.username;
     }
   }
 
