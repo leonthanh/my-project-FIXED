@@ -1,7 +1,7 @@
 import EditCambridgeReadingTestPage from '../../../cambridge/shared/pages/EditCambridgeReadingTestPage';
 
-const EditBayReadingTestPage = () => (
+const EditFceReadingTestPage = () => (
   <EditCambridgeReadingTestPage apiBasePath="cambridge/reading-tests" />
 );
 
-export default EditBayReadingTestPage;
+export default EditFceReadingTestPage;

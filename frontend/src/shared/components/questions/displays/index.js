@@ -15,4 +15,7 @@ export { default as InlineChoiceDisplay } from './InlineChoiceDisplay';
 export { default as MatchingPicturesDisplay } from './MatchingPicturesDisplay';
 export { default as ImageClozeDisplay } from './ImageClozeDisplay';
 export { default as WordDragClozeDisplay } from './WordDragClozeDisplay';
+export { default as TrueFalseNotGivenDisplay } from './TrueFalseNotGivenDisplay';
+export { default as SentenceTransformationDisplay } from './SentenceTransformationDisplay';
+export { default as StoryWritingDisplay } from './StoryWritingDisplay';
 export { default as QuestionDisplayFactory } from './QuestionDisplayFactory';

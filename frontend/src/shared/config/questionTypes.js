@@ -931,10 +931,10 @@ export const TEST_CONFIGS = {
     ],
   },
 
-  'bay-reading': {
-    id: 'bay-reading',
-    name: 'Cty Bay Reading & Writing',
-    nameVi: 'Cty Bay Reading & Writing',
+  'fce-reading': {
+    id: 'fce-reading',
+    name: 'FCE Reading & Writing',
+    nameVi: 'FCE Reading & Writing',
     totalQuestions: 80,
     parts: 9,
     duration: 60, // minutes
@@ -963,10 +963,10 @@ export const TEST_CONFIGS = {
     ],
   },
 
-  'bay-listening': {
-    id: 'bay-listening',
-    name: 'Cty Bay Listening',
-    nameVi: 'Cty Bay Listening',
+  'fce-listening': {
+    id: 'fce-listening',
+    name: 'FCE Listening',
+    nameVi: 'FCE Listening',
     totalQuestions: 20,
     parts: 4,
     duration: 20, // minutes

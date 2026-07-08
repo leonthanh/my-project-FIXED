@@ -124,7 +124,7 @@ const DoCambridgeReadingTest = ({
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("bay")) return "BAY";
+    if (s.includes("fce")) return "FCE";
     return "CAMBRIDGE";
   }, [routeTestType]);
 
@@ -1743,7 +1743,7 @@ const DoCambridgeReadingTest = ({
       {!started && !submitted && !loading && !error && (
         <TestStartModal
           iconName="reading"
-          eyebrow={examType === "BAY" ? "Cty Bay" : `Cambridge ${examType}`}
+          eyebrow={examType === "FCE" ? "FCE" : `Cambridge ${examType}`}
           subtitle="Reading Test"
           title={test?.title || testConfig.name || 'Cambridge Reading'}
           stats={[

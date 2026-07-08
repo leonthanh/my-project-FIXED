@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
-import { IX_HUB_PATH, ORANGE_HUB_PATH, BAY_HUB_PATH } from "../config/examRegistry";
+import { IX_HUB_PATH, ORANGE_HUB_PATH, FCE_HUB_PATH } from "../config/examRegistry";
 import "./StudentNavbar.css";
 
 const NavIcon = ({ name }) => {
@@ -407,18 +407,18 @@ const StudentNavbar = () => {
 
   const ixHubPath = IX_HUB_PATH;
   const orangeHubPath = ORANGE_HUB_PATH;
-  const bayHubPath = BAY_HUB_PATH;
+  const fceHubPath = FCE_HUB_PATH;
 
   const getPreferredMobileTab = () => {
     const pathname = String(location.pathname || "").toLowerCase();
     if (pathname.startsWith("/my-feedback")) return "feedback";
     if (pathname.startsWith("/cambridge")) return "orange";
-    if (pathname.startsWith("/bay")) return "bay";
+    if (pathname.startsWith("/fce")) return "fce";
     if (pathname.startsWith("/select-test")) {
       const params = new URLSearchParams(location.search || "");
       const platform = params.get("platform");
       if (platform === "orange") return "orange";
-      if (platform === "bay") return "bay";
+      if (platform === "fce") return "fce";
       return "ielts";
     }
     return "overview";
@@ -449,7 +449,7 @@ const StudentNavbar = () => {
     ? new URLSearchParams(location.search || "").get("platform")
     : null;
   const isIxCurrent =
-    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "bay") ||
+    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "fce") ||
     pathname.startsWith("/reading/") ||
     pathname.startsWith("/listening/") ||
     pathname.startsWith("/writing-test");
@@ -457,9 +457,9 @@ const StudentNavbar = () => {
     (pathname.startsWith("/select-test") && platformParam === "orange") ||
     pathname.startsWith("/cambridge/") ||
     pathname.startsWith("/pet-writing");
-  const isBayCurrent =
-    (pathname.startsWith("/select-test") && platformParam === "bay") ||
-    pathname.startsWith("/bay/");
+  const isFceCurrent =
+    (pathname.startsWith("/select-test") && platformParam === "fce") ||
+    pathname.startsWith("/fce/");
   const isFeedbackCurrent = pathname.startsWith("/my-feedback");
   const isProfileCurrent = pathname.startsWith("/profile");
 
@@ -467,7 +467,7 @@ const StudentNavbar = () => {
     { key: "overview", label: "Overview" },
     { key: "ielts", label: "IX" },
     { key: "orange", label: "Orange" },
-    { key: "bay", label: "Cty Bay" },
+    { key: "fce", label: "FCE" },
     {
       key: "feedback",
       label: `Feedback${totalNotifications > 0 ? ` (${totalNotifications})` : ""}`,
@@ -591,19 +591,19 @@ const StudentNavbar = () => {
     </>
   );
 
-  const renderMobileBay = () => (
+  const renderMobileFce = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
-        <div className="studentNavbar__mobileMenuTitle">Cty Bay</div>
+        <div className="studentNavbar__mobileMenuTitle">FCE</div>
         <div className="studentNavbar__mobileMenuHint">
-          Jump to Cty Bay placement tests.
+          Jump to FCE placement tests.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
-          bayHubPath,
-          "Open Cty Bay tests",
-          "Go to the Cty Bay test hub",
+          fceHubPath,
+          "Open FCE tests",
+          "Go to the FCE test hub",
           "tests"
         )}
       </div>
@@ -658,7 +658,7 @@ const StudentNavbar = () => {
   const renderMobileDrawerContent = () => {
     if (mobileDrawerTab === "ielts") return renderMobileIelts();
     if (mobileDrawerTab === "orange") return renderMobileOrange();
-    if (mobileDrawerTab === "bay") return renderMobileBay();
+    if (mobileDrawerTab === "fce") return renderMobileFce();
     if (mobileDrawerTab === "feedback") return renderMobileFeedback();
     return renderMobileOverview();
   };
@@ -783,9 +783,9 @@ const StudentNavbar = () => {
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
         </Link>
-        <Link to={bayHubPath} className={`studentNavbar__link${isBayCurrent ? " studentNavbar__link--active" : ""}`} title="Cty Bay">
+        <Link to={fceHubPath} className={`studentNavbar__link${isFceCurrent ? " studentNavbar__link--active" : ""}`} title="FCE">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-          <span className="studentNavbar__label">Cty Bay</span>
+          <span className="studentNavbar__label">FCE</span>
         </Link>
 
         <button
@@ -837,12 +837,12 @@ const StudentNavbar = () => {
                 <span>Orange</span>
               </Link>
               <Link
-                to={bayHubPath}
+                to={fceHubPath}
                 className="studentNavbar__menuItem"
                 onClick={() => setMoreDropdownVisible(false)}
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
-                <span>Cty Bay</span>
+                <span>FCE</span>
               </Link>
               <Link
                 to="/my-feedback"
