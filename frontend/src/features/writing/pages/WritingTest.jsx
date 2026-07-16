@@ -29,6 +29,14 @@ import "./WritingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+const LOCAL_AUTOSAVE_DEBOUNCE_MS = 500;
+
+const hasMeaningfulWritingContent = (task1, task2) => {
+  return (
+    (typeof task1 === "string" && task1.trim().length > 0) ||
+    (typeof task2 === "string" && task2.trim().length > 0)
+  );
+};
 
 const progressRingStyle = {
   width: 40,
@@ -172,17 +180,18 @@ const createWritingRuntimeTheme = (isDarkMode = false) => {
       lineHeight: 1,
       color: "white",
     },
-    exitButton: {
-      background: colors.accent,
+    submitButtonHeader: (isSubmitting) => ({
+      background: isSubmitting ? "#999" : colors.accent,
       color: "#fff",
       border: "none",
       padding: "8px 16px",
       borderRadius: 10,
       fontWeight: 700,
-      cursor: "pointer",
+      cursor: isSubmitting ? "not-allowed" : "pointer",
       fontSize: 15,
-      boxShadow: isDarkMode ? "0 10px 22px rgba(255, 59, 102, 0.18)" : "none",
-    },
+      opacity: isSubmitting ? 0.85 : 1,
+      boxShadow: isDarkMode && !isSubmitting ? "0 10px 22px rgba(255, 59, 102, 0.18)" : "none",
+    }),
     statusBanner: {
       margin: "16px 24px 0",
       borderRadius: 12,
@@ -410,13 +419,21 @@ const WritingTest = () => {
     return () => clearTimeout(timeoutId);
   }, [runtimeLimitToast]);
 
+  // Save writing content to localStorage as the student types (debounced).
+  // The server is only synced periodically to avoid rate-limiting and dropped connections.
   useEffect(() => {
-    localStorage.setItem(writingTask1Key, task1);
-  }, [task1, writingTask1Key]);
-
-  useEffect(() => {
-    localStorage.setItem(writingTask2Key, task2);
-  }, [task2, writingTask2Key]);
+    let debounceId;
+    const persistLocal = () => {
+      try {
+        localStorage.setItem(writingTask1Key, task1);
+        localStorage.setItem(writingTask2Key, task2);
+      } catch (_err) {
+        // ignore storage errors
+      }
+    };
+    debounceId = setTimeout(persistLocal, LOCAL_AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(debounceId);
+  }, [task1, task2, writingTask1Key, writingTask2Key]);
 
   useEffect(() => {
     localStorage.setItem(writingTimeKey, timeLeft.toString());
@@ -571,12 +588,27 @@ const WritingTest = () => {
     fetchTestData();
   }, [selectedTestId, isHydratingDraft]);
 
+  const lastServerSaveAtRef = useRef(0);
+
   const saveDraftToServer = useCallback(async () => {
     if (isHydratingDraft || submitted) return;
     if (!isPlacementRuntime && !user?.id) return;
 
     const numericTestId = parseInt(selectedTestId || routeTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) return;
+
+    const now = Date.now();
+    // Guard against accidental bursts from effect re-runs / rapid calls.
+    if (now - lastServerSaveAtRef.current < SERVER_AUTOSAVE_INTERVAL_MS - 1000) {
+      return;
+    }
+
+    // Don't create an empty server draft before the student has typed anything.
+    if (!hasMeaningfulWritingContent(task1, task2)) {
+      return;
+    }
+
+    lastServerSaveAtRef.current = now;
 
     try {
       const payload = {
@@ -1034,32 +1066,13 @@ const WritingTest = () => {
               <span style={{ opacity: 0.7, fontSize: 12 }}>/400</span>
             </div>
           </div>
-          {isPlacementRuntime ? (
-            <button
-              onClick={() => navigate(exitPath, { replace: true })}
-              style={theme.exitButton}
-            >
-              Back to tests
-            </button>
-          ) : (
-            <button
-              onClick={async () => {
-                try {
-                  await saveDraftToServer();
-                  await fetch(apiPath("auth/logout"), {
-                    method: "POST",
-                    credentials: "include",
-                  });
-                } finally {
-                  clearAuth();
-                  redirectToLogin({ replace: true });
-                }
-              }}
-              style={theme.exitButton}
-            >
-              Log out
-            </button>
-          )}
+          <button
+            onClick={handleSubmit}
+            style={theme.submitButtonHeader(isSubmitting)}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Submitting..." : "Submit"}
+          </button>
         </div>
       </header>
 
@@ -1155,13 +1168,7 @@ const WritingTest = () => {
         >
           Task 2
         </button>
-        <button
-          onClick={handleSubmit}
-          style={theme.submitButton(isSubmitting)}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Submitting..." : "Submit"}
-        </button>
+        {/* Submit moved to header to avoid accidental clicks next to Task 2 */}
       </div>
       {message && !submitted && (
         <div style={theme.messageBanner(message)}>

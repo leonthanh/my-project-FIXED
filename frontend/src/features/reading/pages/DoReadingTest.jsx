@@ -46,6 +46,25 @@ import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRat
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+const LOCAL_AUTOSAVE_DEBOUNCE_MS = 500;
+
+const hasMeaningfulAnswerValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.some(hasMeaningfulAnswerValue);
+  if (typeof value === "object") {
+    return Object.values(value).some(hasMeaningfulAnswerValue);
+  }
+  return false;
+};
+
+const hasMeaningfulAnswers = (answers) => {
+  if (!answers || typeof answers !== "object") return false;
+  return Object.values(answers).some(hasMeaningfulAnswerValue);
+};
+
 /* eslint-disable no-loop-func */
 // Utility: Remove unwanted <span ...> tags from HTML
 function stripUnwantedHtml(html) {
@@ -780,12 +799,26 @@ const DoReadingTest = () => {
     }
   }, [readingAnswersKey]);
 
-  // Auto-save answers to localStorage
+  // Autosave answers to localStorage immediately (debounced) so data survives power loss or reload.
+  // Server sync is throttled separately to avoid hitting the API rate limiter.
   useEffect(() => {
-    if (Object.keys(answers).length > 0) {
-      localStorage.setItem(readingAnswersKey, JSON.stringify(answers));
-    }
-  }, [answers, id, readingAnswersKey]);
+    if (submitted) return;
+
+    let debounceId;
+    const persistLocal = () => {
+      try {
+        if (Object.keys(answers).length > 0) {
+          localStorage.setItem(readingAnswersKey, JSON.stringify(answers));
+        }
+      } catch (_err) {
+        // ignore storage errors
+      }
+    };
+
+    debounceId = setTimeout(persistLocal, LOCAL_AUTOSAVE_DEBOUNCE_MS);
+
+    return () => clearTimeout(debounceId);
+  }, [answers, readingAnswersKey, submitted]);
 
   // Persist expiresAt (absolute) and started flag so a refresh/power-loss restores correct remaining time
   useEffect(() => {
@@ -797,9 +830,11 @@ const DoReadingTest = () => {
     } catch (e) {
       // ignore storage errors
     }
-  }, [timeRemaining, started, id, readingExpiresKey, readingStartedKey]);
+  }, [timeRemaining, started, readingExpiresKey, readingStartedKey]);
 
-  // Autosave reading progress to the server so students can resume after re-login.
+  // Throttled server autosave: localStorage is the source of truth for the current device.
+  // We sync to the server only every SERVER_AUTOSAVE_INTERVAL_MS or on page leave.
+  const lastServerSaveAtRef = useRef(0);
   useEffect(() => {
     if (!started || submitted || timeRemaining === null) return;
 
@@ -813,6 +848,19 @@ const DoReadingTest = () => {
     }
 
     const persistDraft = async () => {
+      const now = Date.now();
+      // Guard against accidental bursts from effect re-runs.
+      if (now - lastServerSaveAtRef.current < SERVER_AUTOSAVE_INTERVAL_MS - 1000) {
+        return;
+      }
+
+      // Don't create empty server attempts before the student has answered anything.
+      if (!submissionIdRef.current && !hasMeaningfulAnswers(answers)) {
+        return;
+      }
+
+      lastServerSaveAtRef.current = now;
+
       try {
         const payload = {
           submissionId: submissionIdRef.current,
@@ -858,7 +906,6 @@ const DoReadingTest = () => {
       }
     };
 
-    const debounceId = setTimeout(persistDraft, 600);
     const intervalId = setInterval(persistDraft, SERVER_AUTOSAVE_INTERVAL_MS);
     const onBeforeUnload = () => {
       persistDraft();
@@ -873,7 +920,6 @@ const DoReadingTest = () => {
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      clearTimeout(debounceId);
       clearInterval(intervalId);
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("visibilitychange", onVisibilityChange);

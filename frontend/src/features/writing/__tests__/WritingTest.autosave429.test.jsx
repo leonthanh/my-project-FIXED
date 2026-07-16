@@ -81,6 +81,10 @@ describe('WritingTest autosave runtime limit', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /start test/i }));
 
+    // Type something so the throttled server autosave is allowed to run.
+    const taskInput = await screen.findByRole('textbox');
+    fireEvent.change(taskInput, { target: { value: 'draft paragraph' } });
+
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
       get: () => 'hidden',
