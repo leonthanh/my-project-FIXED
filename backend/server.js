@@ -90,6 +90,7 @@ const runtimeSyncRoutePatterns = [
   /^\/api\/writing\/draft\/(?:autosave|active)$/i,
   /^\/api\/reading-submissions\/[^/]+\/(?:autosave|active)$/i,
   /^\/api\/listening-submissions\/[^/]+\/(?:autosave|active)$/i,
+  /^\/api\/cambridge\/submissions\/(?:autosave|active)$/i,
 ];
 
 const isRuntimeSyncRequest = (req) => {
