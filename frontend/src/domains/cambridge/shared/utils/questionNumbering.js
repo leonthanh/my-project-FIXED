@@ -82,6 +82,14 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return (q0.groups || []).reduce((sum, g) => sum + (g.items?.length || 0), 0);
   }
+  if (section.questionType === 'preposition-gap-fill') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
+  if (section.questionType === 'odd-one-out') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.groups) ? q0.groups.length : 0;
+  }
   return section.questions.length;
 };
 
@@ -143,6 +151,8 @@ const computeQuestionStarts = (passages) => {
     'look-read-write',
     'draw-lines', // MOVERS Part 1: expand per leftItem name
     'letter-matching', // MOVERS Part 3: expand per person name
+    'preposition-gap-fill',
+    'odd-one-out',
   ]);
   let count = 1;
 

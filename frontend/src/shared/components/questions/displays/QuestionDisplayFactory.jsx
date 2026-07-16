@@ -14,6 +14,8 @@ import {
   TrueFalseNotGivenDisplay,
   SentenceTransformationDisplay,
   StoryWritingDisplay,
+  PrepositionGapFillDisplay,
+  OddOneOutDisplay,
 } from './index';
 
 /**
@@ -462,6 +464,28 @@ const QuestionDisplayFactory = ({
           section={section}
           startingNumber={startingNumber}
           answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'preposition-gap-fill':
+      return (
+        <PrepositionGapFillDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'odd-one-out':
+      return (
+        <OddOneOutDisplay
+          section={section}
+          startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}

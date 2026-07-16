@@ -9,6 +9,8 @@ import ClozeMCDisplay from '../../../../shared/components/questions/displays/Clo
 import ClozeTestDisplay from '../../../../shared/components/questions/displays/ClozeTestDisplay';
 import WordFormDisplay from '../../../../shared/components/questions/displays/WordFormDisplay';
 import InlineChoiceDisplay from '../../../../shared/components/questions/displays/InlineChoiceDisplay';
+import PrepositionGapFillDisplay from '../../../../shared/components/questions/displays/PrepositionGapFillDisplay';
+import OddOneOutDisplay from '../../../../shared/components/questions/displays/OddOneOutDisplay';
 import MatchingPicturesDisplay from '../../../../shared/components/questions/displays/MatchingPicturesDisplay';
 import ImageClozeDisplay from '../../../../shared/components/questions/displays/ImageClozeDisplay';
 import WordDragClozeDisplay from '../../../../shared/components/questions/displays/WordDragClozeDisplay';
@@ -665,6 +667,8 @@ function getSectionDisplayName(sectionType) {
     'letter-matching': 'Letter Matching',
     'image-tick': 'Image Tick',
     'colour-write': 'Colour and Write',
+    'preposition-gap-fill': 'Prepositions & Phrasal Verbs',
+    'odd-one-out': 'Odd One Out',
   };
 
   return labels[sectionType] || sectionType || 'Section';
@@ -687,6 +691,8 @@ function questionCountForQuestion(sectionType, question) {
     return Array.isArray(question.leftItems) ? question.leftItems.length : 0;
   }
   if (sectionType === 'word-form') return Array.isArray(question.sentences) ? question.sentences.length : 0;
+  if (sectionType === 'preposition-gap-fill') return Array.isArray(question.items) ? question.items.length : 0;
+  if (sectionType === 'odd-one-out') return Array.isArray(question.groups) ? question.groups.length : 0;
   if (sectionType === 'matching-pictures') return Array.isArray(question.prompts) ? question.prompts.length : 0;
   if (sectionType === 'image-cloze') {
     const blanks = parseClozeBlanksFromText(question.passageText || '', 1).length;
@@ -1637,6 +1643,32 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                     <WordFormDisplay
                       key={`${partIdx}-${secIdx}-${qIdx}`}
                       section={{ ...question, id: `${partIdx}-${secIdx}-${qIdx}` }}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                    />
+                  );
+                }
+
+                if (sectionType === 'preposition-gap-fill') {
+                  return (
+                    <PrepositionGapFillDisplay
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{ ...section, id: `${partIdx}-${secIdx}`, questions: [question] }}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                    />
+                  );
+                }
+
+                if (sectionType === 'odd-one-out') {
+                  return (
+                    <OddOneOutDisplay
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{ ...section, id: `${partIdx}-${secIdx}`, questions: [question] }}
                       startingNumber={questionStart}
                       onAnswerChange={noop}
                       answers={answers}

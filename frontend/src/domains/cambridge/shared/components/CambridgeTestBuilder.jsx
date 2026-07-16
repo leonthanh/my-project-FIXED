@@ -67,6 +67,8 @@ const QUESTION_TYPE_ICONS = {
   "letter-matching": "matching",
   "image-tick": "correct",
   "colour-write": "palette",
+  "preposition-gap-fill": "selector",
+  "odd-one-out": "correct",
 };
 
 
