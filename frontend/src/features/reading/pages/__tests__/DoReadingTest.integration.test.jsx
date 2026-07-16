@@ -555,7 +555,7 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     await screen.findByText('Prompt for multi-select only once');
 
     expect(screen.getAllByText('Prompt for multi-select only once')).toHaveLength(1);
-    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('1-3');
+    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('10-12');
   });
 
   it('keeps multi-select badge and footer navigation aligned with computed runtime numbering', async () => {
@@ -580,13 +580,13 @@ describe('DoReadingTest integration - part navigation and focus', () => {
 
     await screen.findByText('Which THREE options are mentioned?');
 
-    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('8-10');
-    expect(screen.getByTestId('nav-question-8')).toHaveTextContent('8-10');
+    expect(container.querySelector('.multi-select-badge')).toHaveTextContent('10-12');
+    expect(screen.getByTestId('nav-question-10')).toHaveTextContent('10-12');
 
     fireEvent.click(screen.getAllByRole('checkbox')[0]);
 
     await waitFor(() => {
-      expect(screen.getByTestId('nav-question-8')).toHaveClass('answered');
+      expect(screen.getByTestId('nav-question-10')).toHaveClass('answered');
     });
   });
 
