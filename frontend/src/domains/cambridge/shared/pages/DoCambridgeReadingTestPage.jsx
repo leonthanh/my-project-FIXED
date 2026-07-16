@@ -20,6 +20,8 @@ import ImageClozeDisplay from "../../../../shared/components/questions/displays/
 import WordDragClozeDisplay from "../../../../shared/components/questions/displays/WordDragClozeDisplay";
 import StoryCompletionDisplay from "../../../../shared/components/questions/displays/StoryCompletionDisplay";
 import LookReadWriteDisplay from "../../../../shared/components/questions/displays/LookReadWriteDisplay";
+import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
+import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
@@ -1184,7 +1186,9 @@ const DoCambridgeReadingTest = ({
             section.questionType === 'long-text-mc' ||
             section.questionType === 'cloze-mc' ||
             section.questionType === 'inline-choice' ||
-            section.questionType === 'cloze-test';
+            section.questionType === 'cloze-test' ||
+            section.questionType === 'preposition-gap-fill' ||
+            section.questionType === 'odd-one-out';
 
           if (
             shouldRestrictToPrimaryStructuredQuestion &&
@@ -1238,6 +1242,38 @@ const DoCambridgeReadingTest = ({
                 key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
                 question: q,
                 blank: blank,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'preposition-gap-fill' && q.items && Array.isArray(q.items)) {
+            // FCE Part 2: one entry per sentence blank
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'odd-one-out' && q.groups && Array.isArray(q.groups)) {
+            // FCE Part 3: one entry per word group
+            q.groups.forEach((group, groupIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                groupIndex: groupIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${groupIdx}`,
+                question: q,
+                group: group,
                 section: section,
                 part: part,
               });
@@ -1524,6 +1560,11 @@ const DoCambridgeReadingTest = ({
       const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
       const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
       return Boolean((answers[blankAnswerKey] || '').trim());
+    }
+    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out') {
+      const val = answers[q.key];
+      if (typeof val === 'string') return val.trim().length > 0;
+      return Boolean(val);
     }
     return Boolean(answers[q.key]);
   }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
@@ -3637,6 +3678,72 @@ const DoCambridgeReadingTest = ({
                           submitted={submitted}
                           showPeople={false}
                           showTexts={true}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : currentQuestion.section.questionType === 'preposition-gap-fill' ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'preposition-gap-fill'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : currentQuestion.section.questionType === 'odd-one-out' ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'odd-one-out'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
                         />
                       );
                     })()}

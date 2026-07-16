@@ -198,6 +198,72 @@ const scoreTest = (test, answers) => {
           return;
         }
 
+        if (sectionType === 'preposition-gap-fill' && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = item?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'fill',
+                questionText: item?.sentence || '',
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: item?.sentence || '',
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'odd-one-out' && Array.isArray(question?.groups)) {
+          question.groups.forEach((group, groupIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${groupIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${groupIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = group?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'abc',
+                questionText: (group?.words || []).join(', '),
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'abc');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'abc',
+              questionText: (group?.words || []).join(', '),
+            };
+          });
+          return;
+        }
+
         if (sectionType === 'matching-pictures' && Array.isArray(question.prompts)) {
           question.prompts.forEach((prompt) => {
             const promptId = String(prompt.id || prompt.number || 0);

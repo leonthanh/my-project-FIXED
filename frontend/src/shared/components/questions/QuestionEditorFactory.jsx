@@ -29,6 +29,8 @@ import {
   LookReadWriteEditor,
   TrueFalseNotGivenEditor,
   StoryWritingEditor,
+  PrepositionGapFillEditor,
+  OddOneOutEditor,
 } from "./editors";
 
 /**
@@ -167,6 +169,12 @@ const QuestionEditorFactory = ({
 
     case 'story-writing':
       return <StoryWritingEditor {...commonProps} />;
+
+    case 'preposition-gap-fill':
+      return <PrepositionGapFillEditor {...commonProps} />;
+
+    case 'odd-one-out':
+      return <OddOneOutEditor {...commonProps} />;
 
     // Placeholder for future types
     case 'yes-no-not-given':

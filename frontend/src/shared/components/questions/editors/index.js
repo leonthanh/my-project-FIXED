@@ -37,3 +37,5 @@ export { default as StoryCompletionEditor } from './StoryCompletionEditor';
 export { default as LookReadWriteEditor } from './LookReadWriteEditor';
 export { default as TrueFalseNotGivenEditor } from './TrueFalseNotGivenEditor';
 export { default as StoryWritingEditor } from './StoryWritingEditor';
+export { default as PrepositionGapFillEditor } from './PrepositionGapFillEditor';
+export { default as OddOneOutEditor } from './OddOneOutEditor';

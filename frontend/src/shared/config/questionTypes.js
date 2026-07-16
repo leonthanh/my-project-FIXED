@@ -661,6 +661,57 @@ export const QUESTION_TYPES = {
     },
     supportedTests: ['starters', 'movers'],
   },
+
+  'preposition-gap-fill': {
+    id: 'preposition-gap-fill',
+    label: 'Prepositions & Phrasal Verbs Gap Fill',
+    labelVi: 'Điền giới từ / cụm động từ',
+    iconName: 'selector',
+    description: 'FCE Part 2: Bảng từ cho sẵn + điền vào chỗ trống trong các câu',
+    editor: 'PrepositionGapFillEditor',
+    defaultData: {
+      passageTitle: '',
+      instruction: 'Fill in the appropriate prepositions in the blanks.',
+      options: [
+        { word: 'out', count: 2 },
+        { word: 'up', count: 2 },
+        { word: 'from', count: 1 },
+        { word: 'on', count: 2 },
+        { word: 'into', count: 1 },
+        { word: 'about', count: 1 },
+        { word: 'down', count: 1 },
+        { word: 'off', count: 1 },
+        { word: 'after', count: 1 },
+        { word: 'with', count: 1 },
+      ],
+      items: [
+        { number: 1, sentence: 'find _______ the truth', correctAnswer: 'out' },
+        { number: 2, sentence: 'turn _______ the volume', correctAnswer: 'down' },
+        { number: 3, sentence: 'translate _______ English', correctAnswer: 'from' },
+        { number: 4, sentence: 'focus _______ the task', correctAnswer: 'on' },
+        { number: 5, sentence: 'catch _______ with old friends', correctAnswer: 'up' },
+        { number: 6, sentence: 'fall _______ a deep sleep', correctAnswer: 'into' },
+      ],
+    },
+    supportedTests: ['fce-reading'],
+  },
+
+  'odd-one-out': {
+    id: 'odd-one-out',
+    label: 'Odd One Out',
+    labelVi: 'Chọn từ khác loại',
+    iconName: 'correct',
+    description: 'FCE Part 3: Chọn từ không cùng nhóm trong mỗi dãy 4 từ',
+    editor: 'OddOneOutEditor',
+    defaultData: {
+      instruction: 'Circle the word that is not in the same group.',
+      groups: [
+        { words: ['generous', 'cheerful', 'honest', 'stormy'], correctAnswer: 'stormy', explanation: 'stormy does not describe a personality' },
+        { words: ['cabbage', 'spinach', 'pork', 'garlic'], correctAnswer: 'pork', explanation: 'pork is meat, not a vegetable' },
+      ],
+    },
+    supportedTests: ['fce-reading'],
+  },
 };
 
 // ============================================
@@ -949,6 +1000,8 @@ export const TEST_CONFIGS = {
       'sentence-transformation',
       'short-message',
       'story-writing',
+      'preposition-gap-fill',
+      'odd-one-out',
     ],
     partStructure: [
       { part: 1, questions: '1-5', description: 'Match the phrases' },

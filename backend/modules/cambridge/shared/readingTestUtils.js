@@ -80,6 +80,16 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (sectionType === 'preposition-gap-fill' && Array.isArray(question.items)) {
+          total += question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
+        if (sectionType === 'odd-one-out' && Array.isArray(question.groups)) {
+          total += question.groups.length > 0 ? question.groups.length : 1;
+          return;
+        }
+
         if (sectionType === 'short-message') {
           total += 1;
           return;
