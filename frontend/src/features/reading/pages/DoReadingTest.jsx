@@ -539,68 +539,160 @@ const DoReadingTest = () => {
   }, [test, countQuestionsInSection, isQuestionAnswered]);
 
   // Build question groups (merging ONLY multi-select questions into ranges like 12-13)
-  const buildQuestionGroups = useCallback((partIndex) => {
-    if (!test || !test.passages || !test.passages[partIndex]) return [];
+  // const buildQuestionGroups = useCallback((partIndex) => {
+  //   if (!test || !test.passages || !test.passages[partIndex]) return [];
     
-    const passage = test.passages[partIndex];
-    const sections = passage.sections || [{ questions: passage.questions }];
-    const groups = [];
-    let currentNum = 1;
+  //   const passage = test.passages[partIndex];
+  //   const sections = passage.sections || [{ questions: passage.questions }];
+  //   const groups = [];
+  //   let currentNum = 1;
     
-    // Calculate starting number for this passage
-    for (let i = 0; i < partIndex; i++) {
-      const p = test.passages[i];
-      const s = p.sections || [{ questions: p.questions }];
-      s.forEach((sec) => {
-        currentNum += countQuestionsInSection(sec.questions);
-      });
-    }
+  //   // Calculate starting number for this passage
+  //   for (let i = 0; i < partIndex; i++) {
+  //     const p = test.passages[i];
+  //     const s = p.sections || [{ questions: p.questions }];
+  //     s.forEach((sec) => {
+  //       currentNum += countQuestionsInSection(sec.questions);
+  //     });
+  //   }
     
-    // Process each section
-    sections.forEach((section) => {
-      (section.questions || []).forEach((q) => {
-        const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
-        const startNum = currentNum;
+  //   // Process each section
+  //   sections.forEach((section) => {
+  //     (section.questions || []).forEach((q) => {
+  //       const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+  //       const startNum = currentNum;
         
-        // Only merge multi-select questions, all others are single
-        if (qType === "multi-select") {
-          const count = q.requiredAnswers || 2;
-          groups.push({ type: "multi-select", start: startNum, end: startNum + count - 1, count });
-          currentNum += count;
-        } else if (qType === "ielts-matching-headings") {
-          const count = (q.paragraphs || q.answers || []).length || 1;
-          for (let i = 0; i < count; i++) {
-            groups.push({ type: "single", start: startNum + i, count: 1 });
-          }
-          currentNum += count;
-        } else if (qType === "paragraph-matching") {
-          const clean = (q.questionText || "")
-            .replace(/<p[^>]*>/gi, "")
-            .replace(/<\/p>/gi, " ")
-            .replace(/<br\s*\/?/gi, " ")
-            .trim();
-          const parts = clean ? clean.split(/(\.{3,}|…+)/) : [];
-          const blankCount = parts.filter((p) => p && p.match(/\.{3,}|…+/)).length || 1;
-          for (let i = 0; i < blankCount; i++) {
-            groups.push({ type: "single", start: startNum + i, count: 1 });
-          }
-          currentNum += blankCount;
-        } else if (isBlankBlockType(qType)) {
-          let blankCount = countClozeBlanks(q);
-          blankCount = blankCount || 1;
-          for (let i = 0; i < blankCount; i++) {
-            groups.push({ type: "single", start: startNum + i, count: 1 });
-          }
-          currentNum += blankCount;
-        } else {
-          groups.push({ type: "single", start: startNum, count: 1 });
-          currentNum += 1;
-        }
-      });
-    });
+  //       // Only merge multi-select questions, all others are single
+  //       if (qType === "multi-select") {
+  //         const count = q.requiredAnswers || 2;
+  //         groups.push({ type: "multi-select", start: startNum, end: startNum + count - 1, count });
+  //         currentNum += count;
+  //       } else if (qType === "ielts-matching-headings") {
+  //         const count = (q.paragraphs || q.answers || []).length || 1;
+  //         for (let i = 0; i < count; i++) {
+  //           groups.push({ type: "single", start: startNum + i, count: 1 });
+  //         }
+  //         currentNum += count;
+  //       } else if (qType === "paragraph-matching") {
+  //         const clean = (q.questionText || "")
+  //           .replace(/<p[^>]*>/gi, "")
+  //           .replace(/<\/p>/gi, " ")
+  //           .replace(/<br\s*\/?/gi, " ")
+  //           .trim();
+  //         const parts = clean ? clean.split(/(\.{3,}|…+)/) : [];
+  //         const blankCount = parts.filter((p) => p && p.match(/\.{3,}|…+/)).length || 1;
+  //         for (let i = 0; i < blankCount; i++) {
+  //           groups.push({ type: "single", start: startNum + i, count: 1 });
+  //         }
+  //         currentNum += blankCount;
+  //       } else if (isBlankBlockType(qType)) {
+  //         let blankCount = countClozeBlanks(q);
+  //         blankCount = blankCount || 1;
+  //         for (let i = 0; i < blankCount; i++) {
+  //           groups.push({ type: "single", start: startNum + i, count: 1 });
+  //         }
+  //         currentNum += blankCount;
+  //       } else {
+  //         groups.push({ type: "single", start: startNum, count: 1 });
+  //         currentNum += 1;
+  //       }
+  //     });
+  //   });
     
-    return groups;
-  }, [test, countQuestionsInSection]);
+  //   return groups;
+  // }, [test, countQuestionsInSection]);
+
+  const buildQuestionGroups = useCallback((partIndex) => {
+  if (!test ||!test.passages ||!test.passages[partIndex]) return [];
+
+  const passage = test.passages[partIndex];
+  const sections = passage.sections || [{ questions: passage.questions }];
+  const groups = [];
+  let currentNum = 1;
+
+  // Tính số câu bắt đầu của part này
+  for (let i = 0; i < partIndex; i++) {
+    const p = test.passages[i];
+    const s = p.sections || [{ questions: p.questions }];
+    s.forEach((sec) => {
+      currentNum += countQuestionsInSection(sec.questions);
+    });
+  }
+
+  sections.forEach((section) => {
+    (section.questions || []).forEach((q) => {
+      const qType = normalizeQuestionType(q.type || q.questionType || "multiple-choice");
+
+      // QUAN TRỌNG: Ưu tiên dùng q.questionNumber thật từ DB
+      const actualStartNum = q.questionNumber? parseInt(String(q.questionNumber).split(/[, -]/)[0], 10) : currentNum;
+      
+      if (qType === "multi-select") {
+        const count = q.requiredAnswers || 2;
+        // Lưu đúng mảng số câu: [38, 39, 40] thay vì [27, 28, 29]
+        const questionNumbers = Array.from({ length: count }, (_, i) => actualStartNum + i);
+        groups.push({
+          type: "multi-select",
+          start: actualStartNum,
+          end: actualStartNum + count - 1,
+          count,
+          questionNumbers // [38, 39, 40]
+        });
+        currentNum += count;
+      } else if (qType === "ielts-matching-headings") {
+        const count = (q.paragraphs || q.answers || []).length || 1;
+        for (let i = 0; i < count; i++) {
+          groups.push({
+            type: "single",
+            start: actualStartNum + i,
+            count: 1,
+            questionNumbers: [actualStartNum + i]
+          });
+        }
+        currentNum += count;
+      } else if (qType === "paragraph-matching") {
+        const clean = (q.questionText || "")
+         .replace(/<p[^>]*>/gi, "")
+         .replace(/<\/p>/gi, " ")
+         .replace(/<br\s*\/?/gi, " ")
+         .trim();
+        const parts = clean? clean.split(/(\.{3,}|…+)/) : [];
+        const blankCount = parts.filter((p) => p && p.match(/\.{3,}|…+/)).length || 1;
+        for (let i = 0; i < blankCount; i++) {
+          groups.push({
+            type: "single",
+            start: actualStartNum + i,
+            count: 1,
+            questionNumbers: [actualStartNum + i]
+          });
+        }
+        currentNum += blankCount;
+      } else if (isBlankBlockType(qType)) {
+        let blankCount = countClozeBlanks(q);
+        blankCount = blankCount || 1;
+        for (let i = 0; i < blankCount; i++) {
+          groups.push({
+            type: "single",
+            start: actualStartNum + i,
+            count: 1,
+            questionNumbers: [actualStartNum + i]
+          });
+        }
+        currentNum += blankCount;
+      } else {
+        groups.push({
+          type: "single",
+          start: actualStartNum,
+          count: 1,
+          questionNumbers: [actualStartNum]
+        });
+        currentNum += 1;
+      }
+    });
+  });
+
+  return groups;
+}, [test, countQuestionsInSection]);
+
 
   // Auto-expand the part that contains the active question (if any)
   useEffect(() => {
@@ -1817,19 +1909,23 @@ const DoReadingTest = () => {
     const options = question.options || [];
     const questionKey = `q_${startNumber}`;
     const selectedAnswers = answers[questionKey] || [];
-    const endNumber = startNumber + count - 1;
+    // const endNumber = startNumber + count - 1;
+     const realStartNum = question.questionNumber? parseInt(String(question.questionNumber).split(/[, -]/)[0], 10) : startNumber;
+  const endNumber = realStartNum + count - 1;
 
     return (
       <div
-        id={`question-${startNumber}`}
-        key={startNumber}
+        id={`question-${realStartNum}`}
+        key={realStartNum}
+        ref={(el) => (questionRefs.current[`q_${realStartNum}`] = el)} // Ref cũng phải là 38
+        
         className={`multi-select-container ${
-          activeQuestion === startNumber ? "active" : ""
+          activeQuestion === realStartNum ? "active" : ""
         }`}
       >
         {/* Question number badge + text */}
         <div className="multi-select-header">
-          <span className="multi-select-badge">{startNumber}-{endNumber}</span>
+          <span className="multi-select-badge">{realStartNum}-{endNumber}</span>
           <span className="multi-select-question-text">{question.questionText}</span>
         </div>
         
@@ -1881,8 +1977,12 @@ const DoReadingTest = () => {
     const qType = normalizeQuestionType(
       question.type || question.questionType || "multiple-choice"
     );
-    const baseQuestionNum =
-      resolveQuestionStartNumber(question, questionNumber) || questionNumber;
+    // const baseQuestionNum =
+    //   resolveQuestionStartNumber(question, questionNumber) || questionNumber;
+    const baseQuestionNum = question.questionNumber
+? parseInt(String(question.questionNumber).split(/[, -]/)[0], 10)
+  : questionNumber;
+  
     const isDiagramLabeling = qType === "diagram-labeling";
     const isParagraphMatching = qType === "paragraph-matching";
     const paragraphBlankCount =
@@ -2603,8 +2703,8 @@ const DoReadingTest = () => {
           )}
 
           {/* Multi-Select */}
-          {qType === "multi-select" && renderMultipleChoiceMany(question, questionNumber, question.requiredAnswers || 2)}
-
+          {/* {qType === "multi-select" && renderMultipleChoiceMany(question, questionNumber, question.requiredAnswers || 2)} */}
+          {qType === "multi-select" && renderMultipleChoiceMany(question, baseQuestionNum, question.requiredAnswers || 2)}
           {/* Matching */}
           {qType === "matching" && (
             <div className="question-matching">
@@ -3273,16 +3373,17 @@ const DoReadingTest = () => {
               const sentenceCompletionTitleState =
                 getSentenceCompletionTitleState(section, sectionQuestions);
               
-              // Extract starting question number from section instructions (e.g., "Questions 10-11" -> 10)
-              const extractSectionStartNumber = (instruction) => {
-                if (!instruction) return null;
+              // Extract starting question number from section title/instructions (e.g., "Questions 10-11" -> 10)
+              const extractSectionStartNumber = (instruction, title) => {
+                const source = instruction || title;
+                if (!source) return null;
                 // Strip HTML tags first
-                const plainText = instruction.replace(/<[^>]*>/g, '');
+                const plainText = source.replace(/<[^>]*>/g, '');
                 const match = plainText.match(/[Qq]uestions?\s+(\d+)/);
                 return match ? parseInt(match[1], 10) : null;
               };
-              
-              const sectionStartNumber = extractSectionStartNumber(section.sectionInstruction);
+
+              const sectionStartNumber = extractSectionStartNumber(section.sectionInstruction, section.sectionTitle);
               let sectionQuestionNumber = sectionStartNumber || currentQuestionNumber;
 
               return (
@@ -3443,6 +3544,11 @@ const DoReadingTest = () => {
                       sentenceCompletionTitleState
                     );
                   })}
+                  {/* Keep the running question number in sync across sections so blocks like multi-select use the correct computed start. */}
+                  {(() => {
+                    currentQuestionNumber = sectionQuestionNumber;
+                    return null;
+                  })()}
                 </div>
               );
             })}
@@ -3514,7 +3620,10 @@ const DoReadingTest = () => {
                   const isActive = group.type === "single"
                     ? activeQuestion === group.start
                     : activeQuestion >= group.start && activeQuestion <= group.end;
-                  const label = group.type === "single" ? group.start : `${group.start}-${group.end}`;
+                  // const label = group.type === "single" ? group.start : `${group.start}-${group.end}`;
+                  const label = group.questionNumbers.length === 1
+? group.questionNumbers[0]
+  : `${group.questionNumbers[0]}-${group.questionNumbers[group.questionNumbers.length - 1]}`;
                   const isMerged = group.type === "multi-select";
                   
                   return (
@@ -3528,11 +3637,16 @@ const DoReadingTest = () => {
                       title={
                         isAnswered ? `Questions ${label} answered` : `Questions ${label}`
                       }
+                      // onClick={(e) => {
+                      //   e.stopPropagation();
+                      //   scrollToQuestion(group.start);
+                      //   setActiveQuestion(group.start);
+                      // }}
                       onClick={(e) => {
-                        e.stopPropagation();
-                        scrollToQuestion(group.start);
-                        setActiveQuestion(group.start);
-                      }}
+  e.stopPropagation();
+  scrollToQuestion(group.questionNumbers[0]); // Lấy số thật 38 từ mảng
+  setActiveQuestion(group.questionNumbers[0]);
+}}
                     >
                       {label}
                     </button>
