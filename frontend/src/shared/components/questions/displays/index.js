@@ -13,6 +13,7 @@ export { default as WordFormDisplay } from './WordFormDisplay';
 export { default as ShortMessageDisplay } from './ShortMessageDisplay';
 export { default as InlineChoiceDisplay } from './InlineChoiceDisplay';
 export { default as MatchingPicturesDisplay } from './MatchingPicturesDisplay';
+export { default as MatchingDisplay } from './MatchingDisplay';
 export { default as ImageClozeDisplay } from './ImageClozeDisplay';
 export { default as WordDragClozeDisplay } from './WordDragClozeDisplay';
 export { default as TrueFalseNotGivenDisplay } from './TrueFalseNotGivenDisplay';

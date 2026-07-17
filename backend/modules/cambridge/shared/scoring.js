@@ -51,6 +51,75 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
   return acceptedAnswers.some((answer) => normalize(answer) === userNorm);
 };
 
+const countClozeBlanksFromText = (passageText) => {
+  if (!passageText) return 0;
+  const plainText = String(passageText).replace(/<[^>]*>/g, ' ');
+  const numbered = plainText.match(/\((\d+)\)|\[(\d+)\]/g);
+  if (numbered && numbered.length) return numbered.length;
+  const underscores = plainText.match(/[_\u2026]{3,}/g);
+  return underscores ? underscores.length : 0;
+};
+
+const getQuestionCount = (question, sectionType) => {
+  const q = question || {};
+  if (sectionType === 'long-text-mc' && Array.isArray(q.questions)) return q.questions.length;
+  if (sectionType === 'cloze-mc' && Array.isArray(q.blanks)) return q.blanks.length;
+  if (sectionType === 'cloze-test') {
+    if (q.blanks?.length) return q.blanks.length;
+    return countClozeBlanksFromText(q.passageText || q.passage || q.clozeText || '');
+  }
+  if (sectionType === 'inline-choice' && Array.isArray(q.blanks)) return q.blanks.length;
+  if (sectionType === 'short-message' || sectionType === 'story-writing') return 0;
+  if (sectionType === 'people-matching' && Array.isArray(q.people)) return q.people.length;
+  if (sectionType === 'gap-match' && Array.isArray(q.leftItems)) return q.leftItems.length;
+  if (sectionType === 'matching' && Array.isArray(q.leftItems)) return q.leftItems.length;
+  if (sectionType === 'word-form' && Array.isArray(q.sentences)) return q.sentences.length;
+  if (sectionType === 'matching-pictures' && Array.isArray(q.prompts)) return q.prompts.length;
+  if (sectionType === 'image-cloze') {
+    const blanks = [...(q.passageText || '').matchAll(/\(\s*\d+\s*\)/g)].length;
+    return blanks + (q.titleQuestion?.enabled ? 1 : 0);
+  }
+  if (sectionType === 'word-drag-cloze' && Array.isArray(q.blanks)) return q.blanks.length;
+  if (sectionType === 'story-completion' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'look-read-write' && Array.isArray(q.groups)) {
+    return q.groups.reduce((sum, g) => sum + (g.items?.length || 0), 0);
+  }
+  if (sectionType === 'preposition-gap-fill' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'odd-one-out' && Array.isArray(q.groups)) return q.groups.length;
+  if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
+    return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
+  }
+  if (sectionType === 'letter-matching' && Array.isArray(q.people)) {
+    return q.people.slice(1).filter((p) => String(p?.name || '').trim()).length;
+  }
+  return 1;
+};
+
+const computeQuestionStartNumbers = (parts) => {
+  const starts = new Map();
+  let count = 1;
+  (parts || []).forEach((part, partIdx) => {
+    (part?.sections || []).forEach((section, secIdx) => {
+      const q0 = section?.questions?.[0] || {};
+      let sectionType =
+        section?.questionType ||
+        q0?.questionType ||
+        q0?.type ||
+        '';
+      if (!sectionType && Array.isArray(q0?.people)) sectionType = 'people-matching';
+      if (!sectionType && Array.isArray(q0?.rightItems)) sectionType = 'matching';
+      if (!sectionType && Array.isArray(q0?.leftItems)) sectionType = 'gap-match';
+      if (!sectionType && Array.isArray(q0?.sentences)) sectionType = 'word-form';
+
+      (section.questions || []).forEach((question, qIdx) => {
+        starts.set(`${partIdx}-${secIdx}-${qIdx}`, count);
+        count += getQuestionCount(question, sectionType);
+      });
+    });
+  });
+  return starts;
+};
+
 const scoreTest = (test, answers) => {
   let score = 0;
   let total = 0;
@@ -65,6 +134,8 @@ const scoreTest = (test, answers) => {
     }
   }
   parts = processTestParts(parts);
+
+  const questionStartNumbers = computeQuestionStartNumbers(parts);
 
   const pickAnswer = (primaryKey, legacyKeys = []) => {
     if (answers && Object.prototype.hasOwnProperty.call(answers, primaryKey)) {
@@ -86,6 +157,7 @@ const scoreTest = (test, answers) => {
         q0?.questionType ||
         q0?.type ||
         (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+        (Array.isArray(q0?.rightItems) ? 'matching' : '') ||
         (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
         (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
         '';
@@ -124,6 +196,50 @@ const scoreTest = (test, answers) => {
               correctAnswer,
               questionType: 'matching',
               questionText: '',
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'matching' && Array.isArray(question?.leftItems)) {
+          const leftItems = question.leftItems;
+          const correctMap = question.answers && typeof question.answers === 'object' ? question.answers : {};
+          const questionStartNum = questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1;
+
+          leftItems.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const globalNum = questionStartNum + itemIdx;
+            let correctAnswer = correctMap[globalNum] ?? correctMap[String(globalNum)] ?? '';
+
+            if (!correctAnswer && question.correctAnswer) {
+              const text = String(question.correctAnswer);
+              const match = text.match(new RegExp(`(?:^|[^\\d])${globalNum}\\s*[-=:]\\s*([A-H])`, 'i'));
+              if (match) correctAnswer = match[1].toUpperCase();
+            }
+
+            if (correctAnswer === undefined || correctAnswer === null || correctAnswer === '') {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'matching',
+                questionText: item || '',
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'matching');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'matching',
+              questionText: item || '',
             };
           });
           return;
