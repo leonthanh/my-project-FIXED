@@ -2679,8 +2679,8 @@ const DoCambridgeReadingTest = ({
             </div>
           </div>
         </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'short-message' ? (
-        /* Part 6 (Writing Task): Split-view with divider (Instructions left | Textarea right) */
+      ) : currentQuestion && (currentQuestion.section.questionType === 'short-message' || currentQuestion.section.questionType === 'story-writing') ? (
+        /* Part 6 / Part 7 (Writing Task): Split-view with divider (Instructions left | Textarea right) */
         <>
           {/* Part Instruction - Fixed, doesn't scroll */}
           {currentQuestion.part.instruction && (
@@ -2819,6 +2819,7 @@ const DoCambridgeReadingTest = ({
                           placeholder={`Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
                           style={{
                             width: '100%',
+                            maxWidth: '100%',
                             minHeight: '400px',
                             padding: '16px',
                             fontSize: '15px',
@@ -2829,7 +2830,8 @@ const DoCambridgeReadingTest = ({
                             resize: 'vertical',
                             backgroundColor: userAnswer ? '#f0f9ff' : 'white',
                             color: '#0c4a6e',
-                            marginBottom: '12px'
+                            marginBottom: '12px',
+                            boxSizing: 'border-box',
                           }}
                         />
 
