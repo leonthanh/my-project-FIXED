@@ -1233,6 +1233,16 @@ const DoFceReadingTest = ({
         nextFallbackNumber += 1;
       }
 
+      const isWritingTask =
+        entry?.section?.questionType === 'short-message' ||
+        entry?.section?.questionType === 'story-writing';
+
+      // Keep all non-writing entries so multi-item sections are not silently dropped
+      // when their fallback number exceeds the max explicit number.
+      if (isWritingTask && nextFallbackNumber > maxExplicitNumber) {
+        return normalizedEntries;
+      }
+
       assignedNumbers.add(nextFallbackNumber);
       normalizedEntries.push({
         ...entry,
@@ -2295,6 +2305,84 @@ const DoFceReadingTest = ({
                 </div>
               </div>
             </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'preposition-gap-fill' ? (
+            /* Preposition gap fill: questions on the left, word bank on the right */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                {(() => {
+                  const sectionQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'preposition-gap-fill'
+                  );
+                  const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                  return (
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      {/* Left panel - questions */}
+                      <div
+                        className="cambridge-question-wrapper"
+                        style={{
+                          flex: '1 1 0',
+                          minWidth: '300px',
+                          position: 'relative',
+                        }}
+                      >
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(currentQuestion.key)}
+                          aria-label="Flag question"
+                        >
+                          <InlineIcon name="flag" size={14} />
+                        </button>
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="questions"
+                        />
+                      </div>
+
+                      {/* Right panel - word bank */}
+                      <div
+                        style={{
+                          flex: '0 0 320px',
+                          minWidth: '260px',
+                          maxWidth: '100%',
+                          position: 'sticky',
+                          top: '20px',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="wordbank"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           ) : (
           <>
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
@@ -2600,39 +2688,6 @@ const DoFceReadingTest = ({
                       </div>
                     ))
                   }
-                </div>
-              ) : currentQuestion.section.questionType === 'preposition-gap-fill' ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const sectionQuestions = allQuestions.filter(q =>
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'preposition-gap-fill'
-                      );
-                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                      return (
-                        <PrepositionGapFillDisplay
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          startingNumber={startNumber}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                        />
-                      );
-                    })()}
-                  </div>
                 </div>
               ) : currentQuestion.section.questionType === 'odd-one-out' ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
