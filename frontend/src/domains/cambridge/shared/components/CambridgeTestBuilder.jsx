@@ -2106,7 +2106,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                             flex: 1,
                           }}>
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -2244,7 +2244,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />
                           </div>

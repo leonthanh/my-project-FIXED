@@ -59,6 +59,9 @@ const getQuestionCountForSection = (section) => {
   if (section.questionType === 'gap-match' && section.questions[0]?.leftItems) {
     return section.questions[0].leftItems.length;
   }
+  if (section.questionType === 'matching' && section.questions[0]?.leftItems) {
+    return section.questions[0].leftItems.length;
+  }
   if (section.questionType === 'word-form' && section.questions[0]?.sentences) {
     return section.questions[0].sentences.length;
   }
@@ -143,6 +146,7 @@ const computeQuestionStarts = (passages) => {
     'people-matching',
     'word-form',
     'gap-match',
+    'matching',
     'inline-choice',
     'matching-pictures',
     'image-cloze',

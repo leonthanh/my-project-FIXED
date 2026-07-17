@@ -1,7 +1,7 @@
-import CambridgeTestBuilder from '../../../cambridge/shared/components/CambridgeTestBuilder';
+import FceTestBuilder from '../../shared/components/FceTestBuilder';
 
 const CreateFceReadingTestPage = () => (
-  <CambridgeTestBuilder testType="fce-reading" resetDraftOnLoad />
+  <FceTestBuilder testType="fce-reading" resetDraftOnLoad />
 );
 
 export default CreateFceReadingTestPage;

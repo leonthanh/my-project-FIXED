@@ -14,19 +14,10 @@ import ConfirmModal from "../../../../shared/components/ConfirmModal";
 import InlineIcon from "../../../../shared/components/InlineIcon.jsx";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../../shared/components/questions/displays/QuestionDisplayFactory";
-import PeopleMatchingDisplay from "../../../../shared/components/questions/displays/PeopleMatchingDisplay";
-import MatchingPicturesDisplay from "../../../../shared/components/questions/displays/MatchingPicturesDisplay";
-import ImageClozeDisplay from "../../../../shared/components/questions/displays/ImageClozeDisplay";
-import WordDragClozeDisplay from "../../../../shared/components/questions/displays/WordDragClozeDisplay";
-import StoryCompletionDisplay from "../../../../shared/components/questions/displays/StoryCompletionDisplay";
-import LookReadWriteDisplay from "../../../../shared/components/questions/displays/LookReadWriteDisplay";
 import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
-/* eslint-disable-next-line no-unused-vars */
-import ClozeMCDisplay from "../../../../shared/components/questions/displays/ClozeMCDisplay";
-import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
-import CambridgeResultsModal from "../components/CambridgeResultsModal";
-import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../utils/questionNumbering";
+import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
+import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../cambridge/shared/utils/questionNumbering";
 import {
   formatClock,
   getExtensionToastMessage,
@@ -35,7 +26,7 @@ import {
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
-import "./DoCambridgeReadingTest.css";
+import "./DoFceReadingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
@@ -96,21 +87,18 @@ const PartIllustrationCard = ({ imageUrl, alt = 'Part illustration' }) => {
 };
 
 /**
- * DoCambridgeReadingTest - Cambridge Reading Test (Authentic UI)
- * Replicate real Cambridge test interface for KET, PET, FLYERS, etc.
+ * DoFceReadingTest - FCE (B2 First) Reading Test runtime
  */
-const DoCambridgeReadingTest = ({
-  defaultTestType = null,
+const DoFceReadingTest = ({
+  defaultTestType = 'fce-reading',
   fetchBasePath = 'cambridge/reading-tests',
   submitBasePath = 'cambridge/reading-tests',
 }) => {
-  const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
+  const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const routeTestType = useMemo(
-    () => String(testType || defaultTestType || '').trim().toLowerCase(),
-    [defaultTestType, testType]
-  );
+  const routeTestType = defaultTestType;
+  const testType = 'fce-reading';
   const placementContext = useMemo(
     () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
     [location.pathname, location.search]
@@ -119,18 +107,9 @@ const DoCambridgeReadingTest = ({
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
 
-  const examType = useMemo(() => {
-    const s = routeTestType;
-    if (s.includes("ket")) return "KET";
-    if (s.includes("pet")) return "PET";
-    if (s.includes("flyers")) return "FLYERS";
-    if (s.includes("movers")) return "MOVERS";
-    if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return "FCE";
-    return "CAMBRIDGE";
-  }, [routeTestType]);
+  const examType = 'FCE';
 
-  const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
+  const startedKey = useMemo(() => `fce_reading_test_${id}_started`, [id]);
 
   // Stable user ID: isolates data per-student on shared devices
   const storageUserId = useMemo(() => {
@@ -143,10 +122,10 @@ const DoCambridgeReadingTest = ({
       return u?.id || 'anon';
     } catch (e) { return 'anon'; }
   }, [placementContext.placementAttemptItemToken]);
-  const camReadTimeKey  = useMemo(() => `cambridge_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
-  const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
-  const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
-  const camReadSubmissionKey = useMemo(() => `cambridge_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
+  const camReadTimeKey  = useMemo(() => `fce_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
+  const camReadAnsKey   = useMemo(() => `fce_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
+  const camReadStartKey = useMemo(() => `fce_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
+  const camReadSubmissionKey = useMemo(() => `fce_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
   const annotationStorageKey = useMemo(() => `${camReadAnsKey}:annotations`, [camReadAnsKey]);
   const expiresAtRef = useRef(null);
   const submissionIdRef = useRef(null);
@@ -173,16 +152,10 @@ const DoCambridgeReadingTest = ({
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
-  // Shared state for matching-pictures split view (questions left | picture bank right)
-  const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
-  const [mpActivePromptIndex, setMpActivePromptIndex] = useState(null);
-  const [icSelectedImgId, setIcSelectedImgId] = useState(null); // image-cloze split panel
-  const [wdcFocusedBlank, setWdcFocusedBlank] = useState(null); // word-drag-cloze split panel
-
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`cambridge_reading_${id}_started:${storageUserId}`) === "true";
+      return localStorage.getItem(`fce_reading_${id}_started:${storageUserId}`) === "true";
     } catch (e) {
       return false;
     }
@@ -228,14 +201,10 @@ const DoCambridgeReadingTest = ({
       const fromData = resolveTestConfig(test.testType);
       if (fromData) return fromData;
     }
-    return TEST_CONFIGS['ket-reading'];
+    return TEST_CONFIGS['fce-reading'];
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
-  // For young-learner tests the section name is more informative than the full program name
-  const headerTitle = useMemo(() => {
-    if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
-    return testConfig.name || 'Reading & Writing';
-  }, [examType, testConfig.name]);
+  const headerTitle = useMemo(() => testConfig.name || 'Reading & Writing', [testConfig.name]);
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
@@ -493,6 +462,7 @@ const DoCambridgeReadingTest = ({
     camReadTimeKey,
     fetchBasePath,
     id,
+    placementContext.placementAttemptItemToken,
     syncTimingState,
     testConfig.duration,
     startedKey,
@@ -560,7 +530,7 @@ const DoCambridgeReadingTest = ({
         return newAnswers;
       });
     },
-    [submitted, id]
+    [submitted, camReadAnsKey]
   );
 
   useEffect(() => {
@@ -582,7 +552,7 @@ const DoCambridgeReadingTest = ({
           placementAttemptItemToken:
             placementContext.placementAttemptItemToken || undefined,
           testId: id,
-          testType: test?.testType || testType || "ket-reading",
+          testType: testType,
           answers,
           expiresAt: expiresAtRef.current,
           user,
@@ -645,9 +615,9 @@ const DoCambridgeReadingTest = ({
     currentPartIndex,
     currentQuestionIndex,
     id,
+    placementContext.placementAttemptItemToken,
     started,
     submitted,
-    test?.testType,
     testType,
     timeRemaining,
     announceExtension,
@@ -668,11 +638,11 @@ const DoCambridgeReadingTest = ({
         : localUser?.id
           ? `?userId=${localUser.id}`
           : "";
-    if (!query || !test?.testType) return;
+    if (!query || !test) return;
 
     try {
       const res = await fetch(
-        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(testType)}`)
       );
       if (!res.ok) return;
       const data = await res.json().catch(() => ({}));
@@ -690,10 +660,10 @@ const DoCambridgeReadingTest = ({
     } catch (_err) {
       // ignore polling errors; autosave and refresh can still recover timing
     }
-  }, [announceExtension, id, started, submitted, syncTimingState, test?.testType]);
+  }, [announceExtension, id, placementContext.placementAttemptItemToken, started, submitted, syncTimingState, test, testType]);
 
   useEffect(() => {
-    if (!started || submitted || !test?.testType) return;
+    if (!started || submitted || !test) return;
 
     reconcileServerTiming();
     const intervalId = setInterval(
@@ -714,7 +684,7 @@ const DoCambridgeReadingTest = ({
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [reconcileServerTiming, started, submitted, test?.testType]);
+  }, [reconcileServerTiming, started, submitted, test]);
 
   // Handle submit
   const handleSubmit = () => setShowConfirm(true);
@@ -811,9 +781,7 @@ const DoCambridgeReadingTest = ({
     }
   };
 
-  useEffect(() => {
-    confirmSubmitRef.current = confirmSubmit;
-  }, [confirmSubmit]);
+  confirmSubmitRef.current = confirmSubmit;
 
   // Calculate results locally (fallback)
   const calculateLocalResults = () => {
@@ -849,80 +817,6 @@ const DoCambridgeReadingTest = ({
         });
         return;
       }
-      if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
-        const person = q.question.people[q.personIndex] || {};
-        const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
-        const primaryKey = `${q.partIndex}-${q.sectionIndex}-${personId}`;
-        const legacyKey = `${q.partIndex}-${q.sectionIndex}-${q.personIndex}`;
-        const userAnswer = answers[primaryKey] ?? answers[legacyKey];
-        const correctMap = (q.question?.answers && typeof q.question.answers === 'object') ? q.question.answers : {};
-        const correctAnswer = correctMap[personId];
-
-        if (correctAnswer === undefined || correctAnswer === null) {
-          debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
-          return;
-        }
-
-        scorableCount++;
-        if (!userAnswer) return;
-
-        if (normalize(userAnswer) === normalize(correctAnswer)) {
-          correct++;
-        } else {
-          incorrect++;
-        }
-        return;
-      }
-
-      if (questionType === 'matching-pictures' && q.prompt) {
-        const promptId = String(q.prompt?.id || q.prompt?.number || (q.promptIndex || 0) + 1);
-        const primaryKey = `${q.partIndex}-${q.sectionIndex}-${promptId}`;
-        const legacyKey = `${q.partIndex}-${q.sectionIndex}-${q.promptIndex || 0}`;
-        const userAnswer = answers[primaryKey] ?? answers[legacyKey];
-        const correctAnswer = q.prompt?.correctAnswer;
-
-        if (correctAnswer === undefined || correctAnswer === null) {
-          debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
-          return;
-        }
-
-        scorableCount++;
-        if (!userAnswer) return;
-
-        if (normalize(userAnswer) === normalize(correctAnswer)) {
-          correct++;
-        } else {
-          incorrect++;
-        }
-        return;
-      }
-
-      if (questionType === 'image-cloze') {
-        const userAnswer = answers[q.key];
-        if (q.isTitleQuestion) {
-          const correctAnswer = q.question?.titleQuestion?.correctAnswer;
-          if (correctAnswer === undefined || correctAnswer === null) {
-            debugInfo.push(`Q${q.questionNumber}: No titleQuestion correctAnswer`);
-            return;
-          }
-          scorableCount++;
-          if (!userAnswer) return;
-          if (normalize(userAnswer) === normalize(correctAnswer)) correct++;
-          else incorrect++;
-        } else {
-          const correctImgId = q.question?.answers?.[String(q.blankNum)];
-          if (correctImgId === undefined || correctImgId === null) {
-            debugInfo.push(`Q${q.questionNumber}: No correct answer for blank ${q.blankNum}`);
-            return;
-          }
-          scorableCount++;
-          if (!userAnswer) return;
-          if (userAnswer === correctImgId) correct++;
-          else incorrect++;
-        }
-        return;
-      }
-
       // word-drag-cloze: answers stored as {partIdx}-{secIdx}-blank-{blank.number}
       if (questionType === 'word-drag-cloze' && q.blank) {
         const wdcKey = `${q.partIndex}-${q.sectionIndex}-blank-${q.blank.number}`;
@@ -1150,12 +1044,6 @@ const DoCambridgeReadingTest = ({
     return 0;
   }, []);
 
-  const getStructuredSectionPrimaryQuestion = useCallback((section) => {
-    const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
-    if (sectionQuestions.length === 0) return null;
-    return sectionQuestions[getStructuredSectionPrimaryQuestionIndex(section)] || sectionQuestions[0] || null;
-  }, [getStructuredSectionPrimaryQuestionIndex]);
-
   const resolveExplicitQuestionNumber = useCallback((entry) => {
     const sectionType = entry?.section?.questionType;
     // For FCE internal multi-item types, item/group numbers are local to the section
@@ -1193,33 +1081,11 @@ const DoCambridgeReadingTest = ({
     const questions = [];
     let qNum = 1;
     
-    const hasIntegratedLookReadWriteWriting = test.parts.some((part) =>
-      (part.sections || []).some((section) => {
-        if (section.questionType !== 'look-read-write') return false;
-        return (section.questions || []).some((question) =>
-          Array.isArray(question.groups) &&
-          question.groups.some((group) => group.type === 'write' && Array.isArray(group.items) && group.items.length > 0)
-        );
-      })
-    );
-
     test.parts.forEach((part, pIdx) => {
       part.sections?.forEach((section, sIdx) => {
-        const isStandaloneWritingSection = section.questionType === 'short-message' || section.questionType === 'story-writing';
-        const shouldSkipStandaloneWritingSection =
-          examType === 'MOVERS' &&
-          isStandaloneWritingSection &&
-          hasIntegratedLookReadWriteWriting;
-
-        if (shouldSkipStandaloneWritingSection) {
-          return;
-        }
-
         section.questions?.forEach((q, qIdx) => {
           const shouldRestrictToPrimaryStructuredQuestion =
             section.questionType === 'long-text-mc' ||
-            section.questionType === 'cloze-mc' ||
-            section.questionType === 'inline-choice' ||
             section.questionType === 'cloze-test' ||
             section.questionType === 'preposition-gap-fill' ||
             section.questionType === 'odd-one-out';
@@ -1231,9 +1097,7 @@ const DoCambridgeReadingTest = ({
             return;
           }
 
-          // Check if this is long-text-mc with nested questions
           if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
-            // For long-text-mc: create separate entries for each nested question
             q.questions.forEach((nestedQ, nestedIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1242,46 +1106,13 @@ const DoCambridgeReadingTest = ({
                 nestedIndex: nestedIdx,
                 questionNumber: qNum++,
                 key: `${pIdx}-${sIdx}-${qIdx}-${nestedIdx}`,
-                question: q, // Keep parent question object (has passage)
-                nestedQuestion: nestedQ, // Individual question data
-                section: section,
-                part: part,
-              });
-            });
-          } else if (section.questionType === 'cloze-mc' && q.blanks && Array.isArray(q.blanks)) {
-            // For cloze-mc: create separate entries for each blank
-            q.blanks.forEach((blank, blankIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                blankIndex: blankIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
-                question: q, // Keep parent question object (has passage)
-                blank: blank, // Individual blank data
-                section: section,
-                part: part,
-              });
-            });
-          } else if (section.questionType === 'inline-choice' && q.blanks && Array.isArray(q.blanks)) {
-            // For inline-choice: create separate entries for each blank
-            q.blanks.forEach((blank, blankIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                blankIndex: blankIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
                 question: q,
-                blank: blank,
+                nestedQuestion: nestedQ,
                 section: section,
                 part: part,
               });
             });
           } else if (section.questionType === 'preposition-gap-fill' && q.items && Array.isArray(q.items)) {
-            // FCE Part 2: one entry per sentence blank
             q.items.forEach((item, itemIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1297,7 +1128,6 @@ const DoCambridgeReadingTest = ({
               });
             });
           } else if (section.questionType === 'odd-one-out' && q.groups && Array.isArray(q.groups)) {
-            // FCE Part 3: one entry per word group
             q.groups.forEach((group, groupIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1313,7 +1143,6 @@ const DoCambridgeReadingTest = ({
               });
             });
           } else if (section.questionType === 'matching' && Array.isArray(q.leftItems)) {
-            // Generic matching: one entry per left item
             q.leftItems.forEach((leftItem, itemIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1328,10 +1157,9 @@ const DoCambridgeReadingTest = ({
               });
             });
           } else if (section.questionType === 'cloze-test') {
-            // For cloze-test (Open Cloze): parse blanks from passage
             const passageText = q.passageText || q.passage || '';
             const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseClozeBlanksFromText(passageText, qNum);
-            
+
             if (blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
                 questions.push({
@@ -1341,14 +1169,13 @@ const DoCambridgeReadingTest = ({
                   blankIndex: blankIdx,
                   questionNumber: qNum++,
                   key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
-                  question: q, // Keep parent question object (has passage)
-                  blank: blank, // Individual blank data
+                  question: q,
+                  blank: blank,
                   section: section,
                   part: part,
                 });
               });
             } else {
-              // No blanks found, treat as regular question
               questions.push({
                 partIndex: pIdx,
                 sectionIndex: sIdx,
@@ -1360,134 +1187,7 @@ const DoCambridgeReadingTest = ({
                 part: part,
               });
             }
-          } else if (section.questionType === 'people-matching' && Array.isArray(q.people)) {
-            // For people-matching: create separate entries for each person
-            q.people.forEach((person, personIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                personIndex: personIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${personIdx}`,
-                question: q,
-                section: section,
-                part: part,
-              });
-            });
-          } else if (section.questionType === 'matching-pictures' && Array.isArray(q.prompts)) {
-            q.prompts.forEach((prompt, promptIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                promptIndex: promptIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${qIdx}-${promptIdx}`,
-                question: q,
-                prompt,
-                section,
-                part,
-              });
-            });
-          } else if (section.questionType === 'image-cloze') {
-            // Expand blanks from passageText + optional title question
-            const passageText = q.passageText || '';
-            const blankMatches = [...passageText.matchAll(/\(\s*(\d+)\s*\)/g)];
-            const blankNums = blankMatches.map(m => parseInt(m[1], 10));
-            blankNums.forEach((blankNum) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-blank-${blankNum}`,
-                question: q,
-                section,
-                part,
-                blankNum,
-                isTitleQuestion: false,
-              });
-            });
-            if (q.titleQuestion?.enabled) {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-title`,
-                question: q,
-                section,
-                part,
-                isTitleQuestion: true,
-              });
-            }
-          } else if (section.questionType === 'word-drag-cloze' && q.blanks && Array.isArray(q.blanks)) {
-            // word-drag-cloze: one entry per blank (like cloze-mc)
-            q.blanks.forEach((blank, blankIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                blankIndex: blankIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
-                question: q,
-                blank: blank,
-                section: section,
-                part: part,
-              });
-            });
-          } else if (section.questionType === 'story-completion' && q.items && Array.isArray(q.items)) {
-            // story-completion: one entry per item (Movers Part 5)
-            q.items.forEach((item, itemIdx) => {
-              questions.push({
-                partIndex: pIdx,
-                sectionIndex: sIdx,
-                questionIndex: qIdx,
-                itemIndex: itemIdx,
-                questionNumber: qNum++,
-                key: `${pIdx}-${sIdx}-item-${itemIdx + 1}`,
-                question: q,
-                item: item,
-                section: section,
-                part: part,
-              });
-            });
-          } else if (section.questionType === 'look-read-write' && q.groups && Array.isArray(q.groups)) {
-            // look-read-write: one entry per group item (Movers Part 6)
-            q.groups.forEach((group, groupIdx) => {
-              (group.items || []).forEach((item, itemIdx) => {
-                questions.push({
-                  partIndex: pIdx,
-                  sectionIndex: sIdx,
-                  questionIndex: qIdx,
-                  groupIndex: groupIdx,
-                  itemIndex: itemIdx,
-                  questionNumber: qNum++,
-                  key: `${pIdx}-${sIdx}-g${groupIdx}-item${itemIdx}`,
-                  question: q,
-                  group: group,
-                  item: item,
-                  section: section,
-                  part: part,
-                });
-              });
-            });
-          } else if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
-            // Free-writing tasks still need their real paper numbers for footer navigation.
-            questions.push({
-              partIndex: pIdx,
-              sectionIndex: sIdx,
-              questionIndex: qIdx,
-              questionNumber: qNum++,
-              key: `${pIdx}-${sIdx}-${qIdx}`,
-              question: q,
-              section: section,
-              part: part,
-            });
           } else {
-            // Regular numbered questions
             questions.push({
               partIndex: pIdx,
               sectionIndex: sIdx,
@@ -1533,22 +1233,6 @@ const DoCambridgeReadingTest = ({
         nextFallbackNumber += 1;
       }
 
-      const isWritingTask =
-        entry?.section?.questionType === 'short-message' ||
-        entry?.section?.questionType === 'story-writing';
-
-      // In Movers, standalone writing sections are skipped when the test already has
-      // integrated look-read-write writing tasks, so drop them from navigation as well.
-      // For all other exams (KET/PET/FCE), keep the writing tasks so footer part chips work.
-      const shouldDropWritingTask =
-        isWritingTask &&
-        examType === 'MOVERS' &&
-        hasIntegratedLookReadWriteWriting;
-
-      if (shouldDropWritingTask && nextFallbackNumber > maxExplicitNumber) {
-        return normalizedEntries;
-      }
-
       assignedNumbers.add(nextFallbackNumber);
       normalizedEntries.push({
         ...entry,
@@ -1557,7 +1241,7 @@ const DoCambridgeReadingTest = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [examType, getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
+  }, [getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
@@ -1573,29 +1257,7 @@ const DoCambridgeReadingTest = ({
     return indexMap;
   }, [allQuestions]);
 
-  const getPeopleMatchingAnswerKey = useCallback((q) => {
-    const person = q.question?.people?.[q.personIndex] || {};
-    const personId = person?.id
-      ? String(person.id).trim()
-      : String.fromCharCode(65 + (q.personIndex || 0));
-    return `${q.partIndex}-${q.sectionIndex}-${personId}`;
-  }, []);
-
-  const getMatchingPicturesAnswerKey = useCallback((q) => {
-    const prompt = q.question?.prompts?.[q.promptIndex] || q.prompt || {};
-    const promptId = String(prompt?.id || prompt?.number || (q.promptIndex || 0) + 1);
-    return `${q.partIndex}-${q.sectionIndex}-${promptId}`;
-  }, []);
-
   const isQuestionAnswered = useCallback((q) => {
-    if (q.section?.questionType === 'people-matching' || Array.isArray(q.question?.people)) {
-      const key = getPeopleMatchingAnswerKey(q);
-      return Boolean(answers[key] ?? answers[q.key]);
-    }
-    if (q.section?.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts)) {
-      const key = getMatchingPicturesAnswerKey(q);
-      return Boolean(answers[key] ?? answers[q.key]);
-    }
     if (q.section?.questionType === 'story-completion') {
       const val = answers[q.key];
       if (typeof val === "string") return val.trim().length > 0;
@@ -1624,7 +1286,7 @@ const DoCambridgeReadingTest = ({
       return Boolean(val);
     }
     return Boolean(answers[q.key]);
-  }, [answers, getMatchingPicturesAnswerKey, getPeopleMatchingAnswerKey]);
+  }, [answers]);
 
   const answeredCount = useMemo(() => {
     return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
@@ -1661,11 +1323,6 @@ const DoCambridgeReadingTest = ({
       setCurrentQuestionIndex(index);
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
-      
-      // For word-drag-cloze: set focused blank so passage + wordbank both highlight
-      if (q.section?.questionType === 'word-drag-cloze' && q.blank?.number != null) {
-        setWdcFocusedBlank(q.blank.number);
-      }
 
       // Scroll to question element and focus/open
       setTimeout(() => {
@@ -1718,7 +1375,7 @@ const DoCambridgeReadingTest = ({
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
           } else {
-            // For container elements (e.g. image-cloze title question), focus first radio inside
+            // For container elements, focus first radio inside
             const firstRadio = questionElement.querySelector('input[type="radio"]');
             if (firstRadio) {
               firstRadio.focus();
@@ -2410,275 +2067,6 @@ const DoCambridgeReadingTest = ({
             </div>
           </div>
         </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'inline-choice' ? (
-        /* Part 5 (Inline Choice): Single column with inline dropdowns */
-        <>
-          {currentQuestion.part.instruction && (
-            <div 
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-
-          <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-3">
-            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
-              {(() => {
-                const questionData = currentQuestion.question || getStructuredSectionPrimaryQuestion(currentQuestion.section) || {};
-                const { passageTitle = '' } = questionData;
-                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
-
-                return (
-                  <div
-                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
-                    style={{ position: 'relative', width: '100%' }}
-                  >
-                    <button
-                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                      onClick={() => toggleFlag(currentQuestion.key)}
-                      aria-label="Flag question"
-                      style={{ position: 'absolute', top: 0, right: 0 }}
-                    >
-                      <InlineIcon name="flag" size={14} />
-                    </button>
-
-                    {passageTitle && (
-                      <h3
-                        style={{
-                          marginBottom: '16px',
-                          fontSize: '18px',
-                          fontWeight: 600,
-                          color: '#0e276f'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
-                      />
-                    )}
-
-                    <InlineChoiceDisplay
-                      section={{
-                        ...currentQuestion.section,
-                        ...questionData,
-                        id: keyPrefix,
-                      }}
-                      startingNumber={currentQuestion.questionNumber}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      answerKeyPrefix={keyPrefix}
-                    />
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'cloze-mc' ? (
-        /* Part 4 (Cloze MC): PET drag & drop tokens or KET dropdowns */
-        <>
-          {/* Part Instruction - Fixed, doesn't scroll */}
-          {currentQuestion.part.instruction && (
-            <div 
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-3">
-            <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
-              {(() => {
-                const questionData = currentQuestion.question || getStructuredSectionPrimaryQuestion(currentQuestion.section) || {};
-                const { passage = '', blanks = [], passageTitle = '' } = questionData;
-                const isPetReading = String(testType || test?.testType || '').toLowerCase().includes('pet');
-                const keyPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
-
-                if (isPetReading) {
-                  return (
-                    <div
-                      className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
-                      style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
-                    >
-                      <button
-                        className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                        onClick={() => toggleFlag(currentQuestion.key)}
-                        aria-label="Flag question"
-                        style={{ position: 'absolute', top: 0, right: 0 }}
-                      >
-                        <InlineIcon name="flag" size={14} />
-                      </button>
-
-                      <PartIllustrationCard
-                        imageUrl={currentQuestion.part?.imageUrl}
-                        alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
-                      />
-
-                      {passageTitle && (
-                        <h3 
-                          style={{ 
-                            marginBottom: '16px',
-                            fontSize: '18px',
-                            fontWeight: 600,
-                            color: '#0e276f'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
-                        />
-                      )}
-
-                      <ClozeMCDisplay
-                        section={{
-                          ...currentQuestion.section,
-                          ...questionData,
-                          id: keyPrefix,
-                        }}
-                        startingNumber={currentQuestion.questionNumber}
-                        onAnswerChange={handleAnswerChange}
-                        answers={answers}
-                        submitted={submitted}
-                        testType={testType}
-                        answerKeyPrefix={keyPrefix}
-                      />
-                    </div>
-                  );
-                }
-
-                const renderPassageWithDropdowns = () => {
-                  if (!passage) return null;
-                  
-                  const elements = [];
-                  let lastIndex = 0;
-                  
-                  // Find all (19), (20), etc. patterns
-                  const regex = /\((\d+)\)/g;
-                  let match;
-                  
-                  while ((match = regex.exec(passage)) !== null) {
-                    const questionNumber = parseInt(match[1]);
-                    // Get the first question number in this part to calculate correct blank index
-                    const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
-                    const blankIndex = questionNumber - firstQuestionNum;
-                    
-                    // Only process if this blank exists in our data
-                    if (blankIndex >= 0 && blankIndex < blanks.length) {
-                      // Add text before this blank
-                      if (match.index > lastIndex) {
-                        elements.push(
-                          <span 
-                            key={`text-${lastIndex}`}
-                            dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passage.substring(lastIndex, match.index)) }}
-                          />
-                        );
-                      }
-                      
-                      // Add dropdown
-                      const blank = blanks[blankIndex];
-                      const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
-                      const userAnswer = answers[questionKey];
-                      
-                      elements.push(
-                        <select
-                          key={`dropdown-${questionNumber}`}
-                          id={`question-${questionNumber}`}
-                          value={userAnswer || ''}
-                          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
-                          disabled={submitted}
-                          style={{
-                            display: 'inline-block',
-                            margin: '0 4px',
-                            padding: '6px 10px',
-                            fontSize: '15px',
-                            fontWeight: '600',
-                            border: '2px solid #0e276f',
-                            borderRadius: '4px',
-                            backgroundColor: userAnswer ? '#dbeafe' : 'white',
-                            color: '#0e276f',
-                            cursor: 'pointer',
-                            minWidth: '140px',
-                            scrollMarginTop: '100px'
-                          }}
-                        >
-                          <option value="">({questionNumber})</option>
-                          {blank.options.map((option, optIdx) => {
-                            const optionLabel = String.fromCharCode(65 + optIdx);
-                            const cleanOption = option.replace(/^[A-C]\.\s*/, '');
-                            return (
-                              <option key={optIdx} value={optionLabel}>
-                                {optionLabel}. {cleanOption}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      );
-                      
-                      lastIndex = match.index + match[0].length;
-                    }
-                  }
-                  
-                  // Add remaining text
-                  if (lastIndex < passage.length) {
-                    elements.push(
-                      <span 
-                        key={`text-${lastIndex}`}
-                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passage.substring(lastIndex)) }}
-                      />
-                    );
-                  }
-                  
-                  return elements;
-                };
-                
-                return (
-                  <div
-                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
-                    style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
-                  >
-                    {/* Flag Button */}
-                    <button
-                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                      onClick={() => toggleFlag(currentQuestion.key)}
-                      aria-label="Flag question"
-                      style={{ position: 'absolute', top: 0, right: 0 }}
-                    >
-                      <InlineIcon name="flag" size={14} />
-                    </button>
-
-                    <PartIllustrationCard
-                      imageUrl={currentQuestion.part?.imageUrl}
-                      alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
-                    />
-
-                    {/* Passage Title */}
-                    {passageTitle && (
-                      <h3 
-                        style={{ 
-                          marginBottom: '16px',
-                          fontSize: '18px',
-                          fontWeight: 600,
-                          color: '#0e276f'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
-                      />
-                    )}
-                    
-                    {/* Passage with inline dropdowns */}
-                    <div 
-                      className="cambridge-passage-content"
-                      style={{
-                        padding: '24px clamp(16px, 2vw, 24px)',
-                        background: 'linear-gradient(180deg, #fffef5 0%, #fff9dc 100%)',
-                        border: '1px solid #facc15',
-                        boxShadow: '0 12px 28px rgba(202, 138, 4, 0.10)',
-                        borderRadius: '18px',
-                        fontSize: '15px',
-                        lineHeight: 2.02,
-                      }}
-                    >
-                      {renderPassageWithDropdowns()}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </>
       ) : currentQuestion && currentQuestion.section.questionType === 'short-message' ? (
         /* Part 6 (Writing Task): Split-view with divider (Instructions left | Textarea right) */
         <>
@@ -2852,443 +2240,6 @@ const DoCambridgeReadingTest = ({
             </div>
           </div>
         </>
-      ) : currentQuestion && (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
-        /* Matching Pictures (e.g. Movers Part 1): Questions left | Divider | Picture Bank right */
-        <>
-          {/* Part Instruction */}
-          {currentQuestion.part.instruction && (
-            <div
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-
-          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column – Questions (prompts + drop zones) */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
-              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
-                {(() => {
-                  const sectionData = {
-                    ...currentQuestion.section,
-                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                    questions: [currentQuestion.question],
-                  };
-                  const promptQs = allQuestions.filter(q =>
-                    q.partIndex === currentQuestion.partIndex &&
-                    q.sectionIndex === currentQuestion.sectionIndex &&
-                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
-                  );
-                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
-                  return (
-                    <MatchingPicturesDisplay
-                      renderMode="questions"
-                      section={sectionData}
-                      startingNumber={startNumber}
-                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      sharedSelectedChoiceId={mpSelectedChoiceId}
-                      onSharedChoiceSelect={setMpSelectedChoiceId}
-                      sharedActivePromptIndex={mpActivePromptIndex}
-                      onSharedActivePromptChange={setMpActivePromptIndex}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="cambridge-divider"
-              onMouseDown={handleMouseDown}
-              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
-            >
-              <div className="cambridge-resize-handle">
-                <i className="fa fa-arrows-h"></i>
-              </div>
-            </div>
-
-            {/* Right Column – Picture Bank */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper">
-                {(() => {
-                  const sectionData = {
-                    ...currentQuestion.section,
-                    id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                    questions: [currentQuestion.question],
-                  };
-                  const promptQs = allQuestions.filter(q =>
-                    q.partIndex === currentQuestion.partIndex &&
-                    q.sectionIndex === currentQuestion.sectionIndex &&
-                    (q.section.questionType === 'matching-pictures' || Array.isArray(q.question?.prompts))
-                  );
-                  const startNumber = promptQs[0]?.questionNumber ?? currentQuestion.questionNumber;
-                  return (
-                    <MatchingPicturesDisplay
-                      renderMode="picturebank"
-                      section={sectionData}
-                      startingNumber={startNumber}
-                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      sharedSelectedChoiceId={mpSelectedChoiceId}
-                      onSharedChoiceSelect={setMpSelectedChoiceId}
-                      sharedActivePromptIndex={mpActivePromptIndex}
-                      onSharedActivePromptChange={setMpActivePromptIndex}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'word-drag-cloze' ? (
-        /* Movers Part 4: Word Drag & Drop Cloze – passage left | word bank right */
-        <>
-          {currentQuestion.part.instruction && (
-            <div
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column – Passage with blank slots */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
-              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
-                {(() => {
-                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const wdcQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'word-drag-cloze'
-                  );
-                  return (
-                    <WordDragClozeDisplay
-                      renderMode="passage"
-                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
-                      answerKeyPrefix={wdcPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                      sharedFocusedBlank={wdcFocusedBlank}
-                      onSharedFocusChange={setWdcFocusedBlank}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="cambridge-divider"
-              onMouseDown={handleMouseDown}
-              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
-            >
-              <div className="cambridge-resize-handle">
-                <i className="fa fa-arrows-h"></i>
-              </div>
-            </div>
-
-            {/* Right Column – Word Bank */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
-                <button
-                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                  onClick={() => toggleFlag(currentQuestion.key)}
-                  aria-label="Flag question"
-                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
-                >
-                  <InlineIcon name="flag" size={14} />
-                </button>
-                {(() => {
-                  const wdcPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const wdcQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'word-drag-cloze'
-                  );
-                  return (
-                    <WordDragClozeDisplay
-                      renderMode="wordbank"
-                      section={{ ...currentQuestion.section, id: wdcPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={wdcQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
-                      answerKeyPrefix={wdcPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                      sharedFocusedBlank={wdcFocusedBlank}
-                      onSharedFocusChange={setWdcFocusedBlank}
-                      activeBlankNumber={currentQuestion.blank?.number ?? null}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'story-completion' ? (
-        /* Movers Part 5: Story Completion – story left | letter-box questions right */
-        <>
-          {currentQuestion.part.instruction && (
-            <div
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column – Story + Examples */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
-              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
-                {(() => {
-                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const scQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'story-completion'
-                  );
-                  return (
-                    <StoryCompletionDisplay
-                      renderMode="story"
-                      section={{ ...currentQuestion.section, id: scPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={scQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
-                      answerKeyPrefix={scPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="cambridge-divider"
-              onMouseDown={handleMouseDown}
-              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
-            >
-              <div className="cambridge-resize-handle">
-                <i className="fa fa-arrows-h"></i>
-              </div>
-            </div>
-
-            {/* Right Column – Letter-box Questions */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
-                <button
-                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                  onClick={() => toggleFlag(currentQuestion.key)}
-                  aria-label="Flag question"
-                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
-                >
-                  <InlineIcon name="flag" size={14} />
-                </button>
-                {(() => {
-                  const scPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  // Show only the CURRENT item (1 câu / 1 item) so young learners aren't overwhelmed
-                  const singleItemQ = {
-                    ...currentQuestion.question,
-                    items: [currentQuestion.item],
-                  };
-                  return (
-                    <StoryCompletionDisplay
-                      renderMode="questions"
-                      section={{ ...currentQuestion.section, id: scPrefix, questions: [singleItemQ] }}
-                      startingNumber={currentQuestion.questionNumber}
-                      startItemIndex={currentQuestion.itemIndex}
-                      answerKeyPrefix={scPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'look-read-write' ? (
-        /* Movers Part 6: Look, Read & Write – picture+examples left | questions right */
-        <>
-          {currentQuestion.part.instruction && (
-            <div
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column – Picture + Examples */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
-              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
-                {(() => {
-                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const lrwQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'look-read-write'
-                  );
-                  return (
-                    <LookReadWriteDisplay
-                      renderMode="picture"
-                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [currentQuestion.question] }}
-                      startingNumber={lrwQuestions[0]?.questionNumber ?? currentQuestion.questionNumber}
-                      answerKeyPrefix={lrwPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="cambridge-divider"
-              onMouseDown={handleMouseDown}
-              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
-            >
-              <div className="cambridge-resize-handle">
-                <i className="fa fa-arrows-h"></i>
-              </div>
-            </div>
-
-            {/* Right Column – Three Question Groups */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper" style={{ position: 'relative' }}>
-                <button
-                  className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                  onClick={() => toggleFlag(currentQuestion.key)}
-                  aria-label="Flag question"
-                  style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
-                >
-                  <InlineIcon name="flag" size={14} />
-                </button>
-                {(() => {
-                  const lrwPrefix = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`;
-                  const lrwQuestions = allQuestions.filter(
-                    q => q.partIndex === currentQuestion.partIndex &&
-                         q.sectionIndex === currentQuestion.sectionIndex &&
-                         q.section.questionType === 'look-read-write'
-                  );
-                  // Show only the CURRENT GROUP so young learners aren't overwhelmed
-                  const activeGroupIdx = currentQuestion.groupIndex ?? 0;
-                  const activeGroup = currentQuestion.question.groups?.[activeGroupIdx];
-                  const singleGroupQ = {
-                    ...currentQuestion.question,
-                    groups: activeGroup ? [activeGroup] : currentQuestion.question.groups,
-                  };
-                  const groupFirstQ = lrwQuestions.find(q => q.groupIndex === activeGroupIdx);
-                  return (
-                    <LookReadWriteDisplay
-                      renderMode="questions"
-                      section={{ ...currentQuestion.section, id: lrwPrefix, questions: [singleGroupQ] }}
-                      startingNumber={groupFirstQ?.questionNumber ?? currentQuestion.questionNumber}
-                      startGroupIndex={activeGroupIdx}
-                      answerKeyPrefix={lrwPrefix}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      partImage={currentQuestion.part?.imageUrl || ""}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : currentQuestion && currentQuestion.section.questionType === 'image-cloze' ? (
-        /* Image Cloze (Movers Part 3): Passage left | Resizable Divider | Picture Bank right */
-        <>
-          {currentQuestion.part.instruction && (
-            <div
-              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
-              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
-            />
-          )}
-          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column – Passage with blank drop zones */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
-              <div className="cambridge-passage-container" style={{ padding: '12px' }}>
-                {(() => {
-                  const icQuestions = allQuestions.filter(q =>
-                    q.partIndex === currentQuestion.partIndex &&
-                    q.sectionIndex === currentQuestion.sectionIndex &&
-                    q.section.questionType === 'image-cloze'
-                  );
-                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                  return (
-                    <ImageClozeDisplay
-                      renderMode="passage"
-                      section={{
-                        ...currentQuestion.section,
-                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                        questions: [currentQuestion.question],
-                      }}
-                      startingNumber={startNumber}
-                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      sharedSelectedImgId={icSelectedImgId}
-                      onSharedImgSelect={setIcSelectedImgId}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="cambridge-divider"
-              onMouseDown={handleMouseDown}
-              style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
-            >
-              <div className="cambridge-resize-handle">
-                <i className="fa fa-arrows-h"></i>
-              </div>
-            </div>
-
-            {/* Right Column – Picture Bank */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
-              <div className="cambridge-content-wrapper">
-                {(() => {
-                  const icQuestions = allQuestions.filter(q =>
-                    q.partIndex === currentQuestion.partIndex &&
-                    q.sectionIndex === currentQuestion.sectionIndex &&
-                    q.section.questionType === 'image-cloze'
-                  );
-                  const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                  return (
-                    <ImageClozeDisplay
-                      renderMode="picturebank"
-                      section={{
-                        ...currentQuestion.section,
-                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                        questions: [currentQuestion.question],
-                      }}
-                      startingNumber={startNumber}
-                      answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                      onAnswerChange={handleAnswerChange}
-                      answers={answers}
-                      submitted={submitted}
-                      sharedSelectedImgId={icSelectedImgId}
-                      onSharedImgSelect={setIcSelectedImgId}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
       ) : (
         <>
           {/* Part Instruction - Above split view */}
@@ -3299,6 +2250,53 @@ const DoCambridgeReadingTest = ({
             />
           )}
 
+          {currentQuestion && currentQuestion.section.questionType === 'matching' ? (
+            /* Matching: full-width single column with items left / options right */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'matching'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <QuestionDisplayFactory
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          questionType="matching"
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          examType={examType}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
             {/* Left Column - Passage */}
             <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
@@ -3348,34 +2346,6 @@ const DoCambridgeReadingTest = ({
                         className="cambridge-passage-content"
                         dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.passage) }}
                       />
-                    </div>
-                  ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
-                    <div className="cambridge-passage-container">
-                      {(() => {
-                        const peopleQuestions = allQuestions.filter(q => 
-                          q.partIndex === currentQuestion.partIndex &&
-                          q.sectionIndex === currentQuestion.sectionIndex &&
-                          (q.section.questionType === 'people-matching' || Array.isArray(q.question?.people))
-                        );
-                        const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-
-                        return (
-                          <PeopleMatchingDisplay
-                            section={{
-                              ...currentQuestion.section,
-                              id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                              questions: [currentQuestion.question],
-                            }}
-                            startingNumber={startNumber}
-                            answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                            onAnswerChange={handleAnswerChange}
-                            answers={answers}
-                            submitted={submitted}
-                            showPeople={true}
-                            showTexts={false}
-                          />
-                        );
-                      })()}
                     </div>
                   ) : currentQuestion.part.imageUrl ? (
                     /* Part scene image (e.g. Movers Part 2) */
@@ -3631,115 +2601,6 @@ const DoCambridgeReadingTest = ({
                     ))
                   }
                 </div>
-              ) : (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const promptQuestions = allQuestions.filter(q =>
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'matching-pictures'
-                      );
-                      const startNumber = promptQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-
-                      return (
-                        <MatchingPicturesDisplay
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          startingNumber={startNumber}
-                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
-              ) : currentQuestion.section.questionType === 'image-cloze' ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full p-3 sm:p-4`}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const icQuestions = allQuestions.filter(q =>
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'image-cloze'
-                      );
-                      const startNumber = icQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                      return (
-                        <ImageClozeDisplay
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          startingNumber={startNumber}
-                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
-              ) : (currentQuestion.section.questionType === 'people-matching' || Array.isArray(currentQuestion.question?.people)) ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
-                  {/* Flag Button */}
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const peopleQuestions = allQuestions.filter(q => 
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'people-matching'
-                      );
-                      const startNumber = peopleQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-
-                      return (
-                        <PeopleMatchingDisplay
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          startingNumber={startNumber}
-                          answerKeyPrefix={`${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                          showPeople={false}
-                          showTexts={true}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
               ) : currentQuestion.section.questionType === 'preposition-gap-fill' ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
                   <button
@@ -3806,41 +2667,6 @@ const DoCambridgeReadingTest = ({
                     })()}
                   </div>
                 </div>
-              ) : currentQuestion.section.questionType === 'matching' ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const sectionQuestions = allQuestions.filter(q =>
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'matching'
-                      );
-                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                      return (
-                        <QuestionDisplayFactory
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          questionType="matching"
-                          startingNumber={startNumber}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                          examType={examType}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
               ) : (
                 /* Other question types: Show single question */
                 <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
@@ -3881,8 +2707,9 @@ const DoCambridgeReadingTest = ({
           )}
         </div>
       </div>
-        </>
+          </>
       )}
+      </>)}
       </div>
 
       {/* Footer Navigation */}
@@ -4069,5 +2896,5 @@ const DoCambridgeReadingTest = ({
   );
 };
 
-export default DoCambridgeReadingTest;
+export default DoFceReadingTest;
 

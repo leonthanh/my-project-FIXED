@@ -75,6 +75,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (sectionType === 'matching' && Array.isArray(question.leftItems)) {
+          total += question.leftItems.length > 0 ? question.leftItems.length : 1;
+          return;
+        }
+
         if (sectionType === 'word-form' && Array.isArray(question.sentences)) {
           total += question.sentences.length > 0 ? question.sentences.length : 1;
           return;

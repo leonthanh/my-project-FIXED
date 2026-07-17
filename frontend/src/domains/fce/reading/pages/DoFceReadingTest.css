@@ -1,0 +1,2068 @@
+/* Cambridge Reading Test - Authentic Cambridge UI */
+
+.cambridge-test-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Main Content Area */
+.cambridge-main-content {
+  flex: 1;
+  overflow: hidden;
+  background: white;
+  display: flex;
+  border-top: 1px solid #e0e0e0;
+  position: relative;
+}
+
+.cambridge-student-content-shell {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* Left Column - Passage */
+.cambridge-passage-column {
+  overflow-y: auto;
+  padding: 8px 12px;
+  border-right: none;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+/* Draggable Divider */
+.cambridge-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  margin-left: -4px;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.cambridge-divider:hover {
+  background: rgba(0, 82, 204, 0.1);
+}
+
+.cambridge-divider:hover .cambridge-resize-handle {
+  opacity: 1;
+  background: #0052cc;
+}
+
+.cambridge-resize-handle {
+  width: 4px;
+  height: 60px;
+  background: #ccc;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.cambridge-resize-handle i {
+  font-size: 12px;
+  color: white;
+}
+
+/* Right Column - Questions */
+.cambridge-questions-column {
+  overflow-y: auto;
+  padding: 8px 16px;
+  background: white;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  max-width: 100vw;
+}
+
+.cambridge-content-wrapper {
+  max-width: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* Part Header */
+.cambridge-part-header {
+  margin-bottom: 24px;
+}
+
+.cambridge-part-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+}
+
+.cambridge-part-instruction {
+  background: white;
+  border-left: 3px solid #0052cc;
+  padding: 1px 20px;
+  margin: 1px 2px;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+  border-radius: 2px;
+}
+
+.cambridge-part-instruction > div {
+  margin: 0;
+}
+
+.cambridge-part-instruction p,
+.cambridge-part-instruction h1,
+.cambridge-part-instruction h2,
+.cambridge-part-instruction h3,
+.cambridge-part-instruction h4,
+.cambridge-part-instruction h5,
+.cambridge-part-instruction h6,
+.cambridge-part-instruction ul,
+.cambridge-part-instruction ol {
+  margin: 0 0 6px;
+}
+
+.cambridge-part-instruction p:last-child,
+.cambridge-part-instruction h1:last-child,
+.cambridge-part-instruction h2:last-child,
+.cambridge-part-instruction h3:last-child,
+.cambridge-part-instruction h4:last-child,
+.cambridge-part-instruction h5:last-child,
+.cambridge-part-instruction h6:last-child,
+.cambridge-part-instruction ul:last-child,
+.cambridge-part-instruction ol:last-child {
+  margin-bottom: 0;
+}
+
+.cambridge-part-instruction ul,
+.cambridge-part-instruction ol {
+  padding-left: 18px;
+}
+
+/* Passage Container */
+.cambridge-passage-container {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 0;
+}
+
+.cambridge-passage-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.cambridge-passage-content {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #333;
+}
+
+/* ReactQuill Alignment Support in Passage */
+.cambridge-passage-content .ql-align-center,
+.cambridge-passage-content h1.ql-align-center,
+.cambridge-passage-content h2.ql-align-center,
+.cambridge-passage-content h3.ql-align-center,
+.cambridge-passage-content h4.ql-align-center,
+.cambridge-passage-content p.ql-align-center {
+  text-align: center;
+}
+
+.cambridge-passage-content .ql-align-right,
+.cambridge-passage-content h1.ql-align-right,
+.cambridge-passage-content h2.ql-align-right,
+.cambridge-passage-content h3.ql-align-right,
+.cambridge-passage-content h4.ql-align-right,
+.cambridge-passage-content p.ql-align-right {
+  text-align: right;
+}
+
+.cambridge-passage-content .ql-align-left,
+.cambridge-passage-content h1.ql-align-left,
+.cambridge-passage-content h2.ql-align-left,
+.cambridge-passage-content h3.ql-align-left,
+.cambridge-passage-content h4.ql-align-left,
+.cambridge-passage-content p.ql-align-left {
+  text-align: left;
+}
+
+.cambridge-passage-content .ql-align-justify,
+.cambridge-passage-content p.ql-align-justify {
+  text-align: justify;
+}
+
+/* Purple color support from ReactQuill */
+.cambridge-passage-content h1,
+.cambridge-passage-content h2,
+.cambridge-passage-content h3,
+.cambridge-passage-content h4 {
+  margin: 16px 0 12px 0;
+  font-weight: 600;
+}
+
+.cambridge-passage-content .ql-color-purple,
+.cambridge-passage-content h1[style*="color: rgb(153, 51, 255)"],
+.cambridge-passage-content h2[style*="color: rgb(153, 51, 255)"],
+.cambridge-passage-content h3[style*="color: rgb(153, 51, 255)"] {
+  color: #9933ff !important;
+}
+
+.cambridge-passage-content p {
+  margin-bottom: 14px;
+}
+
+.cambridge-passage-content strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Section Container */
+.cambridge-section {
+  margin-bottom: 32px;
+}
+
+.cambridge-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* Question Container */
+.cambridge-question-wrapper {
+  position: relative;
+  background: white;
+  padding: 0px;
+  margin-bottom: 5px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+  width: 80%;
+}
+
+.cambridge-question-wrapper:hover {
+  border-color: #bbb;
+}
+
+.cambridge-question-wrapper.answered {
+  border-left: 3px solid #4caf50;
+}
+
+.cambridge-question-wrapper.active-question {
+  background: #f0f7ff;
+  border-left: 3px solid #0052cc;
+}
+
+/* Flag Button */
+.cambridge-flag-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  width: 46px;
+  height: 46px;
+  cursor: pointer;
+  font-size: 24px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transition: color 0.18s, background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+}
+
+.cambridge-flag-button:hover {
+  color: #f97316;
+  background: rgba(249,115,22,0.10);
+  border-color: rgba(249,115,22,0.35);
+  box-shadow: 0 10px 22px rgba(249,115,22,0.18);
+  transform: translateY(-1px) scale(1.12) rotate(-6deg);
+}
+
+.cambridge-flag-button.flagged {
+  color: #f97316;
+  background: rgba(249,115,22,0.16);
+  border-color: rgba(249,115,22,0.55);
+  box-shadow: 0 10px 22px rgba(249,115,22,0.22);
+  animation: flagPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes flagPulse {
+  0%, 100% {
+    transform: rotate(-8deg) scale(1);
+    box-shadow: 0 0 0 0 rgba(249,115,22,0.36), 0 10px 22px rgba(249,115,22,0.18);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.1);
+    box-shadow: 0 0 0 8px rgba(249,115,22,0), 0 12px 24px rgba(249,115,22,0.26);
+  }
+}
+
+/* ── Draw-lines anchor dot animations (MOVERS Listening Part 1) ────────── */
+@keyframes drawDotBounce {
+  0%, 100% { transform: scale(1);   opacity: 1;   }
+  30%       { transform: scale(1.45); opacity: 0.85; }
+  60%       { transform: scale(0.9);  opacity: 1;   }
+}
+@keyframes drawDotRipple {
+  0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0;    }
+}
+.draw-dot-pulse {
+  animation: drawDotBounce 1.3s ease-in-out infinite;
+}
+.draw-dot-ripple {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: drawDotRipple 1.3s ease-out infinite;
+}
+
+/* ── Letter-Matching (MOVERS Part 3) animations ─────────────────────────── */
+@keyframes lmTileBounceIn {
+  0%   { opacity: 0; transform: scale(0.5) translateY(20px); }
+  60%  { transform: scale(1.12) translateY(-4px); }
+  80%  { transform: scale(0.95) translateY(2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes lmTileWiggle {
+  0%, 100% { transform: rotate(0deg) scale(1.06); }
+  25%       { transform: rotate(-5deg) scale(1.08); }
+  75%       { transform: rotate(5deg) scale(1.08); }
+}
+@keyframes lmPersonPop {
+  0%   { opacity: 0; transform: translateX(-24px); }
+  70%  { transform: translateX(4px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes lmDropzonePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.45); }
+  50%       { box-shadow: 0 0 0 8px rgba(139,92,246,0); }
+}
+@keyframes lmCorrectPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  70%  { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+@keyframes lmStarSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.3); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Tile idle: bounce-in on mount with staggered delay */
+.lm-tile {
+  animation: lmTileBounceIn 0.55s cubic-bezier(.34,1.56,.64,1) both;
+  animation-delay: var(--tile-delay, 0ms);
+}
+.lm-tile-idle:hover {
+  animation: lmTileWiggle 0.45s ease-in-out;
+  transform-origin: center bottom;
+  z-index: 5;
+}
+/* Person row slide-in */
+.lm-person-row {
+  animation: lmPersonPop 0.45s cubic-bezier(.34,1.56,.64,1) both;
+  animation-delay: var(--row-delay, 0ms);
+}
+/* Drop zone idle pulse */
+.lm-dropzone-empty {
+  animation: lmDropzonePulse 2s ease-in-out infinite;
+}
+/* Correct answer celebrate */
+.lm-correct {
+  animation: lmCorrectPop 0.5s ease-out forwards;
+}
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+/* Question Display */
+.cambridge-question-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: #0e276f;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 4px;
+  margin-right: 12px;
+}
+
+.cambridge-question-text {
+  font-size: 15px;
+  color: #333;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+
+/* Navigation Buttons */
+.cambridge-nav-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin: 32px 0;
+}
+
+.cambridge-nav-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: white;
+  border: 2px solid #0052cc;
+  color: #0052cc;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cambridge-nav-button:hover:not(:disabled) {
+  background: #0052cc;
+  color: white;
+}
+
+.cambridge-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ================================================================
+   FOOTER NAVIGATION – redesigned
+   Layout: [← prev]  [scrollable parts strip]  [Q X/Y  → next]
+   ================================================================ */
+.cambridge-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  min-height: 56px;
+}
+
+.cambridge-footer--centered-nav {
+  justify-content: center;
+}
+
+/* ── Arrow buttons ── */
+.cambridge-nav-arrow-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+  box-shadow: 0 2px 8px rgba(67, 56, 202, 0.15);
+}
+
+.cambridge-nav-arrow-btn--static {
+  background: #334155;
+  border-color: #334155;
+  color: #ffffff;
+  cursor: default;
+  pointer-events: none;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #4338ca;
+  color: #fff;
+  border-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.28);
+}
+
+.cambridge-nav-arrow-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.95);
+}
+
+.cambridge-nav-arrow-btn:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #cbd5e1;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Parts strip ── */
+.cambridge-parts-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 16px 4px 6px;
+  scrollbar-width: none;
+}
+.cambridge-parts-container::-webkit-scrollbar { display: none; }
+
+.cambridge-parts-container--centered {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: min(100%, calc(100vw - 32px));
+  justify-content: center;
+  margin: 0 auto;
+}
+
+/* ── Individual part group ── */
+.cambridge-part-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+/* Separator between part groups */
+.cambridge-part-wrapper + .cambridge-part-wrapper::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 24px;
+  background: #e2e8f0;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Part chip (P1, P2, …) ── */
+.cambridge-part-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.cambridge-part-tab:hover:not(.active) {
+  background: #f1f5f9;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.cambridge-part-tab.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+}
+
+.cambridge-part-label {
+  font-size: 11px;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.cambridge-part-number {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Small answered/total badge on inactive part tab */
+.cambridge-part-badge {
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(0,0,0,0.12);
+  color: inherit;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 2px;
+  opacity: 0.85;
+}
+
+.cambridge-part-tab.active .cambridge-part-badge {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ── Question number bubbles ── */
+.cambridge-questions-inline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cambridge-question-num-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cambridge-question-num-btn:hover:not(.active) {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #4338ca;
+  transform: translateY(-1px);
+}
+
+/* Answered – green filled circle */
+.cambridge-question-num-btn.answered {
+  background: #22c55e;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.cambridge-question-num-btn.answered:hover:not(.active) {
+  background: #16a34a;
+  border-color: #15803d;
+  transform: translateY(-1px);
+}
+
+/* Active – indigo ring + scale */
+.cambridge-question-num-btn.active {
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.28);
+  transform: scale(1.18);
+  z-index: 1;
+}
+
+/* Answered + active */
+.cambridge-question-num-btn.answered.active {
+  background: #16a34a;
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.28);
+}
+
+/* Flagged bubble */
+.cambridge-question-num-btn.flagged {
+  border-color: #f97316;
+  box-shadow: 0 0 0 2.5px rgba(249,115,22,0.45);
+  z-index: 5;
+}
+
+/* Flag icon rendered as a real DOM element for reliable emoji + animation */
+.nav-flag-icon {
+  position: absolute;
+  top: -13px;
+  right: -13px;
+  font-size: 20px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 24;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.28));
+  animation: flagWave 0.78s ease-in-out infinite alternate;
+  transform-origin: 30% 90%;
+  display: block;
+}
+
+@keyframes flagWave {
+  0%   { transform: rotate(-16deg) translateY(0) scale(1.02); }
+  50%  { transform: rotate(10deg) translateY(-2px) scale(1.18); }
+  100% { transform: rotate(-7deg) translateY(0) scale(1.06); }
+}
+
+/* Writing label for parts with no numbered questions */
+.cambridge-writing-label {
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 0 6px;
+  font-style: italic;
+}
+
+/* ── Right side: counter + next ── */
+.cambridge-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cambridge-q-counter {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  min-width: 36px;
+  text-align: right;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cambridge-q-counter-total {
+  font-weight: 500;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* ── Legacy classes kept for safety ── */
+.cambridge-footer-arrows {
+  position: absolute;
+  right: 1.5rem;
+  bottom: calc(100% + 10px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cambridge-footer-nav { display: none; }
+.cambridge-footer-arrow { display: none; }
+.cambridge-part-count { display: none; }
+
+/* ── Review Button (hidden, kept for future) ── */
+.cambridge-review-button {
+  background: linear-gradient(135deg, #e03 0%, #c60 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.cambridge-review-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(224, 0, 51, 0.4);
+}
+
+/* Sign-message (PET Part 1): intro left, questions right */
+.cambridge-sign-split {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.cambridge-sign-split--resizable {
+  position: relative;
+  align-items: stretch;
+  gap: 0;
+}
+
+.cambridge-sign-intro {
+  flex: 0 0 36%;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-intro {
+  min-width: 220px;
+  padding-right: 18px;
+  box-sizing: border-box;
+}
+
+.cambridge-sign-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.cambridge-sign-questions {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-questions {
+  padding-left: 18px;
+  box-sizing: border-box;
+}
+
+.cambridge-sign-questions::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: -12px;
+  width: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0) 0%,
+    rgba(148, 163, 184, 0.48) 18%,
+    rgba(148, 163, 184, 0.85) 50%,
+    rgba(148, 163, 184, 0.48) 82%,
+    rgba(148, 163, 184, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.cambridge-sign-split--resizable .cambridge-sign-questions::before {
+  display: none;
+}
+
+.cambridge-sign-divider {
+  top: 6px;
+  bottom: 6px;
+}
+
+.cambridge-sign-divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0) 0%,
+    rgba(148, 163, 184, 0.48) 18%,
+    rgba(148, 163, 184, 0.85) 50%,
+    rgba(148, 163, 184, 0.48) 82%,
+    rgba(148, 163, 184, 0) 100%
+  );
+}
+
+.cambridge-sign-question-card {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .cambridge-sign-split {
+    flex-direction: column;
+  }
+
+  .cambridge-sign-intro {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cambridge-sign-question-card {
+    width: 100%;
+  }
+
+  .cambridge-sign-questions::before {
+    top: -12px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0) 0%,
+      rgba(148, 163, 184, 0.48) 18%,
+      rgba(148, 163, 184, 0.85) 50%,
+      rgba(148, 163, 184, 0.48) 82%,
+      rgba(148, 163, 184, 0) 100%
+    );
+  }
+
+  .cambridge-passage-column {
+    padding: 10px 16px;
+  }
+
+  .cambridge-questions-column {
+    padding: 10px 20px;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+  }
+
+  .cambridge-part-title {
+    font-size: 18px;
+  }
+
+  .cambridge-part-instruction {
+    padding: 4px 14px;
+    font-size: 13px;
+  }
+
+  .cambridge-passage-container {
+    padding: 16px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-footer {
+    padding: 5px 10px;
+    min-height: 52px;
+  }
+
+  .cambridge-footer-arrows {
+    right: 1rem;
+    bottom: calc(100% + 8px);
+  }
+
+  .cambridge-part-tab {
+    padding: 4px 9px;
+    font-size: 12px;
+  }
+
+  .cambridge-question-num-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+}
+
+/* Loading & Error States */
+.cambridge-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.cambridge-loading h2 {
+  margin-top: 20px;
+  color: #0052cc;
+}
+
+.cambridge-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #f5f5f5;
+  color: #d32f2f;
+}
+
+.cambridge-error h2 {
+  margin-top: 20px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .cambridge-main-content {
+    flex-direction: column;
+  }
+
+  .cambridge-passage-column,
+  .cambridge-questions-column {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 16px;
+  }
+
+  .cambridge-divider {
+    display: none;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+  }
+
+  .cambridge-footer {
+    flex-direction: row;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  .cambridge-footer--centered-nav {
+    justify-content: center;
+  }
+
+  .cambridge-footer-arrows {
+    right: 0.75rem;
+    bottom: calc(100% + 6px);
+  }
+
+  .cambridge-parts-container {
+    padding: 0 4px;
+  }
+
+  .cambridge-parts-container--centered {
+    flex: 0 1 auto;
+    max-width: calc(100vw - 18px);
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .cambridge-main-content {
+    padding: 20px 12px;
+  }
+
+  .cambridge-content-wrapper {
+    max-width: 100%;
+  }
+
+  .cambridge-part-title {
+    font-size: 20px;
+  }
+
+  .cambridge-question-wrapper {
+    padding: 16px;
+  }
+
+  .cambridge-flag-button {
+    top: 12px;
+    right: 12px;
+  }
+
+  .cambridge-parts-container {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .cambridge-questions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+    min-width: 240px;
+  }
+
+  .cambridge-question-num-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cambridge-part-title {
+    font-size: 18px;
+  }
+
+  .cambridge-passage-container {
+    padding: 14px;
+  }
+
+  .cambridge-question-number {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-review-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .cambridge-test-container {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ===== CRITICAL: Force split-view columns to stack vertically =====
+     The JSX sets inline style={{ width: '50%' }} on columns,
+     so we MUST use !important to override inline styles. */
+  .cambridge-main-content {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .cambridge-passage-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    flex: 1 1 50% !important;
+    min-height: 0;
+    overflow-y: auto;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .cambridge-questions-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    flex: 1 1 50% !important;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .cambridge-divider {
+    display: none !important;
+  }
+
+  .cambridge-content-wrapper {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .cambridge-section-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* Passage container */
+  .cambridge-passage-container {
+    padding: 12px;
+    margin: 0;
+    border-radius: 6px;
+  }
+
+  .cambridge-passage-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* People-matching: fix grid and images for mobile */
+  .cambridge-passage-column > div[style*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cambridge-passage-column > div > div img {
+    max-width: 48px !important;
+    max-height: 48px !important;
+    min-width: 48px !important;
+  }
+
+  /* MCQ option labels: bigger tap targets */
+  .cambridge-question-wrapper label {
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  .cambridge-question-wrapper label input[type="radio"] {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+  }
+
+  /* Sign-message (KET Part 1): stack image & options vertically */
+  .cambridge-sign-container {
+    padding: 10px !important;
+  }
+
+  .cambridge-sign-layout {
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding-right: 0 !important;
+  }
+
+  .cambridge-sign-image-col {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .cambridge-sign-image-col img {
+    max-width: 280px;
+  }
+
+  .cambridge-sign-text {
+    font-size: 14px !important;
+  }
+
+  /* Cloze inputs: responsive width */
+  .cambridge-question-wrapper input[type="text"] {
+    max-width: 100% !important;
+    font-size: 14px !important;
+  }
+
+  .cambridge-test-container .test-header {
+    padding: 0 8px;
+    height: 48px;
+    gap: 4px;
+    max-width: 100vw;
+    overflow: hidden;
+  }
+
+  .cambridge-test-container .test-header .header-left {
+    gap: 6px;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+
+  .cambridge-test-container .test-header .test-badge {
+    padding: 3px 6px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-test-container .test-header .test-info {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .cambridge-test-container .test-header .test-info h1 {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cambridge-test-container .test-header .test-meta {
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .header-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-test-container .test-header .audio-status {
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .timer-container {
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .cambridge-test-container .test-header .timer-icon {
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .timer-value {
+    font-size: 13px;
+  }
+
+  .cambridge-test-container .test-header .timer-label {
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .progress-ring {
+    width: 30px;
+    height: 30px;
+  }
+
+  .cambridge-test-container .test-header .progress-value {
+    font-size: 11px;
+  }
+
+  .cambridge-test-container .test-header .progress-total {
+    font-size: 8px;
+  }
+
+  .cambridge-test-container .test-header .auto-save-indicator {
+    display: none;
+  }
+
+  .cambridge-test-container .test-header .submit-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .cambridge-test-container .test-header .submit-text {
+    display: none;
+  }
+
+  /* Main content */
+  .cambridge-main-content {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .cambridge-questions-column {
+    padding: 8px 10px;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+
+  .cambridge-question-wrapper {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+  }
+
+  .cambridge-part-instruction {
+    padding: 4px 8px;
+    margin: 1px 4px;
+    font-size: 11px;
+    line-height: 1.35;
+    border-left-width: 2px;
+  }
+
+  .cambridge-passage-content {
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 12px !important;
+  }
+
+  .cambridge-question-number {
+    min-width: 26px;
+    height: 26px;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+
+  .cambridge-question-text {
+    font-size: 14px;
+  }
+
+  .cambridge-flag-button {
+    top: 8px;
+    right: 8px;
+    font-size: 18px;
+    width: 42px;
+    height: 42px;
+  }
+
+  /* Footer - compact single-row */
+  .cambridge-footer {
+    padding: 3px 5px;
+    gap: 3px;
+    min-height: 46px;
+  }
+
+  .cambridge-footer-arrows {
+    right: 0.5rem;
+    bottom: calc(100% + 6px);
+    gap: 6px;
+  }
+
+  .cambridge-nav-arrow-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .cambridge-q-counter {
+    font-size: 11px;
+    min-width: 28px;
+  }
+
+  .cambridge-parts-container {
+    padding: 0 2px;
+    gap: 3px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cambridge-parts-container--centered {
+    justify-content: center;
+    flex: 0 1 auto;
+    max-width: calc(100vw - 10px);
+    margin: 0 auto;
+  }
+
+  .cambridge-part-wrapper {
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-part-tab {
+    padding: 3px 6px;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-part-label {
+    font-size: 10px;
+  }
+
+  .cambridge-part-number {
+    font-size: 10px;
+  }
+
+  .cambridge-part-count {
+    font-size: 8px;
+    display: none;
+  }
+
+  .cambridge-questions-inline {
+    gap: 2px;
+  }
+
+  .cambridge-question-num-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .cambridge-review-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Picture choices: stack vertically on mobile */
+  .cambridge-question-wrapper [role="radiogroup"] {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .cambridge-question-wrapper [role="radiogroup"] > div {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    max-width: 300px;
+  }
+
+  .cambridge-question-wrapper [role="radiogroup"] > div img {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Sign Text - Allow ReactQuill alignment classes to work naturally */
+/* .cambridge-sign-text {
+  ReactQuill will handle text-align via ql-align-* classes
+} */
+
+/* ReactQuill Alignment Support */
+.cambridge-sign-text .ql-align-center {
+  text-align: center;
+}
+
+.cambridge-sign-text .ql-align-right {
+  text-align: right;
+}
+
+.cambridge-sign-text .ql-align-left {
+  text-align: left;
+}
+
+.cambridge-sign-text .ql-align-justify {
+  text-align: justify;
+}
+
+/* Cloze passage (Part 4): tighten heading spacing */
+.cambridge-cloze-passage h1,
+.cambridge-cloze-passage h2,
+.cambridge-cloze-passage h3 {
+  margin: 8px 0 10px;
+  line-height: 1.3;
+}
+
+.cambridge-cloze-passage p {
+  margin: 8px 0;
+}
+
+/* Inline choice (Part 5) passage spacing on mobile */
+@media (max-width: 430px) {
+  .cambridge-question-wrapper h3 {
+    margin: 6px 0 8px !important;
+    line-height: 1.25 !important;
+  }
+
+  .cambridge-question-wrapper h1,
+  .cambridge-question-wrapper h2 {
+    margin: 6px 0 8px !important;
+    line-height: 1.25 !important;
+  }
+
+  .cambridge-question-wrapper .cambridge-passage-content p {
+    margin: 6px 0 !important;
+  }
+}
+
+/* Part 7 Situation - Full width images */
+.situation-content img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px 0;
+  border-radius: 6px;
+}
+
+/* Fixed Navigation Arrows - Top Right */
+.cambridge-fixed-nav-arrows {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+}
+
+/* Navigation Bar - Above Footer */
+.cambridge-nav-bar {
+  display: none;
+}
+
+.cambridge-nav-arrow-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #374151;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #1f2937;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.cambridge-nav-arrow-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cambridge-nav-arrow-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Dark mode overrides */
+body.dark-mode .cambridge-test-container {
+  background: #0f172a;
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-main-content {
+  background: #111827;
+  border-top-color: #1f2b47;
+}
+
+body.dark-mode .cambridge-passage-column {
+  background: #0f172a;
+}
+
+body.dark-mode .cambridge-questions-column {
+  background: #111827;
+}
+
+body.dark-mode .cambridge-divider:hover {
+  background: rgba(74, 144, 217, 0.2);
+}
+
+body.dark-mode .cambridge-resize-handle {
+  background: #4b5563;
+}
+
+body.dark-mode .cambridge-part-title,
+body.dark-mode .cambridge-section-title,
+body.dark-mode .cambridge-passage-title {
+  color: #e8e8e8;
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .cambridge-part-instruction {
+  background: #0f172a;
+  border-left-color: #4a90d9;
+  color: #cbd5f5;
+}
+
+body.dark-mode .cambridge-passage-container {
+  background: #111827;
+  border-color: #2a3350;
+}
+
+body.dark-mode .cambridge-passage-content {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-passage-content strong {
+  color: #ffffff;
+}
+
+body.dark-mode .cambridge-section-title {
+  border-bottom-color: #2a3350;
+}
+
+body.dark-mode .cambridge-question-wrapper {
+  background: #111827;
+  border-color: #2a3350;
+}
+
+body.dark-mode .cambridge-question-wrapper:hover {
+  border-color: #4b5563;
+}
+
+body.dark-mode .cambridge-question-wrapper.active-question {
+  background: #0f3460;
+  border-left-color: #4a90d9;
+}
+
+body.dark-mode .cambridge-flag-button {
+  color: #94a3b8;
+}
+
+body.dark-mode .cambridge-question-text,
+body.dark-mode .cambridge-question-instruction,
+body.dark-mode .cambridge-question-subtext {
+  color: #e8e8e8;
+}
+
+body.dark-mode .cambridge-footer {
+  background: rgba(17, 24, 39, 0.97);
+  border-top-color: #2a3350;
+}
+
+body.dark-mode .cambridge-nav-arrow-btn {
+  background: #1f2b47;
+  border-color: #3d4f7c;
+  color: #a5b4fc;
+}
+
+body.dark-mode .cambridge-nav-arrow-btn--static {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+body.dark-mode .cambridge-nav-arrow-btn:hover:not(:disabled) {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+body.dark-mode .cambridge-part-tab {
+  background: #1e293b;
+  border-color: #2a3350;
+  color: #cbd5e1;
+}
+
+body.dark-mode .cambridge-part-tab.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+body.dark-mode .cambridge-question-num-btn {
+  background: #1e293b;
+  border-color: #2a3350;
+  color: #cbd5e1;
+}
+
+body.dark-mode .cambridge-question-num-btn.answered {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+
+body.dark-mode .cambridge-question-num-btn.active {
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35);
+}
+
+body.dark-mode .cambridge-q-counter {
+  color: #a5b4fc;
+}
+
+body.dark-mode .cambridge-q-counter-total {
+  color: #475569;
+}
+
+body.dark-mode .cambridge-sign-text {
+  background: #0f172a !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper label {
+  background: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper label span,
+body.dark-mode .cambridge-question-wrapper label * {
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .cambridge-question-wrapper img {
+  border-color: #2a3350 !important;
+}
+
+/* =============================================
+   PART 2: People-Matching (PeopleMatchingDisplay)
+   ============================================= */
+
+/* People section container (left side - blue background) */
+body.dark-mode .cambridge-passage-container > div > div:first-child,
+body.dark-mode .cambridge-question-wrapper > div > div:first-child {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Section titles (People / Texts) */
+body.dark-mode .cambridge-passage-container h4,
+body.dark-mode .cambridge-question-wrapper h4 {
+  color: #e5e7eb !important;
+}
+
+/* Person cards */
+body.dark-mode .cambridge-passage-container > div > div > div > div,
+body.dark-mode .cambridge-question-wrapper > div > div > div > div {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* All text inside people-matching and question sections */
+body.dark-mode .cambridge-passage-container div,
+body.dark-mode .cambridge-passage-container span {
+  color: #e5e7eb !important;
+}
+
+/* Person name */
+body.dark-mode .cambridge-passage-container div[style*="fontWeight"] {
+  color: #ffffff !important;
+}
+
+/* Person need text */
+body.dark-mode .cambridge-passage-container div[style*="color: rgb(75, 85, 99)"],
+body.dark-mode .cambridge-passage-container div[style*="#4b5563"] {
+  color: #94a3b8 !important;
+}
+
+/* Answer label */
+body.dark-mode .cambridge-passage-container span[style*="color: rgb(107, 114, 128)"],
+body.dark-mode .cambridge-passage-container span[style*="#6b7280"] {
+  color: #94a3b8 !important;
+}
+
+/* Drop zone (answer area) */
+body.dark-mode .cambridge-passage-container div[style*="dashed"],
+body.dark-mode .cambridge-question-wrapper div[style*="dashed"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+}
+
+/* Drop zone value text */
+body.dark-mode .cambridge-passage-container span[style*="fontWeight: 700"][style*="color"],
+body.dark-mode .cambridge-question-wrapper span[style*="fontWeight: 700"][style*="color"] {
+  color: #e5e7eb !important;
+}
+
+/* Texts section (right side - white background) */
+body.dark-mode .cambridge-question-wrapper > div > div[style*="backgroundColor: rgb(255, 255, 255)"],
+body.dark-mode .cambridge-question-wrapper > div > div[style*="background"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Matching row items */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(250, 250, 250)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#fafafa"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Text content in matching rows */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(31, 41, 55)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#1f2937"] {
+  color: #e5e7eb !important;
+}
+
+/* Text title in matching rows */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(15, 23, 42)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#0f172a"] {
+  color: #ffffff !important;
+}
+
+/* Person image border */
+body.dark-mode .cambridge-passage-container img[style*="border"] {
+  border-color: #2a3350 !important;
+  background-color: #1f2b47 !important;
+}
+
+/* Dropdown in question wrapper */
+body.dark-mode .cambridge-question-wrapper select {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   PART 4: Cloze-MC (ClozeMCDisplay) - token mode
+   ============================================= */
+
+/* Passage container with inline styles */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(254, 252, 232)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#fefce8"],
+body.dark-mode .cambridge-question-wrapper .cambridge-passage-content[style] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* Passage container in ClozeMCDisplay */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(255, 255, 255)"][style*="border"],
+body.dark-mode .cambridge-question-wrapper div[style*="boxShadow"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Passage content text in cloze */
+body.dark-mode .cambridge-question-wrapper div[style*="color: rgb(17, 24, 39)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#111827"] {
+  color: #e5e7eb !important;
+}
+
+/* Token panel (right side with A-H options) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(248, 250, 252)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#f8fafc"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Individual token items */
+body.dark-mode .cambridge-question-wrapper div[style*="cursor: grab"],
+body.dark-mode .cambridge-question-wrapper div[draggable] {
+  background-color: #111827 !important;
+  border-color: #3d3d5c !important;
+  color: #e5e7eb !important;
+}
+
+/* Token text */
+body.dark-mode .cambridge-question-wrapper span[style*="color: rgb(15, 23, 42)"],
+body.dark-mode .cambridge-question-wrapper span[style*="#0f172a"] {
+  color: #e5e7eb !important;
+}
+
+/* Gap drop zones in cloze-mc */
+body.dark-mode .cambridge-question-wrapper span[style*="dashed"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+}
+
+/* Gap text in drop zones */
+body.dark-mode .cambridge-question-wrapper span[style*="dashed"] span {
+  color: #e5e7eb !important;
+}
+
+/* Cloze-mc question cards (KET mode with radio buttons) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(255, 255, 255)"][style*="padding: 16px"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* Passage title in cloze */
+body.dark-mode .cambridge-question-wrapper h3[style*="color"] {
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   PART 5: Open Cloze / Inline Choice
+   ============================================= */
+
+/* Passage container - open cloze (blue border) */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(240, 249, 255)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#f0f9ff"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* Text inputs in open cloze */
+body.dark-mode .cambridge-question-wrapper input[type="text"] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Select dropdowns in cloze */
+body.dark-mode .cambridge-question-wrapper select[style] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Inline choice buttons */
+body.dark-mode .cambridge-question-wrapper button[data-inline-choice] {
+  background-color: #1f2b47 !important;
+  border-color: #4f6db6 !important;
+  color: #e5e7eb !important;
+}
+
+/* Inline choice dropdown menu */
+body.dark-mode .cambridge-question-wrapper div[style*="position: absolute"][style*="boxShadow"] {
+  background-color: #0f172a !important;
+  border-color: #2a3350 !important;
+}
+
+/* Inline choice menu items */
+body.dark-mode .cambridge-question-wrapper button[style*="backgroundColor: rgb(248, 250, 252)"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* InlineChoiceDisplay passage container */
+body.dark-mode .cambridge-question-wrapper div[style*="boxShadow"][style*="padding"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+  color: #e5e7eb !important;
+}
+
+/* =============================================
+   Wildcard overrides for all inline-styled elements
+   inside question wrappers (catch-all)
+   ============================================= */
+
+/* Force all text in cambridge-question-wrapper containers to be light */
+body.dark-mode .cambridge-question-wrapper,
+body.dark-mode .cambridge-question-wrapper *,
+body.dark-mode .cambridge-passage-container *  {
+  color: #e5e7eb !important;
+}
+
+/* Preserve white text on dark badge backgrounds */
+body.dark-mode .cambridge-question-wrapper div[style*="backgroundColor: rgb(14, 39, 111)"] span,
+body.dark-mode .cambridge-question-wrapper span[style*="backgroundColor: rgb(14, 39, 111)"],
+body.dark-mode .cambridge-question-wrapper div[style*="#0e276f"] {
+  color: #ffffff !important;
+}
+
+/* Force dark backgrounds on all wrapper and container children with light bg */
+body.dark-mode .cambridge-question-wrapper > div[style],
+body.dark-mode .cambridge-question-wrapper > div > div[style*="background"],
+body.dark-mode .cambridge-question-wrapper > div > div > div[style*="background"] {
+  background-color: #111827 !important;
+  border-color: #2a3350 !important;
+}
+
+/* =============================================
+   MOVERS: Font size 20px (học sinh 9-10 tuổi)
+   Chỉ áp dụng khi có class .cambridge-movers
+   ============================================= */
+
+/* Base: tất cả text trong hai panel đều kế thừa 20px */
+.cambridge-movers .cambridge-passage-column,
+.cambridge-movers .cambridge-questions-column {
+  font-size: 20px;
+}
+
+/* CSS classes */
+.cambridge-movers .cambridge-part-instruction  { font-size: 20px; }
+.cambridge-movers .cambridge-passage-title     { font-size: 22px; }
+.cambridge-movers .cambridge-passage-content   { font-size: 20px; }
+.cambridge-movers .cambridge-section-title     { font-size: 20px; }
+.cambridge-movers .cambridge-question-text     { font-size: 20px; }
+.cambridge-movers .cambridge-sign-text         { font-size: 20px !important; }
+
+/* MCQ option labels */
+.cambridge-movers .cambridge-question-wrapper label { font-size: 20px !important; }
+
+/* Override tất cả inline font-size trong passage column và question wrapper
+   (React render fontSize → font-size trong HTML) */
+.cambridge-movers .cambridge-passage-column    *[style*="font-size"],
+.cambridge-movers .cambridge-questions-column  *[style*="font-size"],
+.cambridge-movers .cambridge-question-wrapper  *[style*="font-size"] {
+  font-size: 20px !important;
+}
+
+/* Ngoại lệ: badge số thứ tự câu hỏi, progress ring,
+   image captions nhỏ, icon, nhãn chữ cái A/B/C/D giữ size nhỏ */
+.cambridge-movers .cambridge-question-number             { font-size: 14px !important; }
+.cambridge-movers [style*="borderRadius: '999px'"]       { font-size: 14px !important; }
+
+/* Caption dưới ảnh trong Picture Bank (MatchingPictures & ImageCloze) */
+.cambridge-movers .cambridge-passage-column div[style*="font-size: 11px"],
+.cambridge-movers .cambridge-passage-column div[style*="font-size: 12px"],
+.cambridge-movers .cambridge-passage-column span[style*="font-size: 11px"],
+.cambridge-movers .cambridge-passage-column span[style*="font-size: 12px"] {
+  font-size: 13px !important;
+}
+
+/* Nút xoá / clear nhỏ trong matching */
+.cambridge-movers button[style*="font-size: 16px"][style*="background: none"] {
+  font-size: 18px !important;
+}
+
+/* Text inputs (cloze-test) */
+.cambridge-movers .cambridge-question-wrapper input[type="text"]  { font-size: 20px !important; }
+.cambridge-movers .cambridge-question-wrapper input[type="text"][style] { font-size: 20px !important; }
+
+/* Dropdowns (cloze-mc KET mode) */
+.cambridge-movers .cambridge-question-wrapper select              { font-size: 20px !important; }
+
+/* InlineChoice button và menu */
+.cambridge-movers .cambridge-question-wrapper button              { font-size: 20px !important; }
+.cambridge-movers .cambridge-question-wrapper div[style*="position: absolute"] button { font-size: 18px !important; }
+
+/* Responsive: tablet */
+@media (max-width: 1024px) {
+  .cambridge-movers .cambridge-passage-column,
+  .cambridge-movers .cambridge-questions-column          { font-size: 18px; }
+  .cambridge-movers .cambridge-part-instruction          { font-size: 18px; }
+  .cambridge-movers .cambridge-passage-content           { font-size: 18px; }
+  .cambridge-movers .cambridge-question-text             { font-size: 18px; }
+  .cambridge-movers .cambridge-question-wrapper label    { font-size: 18px !important; }
+  .cambridge-movers .cambridge-passage-column *[style*="font-size"],
+  .cambridge-movers .cambridge-questions-column *[style*="font-size"],
+  .cambridge-movers .cambridge-question-wrapper *[style*="font-size"] { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper input[type="text"] { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper select   { font-size: 18px !important; }
+  .cambridge-movers .cambridge-question-wrapper button   { font-size: 18px !important; }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .cambridge-movers .cambridge-passage-column,
+  .cambridge-movers .cambridge-questions-column          { font-size: 16px; }
+  .cambridge-movers .cambridge-part-instruction          { font-size: 16px; }
+  .cambridge-movers .cambridge-passage-content           { font-size: 16px; }
+  .cambridge-movers .cambridge-question-text             { font-size: 16px; }
+  .cambridge-movers .cambridge-question-wrapper label    { font-size: 16px !important; }
+  .cambridge-movers .cambridge-passage-column *[style*="font-size"],
+  .cambridge-movers .cambridge-questions-column *[style*="font-size"],
+  .cambridge-movers .cambridge-question-wrapper *[style*="font-size"] { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper input[type="text"] { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper select   { font-size: 16px !important; }
+  .cambridge-movers .cambridge-question-wrapper button   { font-size: 16px !important; }
+}

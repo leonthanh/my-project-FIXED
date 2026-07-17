@@ -9,6 +9,7 @@ import {
   ShortMessageDisplay,
   InlineChoiceDisplay,
   MatchingPicturesDisplay,
+  MatchingDisplay,
   ImageClozeDisplay,
   WordDragClozeDisplay,
   TrueFalseNotGivenDisplay,
@@ -252,6 +253,17 @@ const QuestionDisplayFactory = ({
     case 'matching-pictures':
       return (
         <MatchingPicturesDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'matching':
+      return (
+        <MatchingDisplay
           section={section}
           startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}
