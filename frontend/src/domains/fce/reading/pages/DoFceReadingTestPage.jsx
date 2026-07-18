@@ -2383,6 +2383,49 @@ const DoFceReadingTest = ({
                 })()}
               </div>
             </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'odd-one-out' ? (
+            /* Odd one out: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'odd-one-out'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
           <>
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
