@@ -87,7 +87,7 @@ const EditFceReadingTestPage = () => {
 
   return (
     <FceTestBuilder
-      testType="fce-reading"
+      testType="fce-reading-60"
       editId={id}
       initialData={fetchedData}
       apiBasePath="cambridge/reading-tests"

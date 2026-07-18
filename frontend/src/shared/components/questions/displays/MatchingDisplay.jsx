@@ -69,7 +69,12 @@ const MatchingDisplay = ({
               const isWrong = submitted && userAnswer && !isCorrect;
 
               return (
-                <div key={idx} style={styles.itemRow}>
+                <div
+                  key={idx}
+                  id={`question-${questionNumber}`}
+                  tabIndex={-1}
+                  style={styles.itemRow}
+                >
                   <div style={styles.itemNumber}>{questionNumber}</div>
                   <div style={styles.itemText}>{String(item || '')}</div>
                   <select
@@ -167,6 +172,7 @@ const styles = {
     backgroundColor: '#f8fafc',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
+    scrollMarginTop: '120px',
   },
   itemNumber: {
     display: 'inline-flex',

@@ -55,7 +55,7 @@ const submitReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   }
 
   const test = ensureReadingRecord(await CambridgeReading.findByPk(id), forcedTestType);
-  const { score, total, percentage, detailedResults } = scoreTest(test, answers);
+  const { score, total, percentage, detailedResults, breakdown } = scoreTest(test, answers);
 
   let placementContext = null;
   if (placementAttemptItemToken) {
@@ -148,6 +148,7 @@ const submitReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
     total,
     percentage,
     detailedResults,
+    breakdown,
   };
 };
 
@@ -171,6 +172,7 @@ const listReadingTestSubmissions = async ({ id, forcedTestType = null } = {}) =>
       where[Op.or] = [
         { testType: { [Op.like]: '%-reading' } },
         { testType: { [Op.in]: BASE_READING_CAMBRIDGE_TEST_TYPES } },
+        { testType: 'fce-reading-60' },
       ];
     }
   }

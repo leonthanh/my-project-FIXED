@@ -16,6 +16,33 @@ const countClozeBlanksFromText = (passageText) => {
   return underscores ? underscores.length : 0;
 };
 
+const getExplicitQuestionNumbersFromText = (text) => {
+  if (!text) return [];
+  let plainText = text;
+  if (typeof document !== 'undefined') {
+    const temp = document.createElement('div');
+    temp.innerHTML = text;
+    plainText = temp.textContent || temp.innerText || '';
+  } else {
+    plainText = String(text).replace(/<[^>]*>/g, ' ');
+  }
+
+  const numbers = [];
+  const seen = new Set();
+  const regex = /\((\d+)\)|\[(\d+)\]/g;
+  let match;
+
+  while ((match = regex.exec(plainText)) !== null) {
+    const questionNum = Number(match[1] || match[2]);
+    if (Number.isFinite(questionNum) && questionNum > 0 && !seen.has(questionNum)) {
+      seen.add(questionNum);
+      numbers.push(questionNum);
+    }
+  }
+
+  return numbers.sort((a, b) => a - b);
+};
+
 const getQuestionCountForSection = (section) => {
   if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
     return section.questions[0].questions.length;
@@ -93,6 +120,14 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.groups) ? q0.groups.length : 0;
   }
+  if (section.questionType === 'sentence-correction') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
+  if (section.questionType === 'reading-open-questions') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
   return section.questions.length;
 };
 
@@ -157,13 +192,13 @@ const computeQuestionStarts = (passages) => {
     'letter-matching', // MOVERS Part 3: expand per person name
     'preposition-gap-fill',
     'odd-one-out',
+    'sentence-correction',
+    'reading-open-questions',
   ]);
   let count = 1;
 
   (passages || []).forEach((part, partIdx) => {
     (part?.sections || []).forEach((section, sectionIdx) => {
-      sectionStart[`${partIdx}-${sectionIdx}`] = count;
-
       const sectionCount = getQuestionCountForSection(section);
       // detect draw-lines: check question-level data FIRST because section.questionType
       // may be 'matching' instead of 'draw-lines' (inconsistent DB data)
@@ -174,14 +209,23 @@ const computeQuestionStarts = (passages) => {
           : q0data.questionType === 'letter-matching'
             ? 'letter-matching'
             : (section?.questionType || '');
+      const explicitNumbers = questionType === 'cloze-test'
+        ? getExplicitQuestionNumbersFromText(q0data.passageText || q0data.passage || q0data.clozeText || '')
+        : [];
+      const explicitMin = explicitNumbers[0];
+      const explicitMax = explicitNumbers[explicitNumbers.length - 1];
+      const sectionFirstNumber = Number.isFinite(explicitMin) && explicitMin >= count ? explicitMin : count;
+
+      sectionStart[`${partIdx}-${sectionIdx}`] = sectionFirstNumber;
+
       if (!multiQuestionTypes.has(questionType)) {
         const questions = Array.isArray(section?.questions) ? section.questions : [];
         questions.forEach((_, qIdx) => {
-          questionStart[`${partIdx}-${sectionIdx}-${qIdx}`] = count + qIdx;
+          questionStart[`${partIdx}-${sectionIdx}-${qIdx}`] = sectionFirstNumber + qIdx;
         });
-        count += questions.length;
+        count = Math.max(sectionFirstNumber + questions.length, Number.isFinite(explicitMax) ? explicitMax + 1 : 0);
       } else {
-        count += sectionCount;
+        count = Math.max(sectionFirstNumber + sectionCount, Number.isFinite(explicitMax) ? explicitMax + 1 : 0);
       }
     });
   });

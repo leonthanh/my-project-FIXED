@@ -451,6 +451,40 @@ export const QUESTION_TYPES = {
     supportedTests: ['ket-reading', 'pet-reading'],
   },
 
+  'sentence-correction': {
+    id: 'sentence-correction',
+    label: 'Sentence Correction',
+    labelVi: 'Sửa lỗi câu',
+    iconName: 'edit',
+    description: 'FCE Part 5: Viết lại câu đúng sau khi phát hiện lỗi',
+    editor: 'SentenceCorrectionEditor',
+    defaultData: {
+      instruction: 'Correct the sentences.',
+      items: [
+        { sentence: "She doesn't used to eat meat, but she does now.", correctAnswer: "She didn't use to eat meat, but she does now.", explanation: '' },
+        { sentence: 'The audience felt very bored at the performance last night.', correctAnswer: 'The audience felt very bored by the performance last night.', explanation: '' },
+      ],
+    },
+    supportedTests: ['fce-reading', 'fce-reading-60'],
+  },
+
+  'reading-open-questions': {
+    id: 'reading-open-questions',
+    label: 'Reading Open Questions',
+    labelVi: 'Đọc hiểu + trả lời câu hỏi',
+    iconName: 'reading',
+    description: 'FCE Part 6: Đọc message/đoạn văn và trả lời câu hỏi ngắn',
+    editor: 'ReadingOpenQuestionsEditor',
+    defaultData: {
+      passageTitle: 'Part 6 Read the message.',
+      passage: '',
+      passageText: '',
+      instruction: 'Answer the questions. (10 points)',
+      items: Array.from({ length: 10 }, () => ({ questionText: '', correctAnswer: '', explanation: '' })),
+    },
+    supportedTests: ['fce-reading', 'fce-reading-60'],
+  },
+
   // =========== KET/PET WRITING ===========
   'short-message': {
     id: 'short-message',
@@ -484,7 +518,7 @@ export const QUESTION_TYPES = {
       wordLimit: { min: 80, max: 100 },
       sampleAnswer: '',
     },
-    supportedTests: ['pet-reading'],
+    supportedTests: ['pet-reading', 'fce-reading-60'],
   },
 
   // =========== YOUNG LEARNERS SPECIFIC ===========
@@ -693,7 +727,7 @@ export const QUESTION_TYPES = {
         { number: 6, sentence: 'fall _______ a deep sleep', correctAnswer: 'into' },
       ],
     },
-    supportedTests: ['fce-reading'],
+    supportedTests: ['fce-reading', 'fce-reading-60'],
   },
 
   'odd-one-out': {
@@ -710,7 +744,7 @@ export const QUESTION_TYPES = {
         { words: ['cabbage', 'spinach', 'pork', 'garlic'], correctAnswer: 'pork', explanation: 'pork is meat, not a vegetable' },
       ],
     },
-    supportedTests: ['fce-reading'],
+    supportedTests: ['fce-reading', 'fce-reading-60'],
   },
 };
 
@@ -998,6 +1032,8 @@ export const TEST_CONFIGS = {
       'long-text-mc',
       'word-form',
       'sentence-transformation',
+      'sentence-correction',
+      'reading-open-questions',
       'short-message',
       'story-writing',
       'preposition-gap-fill',
@@ -1009,10 +1045,41 @@ export const TEST_CONFIGS = {
       { part: 3, questions: '18-25', description: 'Odd One Out' },
       { part: 4, questions: '26-35', description: 'Complete the conversation' },
       { part: 5, questions: '36-45', description: 'Correct the sentences' },
-      { part: 6, questions: '46-55', description: 'Reading Comprehension' },
-      { part: 7, questions: '56-60', description: 'Complete the questions' },
-      { part: 8, questions: '61-70', description: 'Best Response' },
+      { part: 6, questions: '56-65', description: 'Reading Open Questions' },
+      { part: 7, questions: '66-70', description: 'Complete the questions' },
+      { part: 8, questions: '71-80', description: 'Best Response' },
       { part: 9, questions: 'Writing', description: 'Writing task' },
+    ],
+  },
+  'fce-reading-60': {
+    id: 'fce-reading-60',
+    name: 'FCE Reading 60-point Profile',
+    nameVi: 'FCE Reading 60-point Profile',
+    totalQuestions: 60,
+    manualScoredTotal: 20,
+    parts: 8,
+    duration: 60,
+    scoringProfile: 'fce-reading-60',
+    questionTypes: [
+      'matching',
+      'preposition-gap-fill',
+      'odd-one-out',
+      'inline-choice',
+      'sentence-correction',
+      'reading-open-questions',
+      'cloze-test',
+      'abc',
+      'abcd',
+    ],
+    partStructure: [
+      { part: 1, questions: '1-5', description: 'Match phrases', questionType: 'matching', scoreGroup: 'Vocabulary', maxMarks: 5, partLabel: 'Part 1 - Match phrases' },
+      { part: 2, questions: '6-11', description: 'Prepositions', questionType: 'preposition-gap-fill', scoreGroup: 'Vocabulary', maxMarks: 6, partLabel: 'Part 2 - Prepositions' },
+      { part: 3, questions: '12-15', description: 'Odd one out', questionType: 'odd-one-out', scoreGroup: 'Grammar', maxMarks: 4, partLabel: 'Part 3 - Odd one out' },
+      { part: 4, questions: '16-25', description: 'Complete the conversation', questionType: 'inline-choice', scoreGroup: 'Grammar', maxMarks: 10, partLabel: 'Part 4 - Conversation' },
+      { part: 5, questions: '26-35', description: 'Corrections', questionType: 'sentence-correction', scoreGroup: 'Grammar', maxMarks: 10, partLabel: 'Part 5 - Corrections' },
+      { part: 6, questions: '36-45', description: 'Comprehension', questionType: 'reading-open-questions', scoreGroup: 'Reading', maxMarks: 10, partLabel: 'Part 6a - Comprehension' },
+      { part: 7, questions: '46-50', description: 'Complete the questions', questionType: 'cloze-test', scoreGroup: 'Reading', maxMarks: 5, partLabel: 'Part 7 - Complete questions' },
+      { part: 8, questions: '51-60', description: 'Best response', questionType: 'abc', scoreGroup: 'Everyday English', maxMarks: 10, partLabel: 'Part 8 - Best response' },
     ],
   },
 

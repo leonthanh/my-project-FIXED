@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 
+const formatScore = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0';
+  if (Number.isInteger(numeric)) return String(numeric);
+  return numeric.toFixed(1).replace(/\.0$/, '');
+};
+
 const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actions = [] }) => {
   const modalRef = useRef(null);
   const { isDarkMode } = useTheme();
@@ -47,23 +54,39 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
     const correct = Number(r.correct) || 0;
     const incorrect = Number(r.incorrect) || 0;
     const total = Number(r.total) || 0;
+    const autoScoredTotal = Number(r.autoScoredTotal);
+    const manualScoredTotal = Number(r.manualScoredTotal) || 0;
     const rawPct = Number(r.percentage);
     const percentage = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
+    const groups = Array.isArray(r?.breakdown?.groups)
+      ? r.breakdown.groups
+          .map((group) => ({
+            key: group?.key || '',
+            label: group?.label || '',
+            score: Number(group?.score) || 0,
+            total: Number(group?.total) || 0,
+          }))
+          .filter((group) => group.label && group.total > 0)
+      : [];
 
     return {
       score,
       correct,
       incorrect,
       total,
+      autoScoredTotal: Number.isFinite(autoScoredTotal) ? autoScoredTotal : total,
+      manualScoredTotal,
       percentage,
       writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
+      breakdownGroups: groups,
     };
   }, [results]);
 
-  const { score, correct, incorrect, total, percentage, writingQuestions } = safe;
+  const { score, correct, incorrect, total, autoScoredTotal, manualScoredTotal, percentage, writingQuestions, breakdownGroups } = safe;
   const writingQuestionNumbers = writingQuestions
     .map((q) => q?.questionNumber)
     .filter((questionNumber) => Number.isFinite(questionNumber));
+  const pendingManualCount = Math.max(total - autoScoredTotal, writingQuestions.length);
   const safeActions = Array.isArray(actions) ? actions.filter(Boolean) : [];
 
   useEffect(() => {
@@ -260,8 +283,16 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               </div>
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
-              {score}/{total} points
+              {formatScore(score)}/{formatScore(total)} points
             </h3>
+            {(autoScoredTotal < total || manualScoredTotal > 0) && (
+              <p style={{ margin: "0 0 8px 0", fontSize: 12, color: colors.muted }}>
+                Objective score: {formatScore(score)}/{formatScore(autoScoredTotal)}.
+                {manualScoredTotal > 0
+                  ? ` Writing will be graded separately: ${formatScore(manualScoredTotal)} points.`
+                  : ` The remaining ${pendingManualCount} question${pendingManualCount === 1 ? "" : "s"} will be updated after teacher grading.`}
+              </p>
+            )}
             <span
               style={{
                 display: "inline-flex",
@@ -278,6 +309,54 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               <LineIcon name={status.iconName} size={15} strokeWidth={2.2} /> {status.text}
             </span>
           </div>
+
+          {breakdownGroups.length > 0 && (
+            <div
+              style={{
+                marginBottom: 20,
+                borderRadius: 16,
+                border: `1px solid ${colors.border}`,
+                overflow: 'hidden',
+                background: colors.surfaceAlt,
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                  padding: '12px 16px',
+                  background: isDarkMode ? '#162033' : '#eef4ff',
+                  color: colors.text,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                <span>Skill Area</span>
+                <span style={{ textAlign: 'right' }}>Score</span>
+              </div>
+              {breakdownGroups.map((group, index) => (
+                <div
+                  key={group.key || group.label}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                    padding: '14px 16px',
+                    borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
+                    alignItems: 'center',
+                    gap: 12,
+                    background: index % 2 === 0 ? colors.surfaceAlt : colors.surface,
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{group.label}</span>
+                  <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: colors.text }}>
+                    {formatScore(group.score)}/{formatScore(group.total)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Stats Grid */}
           <div
@@ -298,7 +377,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Correct
+                Correct items
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
                 {correct}
@@ -314,7 +393,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Incorrect
+                Incorrect items
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
@@ -339,12 +418,12 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
                 </span>
                 <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
                   {writingQuestionNumbers.length > 0
-                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})`
-                    : 'Writing Task'}
+                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`
+                    : `Writing Task${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`}
                 </h4>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
-                Waiting for teacher grading. Your score will be updated as soon as it is available.
+                Waiting for teacher grading. The score above covers Parts 1-8 only; writing will be added after manual grading.
               </p>
             </div>
           )}

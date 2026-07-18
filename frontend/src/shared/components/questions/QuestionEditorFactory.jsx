@@ -31,6 +31,8 @@ import {
   StoryWritingEditor,
   PrepositionGapFillEditor,
   OddOneOutEditor,
+  SentenceCorrectionEditor,
+  ReadingOpenQuestionsEditor,
 } from "./editors";
 
 /**
@@ -120,6 +122,12 @@ const QuestionEditorFactory = ({
 
     case 'sentence-transformation':
       return <SentenceTransformationEditor {...commonProps} />;
+
+    case 'sentence-correction':
+      return <SentenceCorrectionEditor {...commonProps} />;
+
+    case 'reading-open-questions':
+      return <ReadingOpenQuestionsEditor {...commonProps} />;
 
     case 'short-message':
       return <ShortMessageEditor {...commonProps} />;

@@ -16,6 +16,8 @@ import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
+import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
+import ReadingOpenQuestionsDisplay from "../../../../shared/components/questions/displays/ReadingOpenQuestionsDisplay";
 import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
 import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../cambridge/shared/utils/questionNumbering";
 import {
@@ -90,7 +92,7 @@ const PartIllustrationCard = ({ imageUrl, alt = 'Part illustration' }) => {
  * DoFceReadingTest - FCE (B2 First) Reading Test runtime
  */
 const DoFceReadingTest = ({
-  defaultTestType = 'fce-reading',
+  defaultTestType = 'fce-reading-60',
   fetchBasePath = 'cambridge/reading-tests',
   submitBasePath = 'cambridge/reading-tests',
 }) => {
@@ -98,7 +100,6 @@ const DoFceReadingTest = ({
   const location = useLocation();
   const navigate = useNavigate();
   const routeTestType = defaultTestType;
-  const testType = 'fce-reading';
   const placementContext = useMemo(
     () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
     [location.pathname, location.search]
@@ -151,6 +152,10 @@ const DoFceReadingTest = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  const testType = useMemo(
+    () => String(test?.testType || routeTestType || 'fce-reading-60').trim().toLowerCase(),
+    [routeTestType, test?.testType]
+  );
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
@@ -183,6 +188,7 @@ const DoFceReadingTest = ({
       normalized,
       normalized.replace(/-reading$/i, ''),
       normalized.replace(/-listening$/i, ''),
+      normalized === 'fce-reading' ? 'fce-reading-60' : '',
     ];
 
     for (const key of candidates) {
@@ -201,7 +207,7 @@ const DoFceReadingTest = ({
       const fromData = resolveTestConfig(test.testType);
       if (fromData) return fromData;
     }
-    return TEST_CONFIGS['fce-reading'];
+    return TEST_CONFIGS['fce-reading-60'];
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
   const headerTitle = useMemo(() => testConfig.name || 'Reading & Writing', [testConfig.name]);
@@ -476,8 +482,23 @@ const DoFceReadingTest = ({
       const expiresAtMs = expiresAtRef.current;
       if (!Number.isFinite(expiresAtMs)) return;
 
-      setTimeRemaining(getRemainingSeconds(expiresAtMs));
-      setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+      const remaining = getRemainingSeconds(expiresAtMs);
+      const nextGraceRemaining = getGraceRemainingSeconds(expiresAtMs);
+
+      setTimeRemaining(remaining);
+      setGraceRemaining(nextGraceRemaining);
+
+      if (
+        remaining !== null &&
+        remaining <= 0 &&
+        nextGraceRemaining !== null &&
+        nextGraceRemaining <= 0 &&
+        !autoSubmittingRef.current &&
+        confirmSubmitRef.current
+      ) {
+        autoSubmittingRef.current = true;
+        confirmSubmitRef.current();
+      }
     };
 
     tick();
@@ -730,6 +751,7 @@ const DoFceReadingTest = ({
       const dr = data.detailedResults || {};
       const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
       const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+      const manualScoredTotal = Number(testConfig?.manualScoredTotal) || 0;
 
       // Clear saved data from localStorage
       localStorage.removeItem(camReadTimeKey);
@@ -750,9 +772,12 @@ const DoFceReadingTest = ({
         setResults({
           score: data.score,
           total: data.total,
+          autoScoredTotal: data.total,
           percentage: data.percentage,
           correct: backendCorrect,
           incorrect: backendIncorrect,
+          breakdown: data.breakdown,
+          manualScoredTotal,
           writingQuestions: localResults.writingQuestions || [],
           writingCount: localResults.writingCount || 0,
         });
@@ -767,7 +792,11 @@ const DoFceReadingTest = ({
       } else {
         // Calculate locally and show results even if backend fails
         const localResults = calculateLocalResults();
-        setResults(localResults);
+        setResults({
+          ...localResults,
+          total: Number(testConfig?.totalQuestions) || localResults.total,
+          manualScoredTotal: Number(testConfig?.manualScoredTotal) || 0,
+        });
         setSubmitted(true);
         setShowConfirm(false);
         // Clear saved data on error too
@@ -915,6 +944,42 @@ const DoFceReadingTest = ({
         return;
       }
 
+      if (questionType === 'sentence-correction' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: sentence-correction no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      if (questionType === 'reading-open-questions' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: reading-open-questions no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
       const userAnswer = answers[q.key];
       let resolvedCorrect = q.nestedQuestion?.correctAnswer
         ?? q.nestedQuestion?.answers
@@ -973,7 +1038,11 @@ const DoFceReadingTest = ({
       }
     });
 
-    const scorableQuestions = scorableCount; // Only count questions with an answer key
+    const scorableQuestions = scorableCount;
+    const overallQuestionCount = Math.max(
+      Number(totalQuestions) || 0,
+      scorableQuestions + writingQuestions.length
+    );
     const score = correct;
 
     // Log debug info if there are issues
@@ -985,8 +1054,9 @@ const DoFceReadingTest = ({
       score,
       correct,
       incorrect,
-    total: scorableQuestions,
-    percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
+      total: overallQuestionCount,
+      autoScoredTotal: scorableQuestions,
+      percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
       writingQuestions,
       writingCount: writingQuestions.length,
     };
@@ -1051,6 +1121,8 @@ const DoFceReadingTest = ({
     const ignoreItemNumber =
       sectionType === 'preposition-gap-fill' ||
       sectionType === 'odd-one-out' ||
+      sectionType === 'sentence-correction' ||
+      sectionType === 'reading-open-questions' ||
       sectionType === 'matching';
 
     const candidates = [
@@ -1075,6 +1147,53 @@ const DoFceReadingTest = ({
     return null;
   }, []);
 
+  const getClozeQuestionNumbersFromText = useCallback((text) => {
+    const numbers = [];
+    const seen = new Set();
+    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
+    let match;
+
+    while ((match = regex.exec(String(text || ''))) !== null) {
+      const questionNum = Number(match[1] || match[2]);
+      if (Number.isFinite(questionNum) && questionNum > 0 && !seen.has(questionNum)) {
+        seen.add(questionNum);
+        numbers.push(questionNum);
+      }
+    }
+
+    return numbers;
+  }, []);
+
+  const normalizeClozeTestBlanks = useCallback((question, fallbackStart) => {
+    const passageText = question?.passageText || question?.passage || question?.clozeText || '';
+    const passageNumbers = getClozeQuestionNumbersFromText(passageText);
+    const rawBlanks = Array.isArray(question?.blanks) ? question.blanks : [];
+    const rawBlankNumbers = new Set(
+      rawBlanks
+        .map((blank) => Number(blank?.questionNum || blank?.number))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+    );
+    const rawBlanksMatchPassage = passageNumbers.some((questionNum) => rawBlankNumbers.has(questionNum));
+
+    if (passageNumbers.length > 0 && (!rawBlanks.length || !rawBlanksMatchPassage)) {
+      return passageNumbers.map((questionNum) => ({ questionNum }));
+    }
+
+    if (rawBlanks.length > 0) return rawBlanks;
+
+    if (question?.answers && !Array.isArray(question.answers)) {
+      const answerNumbers = Object.keys(question.answers)
+        .map((questionNum) => Number(questionNum))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+        .sort((a, b) => a - b);
+      if (answerNumbers.length > 0) {
+        return answerNumbers.map((questionNum) => ({ questionNum }));
+      }
+    }
+
+    return parseClozeBlanksFromText(passageText, fallbackStart);
+  }, [getClozeQuestionNumbersFromText]);
+
   // Get all questions flattened
   const allQuestions = useMemo(() => {
     if (!test?.parts) return [];
@@ -1088,7 +1207,9 @@ const DoFceReadingTest = ({
             section.questionType === 'long-text-mc' ||
             section.questionType === 'cloze-test' ||
             section.questionType === 'preposition-gap-fill' ||
-            section.questionType === 'odd-one-out';
+            section.questionType === 'odd-one-out' ||
+            section.questionType === 'sentence-correction' ||
+            section.questionType === 'reading-open-questions';
 
           if (
             shouldRestrictToPrimaryStructuredQuestion &&
@@ -1142,6 +1263,36 @@ const DoFceReadingTest = ({
                 part: part,
               });
             });
+          } else if (section.questionType === 'sentence-correction' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'reading-open-questions' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
           } else if (section.questionType === 'matching' && Array.isArray(q.leftItems)) {
             q.leftItems.forEach((leftItem, itemIdx) => {
               questions.push({
@@ -1157,8 +1308,7 @@ const DoFceReadingTest = ({
               });
             });
           } else if (section.questionType === 'cloze-test') {
-            const passageText = q.passageText || q.passage || '';
-            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseClozeBlanksFromText(passageText, qNum);
+            const blanks = normalizeClozeTestBlanks(q, qNum);
 
             if (blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
@@ -1222,6 +1372,7 @@ const DoFceReadingTest = ({
 
       if (Number.isFinite(explicitQuestionNumber) && explicitQuestionNumber > 0) {
         assignedNumbers.add(explicitQuestionNumber);
+        nextFallbackNumber = Math.max(nextFallbackNumber, explicitQuestionNumber + 1);
         normalizedEntries.push({
           ...entry,
           questionNumber: explicitQuestionNumber,
@@ -1233,6 +1384,20 @@ const DoFceReadingTest = ({
         nextFallbackNumber += 1;
       }
 
+      const isWritingTask =
+        entry?.section?.questionType === 'short-message' ||
+        entry?.section?.questionType === 'story-writing';
+
+      // Keep all non-writing entries so multi-item sections are not silently dropped
+      // when their fallback number exceeds the max explicit number.
+      if (isWritingTask && nextFallbackNumber > maxExplicitNumber) {
+        normalizedEntries.push({
+          ...entry,
+          questionNumber: null,
+        });
+        return normalizedEntries;
+      }
+
       assignedNumbers.add(nextFallbackNumber);
       normalizedEntries.push({
         ...entry,
@@ -1241,12 +1406,16 @@ const DoFceReadingTest = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
+  }, [getStructuredSectionPrimaryQuestionIndex, normalizeClozeTestBlanks, resolveExplicitQuestionNumber, test?.parts]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
   const numberedQuestions = useMemo(() => {
     return allQuestions.filter(isNumberedQuestion);
+  }, [allQuestions, isNumberedQuestion]);
+
+  const unnumberedQuestions = useMemo(() => {
+    return allQuestions.filter((q) => !isNumberedQuestion(q));
   }, [allQuestions, isNumberedQuestion]);
 
   const questionIndexByKey = useMemo(() => {
@@ -1280,7 +1449,7 @@ const DoFceReadingTest = ({
       const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
       return Boolean((answers[blankAnswerKey] || '').trim());
     }
-    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'matching') {
+    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'sentence-correction' || q.section?.questionType === 'reading-open-questions' || q.section?.questionType === 'matching') {
       const val = answers[q.key];
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
@@ -1288,17 +1457,55 @@ const DoFceReadingTest = ({
     return Boolean(answers[q.key]);
   }, [answers]);
 
-  const answeredCount = useMemo(() => {
+  const answeredObjectiveCount = useMemo(() => {
     return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
   }, [isQuestionAnswered, numberedQuestions]);
 
-  const totalQuestions = numberedQuestions.length;
+  const actualQuestionCount = numberedQuestions.length;
+  const totalQuestions = numberedQuestions.reduce(
+    (maxQuestionNumber, question) => Math.max(maxQuestionNumber, question.questionNumber || 0),
+    actualQuestionCount
+  );
+  const hiddenQuestionSlots = Math.max(totalQuestions - actualQuestionCount, 0);
+  const answeredManualTaskCount = useMemo(() => {
+    return unnumberedQuestions.filter((q) => isQuestionAnswered(q)).length;
+  }, [isQuestionAnswered, unnumberedQuestions]);
+  const answeredCount = useMemo(() => {
+    if (hiddenQuestionSlots <= 0 || unnumberedQuestions.length === 0) {
+      return answeredObjectiveCount;
+    }
+
+    if (answeredManualTaskCount === 0) {
+      return answeredObjectiveCount;
+    }
+
+    const weightedManualAnswered = Math.round((answeredManualTaskCount / unnumberedQuestions.length) * hiddenQuestionSlots);
+    return Math.min(totalQuestions, answeredObjectiveCount + weightedManualAnswered);
+  }, [answeredManualTaskCount, answeredObjectiveCount, hiddenQuestionSlots, totalQuestions, unnumberedQuestions.length]);
   const unansweredCount = Math.max(totalQuestions - answeredCount, 0);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
     return allQuestions[currentQuestionIndex] || null;
   }, [allQuestions, currentQuestionIndex]);
+
+  const isWritingTaskQuestion = useMemo(() => {
+    const questionType = String(currentQuestion?.section?.questionType || '').trim().toLowerCase();
+    return questionType === 'short-message' || questionType === 'story-writing';
+  }, [currentQuestion?.section?.questionType]);
+
+  const usesSinglePanelLayout = useMemo(() => {
+    if (!currentQuestion) return false;
+
+    const questionType = String(currentQuestion.section?.questionType || '').trim().toLowerCase();
+    if (questionType !== 'abc') return false;
+
+    const partPassage = String(currentQuestion.part?.passage || '').replace(/<[^>]*>/g, ' ').trim();
+    const questionPassage = String(currentQuestion.question?.passage || '').replace(/<[^>]*>/g, ' ').trim();
+    const hasIllustration = Boolean(resolvePartIllustrationUrl(currentQuestion.part?.imageUrl));
+
+    return !partPassage && !questionPassage && !hasIllustration;
+  }, [currentQuestion]);
 
   useEffect(() => {
     if (!allQuestions.length) return;
@@ -1375,10 +1582,10 @@ const DoFceReadingTest = ({
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
           } else {
-            // For container elements, focus first radio inside
-            const firstRadio = questionElement.querySelector('input[type="radio"]');
-            if (firstRadio) {
-              firstRadio.focus();
+            // For container elements, focus the first interactive control inside
+            const firstControl = questionElement.querySelector('input[type="radio"], select, input[type="text"], button');
+            if (firstControl) {
+              firstControl.focus();
             }
             // Visual pulse: briefly highlight the container so the user notices it
             questionElement.style.transition = 'outline 0.15s ease, box-shadow 0.15s ease';
@@ -1797,15 +2004,10 @@ const DoFceReadingTest = ({
           <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-4">
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
               {(() => {
-                const questionData = currentQuestion.section.questions?.[0] || {};
+                const questionData = currentQuestion.question || currentQuestion.section.questions?.[0] || {};
                 const passageText = questionData.passageText || questionData.passage || '';
                 const passageTitle = questionData.passageTitle || '';
-                let blanks = questionData.blanks || []; // Use pre-parsed blanks from backend
-                
-                // Fallback: If no blanks from backend, parse them dynamically
-                if (blanks.length === 0 && passageText) {
-                  blanks = parseClozeBlanksFromText(passageText, currentQuestion.questionNumber);
-                }
+                const blanks = normalizeClozeTestBlanks(questionData, currentQuestion.questionNumber);
                 
                 const renderPassageWithInputs = () => {
                   if (!passageText) return null;
@@ -1813,7 +2015,6 @@ const DoFceReadingTest = ({
                   const safeHtml = sanitizeQuillHtml(passageText);
                   const parser = new DOMParser();
                   const doc = parser.parseFromString(safeHtml, 'text/html');
-                  const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
 
                   const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
                   const allowedTags = new Set([
@@ -1857,13 +2058,13 @@ const DoFceReadingTest = ({
                   const renderTextWithBlanks = (text, keyPrefix) => {
                     if (!text) return null;
                     const parts = [];
-                    const regex = /\((\d+)\)|\[(\d+)\]/g;
+                    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
                     let lastIndex = 0;
                     let match;
 
                     while ((match = regex.exec(text)) !== null) {
                       const questionNumber = parseInt(match[1] || match[2], 10);
-                      const blankIndex = questionNumber - firstQuestionNum;
+                      const blankIndex = blanks.findIndex((blank) => Number(blank?.questionNum || blank?.number) === questionNumber);
 
                       if (match.index > lastIndex) {
                         parts.push(text.slice(lastIndex, match.index));
@@ -2206,7 +2407,7 @@ const DoFceReadingTest = ({
                           disabled={submitted}
                           placeholder={`Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
                           style={{
-                            width: '100%',
+                            width: '94%',
                             minHeight: '400px',
                             padding: '16px',
                             fontSize: '15px',
@@ -2260,13 +2461,26 @@ const DoFceReadingTest = ({
                   </h3>
                 )}
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
                   >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
                   <div className="pr-4 sm:pr-12">
                     {(() => {
                       const sectionQuestions = allQuestions.filter(q =>
@@ -2295,10 +2509,302 @@ const DoFceReadingTest = ({
                 </div>
               </div>
             </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'preposition-gap-fill' ? (
+            /* Preposition gap fill: questions on the left, word bank on the right */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                {(() => {
+                  const sectionQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'preposition-gap-fill'
+                  );
+                  const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                  return (
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      {/* Left panel - questions */}
+                      <div
+                        className="cambridge-question-wrapper"
+                        style={{
+                          flex: '1 1 0',
+                          minWidth: '300px',
+                          position: 'relative',
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: 'sticky',
+                            top: 12,
+                            zIndex: 14,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: 8,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <button
+                            className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                            onClick={() => toggleFlag(currentQuestion.key)}
+                            aria-label="Flag question"
+                            style={{ position: 'static', pointerEvents: 'auto' }}
+                          >
+                            <InlineIcon name="flag" size={14} />
+                          </button>
+                        </div>
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="questions"
+                        />
+                      </div>
+
+                      {/* Right panel - word bank */}
+                      <div
+                        style={{
+                          flex: '0 0 320px',
+                          minWidth: '260px',
+                          maxWidth: '100%',
+                          position: 'sticky',
+                          top: '20px',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="wordbank"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'odd-one-out' ? (
+            /* Odd one out: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'odd-one-out'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                      return (
+                        <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'sentence-correction' ? (
+            /* Sentence correction: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'sentence-correction'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                      return (
+                        <SentenceCorrectionDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'reading-open-questions' ? (
+            /* Reading open questions: passage + answer panel */
+            (() => {
+              const sectionQuestions = allQuestions.filter(q =>
+                q.partIndex === currentQuestion.partIndex &&
+                q.sectionIndex === currentQuestion.sectionIndex &&
+                q.section.questionType === 'reading-open-questions'
+              );
+              const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+              const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+              const displaySection = {
+                ...currentQuestion.section,
+                id: sectionId,
+                questions: [currentQuestion.question],
+              };
+
+              return (
+                <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+                  <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+                    {currentQuestion.section.sectionTitle && (
+                      <h3 className="cambridge-section-title">
+                        {currentQuestion.section.sectionTitle}
+                      </h3>
+                    )}
+                    <ReadingOpenQuestionsDisplay
+                      section={displaySection}
+                      startingNumber={startNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      renderMode="passage"
+                    />
+                  </div>
+
+                  <div
+                    className="cambridge-divider"
+                    onMouseDown={handleMouseDown}
+                    style={{
+                      left: `${leftWidth}%`,
+                      cursor: isResizing ? 'col-resize' : 'col-resize',
+                    }}
+                  >
+                    <div className="cambridge-resize-handle">
+                      <i className="fa fa-arrows-h"></i>
+                    </div>
+                  </div>
+
+                  <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+                    <div className="cambridge-content-wrapper">
+                      <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative', width: '100%', maxWidth: '980px' }}>
+                        <div
+                          style={{
+                            position: 'sticky',
+                            top: 12,
+                            zIndex: 14,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: 8,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <button
+                            className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                            onClick={() => toggleFlag(currentQuestion.key)}
+                            aria-label="Flag question"
+                            style={{ position: 'static', pointerEvents: 'auto' }}
+                          >
+                            <InlineIcon name="flag" size={14} />
+                          </button>
+                        </div>
+                        <div className="pr-4 sm:pr-12">
+                          <ReadingOpenQuestionsDisplay
+                            section={displaySection}
+                            startingNumber={startNumber}
+                            onAnswerChange={handleAnswerChange}
+                            answers={answers}
+                            submitted={submitted}
+                            renderMode="questions"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
           ) : (
           <>
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
             {/* Left Column - Passage */}
+            {!usesSinglePanelLayout && (
             <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
               {currentQuestion && (
                 <>
@@ -2476,8 +2982,10 @@ const DoFceReadingTest = ({
                 </>
               )}
             </div>
+            )}
 
             {/* Draggable Divider */}
+            {!usesSinglePanelLayout && (
             <div 
               className="cambridge-divider"
               onMouseDown={handleMouseDown}
@@ -2490,9 +2998,17 @@ const DoFceReadingTest = ({
                 <i className="fa fa-arrows-h"></i>
               </div>
             </div>
+            )}
 
             {/* Right Column - Questions */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+            <div
+              className="cambridge-questions-column"
+              style={{
+                width: usesSinglePanelLayout ? '100%' : `${100 - leftWidth}%`,
+                maxWidth: usesSinglePanelLayout ? '980px' : undefined,
+                margin: usesSinglePanelLayout ? '0 auto' : undefined,
+              }}
+            >
               {currentQuestion && (
                 <div className="cambridge-content-wrapper">
                   {/* Section Title */}
@@ -2531,7 +3047,7 @@ const DoFceReadingTest = ({
                         {/* Question Content */}
                         <div className="pr-4 sm:pr-12">
                           {/* Question Number + Text */}
-                          <div style={{ marginBottom: '12px' }}>
+                          <div style={{ marginBottom: '12px'}}>
                             <span className="cambridge-question-number">
                               {q.questionNumber}
                             </span>
@@ -2601,39 +3117,6 @@ const DoFceReadingTest = ({
                     ))
                   }
                 </div>
-              ) : currentQuestion.section.questionType === 'preposition-gap-fill' ? (
-                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
-                  <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
-                    aria-label="Flag question"
-                  >
-                    <InlineIcon name="flag" size={14} />
-                  </button>
-                  <div className="pr-4 sm:pr-12">
-                    {(() => {
-                      const sectionQuestions = allQuestions.filter(q =>
-                        q.partIndex === currentQuestion.partIndex &&
-                        q.sectionIndex === currentQuestion.sectionIndex &&
-                        q.section.questionType === 'preposition-gap-fill'
-                      );
-                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
-                      return (
-                        <PrepositionGapFillDisplay
-                          section={{
-                            ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`,
-                            questions: [currentQuestion.question],
-                          }}
-                          startingNumber={startNumber}
-                          onAnswerChange={handleAnswerChange}
-                          answers={answers}
-                          submitted={submitted}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
               ) : currentQuestion.section.questionType === 'odd-one-out' ? (
                 <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
                   <button
@@ -2669,7 +3152,16 @@ const DoFceReadingTest = ({
                 </div>
               ) : (
                 /* Other question types: Show single question */
-                <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                <div
+                  className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} ${usesSinglePanelLayout ? '!w-full p-4 sm:p-6' : '!w-full sm:!w-[80%] p-3 sm:p-4'}`}
+                  style={usesSinglePanelLayout ? {
+                    marginTop: 8,
+                    borderRadius: 24,
+                    border: '1px solid rgba(99, 102, 241, 0.18)',
+                    boxShadow: '0 18px 38px rgba(15, 23, 42, 0.08)',
+                    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+                  } : undefined}
+                >
                   {/* Flag Button */}
                   <button
                     className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
@@ -2682,7 +3174,7 @@ const DoFceReadingTest = ({
                   {/* Question Content */}
                   <div className="pr-4 sm:pr-12">
                     <span className="cambridge-question-number">
-                      {currentQuestion.questionNumber}
+                      {Number.isFinite(currentQuestion.questionNumber) ? currentQuestion.questionNumber : (isWritingTaskQuestion ? 'W' : '')}
                     </span>
 
                     <QuestionDisplayFactory
@@ -2830,32 +3322,11 @@ const DoFceReadingTest = ({
         </div>
       </footer>
 
-      {/* Results Modal */}
-      {submitted && results && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'white', padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
-            <h2 style={{ margin: '0 0 20px', color: '#0052cc', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><InlineIcon name="overview" size={20} />Test Results</h2>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '24px', background: '#f0fdf4', borderRadius: '12px' }}>
-              <div style={{ fontSize: '36px', fontWeight: 700, color: '#0052cc' }}>{results.score}/{results.total}</div>
-              <div style={{ fontSize: '28px', fontWeight: 600, color: '#22c55e' }}>{results.percentage}%</div>
-            </div>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={() => navigate('/cambridge')} style={{ padding: '12px 24px', background: '#0052cc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="document" size={14} style={{ color: 'white' }} />Select another test</span>
-              </button>
-              <button onClick={() => window.location.reload()} style={{ padding: '12px 24px', background: '#f1f5f9', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="retry" size={14} />Try again</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <ConfirmModal
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title="Submit Cambridge Reading?"
+        title="Submit FCE Reading & Writing?"
         message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
         type="info"
         iconName="reading"

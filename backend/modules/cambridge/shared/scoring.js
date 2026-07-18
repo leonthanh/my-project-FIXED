@@ -1,5 +1,107 @@
 const { processTestParts } = require('../../../utils/clozParser');
 
+const FCE_READING_60_BREAKDOWN_GROUPS = [
+  { key: 'vocabulary', label: 'Vocabulary', parts: [0, 1] },
+  { key: 'grammar', label: 'Grammar', parts: [2, 3, 4] },
+  { key: 'reading', label: 'Reading', parts: [5, 6] },
+  { key: 'everydayEnglish', label: 'Everyday English', parts: [7] },
+];
+
+const FCE_READING_60_PART_MARKS = new Map([
+  [0, 5],
+  [1, 6],
+  [2, 4],
+  [3, 10],
+  [4, 10],
+  [5, 10],
+  [6, 5],
+  [7, 10],
+]);
+
+const roundScore = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
+const computeFceReading60WeightedSummary = (detailedResults = {}) => {
+  const partStats = new Map();
+
+  Object.entries(detailedResults).forEach(([resultKey, result]) => {
+    if (!result || result.isCorrect === null || result.isCorrect === undefined) {
+      return;
+    }
+
+    const partIdx = Number(String(resultKey).split('-')[0]);
+    if (!Number.isInteger(partIdx) || !FCE_READING_60_PART_MARKS.has(partIdx)) {
+      return;
+    }
+
+    const bucket = partStats.get(partIdx) || { rawTotal: 0, rawCorrect: 0 };
+    bucket.rawTotal += 1;
+    if (result.isCorrect === true) {
+      bucket.rawCorrect += 1;
+    }
+    partStats.set(partIdx, bucket);
+  });
+
+  const groups = FCE_READING_60_BREAKDOWN_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    score: 0,
+    total: 0,
+    partNumbers: group.parts.map((partIdx) => partIdx + 1),
+  }));
+
+  const bucketByKey = new Map(groups.map((group) => [group.key, group]));
+
+  FCE_READING_60_BREAKDOWN_GROUPS.forEach((group) => {
+    group.parts.forEach((partIdx) => {
+      const targetMarks = FCE_READING_60_PART_MARKS.get(partIdx) || 0;
+      const stats = partStats.get(partIdx) || { rawTotal: 0, rawCorrect: 0 };
+      const markPerItem = stats.rawTotal > 0 ? targetMarks / stats.rawTotal : 0;
+      const weightedScore = roundScore(stats.rawCorrect * markPerItem);
+      const weightedTotal = roundScore(targetMarks);
+      const bucket = bucketByKey.get(group.key);
+
+      if (!bucket) {
+        return;
+      }
+
+      bucket.score = roundScore(bucket.score + weightedScore);
+      bucket.total = roundScore(bucket.total + weightedTotal);
+    });
+  });
+
+  const overall = groups.reduce(
+    (acc, group) => ({
+      score: roundScore(acc.score + group.score),
+      total: roundScore(acc.total + group.total),
+    }),
+    { score: 0, total: 0 }
+  );
+
+  return {
+    profile: 'fce-reading-60',
+    groups,
+    overall,
+  };
+};
+
+const computeScoreBreakdown = (test, detailedResults, score, total) => {
+  const testType = String(test?.testType || '').trim().toLowerCase();
+
+  if (testType !== 'fce-reading-60') {
+    return null;
+  }
+
+  const weightedSummary = computeFceReading60WeightedSummary(detailedResults);
+  return weightedSummary || {
+    profile: 'fce-reading-60',
+    groups: [],
+    overall: {
+      score,
+      total,
+    },
+  };
+};
+
 const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
   if (!userAnswer) {
     return false;
@@ -86,6 +188,8 @@ const getQuestionCount = (question, sectionType) => {
   }
   if (sectionType === 'preposition-gap-fill' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'odd-one-out' && Array.isArray(q.groups)) return q.groups.length;
+  if (sectionType === 'sentence-correction' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'reading-open-questions' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
     return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
@@ -375,6 +479,72 @@ const scoreTest = (test, answers) => {
               correctAnswer,
               questionType: 'abc',
               questionText: (group?.words || []).join(', '),
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'sentence-correction' && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = item?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'sentence-correction',
+                questionText: item?.sentence || '',
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'sentence-correction',
+              questionText: item?.sentence || '',
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'reading-open-questions' && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = item?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'reading-open-questions',
+                questionText: item?.questionText || '',
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'reading-open-questions',
+              questionText: item?.questionText || '',
             };
           });
           return;
@@ -770,11 +940,16 @@ const scoreTest = (test, answers) => {
     });
   });
 
+  const weightedBreakdown = computeScoreBreakdown(test, detailedResults, score, total);
+  const finalScore = weightedBreakdown?.overall?.score ?? score;
+  const finalTotal = weightedBreakdown?.overall?.total ?? total;
+
   return {
-    score,
-    total,
-    percentage: total > 0 ? Math.round((score / total) * 100) : 0,
+    score: finalScore,
+    total: finalTotal,
+    percentage: finalTotal > 0 ? Math.round((finalScore / finalTotal) * 100) : 0,
     detailedResults,
+    breakdown: weightedBreakdown,
   };
 };
 
