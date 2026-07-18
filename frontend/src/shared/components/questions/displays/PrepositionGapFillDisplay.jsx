@@ -148,7 +148,12 @@ const PrepositionGapFillDisplay = ({
         const isCorrect = submitted && correct.includes(normalize(userAnswer));
 
         return (
-          <div key={idx} style={styles.questionCard}>
+          <div
+            key={idx}
+            id={`question-${questionNumber}`}
+            tabIndex={-1}
+            style={styles.questionCard}
+          >
             <div style={styles.questionHeader}>
               <div style={styles.questionNumber}>{questionNumber}</div>
               <div style={{ flex: 1 }}>
@@ -280,6 +285,7 @@ const styles = {
     border: '1px solid #e5e7eb',
     borderRadius: '8px',
     padding: '18px',
+    scrollMarginTop: '120px',
   },
   questionHeader: {
     display: 'flex',

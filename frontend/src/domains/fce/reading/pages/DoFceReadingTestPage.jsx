@@ -1075,6 +1075,53 @@ const DoFceReadingTest = ({
     return null;
   }, []);
 
+  const getClozeQuestionNumbersFromText = useCallback((text) => {
+    const numbers = [];
+    const seen = new Set();
+    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
+    let match;
+
+    while ((match = regex.exec(String(text || ''))) !== null) {
+      const questionNum = Number(match[1] || match[2]);
+      if (Number.isFinite(questionNum) && questionNum > 0 && !seen.has(questionNum)) {
+        seen.add(questionNum);
+        numbers.push(questionNum);
+      }
+    }
+
+    return numbers;
+  }, []);
+
+  const normalizeClozeTestBlanks = useCallback((question, fallbackStart) => {
+    const passageText = question?.passageText || question?.passage || question?.clozeText || '';
+    const passageNumbers = getClozeQuestionNumbersFromText(passageText);
+    const rawBlanks = Array.isArray(question?.blanks) ? question.blanks : [];
+    const rawBlankNumbers = new Set(
+      rawBlanks
+        .map((blank) => Number(blank?.questionNum || blank?.number))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+    );
+    const rawBlanksMatchPassage = passageNumbers.some((questionNum) => rawBlankNumbers.has(questionNum));
+
+    if (passageNumbers.length > 0 && (!rawBlanks.length || !rawBlanksMatchPassage)) {
+      return passageNumbers.map((questionNum) => ({ questionNum }));
+    }
+
+    if (rawBlanks.length > 0) return rawBlanks;
+
+    if (question?.answers && !Array.isArray(question.answers)) {
+      const answerNumbers = Object.keys(question.answers)
+        .map((questionNum) => Number(questionNum))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+        .sort((a, b) => a - b);
+      if (answerNumbers.length > 0) {
+        return answerNumbers.map((questionNum) => ({ questionNum }));
+      }
+    }
+
+    return parseClozeBlanksFromText(passageText, fallbackStart);
+  }, [getClozeQuestionNumbersFromText]);
+
   // Get all questions flattened
   const allQuestions = useMemo(() => {
     if (!test?.parts) return [];
@@ -1157,8 +1204,7 @@ const DoFceReadingTest = ({
               });
             });
           } else if (section.questionType === 'cloze-test') {
-            const passageText = q.passageText || q.passage || '';
-            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseClozeBlanksFromText(passageText, qNum);
+            const blanks = normalizeClozeTestBlanks(q, qNum);
 
             if (blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
@@ -1251,7 +1297,7 @@ const DoFceReadingTest = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
+  }, [getStructuredSectionPrimaryQuestionIndex, normalizeClozeTestBlanks, resolveExplicitQuestionNumber, test?.parts]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
@@ -1385,10 +1431,10 @@ const DoFceReadingTest = ({
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
           } else {
-            // For container elements, focus first radio inside
-            const firstRadio = questionElement.querySelector('input[type="radio"]');
-            if (firstRadio) {
-              firstRadio.focus();
+            // For container elements, focus the first interactive control inside
+            const firstControl = questionElement.querySelector('input[type="radio"], select, input[type="text"], button');
+            if (firstControl) {
+              firstControl.focus();
             }
             // Visual pulse: briefly highlight the container so the user notices it
             questionElement.style.transition = 'outline 0.15s ease, box-shadow 0.15s ease';
@@ -1807,15 +1853,10 @@ const DoFceReadingTest = ({
           <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-4">
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
               {(() => {
-                const questionData = currentQuestion.section.questions?.[0] || {};
+                const questionData = currentQuestion.question || currentQuestion.section.questions?.[0] || {};
                 const passageText = questionData.passageText || questionData.passage || '';
                 const passageTitle = questionData.passageTitle || '';
-                let blanks = questionData.blanks || []; // Use pre-parsed blanks from backend
-                
-                // Fallback: If no blanks from backend, parse them dynamically
-                if (blanks.length === 0 && passageText) {
-                  blanks = parseClozeBlanksFromText(passageText, currentQuestion.questionNumber);
-                }
+                const blanks = normalizeClozeTestBlanks(questionData, currentQuestion.questionNumber);
                 
                 const renderPassageWithInputs = () => {
                   if (!passageText) return null;
@@ -1823,7 +1864,6 @@ const DoFceReadingTest = ({
                   const safeHtml = sanitizeQuillHtml(passageText);
                   const parser = new DOMParser();
                   const doc = parser.parseFromString(safeHtml, 'text/html');
-                  const firstQuestionNum = currentQuestion.questionNumber - (allQuestions[currentQuestionIndex].blankIndex || 0);
 
                   const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
                   const allowedTags = new Set([
@@ -1867,13 +1907,13 @@ const DoFceReadingTest = ({
                   const renderTextWithBlanks = (text, keyPrefix) => {
                     if (!text) return null;
                     const parts = [];
-                    const regex = /\((\d+)\)|\[(\d+)\]/g;
+                    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
                     let lastIndex = 0;
                     let match;
 
                     while ((match = regex.exec(text)) !== null) {
                       const questionNumber = parseInt(match[1] || match[2], 10);
-                      const blankIndex = questionNumber - firstQuestionNum;
+                      const blankIndex = blanks.findIndex((blank) => Number(blank?.questionNum || blank?.number) === questionNumber);
 
                       if (match.index > lastIndex) {
                         parts.push(text.slice(lastIndex, match.index));
