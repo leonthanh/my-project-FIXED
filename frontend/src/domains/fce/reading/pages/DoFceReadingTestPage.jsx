@@ -751,6 +751,7 @@ const DoFceReadingTest = ({
       const dr = data.detailedResults || {};
       const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
       const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+      const manualScoredTotal = Number(testConfig?.manualScoredTotal) || 0;
 
       // Clear saved data from localStorage
       localStorage.removeItem(camReadTimeKey);
@@ -770,12 +771,13 @@ const DoFceReadingTest = ({
         // Show results modal using backend score (more accurate than local calculation)
         setResults({
           score: data.score,
-          total: localResults.total,
+          total: data.total,
           autoScoredTotal: data.total,
           percentage: data.percentage,
           correct: backendCorrect,
           incorrect: backendIncorrect,
           breakdown: data.breakdown,
+          manualScoredTotal,
           writingQuestions: localResults.writingQuestions || [],
           writingCount: localResults.writingCount || 0,
         });
@@ -790,7 +792,11 @@ const DoFceReadingTest = ({
       } else {
         // Calculate locally and show results even if backend fails
         const localResults = calculateLocalResults();
-        setResults(localResults);
+        setResults({
+          ...localResults,
+          total: Number(testConfig?.totalQuestions) || localResults.total,
+          manualScoredTotal: Number(testConfig?.manualScoredTotal) || 0,
+        });
         setSubmitted(true);
         setShowConfirm(false);
         // Clear saved data on error too
@@ -1408,6 +1414,10 @@ const DoFceReadingTest = ({
     return allQuestions.filter(isNumberedQuestion);
   }, [allQuestions, isNumberedQuestion]);
 
+  const unnumberedQuestions = useMemo(() => {
+    return allQuestions.filter((q) => !isNumberedQuestion(q));
+  }, [allQuestions, isNumberedQuestion]);
+
   const questionIndexByKey = useMemo(() => {
     const indexMap = new Map();
     allQuestions.forEach((q, index) => {
@@ -1447,7 +1457,7 @@ const DoFceReadingTest = ({
     return Boolean(answers[q.key]);
   }, [answers]);
 
-  const answeredCount = useMemo(() => {
+  const answeredObjectiveCount = useMemo(() => {
     return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
   }, [isQuestionAnswered, numberedQuestions]);
 
@@ -1456,7 +1466,23 @@ const DoFceReadingTest = ({
     (maxQuestionNumber, question) => Math.max(maxQuestionNumber, question.questionNumber || 0),
     actualQuestionCount
   );
-  const unansweredCount = Math.max(actualQuestionCount - answeredCount, 0);
+  const hiddenQuestionSlots = Math.max(totalQuestions - actualQuestionCount, 0);
+  const answeredManualTaskCount = useMemo(() => {
+    return unnumberedQuestions.filter((q) => isQuestionAnswered(q)).length;
+  }, [isQuestionAnswered, unnumberedQuestions]);
+  const answeredCount = useMemo(() => {
+    if (hiddenQuestionSlots <= 0 || unnumberedQuestions.length === 0) {
+      return answeredObjectiveCount;
+    }
+
+    if (answeredManualTaskCount === 0) {
+      return answeredObjectiveCount;
+    }
+
+    const weightedManualAnswered = Math.round((answeredManualTaskCount / unnumberedQuestions.length) * hiddenQuestionSlots);
+    return Math.min(totalQuestions, answeredObjectiveCount + weightedManualAnswered);
+  }, [answeredManualTaskCount, answeredObjectiveCount, hiddenQuestionSlots, totalQuestions, unnumberedQuestions.length]);
+  const unansweredCount = Math.max(totalQuestions - answeredCount, 0);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
@@ -2612,11 +2638,12 @@ const DoFceReadingTest = ({
                         q.section.questionType === 'odd-one-out'
                       );
                       const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
                       return (
                         <OddOneOutDisplay
                           section={{
                             ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            id: sectionId,
                             questions: [currentQuestion.question],
                           }}
                           startingNumber={startNumber}
@@ -2668,11 +2695,12 @@ const DoFceReadingTest = ({
                         q.section.questionType === 'sentence-correction'
                       );
                       const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
                       return (
                         <SentenceCorrectionDisplay
                           section={{
                             ...currentQuestion.section,
-                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            id: sectionId,
                             questions: [currentQuestion.question],
                           }}
                           startingNumber={startNumber}
@@ -2695,9 +2723,10 @@ const DoFceReadingTest = ({
                 q.section.questionType === 'reading-open-questions'
               );
               const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+              const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
               const displaySection = {
                 ...currentQuestion.section,
-                id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                id: sectionId,
                 questions: [currentQuestion.question],
               };
 
@@ -3297,7 +3326,7 @@ const DoFceReadingTest = ({
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title="Submit Cambridge Reading?"
+        title="Submit FCE Reading & Writing?"
         message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
         type="info"
         iconName="reading"

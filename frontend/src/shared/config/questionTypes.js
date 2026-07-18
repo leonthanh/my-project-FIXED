@@ -1056,6 +1056,7 @@ export const TEST_CONFIGS = {
     name: 'FCE Reading 60-point Profile',
     nameVi: 'FCE Reading 60-point Profile',
     totalQuestions: 60,
+    manualScoredTotal: 20,
     parts: 8,
     duration: 60,
     scoringProfile: 'fce-reading-60',

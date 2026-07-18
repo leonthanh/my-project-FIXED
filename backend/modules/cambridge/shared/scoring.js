@@ -7,12 +7,39 @@ const FCE_READING_60_BREAKDOWN_GROUPS = [
   { key: 'everydayEnglish', label: 'Everyday English', parts: [7] },
 ];
 
-const computeScoreBreakdown = (test, detailedResults, score, total) => {
-  const testType = String(test?.testType || '').trim().toLowerCase();
+const FCE_READING_60_PART_MARKS = new Map([
+  [0, 5],
+  [1, 6],
+  [2, 4],
+  [3, 10],
+  [4, 10],
+  [5, 10],
+  [6, 5],
+  [7, 10],
+]);
 
-  if (testType !== 'fce-reading-60') {
-    return null;
-  }
+const roundScore = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
+const computeFceReading60WeightedSummary = (detailedResults = {}) => {
+  const partStats = new Map();
+
+  Object.entries(detailedResults).forEach(([resultKey, result]) => {
+    if (!result || result.isCorrect === null || result.isCorrect === undefined) {
+      return;
+    }
+
+    const partIdx = Number(String(resultKey).split('-')[0]);
+    if (!Number.isInteger(partIdx) || !FCE_READING_60_PART_MARKS.has(partIdx)) {
+      return;
+    }
+
+    const bucket = partStats.get(partIdx) || { rawTotal: 0, rawCorrect: 0 };
+    bucket.rawTotal += 1;
+    if (result.isCorrect === true) {
+      bucket.rawCorrect += 1;
+    }
+    partStats.set(partIdx, bucket);
+  });
 
   const groups = FCE_READING_60_BREAKDOWN_GROUPS.map((group) => ({
     key: group.key,
@@ -22,44 +49,52 @@ const computeScoreBreakdown = (test, detailedResults, score, total) => {
     partNumbers: group.parts.map((partIdx) => partIdx + 1),
   }));
 
-  const groupByPart = new Map();
+  const bucketByKey = new Map(groups.map((group) => [group.key, group]));
+
   FCE_READING_60_BREAKDOWN_GROUPS.forEach((group) => {
     group.parts.forEach((partIdx) => {
-      groupByPart.set(partIdx, group.key);
+      const targetMarks = FCE_READING_60_PART_MARKS.get(partIdx) || 0;
+      const stats = partStats.get(partIdx) || { rawTotal: 0, rawCorrect: 0 };
+      const markPerItem = stats.rawTotal > 0 ? targetMarks / stats.rawTotal : 0;
+      const weightedScore = roundScore(stats.rawCorrect * markPerItem);
+      const weightedTotal = roundScore(targetMarks);
+      const bucket = bucketByKey.get(group.key);
+
+      if (!bucket) {
+        return;
+      }
+
+      bucket.score = roundScore(bucket.score + weightedScore);
+      bucket.total = roundScore(bucket.total + weightedTotal);
     });
   });
 
-  const bucketByKey = new Map(groups.map((group) => [group.key, group]));
-
-  Object.entries(detailedResults || {}).forEach(([resultKey, result]) => {
-    if (!result || result.isCorrect === null || result.isCorrect === undefined) {
-      return;
-    }
-
-    const partIdx = Number(String(resultKey).split('-')[0]);
-    if (!Number.isInteger(partIdx)) {
-      return;
-    }
-
-    const groupKey = groupByPart.get(partIdx);
-    if (!groupKey) {
-      return;
-    }
-
-    const bucket = bucketByKey.get(groupKey);
-    if (!bucket) {
-      return;
-    }
-
-    bucket.total += 1;
-    if (result.isCorrect === true) {
-      bucket.score += 1;
-    }
-  });
+  const overall = groups.reduce(
+    (acc, group) => ({
+      score: roundScore(acc.score + group.score),
+      total: roundScore(acc.total + group.total),
+    }),
+    { score: 0, total: 0 }
+  );
 
   return {
     profile: 'fce-reading-60',
     groups,
+    overall,
+  };
+};
+
+const computeScoreBreakdown = (test, detailedResults, score, total) => {
+  const testType = String(test?.testType || '').trim().toLowerCase();
+
+  if (testType !== 'fce-reading-60') {
+    return null;
+  }
+
+  const weightedSummary = computeFceReading60WeightedSummary(detailedResults);
+  return weightedSummary || {
+    profile: 'fce-reading-60',
+    groups: [],
     overall: {
       score,
       total,
@@ -905,12 +940,16 @@ const scoreTest = (test, answers) => {
     });
   });
 
+  const weightedBreakdown = computeScoreBreakdown(test, detailedResults, score, total);
+  const finalScore = weightedBreakdown?.overall?.score ?? score;
+  const finalTotal = weightedBreakdown?.overall?.total ?? total;
+
   return {
-    score,
-    total,
-    percentage: total > 0 ? Math.round((score / total) * 100) : 0,
+    score: finalScore,
+    total: finalTotal,
+    percentage: finalTotal > 0 ? Math.round((finalScore / finalTotal) * 100) : 0,
     detailedResults,
-    breakdown: computeScoreBreakdown(test, detailedResults, score, total),
+    breakdown: weightedBreakdown,
   };
 };
 

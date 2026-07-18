@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 
+const formatScore = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0';
+  if (Number.isInteger(numeric)) return String(numeric);
+  return numeric.toFixed(1).replace(/\.0$/, '');
+};
+
 const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actions = [] }) => {
   const modalRef = useRef(null);
   const { isDarkMode } = useTheme();
@@ -48,6 +55,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
     const incorrect = Number(r.incorrect) || 0;
     const total = Number(r.total) || 0;
     const autoScoredTotal = Number(r.autoScoredTotal);
+    const manualScoredTotal = Number(r.manualScoredTotal) || 0;
     const rawPct = Number(r.percentage);
     const percentage = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
     const groups = Array.isArray(r?.breakdown?.groups)
@@ -67,13 +75,14 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
       incorrect,
       total,
       autoScoredTotal: Number.isFinite(autoScoredTotal) ? autoScoredTotal : total,
+      manualScoredTotal,
       percentage,
       writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
       breakdownGroups: groups,
     };
   }, [results]);
 
-  const { score, correct, incorrect, total, autoScoredTotal, percentage, writingQuestions, breakdownGroups } = safe;
+  const { score, correct, incorrect, total, autoScoredTotal, manualScoredTotal, percentage, writingQuestions, breakdownGroups } = safe;
   const writingQuestionNumbers = writingQuestions
     .map((q) => q?.questionNumber)
     .filter((questionNumber) => Number.isFinite(questionNumber));
@@ -274,11 +283,14 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               </div>
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
-              {score}/{total} points
+              {formatScore(score)}/{formatScore(total)} points
             </h3>
-            {autoScoredTotal < total && (
+            {(autoScoredTotal < total || manualScoredTotal > 0) && (
               <p style={{ margin: "0 0 8px 0", fontSize: 12, color: colors.muted }}>
-                Auto-scored: {score}/{autoScoredTotal}. The remaining {pendingManualCount} question{pendingManualCount === 1 ? "" : "s"} will be updated after teacher grading.
+                Objective score: {formatScore(score)}/{formatScore(autoScoredTotal)}.
+                {manualScoredTotal > 0
+                  ? ` Writing will be graded separately: ${formatScore(manualScoredTotal)} points.`
+                  : ` The remaining ${pendingManualCount} question${pendingManualCount === 1 ? "" : "s"} will be updated after teacher grading.`}
               </p>
             )}
             <span
@@ -339,7 +351,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
                 >
                   <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{group.label}</span>
                   <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: colors.text }}>
-                    {group.score}/{group.total}
+                    {formatScore(group.score)}/{formatScore(group.total)}
                   </span>
                 </div>
               ))}
@@ -365,7 +377,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Correct
+                Correct items
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
                 {correct}
@@ -381,7 +393,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Incorrect
+                Incorrect items
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
@@ -406,12 +418,12 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
                 </span>
                 <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
                   {writingQuestionNumbers.length > 0
-                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})`
-                    : 'Writing Task'}
+                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`
+                    : `Writing Task${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`}
                 </h4>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
-                Waiting for teacher grading. Your score will be updated as soon as it is available.
+                Waiting for teacher grading. The score above covers Parts 1-8 only; writing will be added after manual grading.
               </p>
             </div>
           )}
