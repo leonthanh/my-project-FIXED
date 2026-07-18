@@ -54,6 +54,7 @@ const SECTION_BASED_TYPES = [
   "word-form",
   "preposition-gap-fill",
   "odd-one-out",
+  "sentence-correction",
   "story-writing",
 ];
 

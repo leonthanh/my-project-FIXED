@@ -451,6 +451,23 @@ export const QUESTION_TYPES = {
     supportedTests: ['ket-reading', 'pet-reading'],
   },
 
+  'sentence-correction': {
+    id: 'sentence-correction',
+    label: 'Sentence Correction',
+    labelVi: 'Sửa lỗi câu',
+    iconName: 'edit',
+    description: 'FCE Part 5: Viết lại câu đúng sau khi phát hiện lỗi',
+    editor: 'SentenceCorrectionEditor',
+    defaultData: {
+      instruction: 'Correct the sentences.',
+      items: [
+        { sentence: "She doesn't used to eat meat, but she does now.", correctAnswer: "She didn't use to eat meat, but she does now.", explanation: '' },
+        { sentence: 'The audience felt very bored at the performance last night.', correctAnswer: 'The audience felt very bored by the performance last night.', explanation: '' },
+      ],
+    },
+    supportedTests: ['fce-reading'],
+  },
+
   // =========== KET/PET WRITING ===========
   'short-message': {
     id: 'short-message',
@@ -998,6 +1015,7 @@ export const TEST_CONFIGS = {
       'long-text-mc',
       'word-form',
       'sentence-transformation',
+      'sentence-correction',
       'short-message',
       'story-writing',
       'preposition-gap-fill',

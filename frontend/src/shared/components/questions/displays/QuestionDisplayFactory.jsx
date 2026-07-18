@@ -14,6 +14,7 @@ import {
   WordDragClozeDisplay,
   TrueFalseNotGivenDisplay,
   SentenceTransformationDisplay,
+  SentenceCorrectionDisplay,
   StoryWritingDisplay,
   PrepositionGapFillDisplay,
   OddOneOutDisplay,
@@ -464,6 +465,17 @@ const QuestionDisplayFactory = ({
           section={section}
           startingNumber={startingNumber}
           answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'sentence-correction':
+      return (
+        <SentenceCorrectionDisplay
+          section={section}
+          startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}

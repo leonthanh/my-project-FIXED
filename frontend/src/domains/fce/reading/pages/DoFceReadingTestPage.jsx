@@ -16,6 +16,7 @@ import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import QuestionDisplayFactory from "../../../../shared/components/questions/displays/QuestionDisplayFactory";
 import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
+import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
 import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
 import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../cambridge/shared/utils/questionNumbering";
 import {
@@ -915,6 +916,24 @@ const DoFceReadingTest = ({
         return;
       }
 
+      if (questionType === 'sentence-correction' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: sentence-correction no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
       const userAnswer = answers[q.key];
       let resolvedCorrect = q.nestedQuestion?.correctAnswer
         ?? q.nestedQuestion?.answers
@@ -1051,6 +1070,7 @@ const DoFceReadingTest = ({
     const ignoreItemNumber =
       sectionType === 'preposition-gap-fill' ||
       sectionType === 'odd-one-out' ||
+      sectionType === 'sentence-correction' ||
       sectionType === 'matching';
 
     const candidates = [
@@ -1135,7 +1155,8 @@ const DoFceReadingTest = ({
             section.questionType === 'long-text-mc' ||
             section.questionType === 'cloze-test' ||
             section.questionType === 'preposition-gap-fill' ||
-            section.questionType === 'odd-one-out';
+            section.questionType === 'odd-one-out' ||
+            section.questionType === 'sentence-correction';
 
           if (
             shouldRestrictToPrimaryStructuredQuestion &&
@@ -1185,6 +1206,21 @@ const DoFceReadingTest = ({
                 key: `${pIdx}-${sIdx}-${qIdx}-${groupIdx}`,
                 question: q,
                 group: group,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'sentence-correction' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
                 section: section,
                 part: part,
               });
@@ -1268,6 +1304,7 @@ const DoFceReadingTest = ({
 
       if (Number.isFinite(explicitQuestionNumber) && explicitQuestionNumber > 0) {
         assignedNumbers.add(explicitQuestionNumber);
+        nextFallbackNumber = Math.max(nextFallbackNumber, explicitQuestionNumber + 1);
         normalizedEntries.push({
           ...entry,
           questionNumber: explicitQuestionNumber,
@@ -1336,7 +1373,7 @@ const DoFceReadingTest = ({
       const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
       return Boolean((answers[blankAnswerKey] || '').trim());
     }
-    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'matching') {
+    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'sentence-correction' || q.section?.questionType === 'matching') {
       const val = answers[q.key];
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
@@ -1348,8 +1385,12 @@ const DoFceReadingTest = ({
     return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
   }, [isQuestionAnswered, numberedQuestions]);
 
-  const totalQuestions = numberedQuestions.length;
-  const unansweredCount = Math.max(totalQuestions - answeredCount, 0);
+  const actualQuestionCount = numberedQuestions.length;
+  const totalQuestions = numberedQuestions.reduce(
+    (maxQuestionNumber, question) => Math.max(maxQuestionNumber, question.questionNumber || 0),
+    actualQuestionCount
+  );
+  const unansweredCount = Math.max(actualQuestionCount - answeredCount, 0);
 
   // Get current question data
   const currentQuestion = useMemo(() => {
@@ -2450,6 +2491,49 @@ const DoFceReadingTest = ({
                       const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
                       return (
                         <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'sentence-correction' ? (
+            /* Sentence correction: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'sentence-correction'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <SentenceCorrectionDisplay
                           section={{
                             ...currentQuestion.section,
                             id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,

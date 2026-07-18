@@ -95,6 +95,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (sectionType === 'sentence-correction' && Array.isArray(question.items)) {
+          total += question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
         if (sectionType === 'short-message') {
           total += 1;
           return;

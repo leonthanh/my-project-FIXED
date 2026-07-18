@@ -86,6 +86,7 @@ const getQuestionCount = (question, sectionType) => {
   }
   if (sectionType === 'preposition-gap-fill' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'odd-one-out' && Array.isArray(q.groups)) return q.groups.length;
+  if (sectionType === 'sentence-correction' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
     return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
@@ -375,6 +376,39 @@ const scoreTest = (test, answers) => {
               correctAnswer,
               questionType: 'abc',
               questionText: (group?.words || []).join(', '),
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'sentence-correction' && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = item?.correctAnswer;
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'sentence-correction',
+                questionText: item?.sentence || '',
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'sentence-correction',
+              questionText: item?.sentence || '',
             };
           });
           return;

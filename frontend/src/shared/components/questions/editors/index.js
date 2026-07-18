@@ -18,6 +18,7 @@ export { default as TableCompletionEditor } from './TableCompletionEditor.jsx';
 // Cambridge KET/PET specific
 export { default as ClozeTestEditor } from './ClozeTestEditor';
 export { default as SentenceTransformationEditor } from './SentenceTransformationEditor';
+export { default as SentenceCorrectionEditor } from './SentenceCorrectionEditor';
 export { default as ShortMessageEditor } from './ShortMessageEditor';
 
 // KET Part-specific editors
