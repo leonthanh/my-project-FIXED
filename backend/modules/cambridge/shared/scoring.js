@@ -1,5 +1,72 @@
 const { processTestParts } = require('../../../utils/clozParser');
 
+const FCE_READING_60_BREAKDOWN_GROUPS = [
+  { key: 'vocabulary', label: 'Vocabulary', parts: [0, 1] },
+  { key: 'grammar', label: 'Grammar', parts: [2, 3, 4] },
+  { key: 'reading', label: 'Reading', parts: [5, 6] },
+  { key: 'everydayEnglish', label: 'Everyday English', parts: [7] },
+];
+
+const computeScoreBreakdown = (test, detailedResults, score, total) => {
+  const testType = String(test?.testType || '').trim().toLowerCase();
+
+  if (testType !== 'fce-reading-60') {
+    return null;
+  }
+
+  const groups = FCE_READING_60_BREAKDOWN_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    score: 0,
+    total: 0,
+    partNumbers: group.parts.map((partIdx) => partIdx + 1),
+  }));
+
+  const groupByPart = new Map();
+  FCE_READING_60_BREAKDOWN_GROUPS.forEach((group) => {
+    group.parts.forEach((partIdx) => {
+      groupByPart.set(partIdx, group.key);
+    });
+  });
+
+  const bucketByKey = new Map(groups.map((group) => [group.key, group]));
+
+  Object.entries(detailedResults || {}).forEach(([resultKey, result]) => {
+    if (!result || result.isCorrect === null || result.isCorrect === undefined) {
+      return;
+    }
+
+    const partIdx = Number(String(resultKey).split('-')[0]);
+    if (!Number.isInteger(partIdx)) {
+      return;
+    }
+
+    const groupKey = groupByPart.get(partIdx);
+    if (!groupKey) {
+      return;
+    }
+
+    const bucket = bucketByKey.get(groupKey);
+    if (!bucket) {
+      return;
+    }
+
+    bucket.total += 1;
+    if (result.isCorrect === true) {
+      bucket.score += 1;
+    }
+  });
+
+  return {
+    profile: 'fce-reading-60',
+    groups,
+    overall: {
+      score,
+      total,
+    },
+  };
+};
+
 const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
   if (!userAnswer) {
     return false;
@@ -843,6 +910,7 @@ const scoreTest = (test, answers) => {
     total,
     percentage: total > 0 ? Math.round((score / total) * 100) : 0,
     detailedResults,
+    breakdown: computeScoreBreakdown(test, detailedResults, score, total),
   };
 };
 

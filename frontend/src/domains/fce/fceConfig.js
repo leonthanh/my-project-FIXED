@@ -22,9 +22,9 @@ export const FCE_LEVEL_META = {
   shortLabel: 'FCE',
   iconName: 'tests',
   allowedSkills: FCE_SKILLS.map(({ key }) => key),
-  readingTestType: 'fce-reading',
+  readingTestType: 'fce-reading-60',
   testConfigIds: {
-    reading: 'fce-reading',
+    reading: 'fce-reading-60',
     listening: 'fce-listening',
   },
   createPaths: {

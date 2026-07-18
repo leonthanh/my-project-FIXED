@@ -47,7 +47,7 @@ export function getFceTestConfig(skill) {
 
 export function matchesFceTestType(testType) {
   const rawTestType = String(testType || '').toLowerCase();
-  return rawTestType === 'fce-reading' || rawTestType === 'fce-listening';
+  return rawTestType === 'fce-reading' || rawTestType === 'fce-reading-60' || rawTestType === 'fce-listening';
 }
 
 export function getFceHubStateForTestType(testType) {

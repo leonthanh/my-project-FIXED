@@ -47,23 +47,37 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
     const correct = Number(r.correct) || 0;
     const incorrect = Number(r.incorrect) || 0;
     const total = Number(r.total) || 0;
+    const autoScoredTotal = Number(r.autoScoredTotal);
     const rawPct = Number(r.percentage);
     const percentage = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
+    const groups = Array.isArray(r?.breakdown?.groups)
+      ? r.breakdown.groups
+          .map((group) => ({
+            key: group?.key || '',
+            label: group?.label || '',
+            score: Number(group?.score) || 0,
+            total: Number(group?.total) || 0,
+          }))
+          .filter((group) => group.label && group.total > 0)
+      : [];
 
     return {
       score,
       correct,
       incorrect,
       total,
+      autoScoredTotal: Number.isFinite(autoScoredTotal) ? autoScoredTotal : total,
       percentage,
       writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
+      breakdownGroups: groups,
     };
   }, [results]);
 
-  const { score, correct, incorrect, total, percentage, writingQuestions } = safe;
+  const { score, correct, incorrect, total, autoScoredTotal, percentage, writingQuestions, breakdownGroups } = safe;
   const writingQuestionNumbers = writingQuestions
     .map((q) => q?.questionNumber)
     .filter((questionNumber) => Number.isFinite(questionNumber));
+  const pendingManualCount = Math.max(total - autoScoredTotal, writingQuestions.length);
   const safeActions = Array.isArray(actions) ? actions.filter(Boolean) : [];
 
   useEffect(() => {
@@ -262,6 +276,11 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
             <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
               {score}/{total} points
             </h3>
+            {autoScoredTotal < total && (
+              <p style={{ margin: "0 0 8px 0", fontSize: 12, color: colors.muted }}>
+                Auto-scored: {score}/{autoScoredTotal}. The remaining {pendingManualCount} question{pendingManualCount === 1 ? "" : "s"} will be updated after teacher grading.
+              </p>
+            )}
             <span
               style={{
                 display: "inline-flex",
@@ -278,6 +297,54 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
               <LineIcon name={status.iconName} size={15} strokeWidth={2.2} /> {status.text}
             </span>
           </div>
+
+          {breakdownGroups.length > 0 && (
+            <div
+              style={{
+                marginBottom: 20,
+                borderRadius: 16,
+                border: `1px solid ${colors.border}`,
+                overflow: 'hidden',
+                background: colors.surfaceAlt,
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                  padding: '12px 16px',
+                  background: isDarkMode ? '#162033' : '#eef4ff',
+                  color: colors.text,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                <span>Skill Area</span>
+                <span style={{ textAlign: 'right' }}>Score</span>
+              </div>
+              {breakdownGroups.map((group, index) => (
+                <div
+                  key={group.key || group.label}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                    padding: '14px 16px',
+                    borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
+                    alignItems: 'center',
+                    gap: 12,
+                    background: index % 2 === 0 ? colors.surfaceAlt : colors.surface,
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{group.label}</span>
+                  <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: colors.text }}>
+                    {group.score}/{group.total}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Stats Grid */}
           <div

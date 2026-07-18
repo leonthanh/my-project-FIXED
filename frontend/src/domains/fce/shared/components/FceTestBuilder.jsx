@@ -63,7 +63,7 @@ const SECTION_BASED_TYPES = [
  * FceTestBuilder - Dedicated builder for FCE (B2 First) reading and listening tests.
  */
 const FceTestBuilder = ({
-  testType = "fce-reading",
+  testType = "fce-reading-60",
   editId = null,
   initialData = null,
   resetDraftOnLoad = false,
@@ -834,7 +834,10 @@ const FceTestBuilder = ({
         <p>Các FCE test types hỗ trợ:</p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           <li style={{ padding: "4px" }}>
-            <code>fce-reading</code> - FCE Reading &amp; Writing
+            <code>fce-reading-60</code> - FCE Reading 60-point Profile
+          </li>
+          <li style={{ padding: "4px" }}>
+            <code>fce-reading</code> - Legacy FCE Reading &amp; Writing
           </li>
           <li style={{ padding: "4px" }}>
             <code>fce-listening</code> - FCE Listening

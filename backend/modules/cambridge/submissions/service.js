@@ -65,6 +65,7 @@ const buildSubmissionTypeFilter = (testType) => {
         { testType: { [Op.like]: '%-reading' } },
         { testType: { [Op.in]: BASE_READING_CAMBRIDGE_TEST_TYPES } },
         { testType: 'fce-reading' },
+        { testType: 'fce-reading-60' },
       ],
     };
   }

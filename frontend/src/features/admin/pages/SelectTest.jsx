@@ -282,7 +282,7 @@ const SelectTest = () => {
   };
 
   const handleSelectFce = (test) => {
-    const rawTestType = String(test.testType || 'fce-reading').toLowerCase();
+    const rawTestType = String(test.testType || 'fce-reading-60').toLowerCase();
     const { tab } = getFceHubStateForTestType(rawTestType);
     navigate(getFceStudentPath(tab, test.id));
   };

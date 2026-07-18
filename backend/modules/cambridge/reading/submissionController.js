@@ -28,6 +28,7 @@ const createSubmitReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lá»
         total: result.total,
         percentage: result.percentage,
         detailedResults: result.detailedResults,
+        breakdown: result.breakdown,
         answers: result.detailedResults,
       });
     } catch (err) {
