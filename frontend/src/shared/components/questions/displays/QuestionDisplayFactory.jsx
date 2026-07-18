@@ -15,6 +15,7 @@ import {
   TrueFalseNotGivenDisplay,
   SentenceTransformationDisplay,
   SentenceCorrectionDisplay,
+  ReadingOpenQuestionsDisplay,
   StoryWritingDisplay,
   PrepositionGapFillDisplay,
   OddOneOutDisplay,
@@ -465,6 +466,17 @@ const QuestionDisplayFactory = ({
           section={section}
           startingNumber={startingNumber}
           answerKeyPrefix={section?.id}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'reading-open-questions':
+      return (
+        <ReadingOpenQuestionsDisplay
+          section={section}
+          startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}

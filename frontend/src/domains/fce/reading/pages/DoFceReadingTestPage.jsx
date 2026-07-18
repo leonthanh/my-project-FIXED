@@ -17,6 +17,7 @@ import QuestionDisplayFactory from "../../../../shared/components/questions/disp
 import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
 import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
+import ReadingOpenQuestionsDisplay from "../../../../shared/components/questions/displays/ReadingOpenQuestionsDisplay";
 import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
 import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../cambridge/shared/utils/questionNumbering";
 import {
@@ -934,6 +935,24 @@ const DoFceReadingTest = ({
         return;
       }
 
+      if (questionType === 'reading-open-questions' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: reading-open-questions no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
       const userAnswer = answers[q.key];
       let resolvedCorrect = q.nestedQuestion?.correctAnswer
         ?? q.nestedQuestion?.answers
@@ -1071,6 +1090,7 @@ const DoFceReadingTest = ({
       sectionType === 'preposition-gap-fill' ||
       sectionType === 'odd-one-out' ||
       sectionType === 'sentence-correction' ||
+      sectionType === 'reading-open-questions' ||
       sectionType === 'matching';
 
     const candidates = [
@@ -1156,7 +1176,8 @@ const DoFceReadingTest = ({
             section.questionType === 'cloze-test' ||
             section.questionType === 'preposition-gap-fill' ||
             section.questionType === 'odd-one-out' ||
-            section.questionType === 'sentence-correction';
+            section.questionType === 'sentence-correction' ||
+            section.questionType === 'reading-open-questions';
 
           if (
             shouldRestrictToPrimaryStructuredQuestion &&
@@ -1211,6 +1232,21 @@ const DoFceReadingTest = ({
               });
             });
           } else if (section.questionType === 'sentence-correction' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'reading-open-questions' && q.items && Array.isArray(q.items)) {
             q.items.forEach((item, itemIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1373,7 +1409,7 @@ const DoFceReadingTest = ({
       const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
       return Boolean((answers[blankAnswerKey] || '').trim());
     }
-    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'sentence-correction' || q.section?.questionType === 'matching') {
+    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'sentence-correction' || q.section?.questionType === 'reading-open-questions' || q.section?.questionType === 'matching') {
       const val = answers[q.key];
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
@@ -2550,6 +2586,78 @@ const DoFceReadingTest = ({
                 </div>
               </div>
             </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'reading-open-questions' ? (
+            /* Reading open questions: passage + answer panel */
+            (() => {
+              const sectionQuestions = allQuestions.filter(q =>
+                q.partIndex === currentQuestion.partIndex &&
+                q.sectionIndex === currentQuestion.sectionIndex &&
+                q.section.questionType === 'reading-open-questions'
+              );
+              const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+              const displaySection = {
+                ...currentQuestion.section,
+                id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                questions: [currentQuestion.question],
+              };
+
+              return (
+                <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+                  <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+                    {currentQuestion.section.sectionTitle && (
+                      <h3 className="cambridge-section-title">
+                        {currentQuestion.section.sectionTitle}
+                      </h3>
+                    )}
+                    <ReadingOpenQuestionsDisplay
+                      section={displaySection}
+                      startingNumber={startNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      renderMode="passage"
+                    />
+                  </div>
+
+                  <div
+                    className="cambridge-divider"
+                    onMouseDown={handleMouseDown}
+                    style={{
+                      left: `${leftWidth}%`,
+                      cursor: isResizing ? 'col-resize' : 'col-resize',
+                    }}
+                  >
+                    <div className="cambridge-resize-handle">
+                      <i className="fa fa-arrows-h"></i>
+                    </div>
+                  </div>
+
+                  <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+                    <div className="cambridge-content-wrapper">
+                      <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative', width: '100%', maxWidth: '980px' }}>
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(currentQuestion.key)}
+                          aria-label="Flag question"
+                        >
+                          <InlineIcon name="flag" size={14} />
+                        </button>
+                        <div className="pr-4 sm:pr-12">
+                          <ReadingOpenQuestionsDisplay
+                            section={displaySection}
+                            startingNumber={startNumber}
+                            onAnswerChange={handleAnswerChange}
+                            answers={answers}
+                            submitted={submitted}
+                            renderMode="questions"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
           ) : (
           <>
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>

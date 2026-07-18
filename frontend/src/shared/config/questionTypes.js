@@ -468,6 +468,23 @@ export const QUESTION_TYPES = {
     supportedTests: ['fce-reading'],
   },
 
+  'reading-open-questions': {
+    id: 'reading-open-questions',
+    label: 'Reading Open Questions',
+    labelVi: 'Đọc hiểu + trả lời câu hỏi',
+    iconName: 'reading',
+    description: 'FCE Part 6: Đọc message/đoạn văn và trả lời câu hỏi ngắn',
+    editor: 'ReadingOpenQuestionsEditor',
+    defaultData: {
+      passageTitle: 'Part 6 Read the message.',
+      passage: '',
+      passageText: '',
+      instruction: 'Answer the questions. (10 points)',
+      items: Array.from({ length: 10 }, () => ({ questionText: '', correctAnswer: '', explanation: '' })),
+    },
+    supportedTests: ['fce-reading'],
+  },
+
   // =========== KET/PET WRITING ===========
   'short-message': {
     id: 'short-message',
@@ -1016,6 +1033,7 @@ export const TEST_CONFIGS = {
       'word-form',
       'sentence-transformation',
       'sentence-correction',
+      'reading-open-questions',
       'short-message',
       'story-writing',
       'preposition-gap-fill',
@@ -1027,9 +1045,9 @@ export const TEST_CONFIGS = {
       { part: 3, questions: '18-25', description: 'Odd One Out' },
       { part: 4, questions: '26-35', description: 'Complete the conversation' },
       { part: 5, questions: '36-45', description: 'Correct the sentences' },
-      { part: 6, questions: '46-55', description: 'Reading Comprehension' },
-      { part: 7, questions: '56-60', description: 'Complete the questions' },
-      { part: 8, questions: '61-70', description: 'Best Response' },
+      { part: 6, questions: '56-65', description: 'Reading Open Questions' },
+      { part: 7, questions: '66-70', description: 'Complete the questions' },
+      { part: 8, questions: '71-80', description: 'Best Response' },
       { part: 9, questions: 'Writing', description: 'Writing task' },
     ],
   },

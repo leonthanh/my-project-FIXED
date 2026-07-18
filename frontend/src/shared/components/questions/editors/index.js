@@ -19,6 +19,7 @@ export { default as TableCompletionEditor } from './TableCompletionEditor.jsx';
 export { default as ClozeTestEditor } from './ClozeTestEditor';
 export { default as SentenceTransformationEditor } from './SentenceTransformationEditor';
 export { default as SentenceCorrectionEditor } from './SentenceCorrectionEditor';
+export { default as ReadingOpenQuestionsEditor } from './ReadingOpenQuestionsEditor';
 export { default as ShortMessageEditor } from './ShortMessageEditor';
 
 // KET Part-specific editors

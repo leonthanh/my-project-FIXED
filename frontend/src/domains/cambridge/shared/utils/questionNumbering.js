@@ -124,6 +124,10 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.items) ? q0.items.length : 0;
   }
+  if (section.questionType === 'reading-open-questions') {
+    const q0 = section.questions?.[0] || {};
+    return Array.isArray(q0.items) ? q0.items.length : 0;
+  }
   return section.questions.length;
 };
 
@@ -189,6 +193,7 @@ const computeQuestionStarts = (passages) => {
     'preposition-gap-fill',
     'odd-one-out',
     'sentence-correction',
+    'reading-open-questions',
   ]);
   let count = 1;
 

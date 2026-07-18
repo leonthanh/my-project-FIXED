@@ -19,6 +19,7 @@ export { default as WordDragClozeDisplay } from './WordDragClozeDisplay';
 export { default as TrueFalseNotGivenDisplay } from './TrueFalseNotGivenDisplay';
 export { default as SentenceTransformationDisplay } from './SentenceTransformationDisplay';
 export { default as SentenceCorrectionDisplay } from './SentenceCorrectionDisplay';
+export { default as ReadingOpenQuestionsDisplay } from './ReadingOpenQuestionsDisplay';
 export { default as StoryWritingDisplay } from './StoryWritingDisplay';
 export { default as PrepositionGapFillDisplay } from './PrepositionGapFillDisplay';
 export { default as OddOneOutDisplay } from './OddOneOutDisplay';
