@@ -191,6 +191,52 @@ const buildFceReadingQuestionEntries = (parts = []) => {
           return;
         }
 
+        if (
+          (section.questionType === 'cloze-mc' || section.questionType === 'inline-choice') &&
+          Array.isArray(question.blanks)
+        ) {
+          question.blanks.forEach((blank, blankIdx) => {
+            pushEntry({
+              key: `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`,
+              legacyKeys: [`${partIdx}-${secIdx}-${blankIdx}`],
+              blank,
+              question,
+              section,
+            });
+          });
+          return;
+        }
+
+        if (section.questionType === 'people-matching' && Array.isArray(question.people)) {
+          question.people.forEach((person, personIdx) => {
+            const personId = person?.id || String.fromCharCode(65 + personIdx);
+            pushEntry({
+              key: `${partIdx}-${secIdx}-${qIdx}-${personId}`,
+              legacyKeys: [
+                `${partIdx}-${secIdx}-${personId}`,
+                `${partIdx}-${secIdx}-${personIdx}`,
+              ],
+              prompt: person,
+              question,
+              section,
+            });
+          });
+          return;
+        }
+
+        if (section.questionType === 'word-form' && Array.isArray(question.sentences)) {
+          question.sentences.forEach((sentence, sentenceIdx) => {
+            pushEntry({
+              key: `${partIdx}-${secIdx}-${qIdx}-${sentenceIdx}`,
+              legacyKeys: [`${partIdx}-${secIdx}-${sentenceIdx}`],
+              prompt: sentence,
+              question,
+              section,
+            });
+          });
+          return;
+        }
+
         if (section.questionType === 'preposition-gap-fill' && Array.isArray(question.items)) {
           question.items.forEach((item, itemIdx) => {
             pushEntry({
@@ -282,51 +328,30 @@ const buildFceReadingQuestionEntries = (parts = []) => {
     });
   });
 
-  const explicitNumbers = new Set(
-    questions
-      .map((entry) => resolveExplicitQuestionNumber(entry))
-      .filter((value) => Number.isFinite(value) && value > 0)
-  );
-
-  if (explicitNumbers.size === 0) {
-    return questions.filter((entry) => Number.isFinite(entry.questionNumber));
-  }
-
-  const maxExplicitNumber = Math.max(...explicitNumbers);
-  const assignedNumbers = new Set();
   let nextFallbackNumber = 1;
 
   return questions.reduce((normalizedEntries, entry) => {
     const explicitQuestionNumber = resolveExplicitQuestionNumber(entry);
-
-    if (Number.isFinite(explicitQuestionNumber) && explicitQuestionNumber > 0) {
-      assignedNumbers.add(explicitQuestionNumber);
-      nextFallbackNumber = Math.max(nextFallbackNumber, explicitQuestionNumber + 1);
-      normalizedEntries.push({
-        ...entry,
-        questionNumber: explicitQuestionNumber,
-      });
-      return normalizedEntries;
-    }
-
-    while (explicitNumbers.has(nextFallbackNumber) || assignedNumbers.has(nextFallbackNumber)) {
-      nextFallbackNumber += 1;
-    }
-
     const isWritingTask =
       entry?.section?.questionType === 'short-message' ||
       entry?.section?.questionType === 'story-writing';
 
-    if (isWritingTask && nextFallbackNumber > maxExplicitNumber) {
+    if (isWritingTask) {
       return normalizedEntries;
     }
 
-    assignedNumbers.add(nextFallbackNumber);
+    const shouldUseExplicitNumber =
+      Number.isFinite(explicitQuestionNumber) &&
+      explicitQuestionNumber > 0 &&
+      explicitQuestionNumber === nextFallbackNumber;
+
+    const questionNumber = shouldUseExplicitNumber ? explicitQuestionNumber : nextFallbackNumber;
+
     normalizedEntries.push({
       ...entry,
-      questionNumber: nextFallbackNumber,
+      questionNumber,
     });
-    nextFallbackNumber += 1;
+    nextFallbackNumber = questionNumber + 1;
     return normalizedEntries;
   }, []);
 };
@@ -503,10 +528,22 @@ const FceReadingResultPage = () => {
       else blank += 1;
     });
 
+    const derivedTotal = questionResults.reduce(
+      (maxQuestionNumber, { questionNumber }) => Math.max(maxQuestionNumber, Number(questionNumber) || 0),
+      questionResults.length
+    );
+    const storedTotal = Number(submission.totalQuestions) || 0;
+    const total = Math.max(derivedTotal, storedTotal);
+    const countedStatuses = correct + wrong + blank + pending;
+
+    if (total > countedStatuses) {
+      blank += total - countedStatuses;
+    }
+
     const percentage = Number(submission.percentage) || 0;
     return {
       score: Number(submission.score) || 0,
-      total: Number(submission.totalQuestions) || questionResults.length || 0,
+      total,
       percentage,
       correct,
       wrong,

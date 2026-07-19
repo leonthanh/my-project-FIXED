@@ -49,17 +49,6 @@ const PetWritingTestPage = () => {
 	const isPlacementRuntime = Boolean(
 		placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
 	);
-	const storageSuffix = isPlacementRuntime && placementContext.placementAttemptItemToken
-		? `:${placementContext.placementAttemptItemToken}`
-		: '';
-	const task1StorageKey = `pet_writing_task1${storageSuffix}`;
-	const task2Q2StorageKey = `pet_writing_task2_q2${storageSuffix}`;
-	const task2Q3StorageKey = `pet_writing_task2_q3${storageSuffix}`;
-	const selectedQuestionStorageKey = `pet_writing_selected_q${storageSuffix}`;
-	const timeLeftStorageKey = `pet_writing_timeLeft${storageSuffix}`;
-	const endAtStorageKey = `pet_writing_endAt${storageSuffix}`;
-	const startedStorageKey = `pet_writing_started${storageSuffix}`;
-	const questionPickStorageKey = `pet_writing_question_pick${storageSuffix}`;
 	const exitPath = useMemo(
 		() => (
 			isPlacementRuntime && placementContext.placementAttemptToken
@@ -86,30 +75,59 @@ const PetWritingTestPage = () => {
 			''
 		);
 	}, [isPlacementRuntime, routeTestId]);
+	const legacyStorageSuffix = isPlacementRuntime && placementContext.placementAttemptItemToken
+		? `:${placementContext.placementAttemptItemToken}`
+		: '';
+	const storageScope = useMemo(() => {
+		const userToken = isPlacementRuntime && placementContext.placementAttemptItemToken
+			? `placement:${placementContext.placementAttemptItemToken}`
+			: user?.id
+				? `user:${user.id}`
+				: 'anon';
+		return `${userToken}:test:${String(selectedTestId || routeTestId || 'pending')}`;
+	}, [isPlacementRuntime, placementContext.placementAttemptItemToken, routeTestId, selectedTestId, user?.id]);
+	const task1StorageKey = `pet_writing_task1:${storageScope}`;
+	const task2Q2StorageKey = `pet_writing_task2_q2:${storageScope}`;
+	const task2Q3StorageKey = `pet_writing_task2_q3:${storageScope}`;
+	const selectedQuestionStorageKey = `pet_writing_selected_q:${storageScope}`;
+	const timeLeftStorageKey = `pet_writing_timeLeft:${storageScope}`;
+	const endAtStorageKey = `pet_writing_endAt:${storageScope}`;
+	const startedStorageKey = `pet_writing_started:${storageScope}`;
+	const questionPickStorageKey = `pet_writing_question_pick:${storageScope}`;
+	const legacyTask1StorageKey = `pet_writing_task1${legacyStorageSuffix}`;
+	const legacyTask2Q2StorageKey = `pet_writing_task2_q2${legacyStorageSuffix}`;
+	const legacyTask2Q3StorageKey = `pet_writing_task2_q3${legacyStorageSuffix}`;
+	const legacySelectedQuestionStorageKey = `pet_writing_selected_q${legacyStorageSuffix}`;
+	const legacyTimeLeftStorageKey = `pet_writing_timeLeft${legacyStorageSuffix}`;
+	const legacyEndAtStorageKey = `pet_writing_endAt${legacyStorageSuffix}`;
+	const legacyStartedStorageKey = `pet_writing_started${legacyStorageSuffix}`;
+	const legacyQuestionPickStorageKey = `pet_writing_question_pick${legacyStorageSuffix}`;
 
 	const [task1Answer, setTask1Answer] = useState(
-		localStorage.getItem(task1StorageKey) || ''
+		localStorage.getItem(task1StorageKey) || localStorage.getItem(legacyTask1StorageKey) || ''
 	);
 	const [task2Answer2, setTask2Answer2] = useState(
-		localStorage.getItem(task2Q2StorageKey) || ''
+		localStorage.getItem(task2Q2StorageKey) || localStorage.getItem(legacyTask2Q2StorageKey) || ''
 	);
 	const [task2Answer3, setTask2Answer3] = useState(
-		localStorage.getItem(task2Q3StorageKey) || ''
+		localStorage.getItem(task2Q3StorageKey) || localStorage.getItem(legacyTask2Q3StorageKey) || ''
 	);
 	const [selectedQuestion, setSelectedQuestion] = useState(
-		localStorage.getItem(selectedQuestionStorageKey) || '2'
+		localStorage.getItem(selectedQuestionStorageKey) || localStorage.getItem(legacySelectedQuestionStorageKey) || '2'
 	);
 	const [timeLeft, setTimeLeft] = useState(() => {
 		const saved = localStorage.getItem(timeLeftStorageKey);
-		if (!saved) return DURATION_SECONDS;
-		return Math.min(parseInt(saved, 10), DURATION_SECONDS);
+		const legacySaved = localStorage.getItem(legacyTimeLeftStorageKey);
+		const source = saved || legacySaved;
+		if (!source) return DURATION_SECONDS;
+		return Math.min(parseInt(source, 10), DURATION_SECONDS);
 	});
 	const [endAt, setEndAt] = useState(() => {
-		const saved = localStorage.getItem(endAtStorageKey);
+		const saved = localStorage.getItem(endAtStorageKey) || localStorage.getItem(legacyEndAtStorageKey);
 		return saved ? parseInt(saved, 10) : 0;
 	});
 	const [started, setStarted] = useState(
-		localStorage.getItem(startedStorageKey) === 'true'
+		(localStorage.getItem(startedStorageKey) || localStorage.getItem(legacyStartedStorageKey)) === 'true'
 	);
 	const [submitted, setSubmitted] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,7 +144,8 @@ const PetWritingTestPage = () => {
 	const [questionPick, setQuestionPick] = useState(() => {
 		try {
 			const raw = localStorage.getItem(questionPickStorageKey);
-			const parsed = raw ? JSON.parse(raw) : null;
+			const legacyRaw = localStorage.getItem(legacyQuestionPickStorageKey);
+			const parsed = raw ? JSON.parse(raw) : legacyRaw ? JSON.parse(legacyRaw) : null;
 			return {
 				q2: parsed?.q2 || 'UNDECIDED',
 				q3: parsed?.q3 || 'UNDECIDED',
@@ -334,6 +353,14 @@ const PetWritingTestPage = () => {
 			localStorage.removeItem(startedStorageKey);
 			localStorage.removeItem(endAtStorageKey);
 			localStorage.removeItem(questionPickStorageKey);
+			localStorage.removeItem(legacyTask1StorageKey);
+			localStorage.removeItem(legacyTask2Q2StorageKey);
+			localStorage.removeItem(legacyTask2Q3StorageKey);
+			localStorage.removeItem(legacySelectedQuestionStorageKey);
+			localStorage.removeItem(legacyTimeLeftStorageKey);
+			localStorage.removeItem(legacyStartedStorageKey);
+			localStorage.removeItem(legacyEndAtStorageKey);
+			localStorage.removeItem(legacyQuestionPickStorageKey);
 
 			if (!isPlacementRuntime) {
 				localStorage.removeItem('selectedPetWritingTestId');
@@ -377,6 +404,14 @@ const PetWritingTestPage = () => {
 		timeLeft,
 		timeLeftStorageKey,
 		user,
+		legacyTask1StorageKey,
+		legacyTask2Q2StorageKey,
+		legacyTask2Q3StorageKey,
+		legacySelectedQuestionStorageKey,
+		legacyTimeLeftStorageKey,
+		legacyStartedStorageKey,
+		legacyEndAtStorageKey,
+		legacyQuestionPickStorageKey,
 	]);
 
 	const handleSubmit = useCallback(() => {
