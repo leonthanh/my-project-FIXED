@@ -6,6 +6,7 @@ import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
 } from "../../../../shared/utils/placementTests";
+import { getFceSelectTestPathForTestType } from "../../config/navigation";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
@@ -519,8 +520,7 @@ const DoFceReadingTest = ({
       !started ||
       submitted ||
       timeRemaining === null ||
-      timeRemaining > 0 ||
-      graceRemaining > 0
+      timeRemaining > 0
     ) {
       return;
     }
@@ -746,11 +746,10 @@ const DoFceReadingTest = ({
 
       if (!res.ok) throw new Error("Failed to submit the test");
 
-      // Use backend scoring as source of truth
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       const dr = data.detailedResults || {};
-      const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
-      const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+      const backendCorrect = Object.values(dr).filter((result) => result.isCorrect === true).length;
+      const backendIncorrect = Object.values(dr).filter((result) => result.isCorrect === false).length;
       const manualScoredTotal = Number(testConfig?.manualScoredTotal) || 0;
 
       // Clear saved data from localStorage
@@ -768,7 +767,6 @@ const DoFceReadingTest = ({
           replace: true,
         });
       } else {
-        // Show results modal using backend score (more accurate than local calculation)
         setResults({
           score: data.score,
           total: data.total,
@@ -3359,7 +3357,7 @@ const DoFceReadingTest = ({
           onClose={() => {
             setResults(null);
             setSubmitted(false);
-            navigate(-1);
+            navigate(getFceSelectTestPathForTestType(testType), { replace: true });
           }}
         />
       )}

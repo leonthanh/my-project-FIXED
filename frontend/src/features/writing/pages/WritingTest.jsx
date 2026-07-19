@@ -835,9 +835,7 @@ const WritingTest = () => {
         localStorage.removeItem("selectedTestId");
       }
 
-      setTimeout(() => {
-        navigate(exitPath, { replace: true });
-      }, isPlacementRuntime ? 1200 : 3000);
+      navigate(exitPath, { replace: true });
     } catch (err) {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
@@ -901,7 +899,6 @@ const WritingTest = () => {
       setGraceRemaining(nextGraceRemaining);
       if (
         remain <= 0 &&
-        nextGraceRemaining <= 0 &&
         !autoSubmittingRef.current
       ) {
         autoSubmittingRef.current = true;

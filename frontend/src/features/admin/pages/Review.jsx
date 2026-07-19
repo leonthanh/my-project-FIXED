@@ -1094,7 +1094,15 @@ const Review = () => {
 
         <div style={expandedActionRowStyle}>
           <button
-            onClick={() => navigate(`/cambridge/result/${submission.id}`)}
+            onClick={() => {
+              const normalizedTestType = String(submission?.testType || '').trim().toLowerCase();
+              if (normalizedTestType === 'fce-reading-60') {
+                navigate(`/fce/result/${submission.id}`);
+                return;
+              }
+
+              navigate(`/cambridge/result/${submission.id}`);
+            }}
             style={secondaryButtonStyle}
           >
             View Result
