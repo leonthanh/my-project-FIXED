@@ -6,11 +6,8 @@ import createListeningStyles from '../pages/DoCambridgeListeningTest.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
 import LongTextMCDisplay from '../../../../shared/components/questions/displays/LongTextMCDisplay';
 import ClozeMCDisplay from '../../../../shared/components/questions/displays/ClozeMCDisplay';
-import ClozeTestDisplay from '../../../../shared/components/questions/displays/ClozeTestDisplay';
 import WordFormDisplay from '../../../../shared/components/questions/displays/WordFormDisplay';
 import InlineChoiceDisplay from '../../../../shared/components/questions/displays/InlineChoiceDisplay';
-import PrepositionGapFillDisplay from '../../../../shared/components/questions/displays/PrepositionGapFillDisplay';
-import OddOneOutDisplay from '../../../../shared/components/questions/displays/OddOneOutDisplay';
 import MatchingPicturesDisplay from '../../../../shared/components/questions/displays/MatchingPicturesDisplay';
 import ImageClozeDisplay from '../../../../shared/components/questions/displays/ImageClozeDisplay';
 import WordDragClozeDisplay from '../../../../shared/components/questions/displays/WordDragClozeDisplay';
@@ -397,6 +394,81 @@ const styles = {
     border: '1px solid #e5e7eb',
     wordBreak: 'break-word',
   },
+  clozePassageCard: {
+    background: '#fffbeb',
+    border: '1px solid #fcd34d',
+    borderRadius: '16px',
+    padding: '16px',
+  },
+  clozePassageBody: {
+    fontSize: '15px',
+    lineHeight: 1.9,
+    color: '#1f2937',
+    wordBreak: 'break-word',
+  },
+  clozeBlankPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '4px 10px',
+    margin: '0 4px',
+    borderRadius: '999px',
+    border: '2px solid #cbd5e1',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    verticalAlign: 'baseline',
+  },
+  clozeBlankNum: {
+    fontSize: '13px',
+    fontWeight: 800,
+    opacity: 0.9,
+  },
+  clozeBlankAns: {
+    fontSize: '14px',
+    fontWeight: 700,
+  },
+  clozeAnswerGrid: {
+    marginTop: '14px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '10px',
+  },
+  clozeAnswerItem: {
+    borderRadius: '12px',
+    border: '1px solid #dbe4f0',
+    borderLeft: '6px solid #dbe4f0',
+    padding: '10px 12px',
+    background: '#ffffff',
+  },
+  clozeAnswerItemHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    marginBottom: '8px',
+  },
+  clozeAnswerNum: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '34px',
+    height: '26px',
+    borderRadius: '999px',
+    fontSize: '13px',
+    fontWeight: 800,
+  },
+  clozeAnswerStatus: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#64748b',
+  },
+  clozeAnswerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    marginTop: '6px',
+  },
   optionsBank: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -669,6 +741,8 @@ function getSectionDisplayName(sectionType) {
     'colour-write': 'Colour and Write',
     'preposition-gap-fill': 'Prepositions & Phrasal Verbs',
     'odd-one-out': 'Odd One Out',
+    'sentence-correction': 'Sentence Correction',
+    'reading-open-questions': 'Reading Open Questions',
   };
 
   return labels[sectionType] || sectionType || 'Section';
@@ -693,6 +767,8 @@ function questionCountForQuestion(sectionType, question) {
   if (sectionType === 'word-form') return Array.isArray(question.sentences) ? question.sentences.length : 0;
   if (sectionType === 'preposition-gap-fill') return Array.isArray(question.items) ? question.items.length : 0;
   if (sectionType === 'odd-one-out') return Array.isArray(question.groups) ? question.groups.length : 0;
+  if (sectionType === 'sentence-correction') return Array.isArray(question.items) ? question.items.length : 0;
+  if (sectionType === 'reading-open-questions') return Array.isArray(question.items) ? question.items.length : 0;
   if (sectionType === 'matching-pictures') return Array.isArray(question.prompts) ? question.prompts.length : 0;
   if (sectionType === 'image-cloze') {
     const blanks = parseClozeBlanksFromText(question.passageText || '', 1).length;
@@ -821,6 +897,167 @@ function getPictureOptions(question) {
       label: option.label || option.text || option.caption || option.title || '',
     };
   });
+}
+
+function normalizeAnswer(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function stripOptionLabel(text) {
+  return String(text || '').replace(/^[A-H]\.?\s*/i, '').trim();
+}
+
+function formatAnswerText(value) {
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+    return joined || NO_ANSWER_TEXT;
+  }
+  const text = String(value || '').trim();
+  return text || NO_ANSWER_TEXT;
+}
+
+function resolveStructuredAnswer({ partIdx, secIdx, qIdx = 0, itemIdx = null, answers, detailedResults, fallbackCorrectAnswer = '' }) {
+  const keys = [];
+
+  if (Number.isInteger(itemIdx)) {
+    keys.push(`${partIdx}-${secIdx}-${qIdx}-${itemIdx}`);
+    keys.push(`${partIdx}-${secIdx}-${itemIdx}`);
+  } else {
+    keys.push(`${partIdx}-${secIdx}-${qIdx}`);
+    keys.push(`${partIdx}-${secIdx}-0`);
+    keys.push(`${partIdx}-${secIdx}`);
+  }
+
+  let result = null;
+  for (const key of keys) {
+    if (detailedResults?.[key]) {
+      result = detailedResults[key];
+      break;
+    }
+  }
+
+  let studentAnswer;
+  for (const key of keys) {
+    if (answers?.[key] !== undefined) {
+      studentAnswer = answers[key];
+      break;
+    }
+  }
+
+  if (studentAnswer === undefined) {
+    studentAnswer = result?.userAnswer;
+  }
+
+  const correctAnswer = result?.correctAnswer ?? fallbackCorrectAnswer;
+
+  return {
+    result,
+    studentAnswer,
+    correctAnswer,
+    status: getResultStatus({ ...result, userAnswer: studentAnswer, correctAnswer }),
+  };
+}
+
+function renderSentenceWithAnswer(sentence, answer) {
+  const parts = String(sentence || '').split(/_{2,}|\[BLANK\]/gi);
+  if (parts.length < 2) return <span>{sentence}</span>;
+
+  return (
+    <span>
+      {parts.map((part, index) => (
+        <React.Fragment key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minWidth: '58px',
+                padding: '0 8px',
+                margin: '0 4px',
+                borderBottom: '2px solid #3b82f6',
+                color: '#1d4ed8',
+                fontWeight: 700,
+                justifyContent: 'center',
+              }}
+            >
+              {String(answer || '').trim() || '___'}
+            </span>
+          ) : null}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+function getStructuredSectionPrimaryQuestionIndex(section) {
+  const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
+  if (sectionQuestions.length <= 1) return 0;
+
+  if (section?.questionType === 'long-text-mc') {
+    const matchIndex = sectionQuestions.findIndex(
+      (question) => Array.isArray(question?.questions) && question.questions.length > 0
+    );
+    return matchIndex >= 0 ? matchIndex : 0;
+  }
+
+  if (section?.questionType === 'cloze-test') {
+    const matchIndex = sectionQuestions.findIndex((question) => {
+      if (Array.isArray(question?.blanks) && question.blanks.length > 0) return true;
+      return Boolean(String(question?.passageText || question?.passage || question?.clozeText || '').trim());
+    });
+    return matchIndex >= 0 ? matchIndex : 0;
+  }
+
+  return 0;
+}
+
+function getClozeQuestionNumbersFromText(text) {
+  const numbers = [];
+  const seen = new Set();
+  const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
+  let match;
+
+  while ((match = regex.exec(String(text || ''))) !== null) {
+    const questionNum = Number(match[1] || match[2]);
+    if (Number.isFinite(questionNum) && questionNum > 0 && !seen.has(questionNum)) {
+      seen.add(questionNum);
+      numbers.push(questionNum);
+    }
+  }
+
+  return numbers;
+}
+
+function normalizeClozeTestBlanks(question, fallbackStart) {
+  const passageText = question?.passageText || question?.passage || question?.clozeText || '';
+  const passageNumbers = getClozeQuestionNumbersFromText(passageText);
+  const rawBlanks = Array.isArray(question?.blanks) ? question.blanks : [];
+  const rawBlankNumbers = new Set(
+    rawBlanks
+      .map((blank) => Number(blank?.questionNum || blank?.number))
+      .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+  );
+  const rawBlanksMatchPassage = passageNumbers.some((questionNum) => rawBlankNumbers.has(questionNum));
+
+  if (passageNumbers.length > 0 && (!rawBlanks.length || !rawBlanksMatchPassage)) {
+    return passageNumbers.map((questionNum) => ({ questionNum }));
+  }
+
+  if (rawBlanks.length > 0) return rawBlanks;
+
+  if (question?.answers && !Array.isArray(question.answers)) {
+    const answerNumbers = Object.keys(question.answers)
+      .map((questionNum) => Number(questionNum))
+      .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+      .sort((left, right) => left - right);
+
+    if (answerNumbers.length > 0) {
+      return answerNumbers.map((questionNum) => ({ questionNum }));
+    }
+  }
+
+  return parseClozeBlanksFromText(passageText, fallbackStart);
 }
 
 function getResultStatus(result) {
@@ -1044,8 +1281,46 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
   const exampleText = String(question?.exampleText || '').trim();
   const exampleAnswer = String(question?.exampleAnswer || '').trim();
   const leftItems = Array.isArray(question?.leftItems) ? question.leftItems : [];
-  const options = Array.isArray(question?.options) ? question.options : [];
+  const options = Array.isArray(question?.options) && question.options.length > 0
+    ? question.options
+    : Array.isArray(question?.rightItems)
+      ? question.rightItems
+      : [];
   const correctAnswers = Array.isArray(question?.correctAnswers) ? question.correctAnswers : [];
+
+  const resolveOption = (value) => {
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedValue) return NO_ANSWER_TEXT;
+
+    if (/^[A-H]$/i.test(normalizedValue)) {
+      const index = normalizedValue.toUpperCase().charCodeAt(0) - 65;
+      const optionText = options[index];
+      return optionText ? `${normalizedValue.toUpperCase()} - ${stripOptionLabel(optionText)}` : normalizedValue.toUpperCase();
+    }
+
+    if (/^\d+$/.test(normalizedValue)) {
+      const index = Number(normalizedValue) - 1;
+      const optionText = options[index];
+      return optionText ? `${normalizedValue}. ${stripOptionLabel(optionText)}` : normalizedValue;
+    }
+
+    return normalizedValue;
+  };
+
+  const resolveCorrectAnswer = (index, questionNumber, result) => {
+    if (result?.correctAnswer) return result.correctAnswer;
+    if (correctAnswers[index]) return correctAnswers[index];
+
+    const answersMap = question?.answers && typeof question.answers === 'object' ? question.answers : null;
+    if (answersMap) {
+      if (answersMap[questionNumber] !== undefined) return answersMap[questionNumber];
+      if (answersMap[String(questionNumber)] !== undefined) return answersMap[String(questionNumber)];
+      if (answersMap[index] !== undefined) return answersMap[index];
+      if (answersMap[String(index)] !== undefined) return answersMap[String(index)];
+    }
+
+    return '';
+  };
 
   return (
     <div style={styles.twoColumn}>
@@ -1069,16 +1344,22 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
         ) : null}
         <div style={styles.reviewRows}>
           {leftItems.map((item, idx) => {
-            const answerKey = `${partIdx}-${secIdx}-0-${idx}`;
-            const result = detailedResults?.[answerKey] || null;
-            const studentAnswer = answers?.[answerKey] || '';
-            const correctAnswer = correctAnswers?.[idx] || result?.correctAnswer || '';
-            const status = getResultStatus({ ...result, userAnswer: studentAnswer, correctAnswer });
+            const resolved = resolveStructuredAnswer({
+              partIdx,
+              secIdx,
+              qIdx: 0,
+              itemIdx: idx,
+              answers,
+              detailedResults,
+            });
+            const questionNumber = sectionStart + idx;
+            const correctAnswer = resolveCorrectAnswer(idx, questionNumber, resolved.result);
+            const status = getResultStatus({ ...resolved.result, userAnswer: resolved.studentAnswer, correctAnswer });
 
             return (
-              <div key={answerKey} style={styles.reviewRowCard}>
+              <div key={`${partIdx}-${secIdx}-${idx}`} style={styles.reviewRowCard}>
                 <div style={styles.reviewRowHeader}>
-                  <span style={styles.reviewNumber}>{sectionStart + idx}</span>
+                  <span style={styles.reviewNumber}>{questionNumber}</span>
                   <h5 style={styles.reviewTitle}>{item || `Item ${idx + 1}`}</h5>
                   <span style={{ ...styles.statusChip, background: status.background, color: status.color }}>
                     {status.label}
@@ -1089,14 +1370,14 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
                   <div style={styles.answerLine}>
                     <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
                     <span style={{ ...styles.answerValue, background: status.background, color: status.color, borderColor: status.border }}>
-                      {studentAnswer || NO_ANSWER_TEXT}
+                      {resolveOption(resolved.studentAnswer)}
                     </span>
                   </div>
                   {correctAnswer ? (
                     <div style={styles.answerLine}>
                       <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
                       <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
-                        {correctAnswer}
+                        {resolveOption(correctAnswer)}
                       </span>
                     </div>
                   ) : null}
@@ -1110,9 +1391,465 @@ function GapMatchReview({ question, partIdx, secIdx, sectionStart, answers, deta
       <div style={styles.asideCard}>
         <h5 style={styles.asideTitle}>{question?.rightTitle || 'Options'}</h5>
         <div style={styles.optionsBank}>
-          {options.map((option) => (
-            <span key={option} style={styles.optionChip}>{option}</span>
+          {options.map((option, idx) => (
+            <span key={`${option}-${idx}`} style={styles.optionChip}>{option}</span>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrepositionGapFillReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+  const instruction = question?.instruction || 'Fill in the appropriate prepositions in the blanks.';
+  const options = Array.isArray(question?.options) ? question.options : [];
+  const items = Array.isArray(question?.items) ? question.items : [];
+
+  return (
+    <div style={styles.twoColumn}>
+      <div style={styles.asideCard}>
+        <h5 style={styles.asideTitle}>Questions</h5>
+        <p style={styles.introText}>{instruction}</p>
+        <div style={{ ...styles.reviewRows, marginTop: '12px' }}>
+          {items.map((item, idx) => {
+            const resolved = resolveStructuredAnswer({
+              partIdx,
+              secIdx,
+              qIdx,
+              itemIdx: idx,
+              answers,
+              detailedResults,
+              fallbackCorrectAnswer: item?.correctAnswer || '',
+            });
+
+            return (
+              <div key={`${partIdx}-${secIdx}-${qIdx}-${idx}`} style={styles.reviewRowCard}>
+                <div style={styles.reviewRowHeader}>
+                  <span style={styles.reviewNumber}>{sectionStart + idx}</span>
+                  <h5 style={styles.reviewTitle}>{renderSentenceWithAnswer(item?.sentence, resolved.studentAnswer)}</h5>
+                  <span style={{ ...styles.statusChip, background: resolved.status.background, color: resolved.status.color }}>
+                    {resolved.status.label}
+                  </span>
+                </div>
+
+                <div style={styles.reviewMeta}>
+                  <div style={styles.answerLine}>
+                    <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
+                    <span style={{ ...styles.answerValue, background: resolved.status.background, color: resolved.status.color, borderColor: resolved.status.border }}>
+                      {formatAnswerText(resolved.studentAnswer)}
+                    </span>
+                  </div>
+                  {resolved.correctAnswer ? (
+                    <div style={styles.answerLine}>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
+                      <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                        {formatAnswerText(resolved.correctAnswer)}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={styles.asideCard}>
+        <h5 style={styles.asideTitle}>Word Bank</h5>
+        <div style={styles.optionsBank}>
+          {options.map((option, idx) => (
+            <span key={`${option?.word || option}-${idx}`} style={styles.optionChip}>
+              {option?.word || String(option || '')}
+              {Number(option?.count) > 1 ? ` (x${option.count})` : ''}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OddOneOutReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+  const instruction = question?.instruction || 'Circle the word that is not in the same group.';
+  const groups = Array.isArray(question?.groups) ? question.groups : [];
+
+  return (
+    <div style={styles.asideCard}>
+      <h5 style={styles.asideTitle}>Questions</h5>
+      <p style={styles.introText}>{instruction}</p>
+      <div style={{ ...styles.reviewRows, marginTop: '12px' }}>
+        {groups.map((group, idx) => {
+          const resolved = resolveStructuredAnswer({
+            partIdx,
+            secIdx,
+            qIdx,
+            itemIdx: idx,
+            answers,
+            detailedResults,
+            fallbackCorrectAnswer: group?.correctAnswer || '',
+          });
+
+          const studentNormalized = normalizeAnswer(resolved.studentAnswer);
+          const correctNormalized = normalizeAnswer(resolved.correctAnswer);
+          const words = Array.isArray(group?.words) ? group.words : [];
+
+          return (
+            <div key={`${partIdx}-${secIdx}-${qIdx}-${idx}`} style={styles.reviewRowCard}>
+              <div style={styles.reviewRowHeader}>
+                <span style={styles.reviewNumber}>{sectionStart + idx}</span>
+                <h5 style={styles.reviewTitle}>Choose the odd word out</h5>
+                <span style={{ ...styles.statusChip, background: resolved.status.background, color: resolved.status.color }}>
+                  {resolved.status.label}
+                </span>
+              </div>
+
+              <div style={{ ...styles.optionsBank, marginBottom: '12px' }}>
+                {words.map((word, wordIdx) => {
+                  const normalizedWord = normalizeAnswer(word);
+                  const isStudentChoice = studentNormalized && normalizedWord === studentNormalized;
+                  const isCorrectChoice = correctNormalized && normalizedWord === correctNormalized;
+
+                  let background = '#f8fafc';
+                  let borderColor = '#e5e7eb';
+                  let color = '#0f172a';
+
+                  if (isCorrectChoice) {
+                    background = '#dcfce7';
+                    borderColor = '#22c55e';
+                    color = '#166534';
+                  }
+
+                  if (isStudentChoice && !isCorrectChoice) {
+                    background = '#fee2e2';
+                    borderColor = '#ef4444';
+                    color = '#991b1b';
+                  }
+
+                  return (
+                    <span key={`${word}-${wordIdx}`} style={{ ...styles.optionChip, background, borderColor, color }}>
+                      {String.fromCharCode(65 + wordIdx)}. {word}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div style={styles.reviewMeta}>
+                <div style={styles.answerLine}>
+                  <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
+                  <span style={{ ...styles.answerValue, background: resolved.status.background, color: resolved.status.color, borderColor: resolved.status.border }}>
+                    {formatAnswerText(resolved.studentAnswer)}
+                  </span>
+                </div>
+                {resolved.correctAnswer ? (
+                  <div style={styles.answerLine}>
+                    <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
+                    <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                      {formatAnswerText(resolved.correctAnswer)}
+                    </span>
+                  </div>
+                ) : null}
+                {group?.explanation ? (
+                  <div style={{ fontSize: '13px', lineHeight: 1.6, color: '#64748b' }}>{group.explanation}</div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SentenceCorrectionReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+  const instruction = question?.instruction || 'Correct the sentences.';
+  const items = Array.isArray(question?.items) ? question.items : [];
+
+  return (
+    <div style={styles.asideCard}>
+      <h5 style={styles.asideTitle}>Questions</h5>
+      <p style={styles.introText}>{instruction}</p>
+      <div style={{ ...styles.reviewRows, marginTop: '12px' }}>
+        {items.map((item, idx) => {
+          const resolved = resolveStructuredAnswer({
+            partIdx,
+            secIdx,
+            qIdx,
+            itemIdx: idx,
+            answers,
+            detailedResults,
+            fallbackCorrectAnswer: item?.correctAnswer || '',
+          });
+
+          return (
+            <div key={`${partIdx}-${secIdx}-${qIdx}-${idx}`} style={styles.reviewRowCard}>
+              <div style={styles.reviewRowHeader}>
+                <span style={styles.reviewNumber}>{sectionStart + idx}</span>
+                <h5 style={styles.reviewTitle}>{item?.sentence || `Sentence ${idx + 1}`}</h5>
+                <span style={{ ...styles.statusChip, background: resolved.status.background, color: resolved.status.color }}>
+                  {resolved.status.label}
+                </span>
+              </div>
+
+              <div style={styles.reviewMeta}>
+                <div style={styles.answerLine}>
+                  <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
+                  <span style={{ ...styles.answerValue, background: resolved.status.background, color: resolved.status.color, borderColor: resolved.status.border }}>
+                    {formatAnswerText(resolved.studentAnswer)}
+                  </span>
+                </div>
+                {resolved.correctAnswer ? (
+                  <div style={styles.answerLine}>
+                    <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
+                    <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                      {formatAnswerText(resolved.correctAnswer)}
+                    </span>
+                  </div>
+                ) : null}
+                {item?.explanation ? (
+                  <div style={{ fontSize: '13px', lineHeight: 1.6, color: '#64748b' }}>{item.explanation}</div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+  const passageText = question?.passageText || question?.passage || question?.clozeText || '';
+  const blanks = normalizeClozeTestBlanks(question, sectionStart);
+  const blankIndexByQuestionNum = new Map(
+    blanks
+      .map((blank, idx) => [Number(blank?.questionNum || blank?.number), idx])
+      .filter(([questionNum]) => Number.isFinite(questionNum))
+  );
+
+  const getBlankReview = (blankIdx) => {
+    const blank = blanks[blankIdx] || {};
+    const fallbackCorrectAnswer = blank?.correctAnswer || question?.answers?.[blankIdx] || question?.answers?.[String(blank?.questionNum)] || '';
+    return resolveStructuredAnswer({
+      partIdx,
+      secIdx,
+      qIdx,
+      itemIdx: blankIdx,
+      answers,
+      detailedResults,
+      fallbackCorrectAnswer,
+    });
+  };
+
+  const buildBlankPill = (blankIdx, explicitQuestionNum) => {
+    const blankReview = getBlankReview(blankIdx);
+    const blank = blanks[blankIdx] || {};
+    const blankNum = Number(explicitQuestionNum) || Number(blank?.questionNum || blank?.number) || sectionStart + blankIdx;
+    const label = Number.isFinite(blankNum) ? `(${blankNum})` : '(?)';
+
+    return (
+      <span
+        key={`blank-pill-${blankIdx}-${label}`}
+        style={{
+          ...styles.clozeBlankPill,
+          borderColor: blankReview.status.border,
+          background: blankReview.status.background,
+          color: blankReview.status.color,
+        }}
+      >
+        <span style={styles.clozeBlankNum}>{label}</span>
+        <span style={styles.clozeBlankAns}>{formatAnswerText(blankReview.studentAnswer).replace(NO_ANSWER_TEXT, '____')}</span>
+      </span>
+    );
+  };
+
+  const renderInline = () => {
+    if (!passageText) return null;
+
+    const elements = [];
+    let lastIndex = 0;
+    const numberedRegex = /\((\d+)\)|\[(\d+)\]/g;
+    let numberedMatch;
+    let foundNumbered = false;
+
+    while ((numberedMatch = numberedRegex.exec(passageText)) !== null) {
+      const questionNum = Number(numberedMatch[1] || numberedMatch[2]);
+      if (!Number.isFinite(questionNum)) continue;
+
+      const blankIdx = blankIndexByQuestionNum.has(questionNum) ? blankIndexByQuestionNum.get(questionNum) : null;
+      if (blankIdx === null || blankIdx === undefined) continue;
+
+      foundNumbered = true;
+      if (numberedMatch.index > lastIndex) {
+        elements.push(
+          <span
+            key={`text-${lastIndex}`}
+            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, numberedMatch.index) }}
+          />
+        );
+      }
+
+      elements.push(buildBlankPill(blankIdx, questionNum));
+      lastIndex = numberedMatch.index + numberedMatch[0].length;
+    }
+
+    if (foundNumbered) {
+      if (lastIndex < passageText.length) {
+        elements.push(
+          <span
+            key={`text-end-${lastIndex}`}
+            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
+          />
+        );
+      }
+      return elements;
+    }
+
+    const underscoreRegex = /[_…]{3,}/g;
+    let underscoreMatch;
+    let blankIdx = 0;
+    lastIndex = 0;
+
+    while ((underscoreMatch = underscoreRegex.exec(passageText)) !== null) {
+      if (underscoreMatch.index > lastIndex) {
+        elements.push(
+          <span
+            key={`underscore-text-${lastIndex}`}
+            dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex, underscoreMatch.index) }}
+          />
+        );
+      }
+
+      elements.push(buildBlankPill(blankIdx, blanks?.[blankIdx]?.questionNum));
+      blankIdx += 1;
+      lastIndex = underscoreMatch.index + underscoreMatch[0].length;
+    }
+
+    if (!elements.length) return null;
+
+    if (lastIndex < passageText.length) {
+      elements.push(
+        <span
+          key={`underscore-end-${lastIndex}`}
+          dangerouslySetInnerHTML={{ __html: passageText.substring(lastIndex) }}
+        />
+      );
+    }
+
+    return elements;
+  };
+
+  const inlinePassage = renderInline();
+
+  return (
+    <div style={styles.asideCard}>
+      <h5 style={styles.asideTitle}>Open Cloze</h5>
+      {inlinePassage ? (
+        <div style={styles.clozePassageCard}>
+          <div style={styles.clozePassageBody}>{inlinePassage}</div>
+        </div>
+      ) : null}
+
+      <div style={styles.clozeAnswerGrid}>
+        {blanks.map((blank, blankIdx) => {
+          const blankReview = getBlankReview(blankIdx);
+          const questionNumber = Number(blank?.questionNum || blank?.number) || sectionStart + blankIdx;
+
+          return (
+            <div
+              key={`cloze-answer-${blankIdx}`}
+              style={{
+                ...styles.clozeAnswerItem,
+                borderLeftColor: blankReview.status.border,
+              }}
+            >
+              <div style={styles.clozeAnswerItemHeader}>
+                <span style={{ ...styles.clozeAnswerNum, background: blankReview.status.background, color: blankReview.status.color }}>
+                  {questionNumber}
+                </span>
+                <span style={styles.clozeAnswerStatus}>{blankReview.status.label}</span>
+              </div>
+
+              <div style={styles.clozeAnswerRow}>
+                <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
+                <span style={{ ...styles.answerValue, background: blankReview.status.background, color: blankReview.status.color, borderColor: blankReview.status.border }}>
+                  {formatAnswerText(blankReview.studentAnswer)}
+                </span>
+              </div>
+
+              <div style={styles.clozeAnswerRow}>
+                <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
+                <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                  {formatAnswerText(blankReview.correctAnswer)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReadingOpenQuestionsReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+  const title = question?.passageTitle || question?.title || 'Read the message.';
+  const instruction = question?.instruction || 'Answer the questions.';
+  const passageHtml = sanitizePromptHtml(question?.passage || question?.passageText || '');
+  const items = Array.isArray(question?.items) ? question.items : [];
+
+  return (
+    <div style={styles.twoColumn}>
+      <div style={styles.asideCard}>
+        <h5 style={styles.asideTitle}>{title}</h5>
+        {passageHtml ? <div style={styles.richPromptHtml} dangerouslySetInnerHTML={{ __html: passageHtml }} /> : null}
+      </div>
+
+      <div style={styles.asideCard}>
+        <h5 style={styles.asideTitle}>Questions</h5>
+        <p style={styles.introText}>{instruction}</p>
+        <div style={{ ...styles.reviewRows, marginTop: '12px' }}>
+          {items.map((item, idx) => {
+            const resolved = resolveStructuredAnswer({
+              partIdx,
+              secIdx,
+              qIdx,
+              itemIdx: idx,
+              answers,
+              detailedResults,
+              fallbackCorrectAnswer: item?.correctAnswer || '',
+            });
+
+            return (
+              <div key={`${partIdx}-${secIdx}-${qIdx}-${idx}`} style={styles.reviewRowCard}>
+                <div style={styles.reviewRowHeader}>
+                  <span style={styles.reviewNumber}>{sectionStart + idx}</span>
+                  <h5 style={styles.reviewTitle}>{item?.questionText || `Question ${sectionStart + idx}`}</h5>
+                  <span style={{ ...styles.statusChip, background: resolved.status.background, color: resolved.status.color }}>
+                    {resolved.status.label}
+                  </span>
+                </div>
+
+                <div style={styles.reviewMeta}>
+                  <div style={styles.answerLine}>
+                    <span style={styles.answerLabel}>{STUDENT_ANSWER_LABEL}</span>
+                    <span style={{ ...styles.answerValue, background: resolved.status.background, color: resolved.status.color, borderColor: resolved.status.border }}>
+                      {formatAnswerText(resolved.studentAnswer)}
+                    </span>
+                  </div>
+                  {resolved.correctAnswer ? (
+                    <div style={styles.answerLine}>
+                      <span style={styles.answerLabel}>{CORRECT_ANSWER_LABEL}</span>
+                      <span style={{ ...styles.answerValue, background: '#dcfce7', color: '#166534', borderColor: '#22c55e' }}>
+                        {formatAnswerText(resolved.correctAnswer)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {item?.explanation ? (
+                    <div style={{ fontSize: '13px', lineHeight: 1.6, color: '#64748b' }}>{item.explanation}</div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1573,6 +2310,21 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 const questionStart = questionCursor;
                 questionCursor += questionCountForQuestion(sectionType, question);
 
+                  const shouldRestrictToPrimaryStructuredQuestion =
+                    sectionType === 'long-text-mc' ||
+                    sectionType === 'cloze-test' ||
+                    sectionType === 'preposition-gap-fill' ||
+                    sectionType === 'odd-one-out' ||
+                    sectionType === 'sentence-correction' ||
+                    sectionType === 'reading-open-questions';
+
+                  if (
+                    shouldRestrictToPrimaryStructuredQuestion &&
+                    qIdx !== getStructuredSectionPrimaryQuestionIndex(section)
+                  ) {
+                    return null;
+                  }
+
                 if (sectionType === 'sign-message') {
                   const answerKey = `${partIdx}-${secIdx}-${qIdx}`;
                   return (
@@ -1616,24 +2368,16 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 }
 
                 if (sectionType === 'cloze-test') {
-                  const derivedAnswers = Array.isArray(question?.blanks) && question.blanks.length > 0
-                    ? question.blanks.map((blank) => blank?.correctAnswer || '')
-                    : Array.isArray(question?.answers)
-                      ? question.answers
-                      : Object.values(question?.answers || {});
-
                   return (
-                    <ClozeTestDisplay
+                    <ClozeTestReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
-                      section={{
-                        id: `${partIdx}-${secIdx}-${qIdx}`,
-                        passage: question?.passage || question?.passageText || question?.clozeText || '',
-                        answers: derivedAnswers,
-                      }}
-                      startingNumber={questionStart}
-                      onAnswerChange={noop}
+                      question={question}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
                       answers={answers}
-                      submitted
+                      detailedResults={detailedResults}
                     />
                   );
                 }
@@ -1653,26 +2397,60 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
 
                 if (sectionType === 'preposition-gap-fill') {
                   return (
-                    <PrepositionGapFillDisplay
+                    <PrepositionGapFillReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
-                      section={{ ...section, id: `${partIdx}-${secIdx}`, questions: [question] }}
-                      startingNumber={questionStart}
-                      onAnswerChange={noop}
+                      question={question}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
                       answers={answers}
-                      submitted
+                      detailedResults={detailedResults}
                     />
                   );
                 }
 
                 if (sectionType === 'odd-one-out') {
                   return (
-                    <OddOneOutDisplay
+                    <OddOneOutReview
                       key={`${partIdx}-${secIdx}-${qIdx}`}
-                      section={{ ...section, id: `${partIdx}-${secIdx}`, questions: [question] }}
-                      startingNumber={questionStart}
-                      onAnswerChange={noop}
+                      question={question}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
                       answers={answers}
-                      submitted
+                      detailedResults={detailedResults}
+                    />
+                  );
+                }
+
+                if (sectionType === 'sentence-correction') {
+                  return (
+                    <SentenceCorrectionReview
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      question={question}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
+                      answers={answers}
+                      detailedResults={detailedResults}
+                    />
+                  );
+                }
+
+                if (sectionType === 'reading-open-questions') {
+                  return (
+                    <ReadingOpenQuestionsReview
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      question={question}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
+                      answers={answers}
+                      detailedResults={detailedResults}
                     />
                   );
                 }

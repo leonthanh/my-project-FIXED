@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import InlineIcon from "../../InlineIcon.jsx";
 
 /**
@@ -23,6 +23,14 @@ const PrepositionGapFillEditor = ({
   const instruction = question?.instruction || "Fill in the appropriate prepositions in the blanks.";
   const options = Array.isArray(question?.options) ? question.options : [];
   const items = Array.isArray(question?.items) ? question.items : [];
+  const normalizedItems = useMemo(
+    () =>
+      items.map((item, idx) => ({
+        ...item,
+        number: startingNumber + idx,
+      })),
+    [items, startingNumber]
+  );
 
   const setField = (field, value) => onChange(field, value);
 
@@ -52,6 +60,12 @@ const PrepositionGapFillEditor = ({
       ...item,
       number: startingNumber + idx,
     }));
+
+  useEffect(() => {
+    const hasMismatch = items.some((item, idx) => Number(item?.number) !== startingNumber + idx);
+    if (!hasMismatch) return;
+    setField("items", renumberItems(items));
+  }, [items, startingNumber]);
 
   const addItem = () => {
     const next = [
@@ -126,7 +140,7 @@ const PrepositionGapFillEditor = ({
               opacity: 0.9,
             }}
           >
-            Questions {startingNumber}-{startingNumber + items.length - 1}
+            Questions {startingNumber}-{startingNumber + normalizedItems.length - 1}
           </span>
         </div>
       </div>
@@ -267,7 +281,7 @@ const PrepositionGapFillEditor = ({
 
       {/* Items */}
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {items.map((item, idx) => (
+        {normalizedItems.map((item, idx) => (
           <div
             key={idx}
             style={{
@@ -314,10 +328,10 @@ const PrepositionGapFillEditor = ({
                   fontSize: "14px",
                 }}
               >
-                {item.number || startingNumber + idx}
+                {item.number}
               </span>
               <span style={{ fontSize: "13px", color: "#5b21b6", fontWeight: 500 }}>
-                Question {item.number || startingNumber + idx}
+                Question {item.number}
               </span>
             </div>
 
@@ -421,7 +435,7 @@ const PrepositionGapFillEditor = ({
           Tổng hợp đáp án:
         </h4>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-          {items.map((item) => (
+          {normalizedItems.map((item) => (
             <span
               key={item.number}
               style={{
@@ -433,7 +447,7 @@ const PrepositionGapFillEditor = ({
                 fontWeight: 500,
               }}
             >
-              {item.number || startingNumber}: {item.correctAnswer || "?"}
+              {item.number}: {item.correctAnswer || "?"}
             </span>
           ))}
         </div>
