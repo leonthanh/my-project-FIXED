@@ -6,6 +6,7 @@ import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
+import { shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
 function resolveAsset(url) {
   if (!url) return '';
@@ -302,7 +303,9 @@ const CambridgeResultPage = () => {
     if (!t || !Array.isArray(t.parts)) return true;
     // If any cloze-test question is missing blanks (or blanks empty), the UI can't render Part 5 properly
     for (const part of t.parts) {
+      const partIndex = t.parts.indexOf(part);
       for (const section of (part?.sections || [])) {
+        if (!shouldIncludeSectionForPart(t?.testType, partIndex, section, part?.sections || [])) continue;
         if (section?.questionType !== 'cloze-test') continue;
         for (const q of (section?.questions || [])) {
           if (!Array.isArray(q?.blanks) || q.blanks.length === 0) return true;
@@ -446,6 +449,10 @@ const CambridgeResultPage = () => {
 
     test.parts?.forEach((part, partIdx) => {
       part.sections?.forEach((section, secIdx) => {
+        if (!shouldIncludeSectionForPart(submission?.testType || test?.testType, partIdx, section, part.sections || [])) {
+          return;
+        }
+
         const sectionType = getSectionType(section);
 
         section.questions?.forEach((question, qIdx) => {

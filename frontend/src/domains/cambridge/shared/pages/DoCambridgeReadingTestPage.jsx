@@ -26,7 +26,12 @@ import OddOneOutDisplay from "../../../../shared/components/questions/displays/O
 import ClozeMCDisplay from "../../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
 import CambridgeResultsModal from "../components/CambridgeResultsModal";
-import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../utils/questionNumbering";
+import {
+  computeQuestionStarts,
+  getQuestionCountForSection,
+  parseClozeBlanksFromText,
+  shouldIncludeSectionForPart,
+} from "../utils/questionNumbering";
 import {
   formatClock,
   getExtensionToastMessage,
@@ -1105,8 +1110,8 @@ const DoCambridgeReadingTest = ({
   }, [test?.parts, currentPartIndex]);
 
   const questionStarts = useMemo(() => {
-    return computeQuestionStarts(test?.parts || []);
-  }, [test?.parts]);
+    return computeQuestionStarts(test?.parts || [], test?.testType || routeTestType);
+  }, [routeTestType, test?.parts, test?.testType]);
 
   // Calculate question number range for a part
   const getPartQuestionRange = useCallback((partIndex) => {
@@ -1115,6 +1120,9 @@ const DoCambridgeReadingTest = ({
     const startNum = questionStarts.sectionStart[`${partIndex}-0`] || 1;
     let count = 0;
     for (const sec of test.parts[partIndex]?.sections || []) {
+      if (!shouldIncludeSectionForPart(test?.testType || routeTestType, partIndex, sec, test.parts[partIndex]?.sections || [])) {
+        continue;
+      }
       count += getQuestionCountForSection(sec);
     }
 
@@ -1205,6 +1213,10 @@ const DoCambridgeReadingTest = ({
 
     test.parts.forEach((part, pIdx) => {
       part.sections?.forEach((section, sIdx) => {
+        if (!shouldIncludeSectionForPart(test?.testType || routeTestType, pIdx, section, part.sections || [])) {
+          return;
+        }
+
         const isStandaloneWritingSection = section.questionType === 'short-message' || section.questionType === 'story-writing';
         const shouldSkipStandaloneWritingSection =
           examType === 'MOVERS' &&
@@ -1557,7 +1569,7 @@ const DoCambridgeReadingTest = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [examType, getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, test?.parts]);
+  }, [examType, getStructuredSectionPrimaryQuestionIndex, resolveExplicitQuestionNumber, routeTestType, test?.parts, test?.testType]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 

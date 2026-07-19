@@ -684,6 +684,35 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     setSelectedSectionIndex((currentPart?.sections?.length || 0));
   };
 
+  const handleDeleteSection = useCallback((sectionIndex) => {
+    let nextSelectedIndex = selectedSectionIndex;
+
+    updateParts((prevParts) => prevParts.map((part, pIdx) => {
+      if (pIdx !== selectedPartIndex) return part;
+
+      const originalSections = Array.isArray(part.sections) ? part.sections : [];
+      if (originalSections.length <= 1) {
+        nextSelectedIndex = 0;
+        return part;
+      }
+
+      const nextSections = originalSections.filter((_, idx) => idx !== sectionIndex);
+
+      if (selectedSectionIndex > sectionIndex) {
+        nextSelectedIndex = selectedSectionIndex - 1;
+      } else if (selectedSectionIndex === sectionIndex) {
+        nextSelectedIndex = Math.min(sectionIndex, nextSections.length - 1);
+      }
+
+      return {
+        ...part,
+        sections: nextSections,
+      };
+    }));
+
+    setSelectedSectionIndex(Math.max(nextSelectedIndex, 0));
+  }, [selectedPartIndex, selectedSectionIndex, updateParts]);
+
   const handleAddQuestion = () => {
     const currentType = currentSection?.questionType;
     updateParts(prevParts => prevParts.map((part, pIdx) => {
@@ -2037,6 +2066,31 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   <InlineIcon name="writing" size={16} />
                   Section {selectedSectionIndex + 1}
                 </h3>
+
+                {currentPart?.sections?.length > 1 ? (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSection(selectedSectionIndex)}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                      }}
+                      title="Xóa section hiện tại"
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <InlineIcon name="trash" size={14} style={{ color: 'white' }} />
+                        Xóa Section
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
 
                 {/* Question Type Selector */}
                 <div style={{ marginBottom: '20px' }}>
