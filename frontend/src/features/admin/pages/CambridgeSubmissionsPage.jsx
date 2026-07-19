@@ -1020,7 +1020,16 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
   };
 
   // View submission detail
-  const handleViewDetail = (submissionId) => {
+  const handleViewDetail = (submission) => {
+    const submissionId = submission?.id;
+    if (!submissionId) return;
+
+    const normalizedTestType = String(submission?.testType || '').trim().toLowerCase();
+    if (platformFilter === 'fce' && normalizedTestType === 'fce-reading-60') {
+      navigate(`/fce/result/${submissionId}`);
+      return;
+    }
+
     navigate(`/cambridge/result/${submissionId}`);
   };
 
@@ -1403,7 +1412,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
 
               <div style={styles.feedbackActions}>
                 <button
-                  onClick={() => handleViewDetail(submission.id)}
+                  onClick={() => handleViewDetail(submission)}
                   style={styles.ghostActionButton}
                 >
                   Open Full Result
@@ -1970,7 +1979,7 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
                           </button>
                         )}
                         <button
-                          onClick={() => handleViewDetail(submission.id)}
+                          onClick={() => handleViewDetail(submission)}
                           style={styles.submissionActionButtonView}
                         >
                           <InlineIcon name="eye" size={15} />

@@ -395,6 +395,11 @@ const CambridgeResultPage = () => {
     );
   };
 
+  const isFceReading60 = useMemo(
+    () => String(submission?.testType || '').trim().toLowerCase() === 'fce-reading-60',
+    [submission?.testType]
+  );
+
   const parseClozeBlanks = (passageText, startNum = 1) => {
     if (!passageText) return [];
     let plainText = passageText;
@@ -431,45 +436,6 @@ const CambridgeResultPage = () => {
 
     return blanks;
   };
-
-  // Calculate stats
-  const stats = useMemo(() => {
-    if (!submission) return null;
-    
-    const { score, percentage, detailedResults } = submission;
-    
-    let correctCount = 0;
-    let wrongCount = 0;
-    let unansweredCount = 0;
-    let totalCount = 0;
-
-    if (detailedResults && typeof detailedResults === 'object') {
-      Object.values(detailedResults).forEach(result => {
-        if (!result || typeof result !== 'object') return;
-
-        // Only count questions with isCorrect !== null (exclude skipped/missing answers)
-        if (result.isCorrect !== null) {
-          totalCount++;
-          if (result.isCorrect) correctCount++;
-          else if (result.userAnswer === null || result.userAnswer === '') unansweredCount++;
-          else wrongCount++;
-        }
-      });
-    }
-
-    // If no valid results, use submission.totalQuestions as fallback
-    const total = totalCount > 0 ? totalCount : (submission.totalQuestions || 0);
-
-    return {
-      score: score || 0,
-      total: total,
-      percentage: percentage || 0,
-      correct: correctCount,
-      wrong: wrongCount,
-      unanswered: unansweredCount,
-      grade: getGrade(percentage || 0)
-    };
-  }, [submission]);
 
   // Build mapping of answer keys to question numbers
   const questionNumberMap = useMemo(() => {
@@ -565,6 +531,50 @@ const CambridgeResultPage = () => {
             question.sentences.forEach((s, sentIdx) => {
               const key = `${partIdx}-${secIdx}-${qIdx}-${sentIdx}`;
               const legacyKey = `${partIdx}-${secIdx}-${sentIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'preposition-gap-fill' && Array.isArray(question.items)) {
+            question.items.forEach((item, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'odd-one-out' && Array.isArray(question.groups)) {
+            question.groups.forEach((group, groupIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${groupIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${groupIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'sentence-correction' && Array.isArray(question.items)) {
+            question.items.forEach((item, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            });
+            return;
+          }
+
+          if (sectionType === 'reading-open-questions' && Array.isArray(question.items)) {
+            question.items.forEach((item, itemIdx) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
               map[key] = questionNum + 1;
               map[legacyKey] = questionNum + 1;
               questionNum++;
@@ -678,6 +688,59 @@ const CambridgeResultPage = () => {
 
     return map;
   }, [test?.parts]);
+
+  const mappedQuestionResults = useMemo(() => {
+    if (!submission?.detailedResults || typeof submission.detailedResults !== 'object') {
+      return [];
+    }
+
+    const mapped = new Map();
+    Object.entries(submission.detailedResults).forEach(([key, result]) => {
+      const questionNum = Number(questionNumberMap[key]);
+      if (!Number.isFinite(questionNum) || questionNum <= 0) return;
+      if (!result || typeof result !== 'object') return;
+      if (!mapped.has(questionNum)) {
+        mapped.set(questionNum, { key, questionNum, result });
+      }
+    });
+
+    return Array.from(mapped.values()).sort((left, right) => left.questionNum - right.questionNum);
+  }, [questionNumberMap, submission?.detailedResults]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!submission) return null;
+
+    const { score, percentage } = submission;
+    let correctCount = 0;
+    let wrongCount = 0;
+    let unansweredCount = 0;
+
+    mappedQuestionResults.forEach(({ result }) => {
+      const status = getResultStatus(result);
+      if (status.label === 'Correct') {
+        correctCount += 1;
+      } else if (status.label === 'Wrong') {
+        wrongCount += 1;
+      } else if (status.label === 'Blank') {
+        unansweredCount += 1;
+      }
+    });
+
+    const total = isFceReading60
+      ? Number(submission.totalQuestions) || mappedQuestionResults.length || 0
+      : mappedQuestionResults.length || Number(submission.totalQuestions) || 0;
+
+    return {
+      score: Number(score) || 0,
+      total,
+      percentage: Number(percentage) || 0,
+      correct: correctCount,
+      wrong: wrongCount,
+      unanswered: unansweredCount,
+      grade: getGrade(Number(percentage) || 0)
+    };
+  }, [getResultStatus, isFceReading60, mappedQuestionResults, submission]);
 
   // Get grade based on percentage
   function getGrade(percentage) {
@@ -1175,9 +1238,7 @@ const CambridgeResultPage = () => {
             <div style={styles.questionSummary}>
               <h3 style={styles.summaryTitle}>Question Summary</h3>
               <div style={styles.questionGrid}>
-                {submission.detailedResults && Object.entries(submission.detailedResults).map(([key, result]) => {
-                  const questionNum = questionNumberMap[key];
-                  if (!questionNum) return null; // Skip non-numbered question (short-message, story-writing...)
+                {mappedQuestionResults.map(({ key, questionNum, result }) => {
                   const label = formatQuestionLabel(questionNum);
                   const status = getResultStatus(result);
 

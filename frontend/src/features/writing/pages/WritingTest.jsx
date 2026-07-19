@@ -38,6 +38,26 @@ const hasMeaningfulWritingContent = (task1, task2) => {
   );
 };
 
+const readLocalStorageValue = (key, fallback = "") => {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null || value === undefined ? fallback : value;
+  } catch (_err) {
+    return fallback;
+  }
+};
+
+const readLocalStorageJson = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_err) {
+    return null;
+  }
+};
+
+const buildWritingDraftStateKey = (uid, testId) => `writing:draft:${uid}:${testId || "pending"}`;
+
 const progressRingStyle = {
   width: 40,
   height: 40,
@@ -325,28 +345,56 @@ const WritingTest = () => {
     ),
     [isPlacementRuntime, placementContext.placementAttemptToken]
   );
-  const writingTask1Key   = `writing_task1:${uid}`;
-  const writingTask2Key   = `writing_task2:${uid}`;
-  const writingTimeKey    = `writing_timeLeft:${uid}`;
-  const writingStartedKey = `writing_started:${uid}`;
-  const writingEndAtKey   = `writing_endAt:${uid}`;
-  const [task1, setTask1] = useState(
-    localStorage.getItem(writingTask1Key) || ""
+  const initialSelectedTestId = useMemo(() => {
+    if (isPlacementRuntime && routeTestId) {
+      return String(routeTestId);
+    }
+
+    return readLocalStorageValue("selectedTestId", String(routeTestId || ""));
+  }, [isPlacementRuntime, routeTestId]);
+  const [selectedTestId, setSelectedTestId] = useState(initialSelectedTestId);
+  const writingStorageScope = useMemo(
+    () => String(selectedTestId || routeTestId || initialSelectedTestId || "pending"),
+    [initialSelectedTestId, routeTestId, selectedTestId]
   );
-  const [task2, setTask2] = useState(
-    localStorage.getItem(writingTask2Key) || ""
-  );
+  const writingTask1Key = `writing_task1:${uid}:${writingStorageScope}`;
+  const writingTask2Key = `writing_task2:${uid}:${writingStorageScope}`;
+  const writingTimeKey = `writing_timeLeft:${uid}:${writingStorageScope}`;
+  const writingStartedKey = `writing_started:${uid}:${writingStorageScope}`;
+  const writingEndAtKey = `writing_endAt:${uid}:${writingStorageScope}`;
+  const writingStateKey = buildWritingDraftStateKey(uid, writingStorageScope);
+  const legacyWritingTask1Key = `writing_task1:${uid}`;
+  const legacyWritingTask2Key = `writing_task2:${uid}`;
+  const legacyWritingTimeKey = `writing_timeLeft:${uid}`;
+  const legacyWritingStartedKey = `writing_started:${uid}`;
+  const legacyWritingEndAtKey = `writing_endAt:${uid}`;
+  const initialLocalDraft = useMemo(() => readLocalStorageJson(writingStateKey), [writingStateKey]);
+  const [task1, setTask1] = useState(() => {
+    if (typeof initialLocalDraft?.task1 === "string") return initialLocalDraft.task1;
+    return readLocalStorageValue(writingTask1Key, readLocalStorageValue(legacyWritingTask1Key, ""));
+  });
+  const [task2, setTask2] = useState(() => {
+    if (typeof initialLocalDraft?.task2 === "string") return initialLocalDraft.task2;
+    return readLocalStorageValue(writingTask2Key, readLocalStorageValue(legacyWritingTask2Key, ""));
+  });
   const [timeLeft, setTimeLeft] = useState(() => {
-    const saved = localStorage.getItem(writingTimeKey);
+    const snapshotValue = Number(initialLocalDraft?.timeLeft);
+    if (Number.isFinite(snapshotValue) && snapshotValue > 0) return snapshotValue;
+
+    const saved = readLocalStorageValue(writingTimeKey, readLocalStorageValue(legacyWritingTimeKey, ""));
     return saved ? parseInt(saved, 10) : 60 * 60;
   });
   const [endAt, setEndAt] = useState(() => {
-    const saved = localStorage.getItem(writingEndAtKey);
+    const snapshotValue = Number(initialLocalDraft?.endAt);
+    if (Number.isFinite(snapshotValue) && snapshotValue > 0) return snapshotValue;
+
+    const saved = readLocalStorageValue(writingEndAtKey, readLocalStorageValue(legacyWritingEndAtKey, ""));
     return saved ? parseInt(saved, 10) : 0;
   });
-  const [started, setStarted] = useState(
-    localStorage.getItem(writingStartedKey) === "true"
-  );
+  const [started, setStarted] = useState(() => {
+    if (typeof initialLocalDraft?.started === "boolean") return initialLocalDraft.started;
+    return readLocalStorageValue(writingStartedKey, readLocalStorageValue(legacyWritingStartedKey, "false")) === "true";
+  });
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -354,19 +402,14 @@ const WritingTest = () => {
   const [testData, setTestData] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth <= 768 : false);
-  const [selectedTestId, setSelectedTestId] = useState(() => {
-    if (isPlacementRuntime && routeTestId) {
-      return String(routeTestId);
-    }
-
-    return localStorage.getItem("selectedTestId") || "";
-  });
   const [isHydratingDraft, setIsHydratingDraft] = useState(true);
   const [graceRemaining, setGraceRemaining] = useState(0);
   const [extensionToast, setExtensionToast] = useState("");
   const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
   const autoSubmittingRef = useRef(false);
   const lastAnnouncedExpiryRef = useRef(null);
+  const localDraftRef = useRef(initialLocalDraft);
+  const lastServerDraftFingerprintRef = useRef("");
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -419,29 +462,52 @@ const WritingTest = () => {
     return () => clearTimeout(timeoutId);
   }, [runtimeLimitToast]);
 
+  const persistLocalDraft = useCallback(() => {
+    const snapshot = {
+      testId: writingStorageScope,
+      task1,
+      task2,
+      timeLeft,
+      endAt,
+      started,
+      updatedAt: Date.now(),
+    };
+
+    try {
+      localStorage.setItem(writingTask1Key, task1);
+      localStorage.setItem(writingTask2Key, task2);
+      localStorage.setItem(writingTimeKey, String(timeLeft));
+      localStorage.setItem(writingStartedKey, started ? "true" : "false");
+      if (endAt) {
+        localStorage.setItem(writingEndAtKey, String(endAt));
+      } else {
+        localStorage.removeItem(writingEndAtKey);
+      }
+      localStorage.setItem(writingStateKey, JSON.stringify(snapshot));
+      localDraftRef.current = snapshot;
+    } catch (_err) {
+      // ignore storage errors
+    }
+  }, [endAt, started, task1, task2, timeLeft, writingEndAtKey, writingStartedKey, writingStateKey, writingStorageScope, writingTask1Key, writingTask2Key, writingTimeKey]);
+
   // Save writing content to localStorage as the student types (debounced).
   // The server is only synced periodically to avoid rate-limiting and dropped connections.
   useEffect(() => {
     let debounceId;
-    const persistLocal = () => {
-      try {
-        localStorage.setItem(writingTask1Key, task1);
-        localStorage.setItem(writingTask2Key, task2);
-      } catch (_err) {
-        // ignore storage errors
-      }
-    };
-    debounceId = setTimeout(persistLocal, LOCAL_AUTOSAVE_DEBOUNCE_MS);
+    debounceId = setTimeout(persistLocalDraft, LOCAL_AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(debounceId);
-  }, [task1, task2, writingTask1Key, writingTask2Key]);
+  }, [persistLocalDraft]);
 
   useEffect(() => {
-    localStorage.setItem(writingTimeKey, timeLeft.toString());
-  }, [timeLeft, writingTimeKey]);
+    const flushLocalDraft = () => persistLocalDraft();
+    window.addEventListener("pagehide", flushLocalDraft);
+    document.addEventListener("visibilitychange", flushLocalDraft);
 
-  useEffect(() => {
-    localStorage.setItem(writingStartedKey, started.toString());
-  }, [started, writingStartedKey]);
+    return () => {
+      window.removeEventListener("pagehide", flushLocalDraft);
+      document.removeEventListener("visibilitychange", flushLocalDraft);
+    };
+  }, [persistLocalDraft]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -520,6 +586,17 @@ const WritingTest = () => {
         const draft = data?.submission;
         if (!draft) return;
 
+        const localDraft = localDraftRef.current || readLocalStorageJson(writingStateKey);
+        const localUpdatedAt = Number(localDraft?.updatedAt) || 0;
+        const serverUpdatedAt =
+          toTimestamp(draft?.draftSavedAt) ||
+          toTimestamp(draft?.updatedAt) ||
+          toTimestamp(draft?.createdAt);
+        const shouldPreferLocalDraft =
+          Boolean(localDraft) &&
+          (hasMeaningfulWritingContent(localDraft?.task1, localDraft?.task2) || localDraft?.started === true) &&
+          (!Number.isFinite(serverUpdatedAt) || localUpdatedAt > serverUpdatedAt + 1500);
+
         const draftTestId = Number(draft.testId);
         if (!isPlacementRuntime && !storedTestId && Number.isFinite(draftTestId) && draftTestId > 0) {
           const nextTestId = String(draftTestId);
@@ -527,19 +604,42 @@ const WritingTest = () => {
           setSelectedTestId(nextTestId);
         }
 
-        setTask1(typeof draft.task1 === "string" ? draft.task1 : "");
-        setTask2(typeof draft.task2 === "string" ? draft.task2 : "");
+        if (!shouldPreferLocalDraft) {
+          setTask1(typeof draft.task1 === "string" ? draft.task1 : "");
+          setTask2(typeof draft.task2 === "string" ? draft.task2 : "");
 
-        if (Number.isFinite(Number(draft.timeLeft))) {
-          setTimeLeft(Number(draft.timeLeft));
-        }
+          if (Number.isFinite(Number(draft.timeLeft))) {
+            setTimeLeft(Number(draft.timeLeft));
+          }
 
-        if (draft.draftEndAt) {
-          syncTimingState(draft.draftEndAt);
-        }
+          if (draft.draftEndAt) {
+            syncTimingState(draft.draftEndAt);
+          }
 
-        if (typeof draft.draftStarted === "boolean") {
-          setStarted(Boolean(draft.draftStarted));
+          if (typeof draft.draftStarted === "boolean") {
+            setStarted(Boolean(draft.draftStarted));
+          }
+          localDraftRef.current = {
+            testId: writingStorageScope,
+            task1: typeof draft.task1 === "string" ? draft.task1 : "",
+            task2: typeof draft.task2 === "string" ? draft.task2 : "",
+            timeLeft: Number.isFinite(Number(draft.timeLeft)) ? Number(draft.timeLeft) : timeLeft,
+            endAt: toTimestamp(draft.draftEndAt) || endAt || 0,
+            started: typeof draft.draftStarted === "boolean" ? Boolean(draft.draftStarted) : started,
+            updatedAt: Number.isFinite(serverUpdatedAt) ? serverUpdatedAt : Date.now(),
+          };
+        } else {
+          const localEndAt = toTimestamp(localDraft?.endAt);
+          const serverEndAt = toTimestamp(draft?.draftEndAt);
+          const authoritativeEndAt = Number.isFinite(serverEndAt) && serverEndAt > localEndAt ? serverEndAt : localEndAt;
+
+          if (Number.isFinite(authoritativeEndAt)) {
+            syncTimingState(authoritativeEndAt, Number(localDraft?.timeLeft) || null);
+          }
+
+          if (typeof localDraft?.started === "boolean") {
+            setStarted(localDraft.started);
+          }
         }
       } catch (err) {
         console.error("Error loading writing draft:", err);
@@ -560,6 +660,11 @@ const WritingTest = () => {
     selectedTestId,
     syncTimingState,
     user?.id,
+    writingStateKey,
+    writingStorageScope,
+    timeLeft,
+    endAt,
+    started,
   ]);
 
   useEffect(() => {
@@ -589,8 +694,19 @@ const WritingTest = () => {
   }, [selectedTestId, isHydratingDraft]);
 
   const lastServerSaveAtRef = useRef(0);
+  const draftSyncFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        testId: selectedTestId || routeTestId || "",
+        task1,
+        task2,
+        endAt: Number.isFinite(Number(endAt)) ? Number(endAt) : 0,
+        started: Boolean(started),
+      }),
+    [endAt, routeTestId, selectedTestId, started, task1, task2]
+  );
 
-  const saveDraftToServer = useCallback(async () => {
+  const saveDraftToServer = useCallback(async ({ force = false, keepalive = false } = {}) => {
     if (isHydratingDraft || submitted) return;
     if (!isPlacementRuntime && !user?.id) return;
 
@@ -599,12 +715,16 @@ const WritingTest = () => {
 
     const now = Date.now();
     // Guard against accidental bursts from effect re-runs / rapid calls.
-    if (now - lastServerSaveAtRef.current < SERVER_AUTOSAVE_INTERVAL_MS - 1000) {
+    if (!force && now - lastServerSaveAtRef.current < SERVER_AUTOSAVE_INTERVAL_MS - 1000) {
       return;
     }
 
     // Don't create an empty server draft before the student has typed anything.
     if (!hasMeaningfulWritingContent(task1, task2)) {
+      return;
+    }
+
+    if (!force && draftSyncFingerprint === lastServerDraftFingerprintRef.current) {
       return;
     }
 
@@ -635,6 +755,7 @@ const WritingTest = () => {
       const res = await fetch(apiPath("writing/draft/autosave"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive,
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -647,6 +768,7 @@ const WritingTest = () => {
       }
 
       setRuntimeLimitToast("");
+      lastServerDraftFingerprintRef.current = draftSyncFingerprint;
       const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
       if (nextEndAt) {
         announceExtension(nextEndAt, endAt);
@@ -670,6 +792,7 @@ const WritingTest = () => {
     task2,
     timeLeft,
     user,
+    draftSyncFingerprint,
   ]);
 
   const reconcileServerTiming = useCallback(async () => {
@@ -731,14 +854,20 @@ const WritingTest = () => {
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        saveDraftToServer();
+        saveDraftToServer({ force: true, keepalive: true });
       }
     };
 
+    const onPageHide = () => {
+      saveDraftToServer({ force: true, keepalive: true });
+    };
+
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
     };
   }, [isHydratingDraft, isPlacementRuntime, saveDraftToServer, selectedTestId, submitted, user?.id]);
 
@@ -831,13 +960,17 @@ const WritingTest = () => {
       localStorage.removeItem(writingTimeKey);
       localStorage.removeItem(writingStartedKey);
       localStorage.removeItem(writingEndAtKey);
+      localStorage.removeItem(writingStateKey);
+      localStorage.removeItem(legacyWritingTask1Key);
+      localStorage.removeItem(legacyWritingTask2Key);
+      localStorage.removeItem(legacyWritingTimeKey);
+      localStorage.removeItem(legacyWritingStartedKey);
+      localStorage.removeItem(legacyWritingEndAtKey);
       if (!isPlacementRuntime) {
         localStorage.removeItem("selectedTestId");
       }
 
-      setTimeout(() => {
-        navigate(exitPath, { replace: true });
-      }, isPlacementRuntime ? 1200 : 3000);
+      navigate(exitPath, { replace: true });
     } catch (err) {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
@@ -860,7 +993,13 @@ const WritingTest = () => {
     task2,
     timeLeft,
     user,
+    legacyWritingEndAtKey,
+    legacyWritingStartedKey,
+    legacyWritingTask1Key,
+    legacyWritingTask2Key,
+    legacyWritingTimeKey,
     writingEndAtKey,
+    writingStateKey,
     writingStartedKey,
     writingTask1Key,
     writingTask2Key,
@@ -901,7 +1040,6 @@ const WritingTest = () => {
       setGraceRemaining(nextGraceRemaining);
       if (
         remain <= 0 &&
-        nextGraceRemaining <= 0 &&
         !autoSubmittingRef.current
       ) {
         autoSubmittingRef.current = true;

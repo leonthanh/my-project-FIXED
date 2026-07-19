@@ -7,6 +7,7 @@ const EditFceReadingTest = lazy(() => import('./reading/pages/EditFceReadingTest
 const CreateFceListeningTest = lazy(() => import('./listening/pages/CreateFceListeningTestPage'));
 const EditFceListeningTest = lazy(() => import('./listening/pages/EditFceListeningTestPage'));
 const FceSubmissionsPage = lazy(() => import('./pages/FceSubmissionsPage'));
+const FceReadingResultPage = lazy(() => import('./pages/FceReadingResultPage'));
 const DoFceReadingTest = lazy(() => import('./reading/pages/DoFceReadingTestPage'));
 const DoFceListeningTest = lazy(() => import('./listening/pages/DoFceListeningTestPage'));
 
@@ -14,6 +15,7 @@ export const buildFceRoutes = ({ isAuthenticated }) => [
   <Route key="admin-create-fce-reading" path="/admin/create-fce-reading" element={renderProtected('teacher', <CreateFceReadingTest />)} />,
   <Route key="admin-create-fce-listening" path="/admin/create-fce-listening" element={renderProtected('teacher', <CreateFceListeningTest />)} />,
   <Route key="admin-fce-submissions" path="/admin/fce-submissions" element={renderProtected('teacher', <FceSubmissionsPage />)} />,
+  <Route key="fce-reading-result" path="/fce/result/:submissionId" element={renderProtected('teacher', <FceReadingResultPage />)} />,
   <Route key="fce-reading-edit" path="/fce/reading/:id/edit" element={renderProtected('teacher', <EditFceReadingTest />)} />,
   <Route key="fce-listening-edit" path="/fce/listening/:id/edit" element={renderProtected('teacher', <EditFceListeningTest />)} />,
   <Route key="fce-reading-direct" path="/fce/reading/:id" element={renderAuthenticated(isAuthenticated, <DoFceReadingTest />)} />,

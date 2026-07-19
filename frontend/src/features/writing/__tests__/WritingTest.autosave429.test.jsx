@@ -107,4 +107,72 @@ describe('WritingTest autosave runtime limit', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/saved on this machine/i)).toBeInTheDocument();
   });
+
+  test('prefers fresher local draft content over older server draft content', async () => {
+    const now = Date.now();
+    localStorage.setItem(
+      'writing:draft:17:7',
+      JSON.stringify({
+        testId: '7',
+        task1: 'local fresher task 1',
+        task2: 'local fresher task 2',
+        timeLeft: 3120,
+        endAt: now + 3120 * 1000,
+        started: true,
+        updatedAt: now,
+      })
+    );
+
+    const fetchMock = jest.fn((url, options = {}) => {
+      if (String(url).includes('/writing/draft/active')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              submission: {
+                testId: 7,
+                task1: 'server stale task 1',
+                task2: 'server stale task 2',
+                timeLeft: 2900,
+                draftEndAt: now + 2900 * 1000,
+                draftStarted: true,
+                draftSavedAt: new Date(now - 60000).toISOString(),
+              },
+            }),
+        });
+      }
+
+      if (String(url).includes('/writing-tests/detail/7') && (!options.method || options.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 7,
+              title: 'Writing Test 7',
+              task1: '<p>Task 1 prompt</p>',
+              task2: '<p>Task 2 prompt</p>',
+            }),
+        });
+      }
+
+      if (String(url).includes('/writing/list')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+
+    jest.spyOn(window, 'fetch').mockImplementation(fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/writing']}>
+        <Routes>
+          <Route path="/writing" element={<WritingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('local fresher task 1')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('server stale task 1')).not.toBeInTheDocument();
+  });
 });
