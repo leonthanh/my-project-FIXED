@@ -1,6 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { hostPath } from '../../../../shared/utils/api';
-import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from '../utils/questionNumbering';
+import {
+  computeQuestionStarts,
+  getQuestionCountForSection,
+  parseClozeBlanksFromText,
+  shouldIncludeSectionForPart,
+} from '../utils/questionNumbering';
 import QuestionDisplayFactory from '../../../../shared/components/questions/displays/QuestionDisplayFactory';
 import createListeningStyles from '../pages/DoCambridgeListeningTest.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
@@ -2190,7 +2195,10 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
   const [expandedParts, setExpandedParts] = useState({});
   const questionRefs = useRef({});
 
-  const questionStarts = useMemo(() => computeQuestionStarts(test?.parts || []), [test?.parts]);
+  const questionStarts = useMemo(
+    () => computeQuestionStarts(test?.parts || [], testType),
+    [test?.parts, testType]
+  );
   const listeningStyles = useMemo(() => createListeningStyles(false, examType), [examType]);
   const runtimeResults = useMemo(() => ({ answers: detailedResults }), [detailedResults]);
 
@@ -2242,8 +2250,14 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
       </div>
 
       {test.parts.map((part, partIdx) => {
-        const partRangeSections = (part.sections || []).filter((section) => getQuestionCountForSection(section) > 0);
-        const firstSectionIdx = part.sections?.findIndex((section) => getQuestionCountForSection(section) > 0);
+        const partRangeSections = (part.sections || []).filter((section) => (
+          shouldIncludeSectionForPart(testType, partIdx, section, part.sections || []) &&
+          getQuestionCountForSection(section) > 0
+        ));
+        const firstSectionIdx = part.sections?.findIndex((section) => (
+          shouldIncludeSectionForPart(testType, partIdx, section, part.sections || []) &&
+          getQuestionCountForSection(section) > 0
+        ));
         const firstNumber = firstSectionIdx >= 0 ? questionStarts.sectionStart[`${partIdx}-${firstSectionIdx}`] : null;
         const partQuestionCount = partRangeSections.reduce((sum, section) => sum + getQuestionCountForSection(section), 0);
         const partRangeLabel = Number.isFinite(firstNumber) && partQuestionCount > 0
@@ -2253,6 +2267,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
           : 'Writing';
         const integratedWriting = examType === 'MOVERS' && hasIntegratedLookReadWriteWriting(part);
         const visibleSections = (part.sections || []).filter((section) => {
+          if (!shouldIncludeSectionForPart(testType, partIdx, section, part.sections || [])) return false;
           const sectionType = getSectionType(section);
           const isStandaloneWriting = sectionType === 'short-message' || sectionType === 'story-writing';
           return !(integratedWriting && isStandaloneWriting);
@@ -2293,6 +2308,8 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                 This part is collapsed. Select Expand to reopen the student layout and answer review.
               </div>
             ) : (part.sections || []).map((section, secIdx) => {
+              if (!shouldIncludeSectionForPart(testType, partIdx, section, part.sections || [])) return null;
+
               const sectionType = getSectionType(section);
               const isStandaloneWriting = sectionType === 'short-message' || sectionType === 'story-writing';
               if (integratedWriting && isStandaloneWriting) return null;

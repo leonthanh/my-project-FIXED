@@ -1,3 +1,63 @@
+import { TEST_CONFIGS } from '../../../../shared/config/questionTypes';
+
+const getSectionQuestionType = (section) => {
+  const q0 = section?.questions?.[0] || {};
+
+  if (q0.questionType === 'draw-lines' || (q0.anchors && Object.keys(q0.anchors || {}).length > 0)) {
+    return 'draw-lines';
+  }
+
+  if (q0.questionType === 'letter-matching') {
+    return 'letter-matching';
+  }
+
+  return (
+    section?.questionType ||
+    q0?.questionType ||
+    q0?.type ||
+    (Array.isArray(q0?.people) ? 'people-matching' : '') ||
+    (Array.isArray(q0?.leftItems) ? 'gap-match' : '') ||
+    (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
+    ''
+  );
+};
+
+const resolveTestConfig = (rawType) => {
+  const normalized = String(rawType || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  const candidates = [
+    normalized,
+    normalized.replace(/-reading$/i, ''),
+    normalized.replace(/-listening$/i, ''),
+  ];
+
+  for (const key of candidates) {
+    if (TEST_CONFIGS[key]) return TEST_CONFIGS[key];
+  }
+
+  return null;
+};
+
+const getExpectedPartQuestionType = (testType, partIndex) => {
+  const config = resolveTestConfig(testType);
+  return config?.partStructure?.[partIndex]?.questionType || '';
+};
+
+const shouldIncludeSectionForPart = (testType, partIndex, section, siblingSections = []) => {
+  const expectedType = getExpectedPartQuestionType(testType, partIndex);
+  if (!expectedType) return true;
+
+  const actualType = getSectionQuestionType(section);
+  if (actualType === expectedType) return true;
+
+  const hasExpectedSibling = siblingSections.some(
+    (candidateSection) => getSectionQuestionType(candidateSection) === expectedType
+  );
+
+  return !hasExpectedSibling;
+};
+
 const countClozeBlanksFromText = (passageText) => {
   if (!passageText) return 0;
   let plainText = passageText;
@@ -170,7 +230,7 @@ const parseClozeBlanksFromText = (passageText, startingNum = 1) => {
   return blanks.sort((a, b) => a.questionNum - b.questionNum);
 };
 
-const computeQuestionStarts = (passages) => {
+const computeQuestionStarts = (passages, testType = '') => {
   const sectionStart = {};
   const questionStart = {};
   const multiQuestionTypes = new Set([
@@ -199,16 +259,13 @@ const computeQuestionStarts = (passages) => {
 
   (passages || []).forEach((part, partIdx) => {
     (part?.sections || []).forEach((section, sectionIdx) => {
+      if (!shouldIncludeSectionForPart(testType, partIdx, section, part?.sections || [])) {
+        return;
+      }
+
       const sectionCount = getQuestionCountForSection(section);
-      // detect draw-lines: check question-level data FIRST because section.questionType
-      // may be 'matching' instead of 'draw-lines' (inconsistent DB data)
       const q0data = section?.questions?.[0] || {};
-      const questionType =
-        (q0data.questionType === 'draw-lines' || (q0data.anchors && Object.keys(q0data.anchors || {}).length > 0))
-          ? 'draw-lines'
-          : q0data.questionType === 'letter-matching'
-            ? 'letter-matching'
-            : (section?.questionType || '');
+      const questionType = getSectionQuestionType(section);
       const explicitNumbers = questionType === 'cloze-test'
         ? getExplicitQuestionNumbersFromText(q0data.passageText || q0data.passage || q0data.clozeText || '')
         : [];
@@ -233,4 +290,11 @@ const computeQuestionStarts = (passages) => {
   return { sectionStart, questionStart };
 };
 
-export { countClozeBlanksFromText, getQuestionCountForSection, parseClozeBlanksFromText, computeQuestionStarts };
+export {
+  countClozeBlanksFromText,
+  getQuestionCountForSection,
+  parseClozeBlanksFromText,
+  computeQuestionStarts,
+  getSectionQuestionType,
+  shouldIncludeSectionForPart,
+};
