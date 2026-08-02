@@ -218,6 +218,26 @@ const countListeningTableBlanks = (question = {}) => {
 const getFlatCellBlankAnswer = (row, columnIndex, flatBlankIndex) =>
   row?.cellBlankAnswers?.[columnIndex]?.[flatBlankIndex];
 
+const getSortedNumericKeys = (map) =>
+  map && typeof map === 'object' && !Array.isArray(map)
+    ? Object.keys(map)
+        .map((key) => parseInt(key, 10))
+        .filter((value) => Number.isFinite(value))
+        .sort((left, right) => left - right)
+    : [];
+
+const hasAlignedTableAnswerMap = (answerMap, sectionStart, blankCount) => {
+  if (!answerMap || blankCount <= 0 || !Number.isFinite(sectionStart)) return false;
+  const keys = getSortedNumericKeys(answerMap);
+  if (keys.length !== blankCount) return false;
+
+  for (let index = 0; index < blankCount; index += 1) {
+    if (keys[index] !== sectionStart + index) return false;
+  }
+
+  return true;
+};
+
 const getListeningTableBlankEntries = (question, sectionStart) => {
   const normalizedQuestion = createListeningClozeQuestion(question);
   const answerMap =
@@ -226,7 +246,10 @@ const getListeningTableBlankEntries = (question, sectionStart) => {
     !Array.isArray(normalizedQuestion.answers)
       ? normalizedQuestion.answers
       : null;
-  let questionNumber = Number.isFinite(sectionStart) ? sectionStart : 1;
+  const startNumber = Number.isFinite(sectionStart) ? sectionStart : 1;
+  const blankCount = countListeningTableBlanks(normalizedQuestion);
+  const useAnswerMap = hasAlignedTableAnswerMap(answerMap, startNumber, blankCount);
+  let questionNumber = startNumber;
   const entries = [];
 
   normalizedQuestion.rows.forEach((row) => {
@@ -243,7 +266,7 @@ const getListeningTableBlankEntries = (question, sectionStart) => {
             entries.push({
               num: currentNumber,
               expected:
-                (answerMap ? answerMap[String(currentNumber)] : undefined) ??
+                (useAnswerMap ? answerMap[String(currentNumber)] : undefined) ??
                 row?.commentBlankAnswers?.[lineIndex]?.[blankIndex] ??
                 getFlatCellBlankAnswer(row, columnIndex, flatBlankIndex) ??
                 '',
@@ -259,7 +282,7 @@ const getListeningTableBlankEntries = (question, sectionStart) => {
         entries.push({
           num: currentNumber,
           expected:
-            (answerMap ? answerMap[String(currentNumber)] : undefined) ??
+            (useAnswerMap ? answerMap[String(currentNumber)] : undefined) ??
             row?.cellBlankAnswers?.[columnIndex]?.[blankIndex] ??
             '',
         });
@@ -273,7 +296,7 @@ const getListeningTableBlankEntries = (question, sectionStart) => {
       entries.push({
         num: currentNumber,
         expected:
-          (answerMap ? answerMap[String(currentNumber)] : undefined) ??
+          (useAnswerMap ? answerMap[String(currentNumber)] : undefined) ??
           row?.correct ??
           row?.cells?.[1] ??
           '',

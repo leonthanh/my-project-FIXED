@@ -511,19 +511,35 @@ router.get('/admin/list', async (req, res) => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
       const placementContact = placementContacts.get(String(s.id));
-      // compute a displayable total from test structure when possible
       const testFull = t ? (t.toJSON ? t.toJSON() : t) : null;
-      const computedTotal = computeTestTotal(testFull);
+
+      const parsedAnswers = safeParseJson(obj.answers) || {};
+      let authoritativeScore = null;
+      if (testFull && parsedAnswers && typeof parsedAnswers === 'object') {
+        try {
+          authoritativeScore = scoreListening({ test: testFull, answers: parsedAnswers });
+        } catch (e) {
+          authoritativeScore = null;
+        }
+      }
+
+      // compute a displayable total from test structure when possible
+      const computedTotal =
+        authoritativeScore && Number.isFinite(authoritativeScore.totalCount)
+          ? Number(authoritativeScore.totalCount)
+          : computeTestTotal(testFull);
 
       // compute a 'correct' count using details when available, otherwise attempt to generate
       let parsedDetails = obj.details && typeof obj.details === 'string' ? safeParseJson(obj.details) : obj.details;
       parsedDetails = Array.isArray(parsedDetails) ? parsedDetails : [];
-      let computedCorrect = parsedDetails.length ? parsedDetails.filter(d => d.isCorrect).length : null;
+      let computedCorrect =
+        authoritativeScore && Number.isFinite(authoritativeScore.correctCount)
+          ? Number(authoritativeScore.correctCount)
+          : (parsedDetails.length ? parsedDetails.filter((d) => d.isCorrect).length : null);
 
       // If we don't have parsedDetails but have test structure and answers, try generating
-      if ((!parsedDetails || parsedDetails.length === 0) && testFull && obj.answers) {
+      if (computedCorrect == null && testFull && parsedAnswers && typeof parsedAnswers === 'object') {
         try {
-          const parsedAnswers = safeParseJson(obj.answers) || {};
           const generated = generateDetailsFromSections({
             ...testFull,
             partInstructions: safeParseJson(testFull.partInstructions),
@@ -555,6 +571,7 @@ router.get('/admin/list', async (req, res) => {
       obj.computedPercentage = computedPercentage;
       obj.computedCorrect = Number.isFinite(Number(correct)) ? Number(correct) : 0;
       // Backwards-compatible override: set stored fields so older frontends (served from build) show corrected totals
+      obj.correct = obj.computedCorrect;
       obj.total = computedTotal;
       obj.scorePercentage = computedPercentage;
       return obj;
@@ -1012,6 +1029,21 @@ router.get('/:submissionId', async (req, res) => {
       testJson.partInstructions = safeParseJson(testJson.partInstructions);
       testJson.partTypes = safeParseJson(testJson.partTypes);
       testJson.partAudioUrls = safeParseJson(testJson.partAudioUrls);
+    }
+
+    if (testJson && subJson.answers && typeof subJson.answers === 'object') {
+      try {
+        const rescored = scoreListening({ test: testJson, answers: subJson.answers });
+        if (rescored && Number.isFinite(rescored.totalCount) && rescored.totalCount > 0) {
+          subJson.correct = rescored.correctCount;
+          subJson.total = rescored.totalCount;
+          subJson.scorePercentage = rescored.scorePercentage;
+          subJson.band = rescored.band;
+          subJson.details = rescored.details;
+        }
+      } catch (rescoreError) {
+        console.error('[WARN] Could not rescore listening submission response:', rescoreError.message);
+      }
     }
 
     res.json({

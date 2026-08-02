@@ -212,12 +212,15 @@ const getSectionQuestionCount = (section, sectionQuestions) => {
   }
 
   if (sectionType === "notes-completion") {
+    const matches = stripHtml(String(firstQuestion.notesText || "")).match(BLANK_REGEX) || [];
+    if (matches.length) return matches.length;
+
     const keys =
       firstQuestion?.answers && typeof firstQuestion.answers === "object" && !Array.isArray(firstQuestion.answers)
         ? Object.keys(firstQuestion.answers).filter((key) => Number.isFinite(parseInt(key, 10)))
         : [];
     if (keys.length) return keys.length;
-    return (stripHtml(String(firstQuestion.notesText || "")).match(BLANK_REGEX) || []).length || 0;
+    return 0;
   }
 
   if (sectionType === "matching") {
@@ -620,6 +623,9 @@ export default function ListeningStudentStyleReview({ test, submission, details 
 
       return (
         <span key={`blank-${rowIndex}`} style={styles.formGapWrapper}>
+          <span style={{ ...styles.questionNumber, marginRight: "8px", width: "28px", height: "28px", minWidth: "28px", fontSize: "13px", lineHeight: 1 }}>
+            {questionNumber}
+          </span>
           <input
             type="text"
             value={answerValue}
@@ -898,6 +904,9 @@ export default function ListeningStudentStyleReview({ test, submission, details 
 
           return (
             <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <span style={{ ...styles.questionNumber, width: "28px", height: "28px", minWidth: "28px", fontSize: "13px", lineHeight: 1 }}>
+                {questionNumber}
+              </span>
               <input
                 type="text"
                 value={answerValue}
@@ -909,7 +918,6 @@ export default function ListeningStudentStyleReview({ test, submission, details 
                   backgroundColor: detail?.isCorrect ? "#f0fdf4" : hasAnswerValue(answerValue) ? "#fef2f2" : styles.gapInput.backgroundColor,
                 }}
               />
-              {!answerValue && <span style={styles.gapPlaceholder}>{questionNumber}</span>}
               <Feedback detail={detail} answerValue={answerValue} />
             </span>
           );
