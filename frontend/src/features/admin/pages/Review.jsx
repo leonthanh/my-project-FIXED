@@ -8,6 +8,7 @@ import AdminStickySidebarLayout, {
   buildAdminWorkspaceLinks,
 } from "../components/AdminStickySidebarLayout";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
@@ -112,6 +113,7 @@ const matchesFilterValue = (value, search) => {
 
 const Review = () => {
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
   const navigate = useNavigate();
   const teacher = useMemo(() => {
     try {
@@ -1303,8 +1305,8 @@ const Review = () => {
   const activeReviewPageTarget =
     REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review"),
-    [navigate]
+    () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review", displayLabels),
+    [displayLabels, navigate]
   );
   const sidebarStats = useMemo(
     () => [

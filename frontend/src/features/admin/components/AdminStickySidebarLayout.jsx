@@ -5,7 +5,13 @@ import { getCurrentUser, isAdmin } from "../../../shared/utils/permissions";
 
 import "./AdminStickySidebarLayout.css";
 
-const buildBaseWorkspaceLinks = (navigate, currentKey) => [
+const resolveFceDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+
+const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
+  const fceDisplayName = resolveFceDisplayName(displayLabels);
+
+  return [
   {
     key: "review",
     label: "Review",
@@ -48,15 +54,24 @@ const buildBaseWorkspaceLinks = (navigate, currentKey) => [
   },
   {
     key: "fce",
-    label: "FCE",
-    hint: "FCE submissions",
+    label: fceDisplayName,
+    hint: `${fceDisplayName} submissions`,
     tone: "cyan",
     active: currentKey === "fce",
     onClick: () => navigate("/admin/fce-submissions"),
   },
-];
+  ];
+};
 
 const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
+  {
+    key: "display-settings",
+    label: "Display",
+    hint: "Global labels",
+    tone: "blue",
+    active: currentKey === "display-settings",
+    onClick: () => navigate("/admin/display-settings"),
+  },
   {
     key: "permissions",
     label: "Permissions",
@@ -85,7 +100,8 @@ export const buildAdminWorkspaceLinks = (
   navigate,
   currentKey,
   currentUser = getCurrentUser(),
-  group = WORKSPACE_LINK_GROUPS.all
+  group = WORKSPACE_LINK_GROUPS.all,
+  displayLabels = {}
 ) => {
   const includeBaseLinks =
     group === WORKSPACE_LINK_GROUPS.all || group === WORKSPACE_LINK_GROUPS.review;
@@ -94,7 +110,7 @@ export const buildAdminWorkspaceLinks = (
     (group === WORKSPACE_LINK_GROUPS.all || group === WORKSPACE_LINK_GROUPS.admin);
 
   return [
-    ...(includeBaseLinks ? buildBaseWorkspaceLinks(navigate, currentKey) : []),
+    ...(includeBaseLinks ? buildBaseWorkspaceLinks(navigate, currentKey, displayLabels) : []),
     ...(includeAdminLinks ? buildAdminOnlyWorkspaceLinks(navigate, currentKey) : []),
   ];
 };

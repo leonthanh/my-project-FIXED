@@ -17,6 +17,7 @@ import {
   FilterField,
 } from '../components/AdminCardPrimitives';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
+import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsContext';
 import { apiPath, authFetch, getStoredUser, storeAuthSession } from '../../../shared/utils/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -1761,6 +1762,7 @@ const TABS = [
 
 const AdminUserManagement = () => {
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
   const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
@@ -1774,8 +1776,8 @@ const AdminUserManagement = () => {
   // Reset jumpToUser once consumed
   const submissionsKey = jumpToUser ? jumpToUser.id : 'none';
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, 'users', undefined, 'admin'),
-    [navigate]
+    () => buildAdminWorkspaceLinks(navigate, 'users', undefined, 'admin', displayLabels),
+    [displayLabels, navigate]
   );
   const managementLinks = useMemo(
     () =>

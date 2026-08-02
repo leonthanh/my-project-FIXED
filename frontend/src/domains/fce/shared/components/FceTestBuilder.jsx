@@ -30,6 +30,10 @@ import { computeQuestionStarts, getQuestionCountForSection } from "../../../camb
 import { normalizeQuillPromptHtml } from "../../../cambridge/shared/utils/normalizeQuillPromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
+import {
+  replaceFceDisplayName,
+  useDisplaySettings,
+} from "../../../../shared/contexts/DisplaySettingsContext";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -73,12 +77,15 @@ const FceTestBuilder = ({
   const user = getStoredUser();
   const currentTeacherName = resolveAuthUserDisplayName(user);
   const isCreateMode = !editId && !initialData;
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
 
   const testConfig = getTestConfig(testType);
   const isListeningTest = testType === "fce-listening";
   const availableTypes = useMemo(() => getQuestionTypesForTest(testType), [testType]);
   const defaultQuestionType = availableTypes[0]?.id || "fill";
-  const builderDisplayName = testConfig?.name || "FCE Test";
+  const builderDisplayName =
+    replaceFceDisplayName(testConfig?.name || "", displayLabels) || `${fceDisplayName} Test`;
 
   const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
 
@@ -242,14 +249,29 @@ const FceTestBuilder = ({
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
 
+  const localizeQuestionTypeMeta = useCallback(
+    (questionType = {}) => {
+      if (!questionType || typeof questionType !== "object") return questionType;
+      return {
+        ...questionType,
+        label: replaceFceDisplayName(questionType.label || "", displayLabels),
+        labelVi: replaceFceDisplayName(questionType.labelVi || "", displayLabels),
+        description: replaceFceDisplayName(questionType.description || "", displayLabels),
+      };
+    },
+    [displayLabels]
+  );
+
   const questionTypeOptions = useMemo(() => {
     const currentTypeId = currentSection?.questionType;
     if (!currentTypeId || availableTypes.some((type) => type.id === currentTypeId)) {
-      return availableTypes;
+      return availableTypes.map(localizeQuestionTypeMeta);
     }
     const legacyType = QUESTION_TYPES[currentTypeId];
-    return legacyType ? [...availableTypes, legacyType] : availableTypes;
-  }, [availableTypes, currentSection?.questionType]);
+    return legacyType
+      ? [...availableTypes, legacyType].map(localizeQuestionTypeMeta)
+      : availableTypes.map(localizeQuestionTypeMeta);
+  }, [availableTypes, currentSection?.questionType, localizeQuestionTypeMeta]);
 
   const normalizePartInstructionHtml = useCallback((value) => {
     const html = String(value || "").trim();
@@ -831,16 +853,16 @@ const FceTestBuilder = ({
           <InlineIcon name="error" size={20} style={{ color: "#dc2626" }} />
           Test type không hợp lệ: {testType}
         </h2>
-        <p>Các FCE test types hỗ trợ:</p>
+        <p>Các {fceDisplayName} test types hỗ trợ:</p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           <li style={{ padding: "4px" }}>
-            <code>fce-reading-60</code> - FCE Reading 60-point Profile
+            <code>fce-reading-60</code> - {fceDisplayName} Reading 60-point Profile
           </li>
           <li style={{ padding: "4px" }}>
-            <code>fce-reading</code> - Legacy FCE Reading &amp; Writing
+            <code>fce-reading</code> - Legacy {fceDisplayName} Reading &amp; Writing
           </li>
           <li style={{ padding: "4px" }}>
-            <code>fce-listening</code> - FCE Listening
+            <code>fce-listening</code> - {fceDisplayName} Listening
           </li>
         </ul>
       </div>
@@ -1232,7 +1254,7 @@ const FceTestBuilder = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="VD: FCE Reading Test 1"
+                  placeholder={`VD: ${fceDisplayName} Reading Test 1`}
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -1259,7 +1281,7 @@ const FceTestBuilder = ({
                   type="text"
                   value={classCode}
                   onChange={(e) => setClassCode(e.target.value)}
-                  placeholder="VD: FCE-102-A"
+                  placeholder={`VD: ${fceDisplayName}-102-A`}
                   style={{
                     width: "100%",
                     padding: "7px 10px",

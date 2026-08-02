@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminNavbar from '../../../shared/components/AdminNavbar';
 import { apiPath } from '../../../shared/utils/api';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
+import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsContext';
 import CambridgeStudentStyleReview from '../../cambridge/shared/components/CambridgeStudentStyleReview';
 import { parseClozeBlanksFromText } from '../../cambridge/shared/utils/questionNumbering';
 
@@ -399,6 +400,8 @@ const FceReadingResultPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
   const [submission, setSubmission] = useState(() => normalizeSubmission(location.state?.submission) || null);
   const [test, setTest] = useState(() => {
     const rawTest = location.state?.test;
@@ -608,7 +611,9 @@ const FceReadingResultPage = () => {
       <>
         <AdminNavbar />
         <div style={{ minHeight: '100vh', background: colors.page, padding: '32px' }}>
-          <div style={{ maxWidth: '1240px', margin: '0 auto', color: colors.text }}>Loading FCE result...</div>
+          <div style={{ maxWidth: '1240px', margin: '0 auto', color: colors.text }}>
+            {`Loading ${fceDisplayName} result...`}
+          </div>
         </div>
       </>
     );
@@ -628,7 +633,7 @@ const FceReadingResultPage = () => {
               onClick={() => navigate('/admin/fce-submissions')}
               style={{ width: 'fit-content', padding: '10px 16px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.text, cursor: 'pointer' }}
             >
-              Back to FCE submissions
+              {`Back to ${fceDisplayName} submissions`}
             </button>
           </div>
         </div>
@@ -643,7 +648,7 @@ const FceReadingResultPage = () => {
         <div style={{ minHeight: '100vh', background: colors.page, padding: '32px' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'grid', gap: '16px' }}>
             <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '20px', padding: '24px', color: colors.text }}>
-              This FCE result page currently supports `fce-reading-60` submissions only.
+              {`This ${fceDisplayName} result page currently supports fce-reading-60 submissions only.`}
             </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button
@@ -658,7 +663,7 @@ const FceReadingResultPage = () => {
                 onClick={() => navigate('/admin/fce-submissions')}
                 style={{ padding: '10px 16px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.text, cursor: 'pointer' }}
               >
-                Back to FCE submissions
+                {`Back to ${fceDisplayName} submissions`}
               </button>
             </div>
           </div>
@@ -680,11 +685,13 @@ const FceReadingResultPage = () => {
                   onClick={() => navigate('/admin/fce-submissions')}
                   style={{ padding: '8px 14px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surfaceAlt, color: colors.text, cursor: 'pointer', fontWeight: 600, marginBottom: '14px' }}
                 >
-                  Back to FCE submissions
+                  {`Back to ${fceDisplayName} submissions`}
                 </button>
-                <h1 style={{ margin: 0, fontSize: '2rem', color: colors.text }}>FCE Result Review</h1>
+                <h1 style={{ margin: 0, fontSize: '2rem', color: colors.text }}>
+                  {`${fceDisplayName} Result Review`}
+                </h1>
                 <p style={{ margin: '10px 0 0', color: colors.muted, lineHeight: 1.7 }}>
-                  {submission.testTitle || 'FCE Reading & Writing'}
+                  {submission.testTitle || `${fceDisplayName} Reading & Writing`}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -737,7 +744,9 @@ const FceReadingResultPage = () => {
 
               {breakdownGroups.length > 0 ? (
                 <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '24px', padding: '24px' }}>
-                  <h2 style={{ margin: '0 0 16px', color: colors.text, fontSize: '1.2rem' }}>FCE Score Groups</h2>
+                  <h2 style={{ margin: '0 0 16px', color: colors.text, fontSize: '1.2rem' }}>
+                    {`${fceDisplayName} Score Groups`}
+                  </h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                     {breakdownGroups.map((group) => (
                       <div key={group.key || group.label} style={{ background: colors.surfaceAlt, border: `1px solid ${colors.border}`, borderRadius: '18px', padding: '18px' }}>

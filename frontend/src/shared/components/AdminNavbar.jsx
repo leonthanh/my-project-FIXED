@@ -5,6 +5,7 @@ import { apiPath, hostPath, logoutAuthSession, getStoredUser } from "../utils/ap
 import resolveAuthUserDisplayName from "../utils/authUserDisplayName";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
+import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
 import "./AdminNavbar.css";
 
 const NavIcon = ({ name }) => {
@@ -188,6 +189,7 @@ const adminRoutePreloaders = {
   "/admin/fce-submissions": () => import("../../domains/fce/pages/FceSubmissionsPage"),
   "/admin/create-fce-reading": () => import("../../domains/fce/reading/pages/CreateFceReadingTestPage"),
   "/admin/create-fce-listening": () => import("../../domains/fce/listening/pages/CreateFceListeningTestPage"),
+  "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
 };
@@ -338,6 +340,8 @@ const AdminNavbar = () => {
   const canManageWriting = canManageCategory(user, "writing");
   const canManageReading = canManageCategory(user, "reading");
   const canManageListening = canManageCategory(user, "listening");
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
 
   useEffect(() => {
     const syncUser = () => setUser(getStoredUser());
@@ -950,6 +954,13 @@ const AdminNavbar = () => {
     () =>
       [
         buildAdminLinkItem(
+          "display-settings",
+          "/admin/display-settings",
+          "Display Settings",
+          true,
+          "admin"
+        ),
+        buildAdminLinkItem(
           "teacher-permissions",
           "/admin/teacher-permissions",
           "Teacher Permissions",
@@ -1096,7 +1107,8 @@ const AdminNavbar = () => {
   const isProfileCurrent = pathname.startsWith("/profile");
   const isAdminCurrent =
     pathname.startsWith("/admin/users") ||
-    pathname.startsWith("/admin/teacher-permissions");
+    pathname.startsWith("/admin/teacher-permissions") ||
+    pathname.startsWith("/admin/display-settings");
 
   const mobileDrawerTabs = [
     {
@@ -1105,7 +1117,7 @@ const AdminNavbar = () => {
     },
     { key: "ix", label: "IX" },
     { key: "orange", label: "Orange" },
-    { key: "fce", label: "FCE" },
+    { key: "fce", label: fceDisplayName },
     { key: "overview", label: "Overview" },
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
@@ -1454,9 +1466,9 @@ const AdminNavbar = () => {
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">FCE</div>
+          <div className="adminNavbar__mobileMenuTitle">{fceDisplayName}</div>
           <div className="adminNavbar__mobileMenuHint">
-            Create FCE reading, listening, and review student submissions.
+            Create {fceDisplayName} reading, listening, and review student submissions.
           </div>
         </div>
         {renderMobileTabs(
@@ -1662,7 +1674,7 @@ const AdminNavbar = () => {
                 desktopDrawerMode === "orange"
                   ? "Orange menu"
                   : desktopDrawerMode === "fce"
-                  ? "FCE menu"
+                  ? `${fceDisplayName} menu`
                   : "IX menu"
               }
             >
@@ -1681,14 +1693,14 @@ const AdminNavbar = () => {
                       {desktopDrawerMode === "orange"
                         ? "Orange Drawer"
                         : desktopDrawerMode === "fce"
-                        ? "FCE Drawer"
+                        ? `${fceDisplayName} Drawer`
                         : "IX Drawer"}
                     </div>
                     <div className="adminNavbar__desktopDrawerMeta">
                       {desktopDrawerMode === "orange"
                         ? "Cambridge creation and submissions collected into a cleaner side panel."
                         : desktopDrawerMode === "fce"
-                        ? "FCE creation and submissions in a dedicated side panel."
+                        ? `${fceDisplayName} creation and submissions in a dedicated side panel.`
                         : "Create and review IELTS tests without a crowded dropdown menu."}
                     </div>
                   </div>
@@ -1803,10 +1815,10 @@ const AdminNavbar = () => {
           <span
             className={`adminNavbar__link adminNavbar__dropdownToggle${isFceCurrent || desktopDrawerMode === "fce" ? " adminNavbar__link--active" : ""}`}
             onClick={() => toggleDesktopDrawer("fce")}
-            title="FCE"
+            title={fceDisplayName}
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">FCE</span>
+            <span className="adminNavbar__label">{fceDisplayName}</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
         </div>

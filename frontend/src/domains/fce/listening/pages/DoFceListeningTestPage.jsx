@@ -28,6 +28,10 @@ import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../cambri
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import createStyles from "./DoFceListeningTest.styles";
 import './DoFceListeningTest.css';
+import {
+  replaceFceDisplayName,
+  useDisplaySettings,
+} from "../../../../shared/contexts/DisplaySettingsContext";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
@@ -64,6 +68,8 @@ const DoCambridgeListeningTest = () => {
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();
     if (s.includes("ket")) return "KET";
@@ -71,10 +77,10 @@ const DoCambridgeListeningTest = () => {
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return "FCE";
+    if (s.includes("fce")) return fceDisplayName;
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
-  }, [testType]);
+  }, [fceDisplayName, testType]);
 
   const styles = useMemo(() => createStyles(isDarkMode, examType), [isDarkMode, examType]);
 
@@ -131,6 +137,11 @@ const DoCambridgeListeningTest = () => {
   const testConfig = useMemo(() => {
     return TEST_CONFIGS[testType] || TEST_CONFIGS['ket-listening'];
   }, [testType]);
+
+  const localizedTestConfigName = useMemo(
+    () => replaceFceDisplayName(testConfig?.name || "", displayLabels),
+    [displayLabels, testConfig?.name]
+  );
 
   const storageKey = useMemo(() => {
     if (placementContext.placementAttemptItemToken) {
@@ -1994,7 +2005,7 @@ const DoCambridgeListeningTest = () => {
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
       <TestHeader
-        title={testConfig.name}
+        title={localizedTestConfigName || testConfig.name}
         examType={examType}
         classCode={test?.classCode}
         teacherName={test?.teacherName}
@@ -2116,9 +2127,9 @@ const DoCambridgeListeningTest = () => {
       {isStartGateVisible && (
         <TestStartModal
           iconName="listening"
-          eyebrow={examType === "FCE" ? "FCE" : `Cambridge ${examType}`}
+          eyebrow={fceDisplayName}
           subtitle="Listening Test"
-          title={test?.title || testConfig.name || 'Cambridge Listening'}
+          title={test?.title || localizedTestConfigName || 'Cambridge Listening'}
           stats={[
             { value: Math.round(timeRemaining / 60), label: 'Minutes', tone: 'sky' },
             { value: totalQuestions, label: 'Questions', tone: 'green' },
@@ -3410,7 +3421,7 @@ const DoCambridgeListeningTest = () => {
 
       <CambridgeResultsModal
         results={submitted ? results : null}
-        testTitle={test?.title || testConfig.name || 'Cambridge Listening'}
+        testTitle={test?.title || localizedTestConfigName || 'Cambridge Listening'}
         studentName={getStoredUser()?.name || getStoredUser()?.username}
         onClose={() => navigate('/cambridge')}
         actions={[

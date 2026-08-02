@@ -12,7 +12,41 @@ const SignMessageDisplay = ({
   userAnswer, 
   submitted 
 }) => {
-  const { imageUrl, options = [], correctAnswer } = question;
+  const {
+    options = [],
+    correctAnswer,
+    signText,
+    questionText,
+  } = question || {};
+
+  const resolvedImageUrl = (() => {
+    const candidate =
+      question?.imageUrl ||
+      question?.image ||
+      question?.mediaUrl ||
+      question?.signImage ||
+      question?.imagePath ||
+      question?.imageSrc ||
+      question?.assetUrl ||
+      question?.url ||
+      question?.media?.url ||
+      '';
+    const normalized = String(candidate || '').trim();
+    if (!normalized) return '';
+    if (/^(https?:|data:|blob:)/i.test(normalized)) return normalized;
+    return hostPath(normalized);
+  })();
+
+  const optionItems = (Array.isArray(options) ? options : []).map((option) => {
+    if (option && typeof option === 'object') {
+      return String(option.text || option.label || option.value || '').trim();
+    }
+    return String(option || '').trim();
+  });
+
+  const resolvedPromptText = String(signText || questionText || '').trim();
+  const hasPromptVisual = Boolean(resolvedImageUrl || resolvedPromptText);
+  const promptTextLooksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(resolvedPromptText);
 
   return (
     <div style={styles.container}>
@@ -22,21 +56,39 @@ const SignMessageDisplay = ({
       </div>
 
       {/* Main Content: Image + Options */}
-      <div style={styles.content}>
-        {/* Image */}
-        {imageUrl && (
+      <div
+        style={{
+          ...styles.content,
+          gridTemplateColumns: hasPromptVisual ? '1fr 1fr' : '1fr',
+        }}
+      >
+        {/* Visual prompt (image/sign text) */}
+        {hasPromptVisual && (
           <div style={styles.imageContainer}>
-            <img 
-              src={hostPath(imageUrl)} 
-              alt={`Question ${questionNumber}`}
-              style={styles.image}
-            />
+            {resolvedImageUrl ? (
+              <img
+                src={resolvedImageUrl}
+                alt={`Question ${questionNumber}`}
+                style={styles.image}
+              />
+            ) : null}
+
+            {resolvedPromptText ? (
+              <div
+                style={{ ...styles.signTextBox, marginTop: resolvedImageUrl ? '12px' : 0 }}
+                {...(promptTextLooksLikeHtml
+                  ? { dangerouslySetInnerHTML: { __html: resolvedPromptText } }
+                  : {})}
+              >
+                {!promptTextLooksLikeHtml ? resolvedPromptText : null}
+              </div>
+            ) : null}
           </div>
         )}
 
         {/* Multiple Choice Options */}
         <div style={styles.optionsContainer}>
-          {options.map((option, idx) => {
+          {optionItems.map((option, idx) => {
             const optionLabel = String.fromCharCode(65 + idx); // A, B, C
             const isSelected = userAnswer === optionLabel;
             const isCorrect = submitted && correctAnswer === optionLabel;
@@ -109,8 +161,9 @@ const styles = {
   },
   imageContainer: {
     display: 'flex',
+    flexDirection: 'column',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
     backgroundColor: '#f8fafc',
     borderRadius: '8px',
     padding: '16px',
@@ -121,6 +174,16 @@ const styles = {
     height: 'auto',
     maxHeight: '300px',
     borderRadius: '4px',
+  },
+  signTextBox: {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: '8px',
+    border: '1px solid #dbe4f0',
+    background: '#ffffff',
+    color: '#0f172a',
+    lineHeight: 1.6,
+    whiteSpace: 'pre-wrap',
   },
   optionsContainer: {
     display: 'flex',

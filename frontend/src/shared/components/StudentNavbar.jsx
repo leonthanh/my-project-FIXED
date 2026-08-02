@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import { IX_HUB_PATH, ORANGE_HUB_PATH, FCE_HUB_PATH } from "../config/examRegistry";
+import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
 import "./StudentNavbar.css";
 
 const NavIcon = ({ name }) => {
@@ -111,6 +112,8 @@ const StudentNavbar = () => {
   const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const moreDropdownRef = useRef(null);
   const navRef = useRef(null);
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -467,7 +470,7 @@ const StudentNavbar = () => {
     { key: "overview", label: "Overview" },
     { key: "ielts", label: "IX" },
     { key: "orange", label: "Orange" },
-    { key: "fce", label: "FCE" },
+    { key: "fce", label: fceDisplayName },
     {
       key: "feedback",
       label: `Feedback${totalNotifications > 0 ? ` (${totalNotifications})` : ""}`,
@@ -594,16 +597,16 @@ const StudentNavbar = () => {
   const renderMobileFce = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
-        <div className="studentNavbar__mobileMenuTitle">FCE</div>
+        <div className="studentNavbar__mobileMenuTitle">{fceDisplayName}</div>
         <div className="studentNavbar__mobileMenuHint">
-          Jump to FCE placement tests.
+          Jump to {fceDisplayName} placement tests.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
           fceHubPath,
-          "Open FCE tests",
-          "Go to the FCE test hub",
+          `Open ${fceDisplayName} tests`,
+          `Go to the ${fceDisplayName} test hub`,
           "tests"
         )}
       </div>
@@ -783,9 +786,9 @@ const StudentNavbar = () => {
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
         </Link>
-        <Link to={fceHubPath} className={`studentNavbar__link${isFceCurrent ? " studentNavbar__link--active" : ""}`} title="FCE">
+        <Link to={fceHubPath} className={`studentNavbar__link${isFceCurrent ? " studentNavbar__link--active" : ""}`} title={fceDisplayName}>
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-          <span className="studentNavbar__label">FCE</span>
+          <span className="studentNavbar__label">{fceDisplayName}</span>
         </Link>
 
         <button
@@ -842,7 +845,7 @@ const StudentNavbar = () => {
                 onClick={() => setMoreDropdownVisible(false)}
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
-                <span>FCE</span>
+                <span>{fceDisplayName}</span>
               </Link>
               <Link
                 to="/my-feedback"

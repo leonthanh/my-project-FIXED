@@ -18,6 +18,7 @@ import {
   adminCardStyles as acs,
 } from '../components/AdminCardPrimitives';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
+import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsContext';
 import { apiPath, authFetch } from '../../../shared/utils/api';
 
 const fmtDate = (value) => {
@@ -100,6 +101,7 @@ const getTeacherTone = (teacher, savingId, isDarkMode) => {
 
 const TeacherPermissionsPage = () => {
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
   const s = getTeacherPermissionStyles(isDarkMode);
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
@@ -143,7 +145,13 @@ const TeacherPermissionsPage = () => {
 
   const enabledCount = teachers.filter((teacher) => teacher.canManageTests).length;
   const disabledCount = Math.max(teachers.length - enabledCount, 0);
-  const workspaceLinks = buildAdminWorkspaceLinks(navigate, 'permissions', undefined, 'admin');
+  const workspaceLinks = buildAdminWorkspaceLinks(
+    navigate,
+    'permissions',
+    undefined,
+    'admin',
+    displayLabels
+  );
   const sidebarStats = [
     {
       key: 'teachers',

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
@@ -254,8 +255,17 @@ const stopSelectionEvent = (event) => {
  * CambridgeSubmissionsPage - Trang giáo viên xem danh sách bài làm Cambridge
  * Hiển thị submissions từ tất cả Cambridge tests (Listening + Reading)
  */
-const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Orange', platformLabelLower = 'orange' } = {}) => {
+const CambridgeSubmissionsPage = ({
+  platformFilter = null,
+  platformLabel = 'Orange',
+  platformLabelLower = 'orange',
+  displayLabels: displayLabelsProp = {},
+} = {}) => {
   const { isDarkMode } = useTheme();
+  const { displayLabels: globalDisplayLabels } = useDisplaySettings();
+  const displayLabels = Object.keys(displayLabelsProp).length
+    ? displayLabelsProp
+    : globalDisplayLabels;
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
@@ -1236,7 +1246,8 @@ const CambridgeSubmissionsPage = ({ platformFilter = null, platformLabel = 'Oran
     navigate,
     workspaceCurrentKey,
     undefined,
-    "review"
+    "review",
+    displayLabels
   );
   const platformTone = platformFilter === 'fce' ? 'cyan' : 'orange';
   const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(platformFilter);

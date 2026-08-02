@@ -219,6 +219,37 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
     updater(rowIdx, colIdx, nextBlank.value);
     restoreTextareaSelection(rowIdx, colIdx, nextBlank.caret);
   };
+
+  const blankNumberMap = (() => {
+    const map = new Map();
+    let questionNumber = Number.isFinite(Number(startingNumber)) ? Number(startingNumber) : 1;
+
+    rows.forEach((row, rowIdx) => {
+      const normalizedRow = ensureRowCells(row);
+      columns.forEach((col, colIdx) => {
+        const cellValue = normalizeMultilineText((normalizedRow.cells && normalizedRow.cells[colIdx]) || '');
+
+        if (/comment/i.test(col)) {
+          const commentLines = cellValue.split('\n');
+          commentLines.forEach((line, lineIdx) => {
+            const blanks = normalizeMultilineText(line).match(BLANK_REGEX) || [];
+            blanks.forEach((_, blankIdx) => {
+              map.set(`comment:${rowIdx}:${colIdx}:${lineIdx}:${blankIdx}`, questionNumber++);
+            });
+          });
+          return;
+        }
+
+        const blanks = cellValue.match(BLANK_REGEX) || [];
+        blanks.forEach((_, blankIdx) => {
+          map.set(`cell:${rowIdx}:${colIdx}:${blankIdx}`, questionNumber++);
+        });
+      });
+    });
+
+    return map;
+  })();
+
   return (
     <div>
       <div style={{ marginBottom: 12, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e5e7eb' }}>
@@ -344,7 +375,9 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                     {blanks.map((_, bi) => (
                                       <div key={bi} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                        <span style={{ background: '#f1f5f9', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}>#{bi + 1}</span>
+                                        <span style={{ background: '#f1f5f9', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}>
+                                          #{blankNumberMap.get(`comment:${idx}:${cIdx}:${li}:${bi}`) || bi + 1}
+                                        </span>
                                         <input
                                           type="text"
                                           value={(answersByLine[li] && answersByLine[li][bi]) || ''}
@@ -407,7 +440,9 @@ export default function TableCompletionEditor({ question = {}, onChange = () => 
                           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                             {blanks.map((_, bi) => (
                               <div key={bi} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <span style={{ background: '#f1f5f9', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}>#{bi + 1}</span>
+                                <span style={{ background: '#f1f5f9', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}>
+                                  #{blankNumberMap.get(`cell:${idx}:${cIdx}:${bi}`) || bi + 1}
+                                </span>
                                 <input
                                   type="text"
                                   value={(normalizedRow.cellBlankAnswers && normalizedRow.cellBlankAnswers[cIdx] && normalizedRow.cellBlankAnswers[cIdx][bi]) || ''}
