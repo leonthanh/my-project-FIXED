@@ -175,6 +175,9 @@
 }
 
 .writing-test-submit-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--writing-accent-red);
   color: #fff;
   border: none;
@@ -186,6 +189,45 @@
   transition: transform 150ms ease, opacity 150ms ease;
 }
 
+.writing-test-submit-btn::after,
+.writing-test-task-btn::after {
+  content: "";
+  position: absolute;
+  top: -42%;
+  bottom: -42%;
+  left: -18%;
+  width: 38%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.22) 20%,
+    rgba(255, 255, 255, 0.96) 50%,
+    rgba(255, 255, 255, 0.24) 80%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.26);
+  transform: translate3d(-260%, 0, 0) skewX(-22deg);
+  opacity: 0;
+  animation: writingControlSheen 4.2s linear infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  z-index: 0;
+}
+
+.writing-test-submit-btn:hover::after,
+.writing-test-submit-btn:focus::after,
+.writing-test-submit-btn:focus-visible::after,
+.writing-test-submit-btn:active::after,
+.writing-test-task-btn:hover::after,
+.writing-test-task-btn:focus::after,
+.writing-test-task-btn:focus-visible::after,
+.writing-test-task-btn:active::after {
+  animation: writingControlSheenHover 1.05s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.34);
+}
+
 .writing-test-submit-btn:hover:not(:disabled) {
   transform: translateY(-1px);
 }
@@ -194,6 +236,11 @@
   background: #999;
   cursor: not-allowed;
   opacity: 0.85;
+}
+
+.writing-test-submit-btn:disabled::after {
+  animation: none;
+  opacity: 0;
 }
 
 .writing-test-status-banner {
@@ -221,7 +268,7 @@
 }
 
 .writing-test-gutter {
-  background-color: rgba(224, 0, 51, 0.7);
+  background-color: rgb(192 4 229 / 92%) ;
   background-repeat: no-repeat;
   background-position: 50%;
 }
@@ -287,6 +334,9 @@
 }
 
 .writing-test-task-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   margin: 0 10px;
   padding: 10px 20px;
   border: none;
@@ -364,6 +414,52 @@
   }
   50% {
     transform: scale(1.045);
+  }
+}
+
+@keyframes writingControlSheen {
+  0%,
+  10% {
+    transform: translate3d(-260%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  18%,
+  32% {
+    opacity: 1;
+  }
+
+  38% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes writingControlSheenHover {
+  0%,
+  6% {
+    transform: translate3d(-260%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  14%,
+  34% {
+    opacity: 1;
+  }
+
+  44% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate3d(360%, 0, 0) skewX(-22deg);
+    opacity: 0;
   }
 }
 
