@@ -77,6 +77,28 @@ const buildSubmissionTypeFilter = (testType) => {
   return { testType: normalized };
 };
 
+const buildSubmissionPlatformFilter = (platform) => {
+  const normalized = String(platform || '').trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized === 'fce') {
+    return sequelizeWhere(fn('LOWER', col('testType')), {
+      [Op.like]: 'fce-%',
+    });
+  }
+
+  if (normalized === 'orange') {
+    return sequelizeWhere(fn('LOWER', col('testType')), {
+      [Op.notLike]: 'fce-%',
+    });
+  }
+
+  return null;
+};
+
 const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
   const {
     testId,
@@ -322,6 +344,7 @@ const getActiveCambridgeDraft = async ({ query = {} } = {}) => {
 
 const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   const {
+    platform,
     testType,
     classCode,
     studentName,
@@ -353,6 +376,11 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   const testTypeFilter = buildSubmissionTypeFilter(testType);
   if (testTypeFilter) {
     andConditions.push(testTypeFilter);
+  }
+
+  const platformFilter = buildSubmissionPlatformFilter(platform);
+  if (platformFilter) {
+    andConditions.push(platformFilter);
   }
 
   pushContainsFilter('classCode', classCode);
