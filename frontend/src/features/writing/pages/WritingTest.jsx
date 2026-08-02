@@ -569,6 +569,7 @@ const WritingTest = () => {
 
         if (isPlacementRuntime) {
           params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+          params.set("placementPlatform", placementContext.placementPlatform || "ix");
           params.set("testId", String(numericTestId));
         } else {
           params.set("userId", String(user.id));
@@ -655,6 +656,7 @@ const WritingTest = () => {
     };
   }, [
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -750,6 +752,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
         payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+        payload.placementPlatform = placementContext.placementPlatform || "ix";
       }
 
       const res = await fetch(apiPath("writing/draft/autosave"), {
@@ -782,6 +785,7 @@ const WritingTest = () => {
     endAt,
     isHydratingDraft,
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -808,6 +812,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime) {
         params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+        params.set("placementPlatform", placementContext.placementPlatform || "ix");
       } else {
         params.set("userId", String(user.id));
       }
@@ -835,6 +840,7 @@ const WritingTest = () => {
     endAt,
     isHydratingDraft,
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -928,6 +934,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
         payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+        payload.placementPlatform = placementContext.placementPlatform || "ix";
       }
 
       const res = await fetch(apiPath("writing/submit"), {
@@ -975,7 +982,6 @@ const WritingTest = () => {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
       setMessage(`Could not submit: ${err?.message || "Submission failed."}`);
-      autoSubmittingRef.current = false;
       await saveDraftToServer();
     } finally {
       setIsSubmitting(false);
@@ -985,6 +991,7 @@ const WritingTest = () => {
     isPlacementRuntime,
     isSubmitting,
     navigate,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     saveDraftToServer,

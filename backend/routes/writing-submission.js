@@ -32,6 +32,59 @@ async function resolveSubmissionUser(userPayload) {
   return { userId, userName, userPhone };
 }
 
+const normalizeLower = (value) => String(value || '').trim().toLowerCase();
+
+const resolvePlacementWritingRuntimeContext = async ({
+  placementAttemptItemToken,
+  testId,
+  requestedPlatform,
+}) => {
+  const { item } = await placementService.getPlacementAttemptItemByToken(
+    placementAttemptItemToken
+  );
+  const attemptItemSkill = normalizeLower(item?.skill);
+  const attemptItemTestId = String(item?.testId || '').trim();
+  const normalizedRequestedPlatform = normalizeLower(requestedPlatform);
+  const attemptItemPlatform = normalizeLower(item?.platform);
+
+  if (attemptItemSkill !== 'writing') {
+    throw placementService.createServiceError(
+      404,
+      'Placement attempt item not found for this skill.'
+    );
+  }
+
+  if (attemptItemTestId !== String(testId)) {
+    throw placementService.createServiceError(
+      404,
+      'Placement attempt item not found for this test.'
+    );
+  }
+
+  if (
+    normalizedRequestedPlatform &&
+    attemptItemPlatform &&
+    normalizedRequestedPlatform !== attemptItemPlatform
+  ) {
+    throw placementService.createServiceError(
+      400,
+      'Placement runtime platform does not match attempt item.'
+    );
+  }
+
+  return {
+    platform: attemptItemPlatform || normalizedRequestedPlatform || 'ix',
+    testType: String(item?.testType || '').trim() || null,
+  };
+};
+
+const getClientErrorStatus = (error) => {
+  const status = Number(error?.statusCode);
+  if (!Number.isFinite(status)) return 0;
+  if (status >= 400 && status < 500) return status;
+  return 0;
+};
+
 function buildMailTransporter() {
   if (process.env.SMTP_HOST) {
     const smtpOpts = {
@@ -70,6 +123,7 @@ router.post('/draft/autosave', async (req, res) => {
       user,
       testId,
       placementAttemptItemToken,
+      placementPlatform,
     } = req.body || {};
     const numericTestId = Number(testId);
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
@@ -82,11 +136,17 @@ router.post('/draft/autosave', async (req, res) => {
     const parsedEndAt = Number.isFinite(Number(endAt)) ? new Date(Number(endAt)) : null;
 
     if (placementAttemptItemToken) {
+      const runtimeContext = await resolvePlacementWritingRuntimeContext({
+        placementAttemptItemToken,
+        testId: String(numericTestId),
+        requestedPlatform: placementPlatform,
+      });
       const { attempt, submission } = await placementService.getRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'ix',
+        platform: runtimeContext.platform,
         skill: 'writing',
         testId: numericTestId,
+        testType: runtimeContext.testType,
       });
 
       const placementUserName = attempt?.studentName || userName;
@@ -115,9 +175,10 @@ router.post('/draft/autosave', async (req, res) => {
 
         await placementService.syncRuntimeSubmissionForAttemptItem({
           attemptItemToken: placementAttemptItemToken,
-          platform: 'ix',
+          platform: runtimeContext.platform,
           skill: 'writing',
           testId: numericTestId,
+          testType: runtimeContext.testType,
           runtimeSubmissionModel: 'writing',
           runtimeSubmissionId: submission.id,
           status: 'started',
@@ -151,9 +212,10 @@ router.post('/draft/autosave', async (req, res) => {
 
       await placementService.syncRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'ix',
+        platform: runtimeContext.platform,
         skill: 'writing',
         testId: numericTestId,
+        testType: runtimeContext.testType,
         runtimeSubmissionModel: 'writing',
         runtimeSubmissionId: created.id,
         status: 'started',
@@ -227,6 +289,10 @@ router.post('/draft/autosave', async (req, res) => {
     });
   } catch (err) {
     console.error('Draft autosave error:', err);
+    const statusCode = getClientErrorStatus(err);
+    if (statusCode) {
+      return res.status(statusCode).json({ message: err?.message || 'Failed to autosave draft.' });
+    }
     return res.status(500).json({ message: 'Failed to autosave draft.' });
   }
 });
@@ -237,17 +303,25 @@ router.get('/draft/active', async (req, res) => {
     const numericUserId = Number(req.query.userId);
     const numericTestId = Number(req.query.testId);
     const placementAttemptItemToken = String(req.query.placementAttemptItemToken || '').trim();
+    const placementPlatform = String(req.query.placementPlatform || '').trim();
 
     if (placementAttemptItemToken) {
       if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
         return res.status(400).json({ message: 'Invalid testId.' });
       }
 
+      const runtimeContext = await resolvePlacementWritingRuntimeContext({
+        placementAttemptItemToken,
+        testId: String(numericTestId),
+        requestedPlatform: placementPlatform,
+      });
+
       const { submission } = await placementService.getRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'ix',
+        platform: runtimeContext.platform,
         skill: 'writing',
         testId: numericTestId,
+        testType: runtimeContext.testType,
       });
 
       const draft = submission && submission.isDraft ? submission : null;
@@ -278,6 +352,10 @@ router.get('/draft/active', async (req, res) => {
     });
   } catch (err) {
     console.error('Get draft error:', err);
+    const statusCode = getClientErrorStatus(err);
+    if (statusCode) {
+      return res.status(statusCode).json({ message: err?.message || 'Failed to get draft.' });
+    }
     return res.status(500).json({ message: 'Failed to get draft.' });
   }
 });
@@ -340,7 +418,15 @@ router.post('/draft/clear', async (req, res) => {
 // Student submit writing answer
 router.post('/submit', async (req, res) => {
   try {
-    const { task1, task2, timeLeft, user, testId, placementAttemptItemToken } = req.body || {};
+    const {
+      task1,
+      task2,
+      timeLeft,
+      user,
+      testId,
+      placementAttemptItemToken,
+      placementPlatform,
+    } = req.body || {};
     const numericTestId = Number(testId);
 
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) {
@@ -351,13 +437,20 @@ router.post('/submit', async (req, res) => {
     const submittedAt = new Date();
 
     let submission = null;
+    let placementRuntimeContext = null;
 
     if (placementAttemptItemToken) {
+      placementRuntimeContext = await resolvePlacementWritingRuntimeContext({
+        placementAttemptItemToken,
+        testId: String(numericTestId),
+        requestedPlatform: placementPlatform,
+      });
       const { attempt, submission: runtimeSubmission } = await placementService.getRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'ix',
+        platform: placementRuntimeContext.platform,
         skill: 'writing',
         testId: numericTestId,
+        testType: placementRuntimeContext.testType,
       });
 
       const placementUserName = attempt?.studentName || userName;
@@ -481,9 +574,10 @@ router.post('/submit', async (req, res) => {
     if (placementAttemptItemToken) {
       await placementService.syncRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'ix',
+        platform: placementRuntimeContext.platform,
         skill: 'writing',
         testId: numericTestId,
+        testType: placementRuntimeContext.testType,
         runtimeSubmissionModel: 'writing',
         runtimeSubmissionId: submission.id,
         status: 'submitted',
@@ -497,6 +591,10 @@ router.post('/submit', async (req, res) => {
     });
   } catch (err) {
     console.error('Submit writing error:', err);
+    const statusCode = getClientErrorStatus(err);
+    if (statusCode) {
+      return res.status(statusCode).json({ message: err?.message || 'Server error while saving submission.' });
+    }
     return res.status(500).json({ message: 'Server error while saving submission.' });
   }
 });

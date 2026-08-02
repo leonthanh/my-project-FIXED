@@ -344,9 +344,14 @@ export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") =>
 
 export const readPlacementRuntimeContext = ({ pathname = "", search = "" } = {}) => {
   const searchParams = new URLSearchParams(search || "");
+  const normalizedPathname = String(pathname || "");
+  const segments = normalizedPathname.split("/").filter(Boolean);
+  const placementPlatform =
+    segments[0] === "placement" ? normalizeText(segments[1]).toLowerCase() : "";
 
   return {
-    isPlacementRuntime: String(pathname || "").startsWith("/placement/"),
+    isPlacementRuntime: normalizedPathname.startsWith("/placement/"),
+    placementPlatform,
     placementAttemptToken: normalizeText(searchParams.get("attempt")),
     placementAttemptItemToken: normalizeText(searchParams.get("attemptItem")),
   };

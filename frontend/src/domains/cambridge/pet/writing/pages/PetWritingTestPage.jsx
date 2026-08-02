@@ -309,7 +309,6 @@ const PetWritingTestPage = () => {
 
 		if (!selectedTestId) {
 			setMessage('Cannot find test ID.');
-			autoSubmittingRef.current = false;
 			return;
 		}
 
@@ -332,6 +331,7 @@ const PetWritingTestPage = () => {
 
 			if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
 				payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+				payload.placementPlatform = placementContext.placementPlatform || 'orange';
 			} else if (user) {
 				payload.user = user;
 			}
@@ -342,7 +342,10 @@ const PetWritingTestPage = () => {
 				body: JSON.stringify(payload),
 			});
 
-			const data = await res.json();
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(data?.message || 'Failed to submit writing response.');
+			}
 			setMessage(data.message || 'Submission complete.');
 
 			localStorage.removeItem(task1StorageKey);
@@ -378,9 +381,8 @@ const PetWritingTestPage = () => {
 			}, isPlacementRuntime ? 1200 : 3000);
 		} catch (err) {
 			console.error('Submit error:', err);
-			setMessage('Failed to submit. Please try again.');
+			setMessage(err?.message || 'Failed to submit. Please try again.');
 			setSubmitted(false);
-			autoSubmittingRef.current = false;
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -390,6 +392,7 @@ const PetWritingTestPage = () => {
 		isPlacementRuntime,
 		isSubmitting,
 		navigate,
+		placementContext.placementPlatform,
 		placementContext.placementAttemptItemToken,
 		questionPickStorageKey,
 		resolvePart2Submission,
