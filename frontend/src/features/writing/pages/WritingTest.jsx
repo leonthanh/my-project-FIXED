@@ -5,7 +5,6 @@ import {
   apiPath,
   hostPath,
   redirectToLogin,
-  clearAuth,
   getStoredUser,
   hasStoredSession,
 } from "../../../shared/utils/api";
@@ -20,7 +19,6 @@ import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRat
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
-import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
@@ -58,272 +56,10 @@ const readLocalStorageJson = (key) => {
 
 const buildWritingDraftStateKey = (uid, testId) => `writing:draft:${uid}:${testId || "pending"}`;
 
-const progressRingStyle = {
-  width: 40,
-  height: 40,
-  position: "relative",
-  marginLeft: 10,
-};
-
-const createWritingRuntimeTheme = (isDarkMode = false) => {
-  const colors = isDarkMode
-    ? {
-        pageBg: "linear-gradient(180deg, #081122 0%, #0d172d 48%, #0a1326 100%)",
-        pageAccent: "radial-gradient(circle at 16% 10%, rgba(59, 130, 246, 0.16), transparent 24%), radial-gradient(circle at 84% 12%, rgba(16, 185, 129, 0.12), transparent 20%)",
-        surface: "rgba(10, 18, 34, 0.9)",
-        surfaceRaised: "rgba(17, 28, 52, 0.94)",
-        surfaceSoft: "rgba(22, 33, 62, 0.96)",
-        border: "rgba(75, 95, 132, 0.46)",
-        text: "#ecf2ff",
-        textMuted: "#bfd0f5",
-        heading: "#f8fbff",
-        primary: "#0f3f94",
-        primaryStrong: "#2563eb",
-        accent: "#ff3b66",
-        accentStrong: "#ff6b81",
-        footer: "rgba(11, 19, 35, 0.96)",
-        inactiveButton: "rgba(191, 208, 245, 0.12)",
-        inactiveButtonText: "#d7e3fb",
-        shadow: "0 24px 64px rgba(2, 6, 23, 0.35)",
-        gutter: "rgba(255, 59, 102, 0.72)",
-        statusBg: "rgba(249, 115, 22, 0.12)",
-        statusBorder: "rgba(251, 146, 60, 0.4)",
-        statusText: "#fdba74",
-        successBg: "rgba(34, 197, 94, 0.12)",
-        successText: "#86efac",
-        errorBg: "rgba(239, 68, 68, 0.12)",
-        errorText: "#fca5a5",
-      }
-    : {
-        pageBg: "linear-gradient(180deg, #f4f8ff 0%, #eef4ff 46%, #f8fbff 100%)",
-        pageAccent: "radial-gradient(circle at 16% 10%, rgba(96, 165, 250, 0.2), transparent 24%), radial-gradient(circle at 84% 12%, rgba(14, 165, 233, 0.14), transparent 20%)",
-        surface: "rgba(255, 255, 255, 0.94)",
-        surfaceRaised: "rgba(255, 255, 255, 0.96)",
-        surfaceSoft: "rgba(248, 251, 255, 0.98)",
-        border: "rgba(214, 224, 239, 0.92)",
-        text: "#132238",
-        textMuted: "#5d6b82",
-        heading: "#11203d",
-        primary: "#0e276f",
-        primaryStrong: "#1d4ed8",
-        accent: "#e03",
-        accentStrong: "#ff6b6b",
-        footer: "rgba(255, 255, 255, 0.96)",
-        inactiveButton: "#e7edf7",
-        inactiveButtonText: "#42516d",
-        shadow: "0 24px 70px rgba(30, 64, 175, 0.08)",
-        gutter: "rgba(224, 0, 51, 0.7)",
-        statusBg: "#fff7ed",
-        statusBorder: "#fdba74",
-        statusText: "#9a3412",
-        successBg: "#f0fdf4",
-        successText: "#166534",
-        errorBg: "#fef2f2",
-        errorText: "#b91c1c",
-      };
-
-  return {
-    colors,
-    root: {
-      height: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      background: `${colors.pageAccent}, ${colors.pageBg}`,
-      color: colors.text,
-    },
-    loadingState: {
-      minHeight: "100vh",
-      display: "grid",
-      placeItems: "center",
-      padding: 50,
-      background: `${colors.pageAccent}, ${colors.pageBg}`,
-      color: colors.text,
-    },
-    feedbackBlock: {
-      marginTop: 30,
-      padding: 18,
-      borderRadius: 18,
-      border: `1px solid ${colors.border}`,
-      background: colors.surface,
-      boxShadow: colors.shadow,
-    },
-    answerPreview: {
-      whiteSpace: "pre-line",
-      border: `1px solid ${colors.border}`,
-      padding: 14,
-      borderRadius: 14,
-      background: colors.surface,
-      color: colors.text,
-    },
-    header: {
-      background: "linear-gradient(135deg, #0e276f 0%, #1a3a8f 100%)",
-      color: "white",
-      padding: "0 16px",
-      height: 50,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      boxShadow: isDarkMode ? "0 18px 36px rgba(2, 6, 23, 0.28)" : "0 2px 10px rgba(14, 39, 111, 0.2)",
-      fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-      position: "sticky",
-      top: 0,
-      zIndex: 100,
-    },
-    headerLeft: { display: "flex", alignItems: "center", gap: 10 },
-    headerRight: { display: "flex", alignItems: "center", gap: 10 },
-    badge: {
-      background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentStrong} 100%)`,
-      padding: "4px 10px",
-      borderRadius: 12,
-      fontSize: 10,
-      fontWeight: 700,
-      letterSpacing: 0.5,
-    },
-    headerTitle: { fontWeight: 600, fontSize: 18 },
-    timer: {
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      background: "rgba(255,255,255,0.15)",
-      padding: "0 10px",
-      borderRadius: 8,
-      backdropFilter: "blur(10px)",
-      fontSize: 15,
-    },
-    progressText: {
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      textAlign: "center",
-      fontSize: 13,
-      lineHeight: 1,
-      color: "white",
-    },
-    submitButtonHeader: (isSubmitting) => ({
-      background: isSubmitting ? "#999" : colors.accent,
-      color: "#fff",
-      border: "none",
-      padding: "8px 16px",
-      borderRadius: 10,
-      fontWeight: 700,
-      cursor: isSubmitting ? "not-allowed" : "pointer",
-      fontSize: 15,
-      opacity: isSubmitting ? 0.85 : 1,
-      boxShadow: isDarkMode && !isSubmitting ? "0 10px 22px rgba(255, 59, 102, 0.18)" : "none",
-    }),
-    statusBanner: {
-      margin: "16px 24px 0",
-      borderRadius: 12,
-      padding: "12px 16px",
-      background: colors.statusBg,
-      border: `1px solid ${colors.statusBorder}`,
-      color: colors.statusText,
-      fontSize: 14,
-      lineHeight: 1.5,
-      boxShadow: isDarkMode ? "0 10px 25px rgba(15, 23, 42, 0.18)" : "0 10px 25px rgba(249, 115, 22, 0.08)",
-    },
-    split: {
-      flexGrow: 1,
-      overflow: "hidden",
-      height: "100%",
-      display: "flex",
-    },
-    leftPane: {
-      padding: "24px 24px 28px",
-      height: "auto",
-      overflow: "auto",
-      display: "flex",
-      flexDirection: "column",
-      fontFamily: "'Manrope', 'Segoe UI', sans-serif",
-      background: colors.surfaceRaised,
-      color: colors.text,
-      boxShadow: isDarkMode ? "inset -1px 0 0 rgba(75, 95, 132, 0.3)" : "inset -1px 0 0 rgba(214, 224, 239, 0.92)",
-    },
-    rightPane: {
-      padding: 24,
-      background: colors.surfaceSoft,
-      color: colors.text,
-      boxShadow: isDarkMode ? "inset 1px 0 0 rgba(75, 95, 132, 0.3)" : "inset 1px 0 0 rgba(214, 224, 239, 0.92)",
-    },
-    sectionHeading: {
-      margin: "0 0 18px",
-      color: colors.heading,
-      letterSpacing: "0.02em",
-    },
-    answerHeading: {
-      margin: "0 0 16px",
-      color: colors.heading,
-    },
-    textarea: {
-      width: "100%",
-      padding: 16,
-      overflow: "auto",
-      boxSizing: "border-box",
-      fontSize: "18px",
-      fontFamily: "'IBM Plex Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-      marginBottom: "12px",
-      border: `1px solid ${colors.border}`,
-      borderRadius: "18px",
-      outline: "none",
-      transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
-      background: colors.surface,
-      color: colors.text,
-      boxShadow: isDarkMode ? "inset 0 2px 10px rgba(2, 6, 23, 0.25)" : "inset 0 2px 10px rgba(14, 39, 111, 0.05)",
-    },
-    footer: {
-      display: "flex",
-      justifyContent: "center",
-      padding: 10,
-      background: colors.footer,
-      borderTop: `1px solid ${colors.border}`,
-      boxShadow: isDarkMode ? "0 -16px 32px rgba(2, 6, 23, 0.18)" : "none",
-    },
-    submitButton: (isSubmitting) => ({
-      margin: "0 10px",
-      padding: "10px 20px",
-      border: "none",
-      borderRadius: "12px",
-      fontSize: "16px",
-      backgroundColor: isSubmitting ? "#999" : colors.accent,
-      color: "white",
-      cursor: isSubmitting ? "not-allowed" : "pointer",
-      opacity: isSubmitting ? 0.85 : 1,
-      boxShadow: isDarkMode && !isSubmitting ? "0 12px 22px rgba(255, 59, 102, 0.18)" : "none",
-    }),
-    messageBanner: (message) => {
-      const isSuccess = message.toLowerCase().includes("success");
-      return {
-        textAlign: "center",
-        padding: "8px 12px 14px",
-        color: isSuccess ? colors.successText : colors.errorText,
-        fontWeight: 600,
-        background: isSuccess ? colors.successBg : colors.errorBg,
-        borderTop: `1px solid ${colors.border}`,
-      };
-    },
-    taskButton: (isActive) => ({
-      margin: "0 10px",
-      padding: "10px 20px",
-      border: "none",
-      borderRadius: "12px",
-      fontSize: "16px",
-      background: isActive
-        ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryStrong} 100%)`
-        : colors.inactiveButton,
-      color: isActive ? "#fff" : colors.inactiveButtonText,
-      cursor: "pointer",
-      boxShadow: isActive && isDarkMode ? "0 12px 22px rgba(37, 99, 235, 0.18)" : "none",
-    }),
-  };
-};
-
 const WritingTest = () => {
-  const { isDarkMode } = useTheme();
   const { id: routeTestId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const theme = useMemo(() => createWritingRuntimeTheme(isDarkMode), [isDarkMode]);
   const placementContext = useMemo(
     () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
     [location.pathname, location.search]
@@ -569,6 +305,7 @@ const WritingTest = () => {
 
         if (isPlacementRuntime) {
           params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+          params.set("placementPlatform", placementContext.placementPlatform || "ix");
           params.set("testId", String(numericTestId));
         } else {
           params.set("userId", String(user.id));
@@ -655,6 +392,7 @@ const WritingTest = () => {
     };
   }, [
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -750,6 +488,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
         payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+        payload.placementPlatform = placementContext.placementPlatform || "ix";
       }
 
       const res = await fetch(apiPath("writing/draft/autosave"), {
@@ -782,6 +521,7 @@ const WritingTest = () => {
     endAt,
     isHydratingDraft,
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -808,6 +548,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime) {
         params.set("placementAttemptItemToken", placementContext.placementAttemptItemToken);
+        params.set("placementPlatform", placementContext.placementPlatform || "ix");
       } else {
         params.set("userId", String(user.id));
       }
@@ -835,6 +576,7 @@ const WritingTest = () => {
     endAt,
     isHydratingDraft,
     isPlacementRuntime,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     selectedTestId,
@@ -928,6 +670,7 @@ const WritingTest = () => {
 
       if (isPlacementRuntime && placementContext.placementAttemptItemToken) {
         payload.placementAttemptItemToken = placementContext.placementAttemptItemToken;
+        payload.placementPlatform = placementContext.placementPlatform || "ix";
       }
 
       const res = await fetch(apiPath("writing/submit"), {
@@ -975,7 +718,6 @@ const WritingTest = () => {
       console.error("Submit writing failed:", err);
       setSubmitted(false);
       setMessage(`Could not submit: ${err?.message || "Submission failed."}`);
-      autoSubmittingRef.current = false;
       await saveDraftToServer();
     } finally {
       setIsSubmitting(false);
@@ -985,6 +727,7 @@ const WritingTest = () => {
     isPlacementRuntime,
     isSubmitting,
     navigate,
+    placementContext.placementPlatform,
     placementContext.placementAttemptItemToken,
     routeTestId,
     saveDraftToServer,
@@ -1069,38 +812,48 @@ const WritingTest = () => {
   }, [isPlacementRuntime, submitted, user]);
 
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
+  const isTimeWarning = timeLeft > 0 && timeLeft <= 300;
+  const isTimeCritical = timeLeft > 0 && timeLeft <= 60;
+  const timerStateClass = isTimeCritical
+    ? "is-critical"
+    : isTimeWarning
+      ? "is-warning"
+      : "";
+  const messageToneClass = message.toLowerCase().includes("success")
+    ? "is-success"
+    : "is-error";
 
   if (message && !testData) {
-    return <div style={theme.loadingState}>{message}</div>;
+    return <div className="writing-test-loading">{message}</div>;
   }
 
-  if (!testData) return <div style={theme.loadingState}>Loading writing test...</div>;
+  if (!testData) return <div className="writing-test-loading">Loading writing test...</div>;
 
   if (submitted) {
     return (
-      <div style={theme.loadingState}>
+      <div className="writing-test-loading">
         <h2>Submission completed</h2>
         <p>{message}</p>
         {isPlacementRuntime ? <p>Returning to your placement test list...</p> : null}
 
-        <div style={theme.feedbackBlock}>
-          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 1:</h3>
-          <p style={theme.answerPreview}>
+        <div className="writing-test-feedback-block">
+          <h3 className="writing-test-feedback-heading"><InlineIcon name="writing" size={16} />Task 1:</h3>
+          <p className="writing-test-answer-preview">
             {task1}
           </p>
         </div>
 
-        <div style={theme.feedbackBlock}>
-          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><InlineIcon name="writing" size={16} />Task 2:</h3>
-          <p style={theme.answerPreview}>
+        <div className="writing-test-feedback-block">
+          <h3 className="writing-test-feedback-heading"><InlineIcon name="writing" size={16} />Task 2:</h3>
+          <p className="writing-test-answer-preview">
             {task2}
           </p>
         </div>
 
         {feedback && (
-          <div style={theme.feedbackBlock}>
+          <div className="writing-test-feedback-block">
             <h3>Teacher feedback</h3>
-            <p style={{ whiteSpace: "pre-line" }}>{feedback}</p>
+            <p className="writing-test-feedback-text">{feedback}</p>
           </div>
         )}
       </div>
@@ -1132,7 +885,6 @@ const WritingTest = () => {
         secondaryLabel={isPlacementRuntime ? "Back to placement" : "Cancel"}
         onSecondary={() => navigate(exitPath, { replace: true })}
         primaryLabel="Start test"
-        darkContent={isDarkMode}
         onPrimary={() => {
           autoSubmittingRef.current = false;
           syncTimingState(Date.now() + timeLeft * 1000, timeLeft);
@@ -1147,66 +899,55 @@ const WritingTest = () => {
   const totalWords = countWords(task1) + countWords(task2);
   const minWords = 150 + 250;
   const progress = Math.min(totalWords / minWords, 1);
-  // Header đồng bộ với Reading
+  const progressRingStateClass = isTimeCritical
+    ? "is-critical"
+    : isTimeWarning
+      ? "is-warning"
+      : "";
+
   return (
-    <div style={theme.root}>
+    <div className="writing-test-runtime">
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
-      <header style={theme.header}>
-        <div style={theme.headerLeft}>
-          <div style={theme.badge}>IX</div>
-          <span style={theme.headerTitle}>
+      <header className="writing-test-header">
+        <div className="writing-test-header-left">
+          <div className="writing-test-badge">IX</div>
+          <span className="writing-test-title">
             IX - WRITING TEST
           </span>
         </div>
-        <div style={theme.headerRight}>
-          <div style={theme.timer}>
-            <span style={{ marginRight: 4, display: "inline-flex", alignItems: "center" }}><InlineIcon name="clock" size={18} /></span>
-            <span
-              style={{
-                fontWeight: 700,
-                fontFamily: "Courier New, monospace",
-                fontSize: 18,
-              }}
-            >
+        <div className="writing-test-header-right">
+          <div className={`writing-test-timer ${timerStateClass}`.trim()}>
+            <span className="writing-test-timer-icon"><InlineIcon name="clock" size={18} /></span>
+            <span className="writing-test-timer-value">
               {formatTime(timeLeft)}
             </span>
-            <span style={{ fontSize: 13, marginLeft: 6, opacity: 0.7 }}>
+            <span className="writing-test-timer-label">
               REMAINING
             </span>
           </div>
-          {/* Progress Ring giống Reading */}
-          <div style={progressRingStyle}>
-            <svg viewBox="0 0 36 36" style={{ width: 40, height: 40 }}>
+          <div className={`writing-progress-ring ${progressRingStateClass}`.trim()}>
+            <svg viewBox="0 0 36 36" className="writing-progress-ring__svg">
               <path
-                style={{
-                  fill: "none",
-                  stroke: "rgba(255,255,255,0.2)",
-                  strokeWidth: 3,
-                }}
+                className="writing-progress-ring__track"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                style={{
-                  fill: "none",
-                  stroke: "#2ecc71",
-                  strokeWidth: 3,
-                  strokeLinecap: "round",
-                }}
+                className="writing-progress-ring__value"
                 strokeDasharray={`${Math.round(progress * 100)}, 100`}
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <div style={theme.progressText}>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>
+            <div className="writing-progress-ring__text">
+              <span className="writing-progress-ring__value-text">
                 {totalWords}
               </span>
-              <span style={{ opacity: 0.7, fontSize: 12 }}>/400</span>
+              <span className="writing-progress-ring__target-text">/400</span>
             </div>
           </div>
           <button
             onClick={handleSubmit}
-            style={theme.submitButtonHeader(isSubmitting)}
+            className="writing-test-submit-btn"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Submitting..." : "Submit"}
@@ -1215,13 +956,13 @@ const WritingTest = () => {
       </header>
 
       {started && !submitted && timeLeft === 0 && graceRemaining > 0 && (
-        <div style={theme.statusBanner}>
+        <div className="writing-test-status-banner">
           <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
         </div>
       )}
 
       <Split
-        key={isDarkMode ? "writing-runtime-dark" : "writing-runtime-light"}
+        key="writing-runtime"
         sizes={[50, 50]}
         minSize={200}
         gutterSize={8}
@@ -1229,20 +970,15 @@ const WritingTest = () => {
         gutter={() => {
           if (typeof document === "undefined") return null;
           const gutter = document.createElement("div");
-          gutter.style.backgroundColor = theme.colors.gutter;
-          gutter.style.backgroundRepeat = "no-repeat";
-          gutter.style.backgroundPosition = "50%";
+          gutter.className = "writing-test-gutter";
           return gutter;
         }}
-        style={{
-          ...theme.split,
-          flexDirection: isMobile ? "column" : "row",
-        }}
+        className={`writing-test-split ${isMobile ? "is-mobile" : ""}`.trim()}
       >
-        <div style={theme.leftPane}>
+        <div className="writing-test-left-pane">
           {activeTask === "task1" && (
             <>
-              <h2 style={theme.sectionHeading}>WRITING TASK 1</h2>
+              <h2 className="writing-test-section-heading">WRITING TASK 1</h2>
               <div
                 className="writing-test-prompt"
                 dangerouslySetInnerHTML={{ __html: testData.task1 }}
@@ -1251,7 +987,6 @@ const WritingTest = () => {
                 <img
                   src={hostPath(testData.task1Image)}
                   alt="Task 1"
-                  style={{ maxWidth: "80%" }}
                 />
               )}
               {/* <p>
@@ -1262,7 +997,7 @@ const WritingTest = () => {
 
           {activeTask === "task2" && (
             <>
-              <h2 style={theme.sectionHeading}>WRITING TASK 2</h2>
+              <h2 className="writing-test-section-heading">WRITING TASK 2</h2>
               <div
                 className="writing-test-prompt"
                 dangerouslySetInnerHTML={{ __html: testData.task2 }}
@@ -1274,14 +1009,14 @@ const WritingTest = () => {
           )}
         </div>
 
-        <div style={theme.rightPane}>
-          <h3 style={theme.answerHeading}>
+        <div className="writing-test-right-pane">
+          <h3 className="writing-test-answer-heading">
             Your Answer – {activeTask.toUpperCase()} (
             {countWords(activeTask === "task1" ? task1 : task2)} words)
           </h3>
           <textarea
             rows={25}
-            style={theme.textarea}
+            className="writing-test-textarea"
             value={activeTask === "task1" ? task1 : task2}
             onChange={(e) => {
               if (activeTask === "task1") setTask1(e.target.value);
@@ -1291,25 +1026,23 @@ const WritingTest = () => {
         </div>
       </Split>
 
-      <div
-        style={theme.footer}
-      >
+      <div className="writing-test-footer">
         <button
           onClick={() => setActiveTask("task1")}
-          style={theme.taskButton(activeTask === "task1")}
+          className={`writing-test-task-btn ${activeTask === "task1" ? "is-active" : ""}`.trim()}
         >
           Task 1
         </button>
         <button
           onClick={() => setActiveTask("task2")}
-          style={theme.taskButton(activeTask === "task2")}
+          className={`writing-test-task-btn ${activeTask === "task2" ? "is-active" : ""}`.trim()}
         >
           Task 2
         </button>
         {/* Submit moved to header to avoid accidental clicks next to Task 2 */}
       </div>
       {message && !submitted && (
-        <div style={theme.messageBanner(message)}>
+        <div className={`writing-test-message-banner ${messageToneClass}`.trim()}>
           {message}
         </div>
       )}
