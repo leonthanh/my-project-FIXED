@@ -268,6 +268,7 @@ const CambridgeSubmissionsPage = ({
     : globalDisplayLabels;
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
+  const resolvedPlatformFilter = platformFilter === 'fce' ? 'fce' : 'orange';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   /* eslint-disable-next-line no-unused-vars */
@@ -365,7 +366,7 @@ const CambridgeSubmissionsPage = ({
         setLoading(true);
         setError(null);
 
-        let url = `cambridge/submissions?page=${pagination.page}&limit=${pagination.limit}&includeActive=1`;
+        let url = `cambridge/submissions?page=${pagination.page}&limit=${pagination.limit}&includeActive=1&platform=${encodeURIComponent(resolvedPlatformFilter)}`;
         
         // Apply test type filter based on tab
         if (activeTab === 'listening') {
@@ -400,13 +401,7 @@ const CambridgeSubmissionsPage = ({
         if (!res.ok) throw new Error("Could not load submissions.");
 
         const data = await res.json();
-        let fetchedSubmissions = data.submissions || [];
-        if (platformFilter) {
-          const prefix = `${platformFilter}-`;
-          fetchedSubmissions = fetchedSubmissions.filter(
-            (submission) => String(submission.testType || '').toLowerCase().startsWith(prefix)
-          );
-        }
+        const fetchedSubmissions = data.submissions || [];
         setSubmissions(fetchedSubmissions);
         setPagination(prev => ({
           ...prev,
@@ -432,6 +427,7 @@ const CambridgeSubmissionsPage = ({
     pagination.limit,
     pagination.page,
     refreshTick,
+    resolvedPlatformFilter,
     reviewStatus,
     sortOrder,
   ]);
@@ -1035,7 +1031,7 @@ const CambridgeSubmissionsPage = ({
     if (!submissionId) return;
 
     const normalizedTestType = String(submission?.testType || '').trim().toLowerCase();
-    if (platformFilter === 'fce' && normalizedTestType === 'fce-reading-60') {
+    if (resolvedPlatformFilter === 'fce' && normalizedTestType === 'fce-reading-60') {
       navigate(`/fce/result/${submissionId}`);
       return;
     }
@@ -1241,7 +1237,7 @@ const CambridgeSubmissionsPage = ({
     ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
-  const workspaceCurrentKey = platformFilter === 'fce' ? 'fce' : 'cambridge';
+  const workspaceCurrentKey = resolvedPlatformFilter === 'fce' ? 'fce' : 'cambridge';
   const workspaceLinks = buildAdminWorkspaceLinks(
     navigate,
     workspaceCurrentKey,
@@ -1249,8 +1245,8 @@ const CambridgeSubmissionsPage = ({
     "review",
     displayLabels
   );
-  const platformTone = platformFilter === 'fce' ? 'cyan' : 'orange';
-  const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(platformFilter);
+  const platformTone = resolvedPlatformFilter === 'fce' ? 'cyan' : 'orange';
+  const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(resolvedPlatformFilter);
   const submissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({
     key: tab.key,
     label: tab.shortLabel || tab.label,
