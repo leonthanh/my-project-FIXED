@@ -40,6 +40,10 @@ import {
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
+import {
+  replaceFceDisplayName,
+  useDisplaySettings,
+} from "../../../../shared/contexts/DisplaySettingsContext";
 import "./DoCambridgeReadingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
@@ -123,6 +127,8 @@ const DoCambridgeReadingTest = ({
   const isPlacementRuntime = Boolean(
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
 
   const examType = useMemo(() => {
     const s = routeTestType;
@@ -131,9 +137,9 @@ const DoCambridgeReadingTest = ({
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return "FCE";
+    if (s.includes("fce")) return fceDisplayName;
     return "CAMBRIDGE";
-  }, [routeTestType]);
+  }, [fceDisplayName, routeTestType]);
 
   const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
 
@@ -236,11 +242,16 @@ const DoCambridgeReadingTest = ({
     return TEST_CONFIGS['ket-reading'];
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
+  const localizedTestConfigName = useMemo(
+    () => replaceFceDisplayName(testConfig?.name || '', displayLabels),
+    [displayLabels, testConfig?.name]
+  );
+
   // For young-learner tests the section name is more informative than the full program name
   const headerTitle = useMemo(() => {
     if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
-    return testConfig.name || 'Reading & Writing';
-  }, [examType, testConfig.name]);
+    return localizedTestConfigName || testConfig.name || 'Reading & Writing';
+  }, [examType, localizedTestConfigName, testConfig.name]);
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
@@ -1853,9 +1864,9 @@ const DoCambridgeReadingTest = ({
       {!started && !submitted && !loading && !error && (
         <TestStartModal
           iconName="reading"
-          eyebrow={examType === "FCE" ? "FCE" : `Cambridge ${examType}`}
+          eyebrow={examType === fceDisplayName ? fceDisplayName : `Cambridge ${examType}`}
           subtitle="Reading Test"
-          title={test?.title || testConfig.name || 'Cambridge Reading'}
+          title={test?.title || localizedTestConfigName || 'Cambridge Reading'}
           stats={[
             { value: Math.round(effectiveDuration), label: 'Minutes', tone: 'sky' },
             { value: totalQuestions, label: 'Questions', tone: 'green' },

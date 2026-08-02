@@ -20,6 +20,7 @@ import SubmissionFilterPanel from "../components/SubmissionFilterPanel";
 import SubmissionHeaderSurface from "../components/SubmissionHeaderSurface";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
@@ -39,6 +40,7 @@ const stopSelectionEvent = (event) => {
 
 const AdminWritingSubmissions = () => {
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
   const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [feedbacks, setFeedbacks] = useState({});
@@ -525,7 +527,8 @@ const AdminWritingSubmissions = () => {
     navigate,
     "writing",
     undefined,
-    "review"
+    "review",
+    displayLabels
   );
   const sidebarStats = [
     {

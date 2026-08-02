@@ -271,6 +271,7 @@ require("./models/PlacementPackageItem");
 require("./models/PlacementAttempt");
 require("./models/PlacementAttemptItem");
 require("./models/RefreshToken");
+const AppSetting = require("./models/AppSetting");
 
 // ✅ Initialize associations (models/index.js)
 require('./models');
@@ -284,6 +285,7 @@ const readingRouter = require("./modules/reading/router");
 const writingRouter = require("./modules/writing/router");
 const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission management
 const placementRoutes = require("./routes/placement");
+const settingsRoutes = require("./routes/settings");
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -392,6 +394,7 @@ app.use('/api', readingRouter);
 app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
 app.use('/api/placement', placementRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Debug route: verify FRONTEND_URL (development only)
 if (process.env.NODE_ENV !== 'production') {
@@ -460,6 +463,7 @@ sequelize
     // Tự động thêm các cột còn thiếu (an toàn, không xoá dữ liệu)
     return ensureDbColumns(sequelize);
   })
+  .then(() => AppSetting.sync())
   .then(() => {
     // If legacy/seed data contains orphaned foreign-key values, MySQL will reject
     // `sync({ alter: true })` when Sequelize tries to recreate or add constraints.

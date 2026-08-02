@@ -15,6 +15,7 @@ const PlacementPackageItem = require("./PlacementPackageItem");
 const PlacementAttempt = require("./PlacementAttempt");
 const PlacementAttemptItem = require("./PlacementAttemptItem");
 const RefreshToken = require("./RefreshToken");
+const AppSetting = require("./AppSetting");
 
 // Quan hệ WritingTest ↔ Submission
 WritingTest.hasMany(Submission, { foreignKey: "testId" });
@@ -71,4 +72,5 @@ module.exports = {
   PlacementAttempt,
   PlacementAttemptItem,
   RefreshToken,
+  AppSetting,
 };

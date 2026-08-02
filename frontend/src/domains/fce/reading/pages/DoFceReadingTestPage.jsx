@@ -29,6 +29,10 @@ import {
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
+import {
+  replaceFceDisplayName,
+  useDisplaySettings,
+} from "../../../../shared/contexts/DisplaySettingsContext";
 import "./DoFceReadingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
@@ -108,8 +112,9 @@ const DoFceReadingTest = ({
   const isPlacementRuntime = Boolean(
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
-
-  const examType = 'FCE';
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
+  const examType = fceDisplayName;
 
   const startedKey = useMemo(() => `fce_reading_test_${id}_started`, [id]);
 
@@ -211,7 +216,15 @@ const DoFceReadingTest = ({
     return TEST_CONFIGS['fce-reading-60'];
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
-  const headerTitle = useMemo(() => testConfig.name || 'Reading & Writing', [testConfig.name]);
+  const localizedTestConfigName = useMemo(
+    () => replaceFceDisplayName(testConfig?.name || '', displayLabels),
+    [displayLabels, testConfig?.name]
+  );
+
+  const headerTitle = useMemo(
+    () => localizedTestConfigName || 'Reading & Writing',
+    [localizedTestConfigName]
+  );
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
@@ -1703,9 +1716,9 @@ const DoFceReadingTest = ({
       {!started && !submitted && !loading && !error && (
         <TestStartModal
           iconName="reading"
-          eyebrow={examType === "FCE" ? "FCE" : `Cambridge ${examType}`}
+          eyebrow={examType}
           subtitle="Reading Test"
-          title={test?.title || testConfig.name || 'Cambridge Reading'}
+          title={test?.title || localizedTestConfigName || 'Cambridge Reading'}
           stats={[
             { value: Math.round(effectiveDuration), label: 'Minutes', tone: 'sky' },
             { value: totalQuestions, label: 'Questions', tone: 'green' },
@@ -3324,7 +3337,7 @@ const DoFceReadingTest = ({
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title="Submit FCE Reading & Writing?"
+        title={`Submit ${fceDisplayName} Reading & Writing?`}
         message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
         type="info"
         iconName="reading"

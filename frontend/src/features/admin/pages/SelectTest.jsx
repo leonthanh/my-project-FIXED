@@ -41,10 +41,11 @@ import {
   matchesFceTestType,
 } from '../../../domains/fce/config/navigation';
 import {
-  PLATFORM_TABS,
+  buildPlatformTabs,
   buildSelectTestPath,
   parseSelectTestSearch,
 } from "../../../shared/config/examRegistry";
+import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import {
   buildPlacementSharePath,
   createPlacementSelection,
@@ -89,6 +90,9 @@ const SelectTest = () => {
   const [placementFeedback, setPlacementFeedback] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const { displayLabels } = useDisplaySettings();
+  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
 
   const applyPlacementPackage = useMemo(
     () => (placementPackage) => {
@@ -487,13 +491,13 @@ const SelectTest = () => {
       : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = (() => {
     if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
-    if (activePlatform === "fce") return `FCE ${currentSkillInfo.label}`;
+    if (activePlatform === "fce") return `${fceDisplayName} ${currentSkillInfo.label}`;
     return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   })();
   const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
   const orangeCreateLabel = `Create ${activeOrangeLevel.shortLabel} ${currentSkillInfo.label} Test`;
   const fceCreatePath = getFceCreatePath(activeFceTab);
-  const fceCreateLabel = `Create FCE ${currentSkillInfo.label} Test`;
+  const fceCreateLabel = `Create ${fceDisplayName} ${currentSkillInfo.label} Test`;
   const heroTags = [
     {
       icon: activePlatform === "orange"
@@ -501,7 +505,12 @@ const SelectTest = () => {
         : activePlatform === "fce"
           ? FCE_LEVEL_META.iconName || "tests"
           : "tests",
-      label: activePlatform === "orange" ? activeOrangeLevel.shortLabel : activePlatform === "fce" ? "FCE" : "IX",
+      label:
+        activePlatform === "orange"
+          ? activeOrangeLevel.shortLabel
+          : activePlatform === "fce"
+            ? fceDisplayName
+            : "IX",
     },
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
     { icon: "tests", label: `${activeList.length} test${activeList.length === 1 ? "" : "s"}` },
@@ -550,11 +559,11 @@ const SelectTest = () => {
       testType: test.testType,
       title,
       subtitle: buildPlacementSubtitle(
-        "FCE",
+        fceDisplayName,
         displayTitle,
         test.classCode || ""
       ),
-      badge: "FCE",
+      badge: fceDisplayName,
       questionsLabel: `${fceConfig.totalQuestions || "?"} Q`,
       durationLabel: `${fceConfig.duration || "?"} min`,
     });
@@ -632,7 +641,7 @@ const SelectTest = () => {
                 </div>
 
                 <div className="select-test-sidebarPlatforms">
-                  {PLATFORM_TABS.map((tab) => (
+                  {platformTabs.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
@@ -694,7 +703,7 @@ const SelectTest = () => {
                 ) : activePlatform === "fce" ? (
                   <div className="select-test-sidebarPanel">
                     <div className="select-test-sidebarPanelHeader">
-                      <span className="select-test-sidebarPanelTitle">FCE skills</span>
+                      <span className="select-test-sidebarPanelTitle">{fceDisplayName} skills</span>
                       <span className="select-test-sidebarPanelMeta">{fceTotalCount} tests</span>
                     </div>
 
@@ -716,7 +725,7 @@ const SelectTest = () => {
                     </div>
 
                     <div className="select-test-shelfMeta">
-                      <span className="select-test-shelfMetaItem">FCE</span>
+                      <span className="select-test-shelfMetaItem">{fceDisplayName} placement</span>
                       <span className="select-test-shelfMetaItem">{fceConfig.totalQuestions || "?"} Q</span>
                       <span className="select-test-shelfMetaItem">{fceConfig.duration || "?"} min</span>
                     </div>
@@ -792,7 +801,7 @@ const SelectTest = () => {
                 <div className="select-test-toolbarMain">
                   <div className="select-test-toolbarIdentity">
                     <span className="select-test-toolbarEyebrow">
-                      {activePlatform === "orange" ? "Orange library" : activePlatform === "fce" ? "FCE library" : "IX library"}
+                      {activePlatform === "orange" ? "Orange library" : activePlatform === "fce" ? `${fceDisplayName} library` : "IX library"}
                     </span>
                     <h2 className="select-test-toolbarTitle">{currentShelfTitle}</h2>
                     <div className="select-test-toolbarPills">
@@ -1050,8 +1059,8 @@ const SelectTest = () => {
                         visibleList.map((test, index) => {
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
-                          const displayTitle = FCE_SKILL_META[activeFceTab]?.label || "FCE";
-                          const fceCardTitle = test.title || `FCE ${displayTitle}`;
+                          const displayTitle = FCE_SKILL_META[activeFceTab]?.label || fceDisplayName;
+                          const fceCardTitle = test.title || `${fceDisplayName} ${displayTitle}`;
                           const placementSelection = buildFcePlacementSelection(test, fceCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "fce",

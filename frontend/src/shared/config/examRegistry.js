@@ -20,6 +20,16 @@ export const PLATFORM_TABS = [
   { key: 'fce', label: 'FCE', icon: 'tests', hint: 'Placement-style combined skills.' },
 ];
 
+export function buildPlatformTabs(displayLabels = {}) {
+  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
+
+  return [
+    { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
+    { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
+    { key: 'fce', label: fceDisplayName, icon: 'tests', hint: 'Placement-style combined skills.' },
+  ];
+}
+
 export function normalizeSelectTestState({ platform, type, tab }) {
   if (platform === 'orange') {
     const orangeType = normalizeOrangeType(type);

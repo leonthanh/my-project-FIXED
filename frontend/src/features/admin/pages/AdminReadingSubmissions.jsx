@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
+import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
@@ -59,6 +60,7 @@ const stopSelectionEvent = (event) => {
 
 const AdminReadingSubmissions = () => {
   const { isDarkMode } = useTheme();
+  const { displayLabels } = useDisplaySettings();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -272,8 +274,8 @@ const AdminReadingSubmissions = () => {
   const pendingCount = subs.filter((submission) => !hasReview(submission)).length;
   const reviewedCount = subs.filter((submission) => hasReview(submission)).length;
   const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "reading", undefined, "review"),
-    [navigate]
+    () => buildAdminWorkspaceLinks(navigate, "reading", undefined, "review", displayLabels),
+    [displayLabels, navigate]
   );
   const sidebarStats = useMemo(
     () => [
