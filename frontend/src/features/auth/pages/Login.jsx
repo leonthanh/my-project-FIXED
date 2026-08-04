@@ -233,6 +233,7 @@ const Login = () => {
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true);
+  const [showRegisterEmailField, setShowRegisterEmailField] = useState(false);
   const loginPhoneRef = useRef(null);
   const loginPasswordRef = useRef(null);
   const loginButtonRef = useRef(null);
@@ -675,21 +676,24 @@ const Login = () => {
 
   const handleRegister = async () => {
     if (registerSubmittingRef.current || loading) return;
-    if (!name.trim() ||!phone.trim() ||!email.trim() ||!password.trim()) {
-      setMessage(
-        "Please enter your full name, phone number, email, and password."
-      );
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedName ||!trimmedPhone ||!trimmedPassword) {
+      setMessage("Please enter your full name, phone number, and password.");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
+    if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
       setMessage("Invalid email address. Please enter a valid email.");
       return;
     }
 
     const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
-    if (!vnPhoneRegex.test(phone.trim())) {
+    if (!vnPhoneRegex.test(trimmedPhone)) {
       setMessage(
         "Invalid phone number. Please enter a valid Vietnamese phone number (e.g. 0912345678)."
       );
@@ -702,7 +706,12 @@ const Login = () => {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, password }),
+        body: JSON.stringify({
+          name: trimmedName,
+          phone: trimmedPhone,
+          email: trimmedEmail || undefined,
+          password: trimmedPassword,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -956,7 +965,10 @@ const Login = () => {
           <div className="login-page-toggleGroup">
             <button
               type="button"
-              onClick={() => setIsLoginMode(true)}
+              onClick={() => {
+                setIsLoginMode(true);
+                setShowRegisterEmailField(false);
+              }}
               className={`login-page-toggleButton${isLoginMode? " login-page-toggleButton--active" : ""}`}
             >
               <span>Login</span>
@@ -1038,13 +1050,51 @@ const Login = () => {
                 onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
               />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={inputStyle}
-              />
+
+              {!showRegisterEmailField? (
+                <div style={{ display: "flex", justifyContent: "flex-start", margin: "2px 0 8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterEmailField(true)}
+                    style={emailToggleButtonStyle}
+                  >
+                    + Add email (optional)
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <div style={{ display: "flex", justifyContent: "space-between", margin: "-2px 0 8px" }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "12px",
+                        color: "#64748b",
+                        textAlign: "left",
+                      }}
+                    >
+                      You can skip email now and add it later in your profile.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRegisterEmailField(false);
+                        setEmail("");
+                      }}
+                      style={emailToggleButtonStyle}
+                    >
+                      Skip for now
+                    </button>
+                  </div>
+                </>
+              )}
+
               <input
                 type="password"
                 placeholder="Password"
@@ -1269,6 +1319,16 @@ const roleNoticeIconStyle = {
   height: "20px",
   color: "#0e276f",
   marginTop: "1px",
+};
+
+const emailToggleButtonStyle = {
+  border: "none",
+  background: "none",
+  color: "#1d4ed8",
+  cursor: "pointer",
+  padding: 0,
+  fontSize: "12px",
+  fontWeight: 600,
 };
 
 export default Login;

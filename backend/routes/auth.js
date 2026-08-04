@@ -703,7 +703,7 @@ async function issueTokens({ user, req, res }) {
 const registerSchema = z.object({
   name: z.string().min(1),
   phone: z.string().regex(vnPhoneRegex),
-  email: z.string().email().optional().nullable(),
+  email: nullableEmailSchema.optional(),
   password: z.string().min(6),
   // role field is accepted but silently ignored — public registration always creates students
 });
