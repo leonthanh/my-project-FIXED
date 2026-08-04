@@ -715,6 +715,22 @@ const socialLoginSchema = z.object({
   authorizationCode: z.string().min(1).optional(),
   codeVerifier: z.string().min(43).max(128).optional(),
   redirectUri: z.string().url().optional(),
+  recentLoggedOutUserId: z.preprocess(
+    (value) => {
+      if (value === undefined || value === null) return undefined;
+      const normalized = String(value).trim();
+      return normalized || undefined;
+    },
+    z.string().max(64).optional()
+  ),
+  recentLogoutProvider: z.preprocess(
+    (value) => {
+      if (value === undefined || value === null) return undefined;
+      const normalized = String(value).trim().toLowerCase();
+      return normalized || undefined;
+    },
+    z.enum(['google', 'facebook', 'zalo']).optional()
+  ),
 }).superRefine((value, ctx) => {
   if (value.provider === 'google' && !value.credential && !value.accessToken) {
     ctx.addIssue({
@@ -1132,6 +1148,8 @@ router.post(
         authorizationCode,
         codeVerifier,
         redirectUri,
+        recentLoggedOutUserId,
+        recentLogoutProvider,
       } = req.body;
 
       let socialProfile;
@@ -1150,6 +1168,23 @@ router.post(
       }
 
       const { user, created, linkedExistingAccount } = await resolveSocialUser(socialProfile);
+
+      const normalizedRecentLogoutUserId = String(recentLoggedOutUserId || '').trim();
+      const normalizedRecentLogoutProvider = String(recentLogoutProvider || '').trim().toLowerCase();
+      const isSameRecentlyLoggedOutSocialUser = Boolean(
+        normalizedRecentLogoutUserId
+          && String(user.id) === normalizedRecentLogoutUserId
+          && (!normalizedRecentLogoutProvider || normalizedRecentLogoutProvider === provider)
+      );
+
+      if (isSameRecentlyLoggedOutSocialUser) {
+        throw AppError.badRequest(
+          provider === 'zalo'
+            ? "Zalo is still returning the account that just signed out. Please scan the QR code again with the next student's Zalo account."
+            : `This browser just signed out of that ${provider} account. Please choose a different account for the next student or teacher.`
+        );
+      }
+
       const tokens = await issueTokens({ user, req, res });
       const providerLabel = getSocialProviderLabel(provider);
 

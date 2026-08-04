@@ -6,11 +6,9 @@ import {
   API_BASE,
   clearAuth,
   clearRecentLoggedOutUser,
-  disconnectSocialProviderSession,
+  getRecentLoggedOutUser,
   getStoredUser,
   hasStoredSession,
-  isRecentlyLoggedOutUser,
-  rememberRecentLogout,
   rememberSocialLoginSession,
   storeAuthSession,
 } from "../../../shared/utils/api";
@@ -80,11 +78,11 @@ const buildZaloAuthorizationUrl = ({
   });
 
   if (forceLogin) {
-    // PATCH: 3 tham số này là tối đa Zalo cho phép để ép hiện QR
-    params.set("prompt", "login consent");
+    // Best-effort re-auth hints for shared classroom browsers.
+    params.set("prompt", "login");
     params.set("display", "popup");
     params.set("auth_type", "reauthenticate");
-    // Bỏ force_login=1 vì Zalo v4 không dùng
+    params.set("force_login", "1");
   }
 
   url.search = params.toString();
@@ -532,6 +530,7 @@ const Login = () => {
       socialSubmittingRef.current = true;
       setLoading(true);
       setMessage("");
+      const recentLogout = getRecentLoggedOutUser();
 
       const res = await fetch(`${API_BASE}/auth/social-login`, {
         method: "POST",
@@ -544,34 +543,14 @@ const Login = () => {
           authorizationCode,
           codeVerifier,
           redirectUri,
+          recentLoggedOutUserId: recentLogout?.userId,
+          recentLogoutProvider: recentLogout?.provider,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         rememberSocialLoginSession({ provider, accessToken });
-
-        if (isRecentlyLoggedOutUser(data.user, provider)) {
-          try {
-            await fetch(`${API_BASE}/auth/logout`, {
-              method: "POST",
-              credentials: "include",
-            });
-          } catch (_err) {
-            // The local guard still prevents accidental same-account reuse.
-          }
-
-          rememberRecentLogout(data.user, provider);
-          await disconnectSocialProviderSession();
-          clearAuth();
-          setMessage(
-            provider === "zalo"
-             ? "Zalo is still returning the account that just signed out. Please scan the QR code again with the next student's Zalo account."
-              : `This browser just signed out of that ${provider} account. Please choose a different account for the next student or teacher.`
-          );
-          return;
-        }
-
         completeAuthFlow(data);
         return;
       }

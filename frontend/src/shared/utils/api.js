@@ -134,12 +134,13 @@ function clearRememberedSocialLoginSession() {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(SOCIAL_AUTH_SESSION_KEY);
   sessionStorage.removeItem("auth:zalo:pkce");
+  localStorage.removeItem("auth:zalo:reauthRequired");
 }
 
 function rememberRecentLogout(user = getStoredUser(), provider = "") {
   if (typeof window === "undefined" || !user?.id) return;
 
-  localStorage.setItem(
+  sessionStorage.setItem(
     RECENT_LOGOUT_KEY,
     JSON.stringify({
       userId: user.id,
@@ -147,19 +148,25 @@ function rememberRecentLogout(user = getStoredUser(), provider = "") {
       loggedOutAt: Date.now(),
     })
   );
+
+  // Cleanup legacy records that were persisted too long across browser restarts.
+  localStorage.removeItem(RECENT_LOGOUT_KEY);
 }
 
 function getRecentLoggedOutUser(maxAgeMs = RECENT_LOGOUT_BLOCK_MS) {
   if (typeof window === "undefined") return null;
 
-  const record = readJsonStorage(localStorage, RECENT_LOGOUT_KEY);
+  const record = readJsonStorage(sessionStorage, RECENT_LOGOUT_KEY);
   const loggedOutAt = Number(record?.loggedOutAt || 0);
 
   if (!record?.userId || !loggedOutAt || Date.now() - loggedOutAt > maxAgeMs) {
+    sessionStorage.removeItem(RECENT_LOGOUT_KEY);
     localStorage.removeItem(RECENT_LOGOUT_KEY);
     return null;
   }
 
+  // Cleanup legacy localStorage copy once session guard is active.
+  localStorage.removeItem(RECENT_LOGOUT_KEY);
   return record;
 }
 
@@ -176,6 +183,7 @@ function isRecentlyLoggedOutUser(user, provider = "", maxAgeMs = RECENT_LOGOUT_B
 
 function clearRecentLoggedOutUser() {
   if (typeof window === "undefined") return;
+  sessionStorage.removeItem(RECENT_LOGOUT_KEY);
   localStorage.removeItem(RECENT_LOGOUT_KEY);
 }
 
@@ -221,9 +229,9 @@ function logoutFacebookSocialSession() {
     }
   });
 }
-
 async function disconnectSocialProviderSession() {
   const socialSession = getRememberedSocialLoginSession();
+
   clearRememberedSocialLoginSession();
 
   await Promise.allSettled([
@@ -304,6 +312,7 @@ function clearAuth() {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("user");
   localStorage.removeItem("auth:lastRefreshAt");
+  localStorage.removeItem("auth:zalo:reauthRequired");
   sessionStorage.removeItem("accessToken");
   sessionStorage.removeItem("refreshToken");
   sessionStorage.removeItem("user");
@@ -468,6 +477,7 @@ export {
   storeAuthSession,
   rememberSocialLoginSession,
   rememberRecentLogout,
+  getRecentLoggedOutUser,
   isRecentlyLoggedOutUser,
   clearRecentLoggedOutUser,
   disconnectSocialProviderSession,
