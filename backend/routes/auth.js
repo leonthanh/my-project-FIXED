@@ -14,6 +14,7 @@ const { logError, logWarn } = require("../logger"); // ✅ Import logger
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { AppError } = require('../utils/AppError');
+const { getAttemptStatusForStudent } = require('../utils/attemptLimit');
 const { signAccessToken, generateRefreshToken, hashRefreshToken } = require('../utils/tokens');
 
 // ✅ Email OTP Configuration (Nodemailer + Gmail)
@@ -796,6 +797,32 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await getCurrentUserOrThrow(req.user.id);
     res.json({ user: sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/attempt-limit/status', requireAuth, async (req, res, next) => {
+  try {
+    const status = await getAttemptStatusForStudent({ userId: req.user.id });
+    if (!status) {
+      throw AppError.notFound('Không tìm thấy người dùng.');
+    }
+
+    res.json(status);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/attempt-limit/status/:userId', async (req, res, next) => {
+  try {
+    const status = await getAttemptStatusForStudent({ userId: req.params.userId });
+    if (!status) {
+      throw AppError.notFound('Không tìm thấy người dùng.');
+    }
+
+    res.json(status);
   } catch (err) {
     next(err);
   }

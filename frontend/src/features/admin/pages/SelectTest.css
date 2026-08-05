@@ -1867,6 +1867,20 @@
   box-shadow: 0 20px 42px rgba(249, 115, 22, 0.08);
 }
 
+.select-test-card--disabled {
+  border-color: rgba(148, 163, 184, 0.34);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.select-test-card--disabled:hover {
+  transform: none;
+}
+
+.select-test-card--disabled::before {
+  opacity: 0.34;
+  filter: grayscale(0.28) blur(1px);
+}
+
 .select-test-cardMain {
   display: grid;
   gap: 10px;
@@ -1877,6 +1891,11 @@
   text-align: left;
   cursor: pointer;
   color: inherit;
+}
+
+.select-test-cardMain.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.76;
 }
 
 .select-test-cardHeader,
@@ -2001,6 +2020,21 @@
   color: #0f3f94;
 }
 
+.select-test-cardCompletionState {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .select-test-cardActionHint {
   color: var(--card-accent);
   font-size: 0.68rem;
@@ -2008,6 +2042,10 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
+}
+
+.select-test-cardActionHint.is-complete {
+  color: #166534;
 }
 
 .select-test-edit,
@@ -2193,6 +2231,15 @@ body.dark-mode .select-test-placementBadge {
 body.dark-mode .select-test-cardPlacementState {
   background: rgba(148, 163, 184, 0.16);
   color: #bfd0f5;
+}
+
+body.dark-mode .select-test-cardCompletionState {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+body.dark-mode .select-test-cardActionHint.is-complete {
+  color: #86efac;
 }
 
 body.dark-mode .select-test-sidePlatformCount {

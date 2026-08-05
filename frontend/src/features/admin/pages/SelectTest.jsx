@@ -55,6 +55,51 @@ import {
 
 import "./SelectTest.css";
 
+const FINALIZED_READING_SUBMISSION = (submission) =>
+  submission?.finished === true || submission?.finished == null;
+
+const FINALIZED_LISTENING_SUBMISSION = (submission) =>
+  submission?.finished === true || submission?.finished == null;
+
+const FINALIZED_WRITING_SUBMISSION = (submission) =>
+  submission?.isDraft === false || submission?.isDraft == null;
+
+const FINALIZED_CAMBRIDGE_SUBMISSION = (submission) =>
+  submission?.finished === true || submission?.finished == null;
+
+const normalizeAttemptValue = (value, fallback = 1) => {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return Math.max(1, Number(fallback) || 1);
+  }
+
+  return parsed;
+};
+
+const normalizeTestTypeKey = (value) => String(value || "").trim().toLowerCase();
+
+const buildAttemptScopeKey = ({ scope, testId, testType } = {}) => {
+  const normalizedScope = String(scope || "").trim().toLowerCase();
+  const numericTestId = Number.parseInt(String(testId ?? ""), 10);
+
+  if (!normalizedScope || !Number.isFinite(numericTestId) || numericTestId <= 0) {
+    return null;
+  }
+
+  if (normalizedScope === "cambridge") {
+    const normalizedType = normalizeTestTypeKey(testType);
+    if (!normalizedType) return null;
+    return `${normalizedScope}:${numericTestId}:${normalizedType}`;
+  }
+
+  return `${normalizedScope}:${numericTestId}`;
+};
+
+const incrementAttemptKeyCount = (target, key) => {
+  if (!key) return;
+  target[key] = Number(target[key] || 0) + 1;
+};
+
 const SelectTest = () => {
   let user = null;
   try {
@@ -63,8 +108,12 @@ const SelectTest = () => {
     localStorage.removeItem("user");
     user = null;
   }
-  const isTeacher = user && (user.role === "teacher" || user.role === "admin");
+  const userRole = String(user?.role || "").toLowerCase();
+  const isTeacher = userRole === "teacher" || userRole === "admin";
+  const isStudent = userRole === "student";
   const isPlacementAdmin = isAdmin(user);
+  const userPhone = String(user?.phone || "").trim();
+  const userId = Number(user?.id || 0);
 
   const [tests, setTests] = useState({
     writing: [],
@@ -88,6 +137,10 @@ const SelectTest = () => {
   const [placementLoading, setPlacementLoading] = useState(Boolean(isPlacementAdmin));
   const [placementSaving, setPlacementSaving] = useState(false);
   const [placementFeedback, setPlacementFeedback] = useState("");
+  const [attemptStatus, setAttemptStatus] = useState({
+    maxAttempts: normalizeAttemptValue(user?.maxAttemptsPerTest, 1),
+    countsByKey: {},
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { displayLabels } = useDisplaySettings();
@@ -179,6 +232,177 @@ const SelectTest = () => {
 
     fetchAllTests();
   }, [isTeacher]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchArray = async (url) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json().catch(() => []);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        return [];
+      }
+    };
+
+    const fetchAttemptStatus = async () => {
+      if (!isStudent) {
+        if (isMounted) {
+          setAttemptStatus({
+            maxAttempts: 1,
+            countsByKey: {},
+          });
+        }
+        return;
+      }
+
+      const fallbackMaxAttempts = normalizeAttemptValue(user?.maxAttemptsPerTest, 1);
+
+      try {
+        const statusRes = await authFetch(apiPath("auth/attempt-limit/status"));
+        const statusData = await statusRes.json().catch(() => null);
+        if (
+          statusRes.ok &&
+          statusData &&
+          typeof statusData === "object" &&
+          statusData.countsByKey &&
+          typeof statusData.countsByKey === "object"
+        ) {
+          if (!isMounted) return;
+          setAttemptStatus({
+            maxAttempts: normalizeAttemptValue(statusData.maxAttempts, fallbackMaxAttempts),
+            countsByKey: statusData.countsByKey,
+          });
+          return;
+        }
+      } catch (error) {
+        // Fall through to phone-based fallback when status API is unavailable.
+      }
+
+      const numericUserId = Number.parseInt(String(userId || ""), 10);
+      if (Number.isFinite(numericUserId) && numericUserId > 0) {
+        try {
+          const statusResByUserId = await fetch(apiPath(`auth/attempt-limit/status/${numericUserId}`));
+          const statusDataByUserId = await statusResByUserId.json().catch(() => null);
+          if (
+            statusResByUserId.ok &&
+            statusDataByUserId &&
+            typeof statusDataByUserId === "object" &&
+            statusDataByUserId.countsByKey &&
+            typeof statusDataByUserId.countsByKey === "object"
+          ) {
+            if (!isMounted) return;
+            setAttemptStatus({
+              maxAttempts: normalizeAttemptValue(statusDataByUserId.maxAttempts, fallbackMaxAttempts),
+              countsByKey: statusDataByUserId.countsByKey,
+            });
+            return;
+          }
+        } catch (error) {
+          // Fall through to phone-based fallback when userId status API is unavailable.
+        }
+      }
+
+      let resolvedPhone = userPhone;
+      let resolvedMaxAttempts = fallbackMaxAttempts;
+
+      try {
+        const meRes = await authFetch(apiPath("auth/me"));
+        const meData = await meRes.json().catch(() => null);
+        if (meRes.ok && meData?.user) {
+          resolvedPhone = String(meData.user.phone || resolvedPhone || "").trim();
+          resolvedMaxAttempts = normalizeAttemptValue(
+            meData.user.maxAttemptsPerTest,
+            fallbackMaxAttempts
+          );
+        }
+      } catch (error) {
+        // Ignore profile refresh failures and keep local fallback values.
+      }
+
+      if (!resolvedPhone) {
+        if (isMounted) {
+          setAttemptStatus({
+            maxAttempts: resolvedMaxAttempts,
+            countsByKey: {},
+          });
+        }
+        return;
+      }
+
+      const encodedPhone = encodeURIComponent(resolvedPhone);
+      const [writingSubmissions, readingSubmissions, listeningSubmissions, cambridgeSubmissions] =
+        await Promise.all([
+          fetchArray(apiPath(`writing/user/${encodedPhone}`)),
+          fetchArray(apiPath(`reading-submissions/user/${encodedPhone}`)),
+          fetchArray(apiPath(`listening-submissions/user/${encodedPhone}`)),
+          fetchArray(apiPath(`cambridge/submissions/user/${encodedPhone}`)),
+        ]);
+
+      const countsByKey = {};
+
+      writingSubmissions
+        .filter(FINALIZED_WRITING_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({ scope: "ix-writing", testId: submission?.testId })
+          );
+        });
+
+      readingSubmissions
+        .filter(FINALIZED_READING_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({ scope: "ix-reading", testId: submission?.testId })
+          );
+        });
+
+      listeningSubmissions
+        .filter(FINALIZED_LISTENING_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({ scope: "ix-listening", testId: submission?.testId })
+          );
+        });
+
+      cambridgeSubmissions
+        .filter(FINALIZED_CAMBRIDGE_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({
+              scope: "cambridge",
+              testId: submission?.testId,
+              testType: submission?.testType,
+            })
+          );
+        });
+
+      if (!isMounted) return;
+
+      setAttemptStatus({
+        maxAttempts: resolvedMaxAttempts,
+        countsByKey,
+      });
+    };
+
+    fetchAttemptStatus().catch((error) => {
+      if (!isMounted) return;
+      setAttemptStatus({
+        maxAttempts: normalizeAttemptValue(user?.maxAttemptsPerTest, 1),
+        countsByKey: {},
+      });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isStudent, user?.maxAttemptsPerTest, userPhone, userId]);
 
   useEffect(() => {
     const nextState = parseSelectTestSearch(location.search);
@@ -517,6 +741,23 @@ const SelectTest = () => {
   ];
 
   const buildPlacementSubtitle = (...parts) => parts.filter(Boolean).join(" • ");
+
+  const resolveAttemptState = ({ scope, testId, testType } = {}) => {
+    if (!isStudent) {
+      return { isComplete: false, usedAttempts: 0 };
+    }
+
+    const key = buildAttemptScopeKey({ scope, testId, testType });
+    if (!key) {
+      return { isComplete: false, usedAttempts: 0 };
+    }
+
+    const usedAttempts = Number(attemptStatus.countsByKey[key] || 0);
+    return {
+      usedAttempts,
+      isComplete: usedAttempts >= attemptStatus.maxAttempts,
+    };
+  };
 
   const buildIxPlacementSelection = (test, title) => {
     return createPlacementSelection({
@@ -974,6 +1215,11 @@ const SelectTest = () => {
                           const teacherName = test.teacherName || "N/A";
                           const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
                           const orangeCardTitle = test.title || `${activeOrangeLevel.shortLabel} ${displayTitle}`;
+                          const { isComplete: isAttemptComplete } = resolveAttemptState({
+                            scope: "cambridge",
+                            testId: test.id,
+                            testType: test.testType,
+                          });
                           const placementSelection = buildOrangePlacementSelection(test, orangeCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "orange",
@@ -985,12 +1231,16 @@ const SelectTest = () => {
                           return (
                             <div
                               key={`cambridge-${test.category || "unknown"}-${test.id}`}
-                              className={`select-test-card select-test-card--${activeOrangeTab} select-test-card--orange`}
+                              className={`select-test-card select-test-card--${activeOrangeTab} select-test-card--orange${isAttemptComplete ? " select-test-card--disabled" : ""}`}
                             >
                               <button
                                 type="button"
-                                className="select-test-cardMain"
-                                onClick={() => handleSelectCambridge(test)}
+                                className={`select-test-cardMain${isAttemptComplete ? " is-disabled" : ""}`}
+                                disabled={isAttemptComplete}
+                                onClick={() => {
+                                  if (isAttemptComplete) return;
+                                  handleSelectCambridge(test);
+                                }}
                               >
                                 <div className="select-test-cardHeader">
                                   <span className={`select-test-cardBadge select-test-cardBadge--${activeOrangeTab}`}>
@@ -1017,12 +1267,17 @@ const SelectTest = () => {
                                     {orangeConfig.totalQuestions || "?"} Q • {orangeConfig.duration || "?"} min
                                   </span>
                                   <div className="select-test-cardFooterMeta">
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardCompletionState">Complete</span>
+                                    ) : null}
                                     {placementEligible ? (
                                       <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className="select-test-cardActionHint">Open test</span>
+                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
+                                      {isAttemptComplete ? "Locked" : "Open test"}
+                                    </span>
                                   </div>
                                 </div>
                               </button>
@@ -1061,6 +1316,11 @@ const SelectTest = () => {
                           const teacherName = test.teacherName || "N/A";
                           const displayTitle = FCE_SKILL_META[activeFceTab]?.label || fceDisplayName;
                           const fceCardTitle = test.title || `${fceDisplayName} ${displayTitle}`;
+                          const { isComplete: isAttemptComplete } = resolveAttemptState({
+                            scope: "cambridge",
+                            testId: test.id,
+                            testType: test.testType,
+                          });
                           const placementSelection = buildFcePlacementSelection(test, fceCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "fce",
@@ -1072,12 +1332,16 @@ const SelectTest = () => {
                           return (
                             <div
                               key={`fce-${test.category || "unknown"}-${test.id}`}
-                              className={`select-test-card select-test-card--${activeFceTab} select-test-card--fce`}
+                              className={`select-test-card select-test-card--${activeFceTab} select-test-card--fce${isAttemptComplete ? " select-test-card--disabled" : ""}`}
                             >
                               <button
                                 type="button"
-                                className="select-test-cardMain"
-                                onClick={() => handleSelectFce(test)}
+                                className={`select-test-cardMain${isAttemptComplete ? " is-disabled" : ""}`}
+                                disabled={isAttemptComplete}
+                                onClick={() => {
+                                  if (isAttemptComplete) return;
+                                  handleSelectFce(test);
+                                }}
                               >
                                 <div className="select-test-cardHeader">
                                   <span className={`select-test-cardBadge select-test-cardBadge--${activeFceTab}`}>
@@ -1104,12 +1368,17 @@ const SelectTest = () => {
                                     {fceConfig.totalQuestions || "?"} Q • {fceConfig.duration || "?"} min
                                   </span>
                                   <div className="select-test-cardFooterMeta">
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardCompletionState">Complete</span>
+                                    ) : null}
                                     {placementEligible ? (
                                       <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className="select-test-cardActionHint">Open test</span>
+                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
+                                      {isAttemptComplete ? "Locked" : "Open test"}
+                                    </span>
                                   </div>
                                 </div>
                               </button>
@@ -1147,6 +1416,15 @@ const SelectTest = () => {
                           const title = getTestTitle(test, currentContext.displayType, index + 1);
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
+                          const ixScope = activeIxTab === "writing"
+                            ? "ix-writing"
+                            : activeIxTab === "reading"
+                              ? "ix-reading"
+                              : "ix-listening";
+                          const { isComplete: isAttemptComplete } = resolveAttemptState({
+                            scope: ixScope,
+                            testId: test.id,
+                          });
                           const placementSelection = buildIxPlacementSelection(test, title);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "ix",
@@ -1158,12 +1436,14 @@ const SelectTest = () => {
                           return (
                             <div
                               key={`${activeIxTab}-${test.id}`}
-                              className={`select-test-card select-test-card--${activeIxTab}`}
+                              className={`select-test-card select-test-card--${activeIxTab}${isAttemptComplete ? " select-test-card--disabled" : ""}`}
                             >
                               <button
                                 type="button"
-                                className="select-test-cardMain"
+                                className={`select-test-cardMain${isAttemptComplete ? " is-disabled" : ""}`}
+                                disabled={isAttemptComplete}
                                 onClick={() => {
+                                  if (isAttemptComplete) return;
                                   if (activeIxTab === "writing") handleSelectWriting(test);
                                   else if (activeIxTab === "reading") handleSelectReading(test.id);
                                   else if (activeIxTab === "listening") handleSelectListening(test.id);
@@ -1192,12 +1472,17 @@ const SelectTest = () => {
                                 <div className="select-test-cardFooter">
                                   <span className="select-test-cardFootnote">{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
                                   <div className="select-test-cardFooterMeta">
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardCompletionState">Complete</span>
+                                    ) : null}
                                     {placementEligible ? (
                                       <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className="select-test-cardActionHint">Open test</span>
+                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
+                                      {isAttemptComplete ? "Locked" : "Open test"}
+                                    </span>
                                   </div>
                                 </div>
                               </button>

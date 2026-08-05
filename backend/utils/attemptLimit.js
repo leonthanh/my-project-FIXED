@@ -26,7 +26,7 @@ const FINALIZED_WRITING_WHERE = {
 
 const createAttemptLimitError = ({ allowedAttempts, usedAttempts }) => {
   const error = new Error(
-    `Ban da dat gioi han ${allowedAttempts} lan lam bai cho de nay.`
+    `You have reached the limit of ${allowedAttempts} attempt${allowedAttempts === 1 ? '' : 's'} for this test.`
   );
   error.statusCode = 403;
   error.code = 'ATTEMPT_LIMIT_REACHED';
@@ -121,6 +121,147 @@ const countFinalizedAttempts = async ({ scope, userId, testId, testType } = {}) 
   return 0;
 };
 
+const normalizeAttemptStatusTestId = (value) => {
+  const numericValue = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return numericValue;
+};
+
+const buildAttemptStatusKey = ({ scope, testId, testType } = {}) => {
+  const normalizedScope = String(scope || '').trim().toLowerCase();
+  const normalizedTestId = normalizeAttemptStatusTestId(testId);
+
+  if (!normalizedScope || !normalizedTestId) {
+    return null;
+  }
+
+  if (normalizedScope === 'cambridge') {
+    const normalizedTestType = String(testType || '').trim().toLowerCase();
+    if (!normalizedTestType) {
+      return null;
+    }
+
+    return `${normalizedScope}:${normalizedTestId}:${normalizedTestType}`;
+  }
+
+  return `${normalizedScope}:${normalizedTestId}`;
+};
+
+const incrementAttemptStatusCount = (countsByKey, key) => {
+  if (!key) return;
+  countsByKey[key] = Number(countsByKey[key] || 0) + 1;
+};
+
+const getAttemptStatusForStudent = async ({ userId } = {}) => {
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
+    return null;
+  }
+
+  const user = await User.findByPk(numericUserId, {
+    attributes: ['id', 'role', 'maxAttemptsPerTest'],
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  if (!isStudentRole(user.role)) {
+    return {
+      enforced: false,
+      maxAttempts: null,
+      countsByKey: {},
+    };
+  }
+
+  const [writingSubmissions, readingSubmissions, listeningSubmissions, cambridgeSubmissions] =
+    await Promise.all([
+      Submission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_WRITING_WHERE,
+        },
+        attributes: ['testId'],
+      }),
+      ReadingSubmission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_READING_WHERE,
+        },
+        attributes: ['testId'],
+      }),
+      ListeningSubmission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_LISTENING_WHERE,
+        },
+        attributes: ['testId'],
+      }),
+      CambridgeSubmission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_CAMBRIDGE_WHERE,
+        },
+        attributes: ['testId', 'testType'],
+      }),
+    ]);
+
+  const countsByKey = {};
+
+  writingSubmissions.forEach((submission) => {
+    incrementAttemptStatusCount(
+      countsByKey,
+      buildAttemptStatusKey({
+        scope: 'ix-writing',
+        testId: submission?.testId,
+      })
+    );
+  });
+
+  readingSubmissions.forEach((submission) => {
+    incrementAttemptStatusCount(
+      countsByKey,
+      buildAttemptStatusKey({
+        scope: 'ix-reading',
+        testId: submission?.testId,
+      })
+    );
+  });
+
+  listeningSubmissions.forEach((submission) => {
+    incrementAttemptStatusCount(
+      countsByKey,
+      buildAttemptStatusKey({
+        scope: 'ix-listening',
+        testId: submission?.testId,
+      })
+    );
+  });
+
+  cambridgeSubmissions.forEach((submission) => {
+    incrementAttemptStatusCount(
+      countsByKey,
+      buildAttemptStatusKey({
+        scope: 'cambridge',
+        testId: submission?.testId,
+        testType: submission?.testType,
+      })
+    );
+  });
+
+  return {
+    enforced: true,
+    maxAttempts: normalizeAttemptLimit(
+      user.maxAttemptsPerTest,
+      DEFAULT_MAX_ATTEMPTS_PER_TEST
+    ),
+    countsByKey,
+  };
+};
+
 const enforceAttemptLimitForNewSubmission = async ({
   userId,
   scope,
@@ -158,5 +299,6 @@ module.exports = {
   DEFAULT_MAX_ATTEMPTS_PER_TEST,
   createAttemptLimitError,
   enforceAttemptLimitForNewSubmission,
+  getAttemptStatusForStudent,
   normalizeAttemptLimit,
 };
