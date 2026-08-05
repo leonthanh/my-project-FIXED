@@ -757,9 +757,9 @@ const DoFceReadingTest = ({
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to submit the test");
-
       const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to submit the test");
+
       const dr = data.detailedResults || {};
       const backendCorrect = Object.values(dr).filter((result) => result.isCorrect === true).length;
       const backendIncorrect = Object.values(dr).filter((result) => result.isCorrect === false).length;
@@ -799,7 +799,7 @@ const DoFceReadingTest = ({
       console.error("Error submitting:", err);
       if (isPlacementRuntime) {
         setShowConfirm(false);
-        alert("Could not submit this placement test. Please try again.");
+        alert(err?.message || "Could not submit this placement test. Please try again.");
       } else {
         // Calculate locally and show results even if backend fails
         const localResults = calculateLocalResults();

@@ -55,6 +55,12 @@ async function ensureDbColumns(sequelize) {
     await addColumnIfMissing(sequelize, 'users', 'address', 'VARCHAR(255) NULL');
     await addColumnIfMissing(sequelize, 'users', 'bio', 'TEXT NULL');
     await addColumnIfMissing(sequelize, 'users', 'emailVerifiedAt', 'DATETIME NULL');
+    await addColumnIfMissing(
+      sequelize,
+      'users',
+      'maxAttemptsPerTest',
+      'INT NOT NULL DEFAULT 1'
+    );
 
     console.log('✅ DB column check complete.');
   } catch (err) {

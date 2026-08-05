@@ -13,6 +13,7 @@ const {
   normalizeExtensionMinutes,
   resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
+const { enforceAttemptLimitForNewSubmission } = require('../utils/attemptLimit');
 
 async function resolveSubmissionUser(userPayload) {
   const rawUserId = userPayload?.id;
@@ -262,6 +263,12 @@ router.post('/draft/autosave', async (req, res) => {
         timing: buildTimingPayload(existingDraft.draftEndAt),
       });
     }
+
+    await enforceAttemptLimitForNewSubmission({
+      userId,
+      scope: 'ix-writing',
+      testId: numericTestId,
+    });
 
     const created = await Submission.create({
       testId: numericTestId,
@@ -520,6 +527,14 @@ router.post('/submit', async (req, res) => {
     }
 
     if (!submission) {
+        if (!placementAttemptItemToken && userId) {
+          await enforceAttemptLimitForNewSubmission({
+            userId,
+            scope: 'ix-writing',
+            testId: numericTestId,
+          });
+        }
+
         submission = await Submission.create({
         task1,
         task2,

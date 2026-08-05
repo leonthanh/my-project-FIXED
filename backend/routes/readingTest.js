@@ -4,6 +4,7 @@ const ReadingTest = require("../models/ReadingTest");
 const ReadingSubmission = require("../models/ReadingSubmission");
 const { countClozeBlanks } = require("../utils/readingQuestionUtils");
 const placementService = require("../modules/placement/service");
+const { enforceAttemptLimitForNewSubmission } = require("../utils/attemptLimit");
 
 const normalizeUploadsInHtml = (html, req) => {
   if (!html || typeof html !== 'string') return html;
@@ -64,6 +65,13 @@ const shouldIncludeArchived = (req) =>
 
 const normalizeCreateArchivedFlag = (value) =>
   ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+
+const getClientErrorStatus = (error) => {
+  const status = Number(error?.statusCode);
+  if (!Number.isFinite(status)) return 0;
+  if (status >= 400 && status < 500) return status;
+  return 0;
+};
 
 // Build simple email summary HTML + text fallback for reading submissions (teacher requested minimal fields)
 const buildReadingSummaryEmail = (sub, result, req, meta = {}) => {
@@ -445,6 +453,14 @@ router.post("/:id/submit", async (req, res) => {
           progressMeta: null,
         });
       } else {
+        if (!placementAttemptItemToken && resolvedUserId) {
+          await enforceAttemptLimitForNewSubmission({
+            userId: resolvedUserId,
+            scope: "ix-reading",
+            testId: String(id),
+          });
+        }
+
         sub = await ReadingSubmission.create({
           testId: id,
           userName: resolvedUserName,
@@ -567,6 +583,15 @@ router.post("/:id/submit", async (req, res) => {
       return res.json({ submissionId: sub.id, ...result });
     } catch (e) {
       console.error("Error saving submission:", e);
+      const statusCode = getClientErrorStatus(e);
+      if (statusCode) {
+        return res.status(statusCode).json({
+          message: e?.message || "Failed to save submission.",
+          code: e?.code,
+          allowedAttempts: e?.allowedAttempts,
+          usedAttempts: e?.usedAttempts,
+        });
+      }
       // Still return result if DB save fails
       return res.json(result);
     }

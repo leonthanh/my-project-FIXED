@@ -21,6 +21,7 @@ const {
 } = require('../shared/feedbackUtils');
 const { scoreTest } = require('../shared/scoring');
 const placementService = require('../../placement/service');
+const { enforceAttemptLimitForNewSubmission } = require('../../../utils/attemptLimit');
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -266,6 +267,15 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
       testTitle: test?.title || submission.testTitle || null,
     });
   } else {
+    if (resolvedUserId) {
+      await enforceAttemptLimitForNewSubmission({
+        userId: resolvedUserId,
+        scope: 'cambridge',
+        testId: numericTestId,
+        testType: normalizedTestType,
+      });
+    }
+
     submission = await CambridgeSubmission.create({
       testId: numericTestId,
       testType: normalizedTestType,

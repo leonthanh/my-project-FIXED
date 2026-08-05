@@ -1704,8 +1704,10 @@ const DoReadingTest = () => {
           studentId: user?.id || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Failed to submit");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to submit");
+      }
       setSubmitted(true);
 
       // Clear saved answers and timer so returning student gets a fresh attempt
@@ -1735,7 +1737,7 @@ const DoReadingTest = () => {
     } catch (err) {
       console.error("Error submitting reading test:", err);
       autoSubmittingRef.current = false;
-      alert("Something went wrong while submitting. Please try again.");
+      alert(err?.message || "Something went wrong while submitting. Please try again.");
     } finally {
       setShowConfirm(false);
     }

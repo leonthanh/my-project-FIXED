@@ -46,6 +46,7 @@ describe('PATCH /admin/users/:id', () => {
       email: 'old@example.com',
       role: 'admin',
       canManageTests: false,
+      maxAttemptsPerTest: 1,
       password: 'secret',
       update: jest.fn(async function applyUpdates(updates) {
         Object.assign(this, updates);
@@ -59,6 +60,7 @@ describe('PATCH /admin/users/:id', () => {
           email: this.email,
           role: this.role,
           canManageTests: this.canManageTests,
+          maxAttemptsPerTest: this.maxAttemptsPerTest,
           password: this.password,
         };
       },
@@ -92,6 +94,7 @@ describe('PATCH /admin/users/:id', () => {
     expect(userRecord.update).toHaveBeenCalledWith({
       name: 'Thanh Le',
       email: 'thanh@example.com',
+      emailVerifiedAt: null,
       phone: '0900000001',
     });
     expect(res.json).toHaveBeenCalledWith({
@@ -103,6 +106,7 @@ describe('PATCH /admin/users/:id', () => {
         email: 'thanh@example.com',
         role: 'admin',
         canManageTests: false,
+        maxAttemptsPerTest: 1,
       },
     });
   });
