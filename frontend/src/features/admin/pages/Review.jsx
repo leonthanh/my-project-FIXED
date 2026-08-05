@@ -111,6 +111,9 @@ const matchesFilterValue = (value, search) => {
   return !query || normalizeFilterValue(value).includes(query);
 };
 
+const resolveIxDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+
 const Review = () => {
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
@@ -124,6 +127,7 @@ const Review = () => {
   }, []);
 
   const [activeTab, setActiveTab] = useState("writing");
+  const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("ix");
   const [filtersByTab, setFiltersByTab] = useState(createInitialFiltersByTab);
 
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
@@ -173,6 +177,10 @@ const Review = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    setActiveWorkspaceGroup(activeTab === "cambridge" ? "orange" : "ix");
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchUnreviewedWriting = async () => {
@@ -1304,10 +1312,115 @@ const Review = () => {
     reviewTabs.find((tab) => tab.key === activeTab) || reviewTabs[0];
   const activeReviewPageTarget =
     REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.writing;
+  const ixDisplayName = resolveIxDisplayName(displayLabels);
   const workspaceLinks = useMemo(
     () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review", displayLabels),
     [displayLabels, navigate]
   );
+  const reviewWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "review") || null,
+    [workspaceLinks]
+  );
+  const ixWorkspaceLinks = useMemo(
+    () =>
+      workspaceLinks.filter((item) =>
+        ["writing", "reading", "listening"].includes(String(item?.key || ""))
+      ),
+    [workspaceLinks]
+  );
+  const orangeWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "cambridge") || null,
+    [workspaceLinks]
+  );
+  const generalWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "fce") || null,
+    [workspaceLinks]
+  );
+  const workspaceParentLinks = useMemo(() => {
+    const items = [];
+    const isReviewRouteActive = Boolean(reviewWorkspaceLink?.active);
+
+    if (reviewWorkspaceLink) {
+      items.push({
+        key: "workspace-review",
+        label: reviewWorkspaceLink.label,
+        hint: reviewWorkspaceLink.hint,
+        tone: reviewWorkspaceLink.tone,
+        active: isReviewRouteActive,
+        onClick: () => reviewWorkspaceLink.onClick?.(),
+      });
+    }
+
+    items.push({
+      key: "workspace-ix",
+      label: ixDisplayName,
+      hint: "Writing, Reading, Listening",
+      tone: "blue",
+      active: !isReviewRouteActive && activeWorkspaceGroup === "ix",
+      onClick: () => setActiveWorkspaceGroup("ix"),
+    });
+
+    if (orangeWorkspaceLink) {
+      items.push({
+        key: "workspace-orange",
+        label: orangeWorkspaceLink.label,
+        hint: orangeWorkspaceLink.hint,
+        tone: orangeWorkspaceLink.tone,
+        active: !isReviewRouteActive && activeWorkspaceGroup === "orange",
+        onClick: () => {
+          setActiveWorkspaceGroup("orange");
+          orangeWorkspaceLink.onClick?.();
+        },
+      });
+    }
+
+    if (generalWorkspaceLink) {
+      items.push({
+        key: "workspace-general",
+        label: generalWorkspaceLink.label,
+        hint: generalWorkspaceLink.hint,
+        tone: generalWorkspaceLink.tone,
+        active: !isReviewRouteActive && activeWorkspaceGroup === "general",
+        onClick: () => {
+          setActiveWorkspaceGroup("general");
+          generalWorkspaceLink.onClick?.();
+        },
+      });
+    }
+
+    return items;
+  }, [
+    activeWorkspaceGroup,
+    generalWorkspaceLink,
+    ixDisplayName,
+    orangeWorkspaceLink,
+    reviewWorkspaceLink,
+  ]);
+  const workspaceChildLinks = useMemo(() => {
+    if (activeWorkspaceGroup !== "ix") {
+      return [];
+    }
+
+    return reviewTabs
+      .filter((tab) => ["writing", "reading", "listening"].includes(tab.key))
+      .map((tab) => ({
+        key: `workspace-child-${tab.key}`,
+        label: tab.shortLabel || tab.label,
+        hint: tab.label,
+        tone:
+          tab.key === "writing"
+            ? "violet"
+            : tab.key === "reading"
+            ? "blue"
+            : "green",
+        badge: tab.badge,
+        active: activeTab === tab.key,
+        onClick: () => {
+          setActiveWorkspaceGroup("ix");
+          setActiveTab(tab.key);
+        },
+      }));
+  }, [activeTab, activeWorkspaceGroup, reviewTabs]);
   const sidebarStats = useMemo(
     () => [
       {
@@ -1919,8 +2032,14 @@ const Review = () => {
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
-                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+                <AdminSidebarNavList items={workspaceParentLinks} ariaLabel="Review workspace groups" />
               </AdminSidebarPanel>
+
+              {workspaceChildLinks.length > 0 ? (
+                <AdminSidebarPanel eyebrow="View" title="Submission type" meta={ixDisplayName}>
+                  <AdminSidebarNavList items={workspaceChildLinks} ariaLabel="IX submission types" />
+                </AdminSidebarPanel>
+              ) : null}
 
               <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeReviewTab.shortLabel} • ${activeFilteredCount} visible`}>
                 <AdminSidebarMetricList items={sidebarStats} />

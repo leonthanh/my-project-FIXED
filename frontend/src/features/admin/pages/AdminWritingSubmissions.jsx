@@ -38,6 +38,9 @@ const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
 
+const resolveIxDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+
 const AdminWritingSubmissions = () => {
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
@@ -62,6 +65,7 @@ const AdminWritingSubmissions = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("ix");
 
   let teacher = null;
   try {
@@ -530,6 +534,71 @@ const AdminWritingSubmissions = () => {
     "review",
     displayLabels
   );
+  const ixDisplayName = resolveIxDisplayName(displayLabels);
+  const reviewWorkspaceLink = workspaceLinks.find((item) => item?.key === "review") || null;
+  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
+    ["writing", "reading", "listening"].includes(String(item?.key || ""))
+  );
+  const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === "cambridge") || null;
+  const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === "fce") || null;
+  const isReviewRouteActive = Boolean(reviewWorkspaceLink?.active);
+  const workspaceGroupLinks = [
+    reviewWorkspaceLink
+      ? {
+          key: "workspace-review",
+          label: reviewWorkspaceLink.label,
+          hint: reviewWorkspaceLink.hint,
+          tone: reviewWorkspaceLink.tone,
+          active: isReviewRouteActive,
+          onClick: () => reviewWorkspaceLink.onClick?.(),
+        }
+      : null,
+    {
+      key: "workspace-ix",
+      label: ixDisplayName,
+      hint: "Writing, Reading, Listening",
+      tone: "blue",
+      active: !isReviewRouteActive && activeWorkspaceGroup === "ix",
+      onClick: () => setActiveWorkspaceGroup("ix"),
+    },
+    orangeWorkspaceLink
+      ? {
+          key: "workspace-orange",
+          label: orangeWorkspaceLink.label,
+          hint: orangeWorkspaceLink.hint,
+          tone: orangeWorkspaceLink.tone,
+          active: !isReviewRouteActive && activeWorkspaceGroup === "orange",
+          onClick: () => {
+            setActiveWorkspaceGroup("orange");
+            orangeWorkspaceLink.onClick?.();
+          },
+        }
+      : null,
+    generalWorkspaceLink
+      ? {
+          key: "workspace-general",
+          label: generalWorkspaceLink.label,
+          hint: generalWorkspaceLink.hint,
+          tone: generalWorkspaceLink.tone,
+          active: !isReviewRouteActive && activeWorkspaceGroup === "general",
+          onClick: () => {
+            setActiveWorkspaceGroup("general");
+            generalWorkspaceLink.onClick?.();
+          },
+        }
+      : null,
+  ].filter(Boolean);
+  const workspaceChildLinks =
+    activeWorkspaceGroup === "ix"
+      ? ixWorkspaceLinks.map((item) => ({
+          key: `workspace-child-${item.key}`,
+          label: item.label,
+          hint: item.hint,
+          tone: item.tone,
+          active: item.key === "writing",
+          onClick: item.onClick,
+        }))
+      : [];
   const sidebarStats = [
     {
       key: "total",
@@ -579,8 +648,14 @@ const AdminWritingSubmissions = () => {
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
-                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+                <AdminSidebarNavList items={workspaceGroupLinks} ariaLabel="Review workspace groups" />
               </AdminSidebarPanel>
+
+              {workspaceChildLinks.length > 0 ? (
+                <AdminSidebarPanel eyebrow="View" title="Submission type" meta={ixDisplayName}>
+                  <AdminSidebarNavList items={workspaceChildLinks} ariaLabel="IX submission pages" />
+                </AdminSidebarPanel>
+              ) : null}
 
               <AdminSidebarPanel
                 eyebrow="Summary"
