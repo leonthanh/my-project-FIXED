@@ -1547,6 +1547,64 @@ const Review = () => {
     [activeGeneralSubmissionType, filteredGeneralRows]
   );
 
+  const orangeSubmissionTypeTabs = useMemo(
+    () =>
+      ORANGE_SUBMISSION_TYPE_TABS.map((tab) => {
+        const rows = getPlatformSubmissionTypeRows(mergedCambridgeRows, tab.key);
+        return {
+          key: `orange-${tab.key}`,
+          shortLabel: tab.shortLabel,
+          label: tab.label,
+          tone:
+            tab.key === "all"
+              ? "cambridge"
+              : tab.key === "listening"
+              ? "listening"
+              : "reading",
+          badge: countPendingItems(rows, getCambridgeFilterMeta),
+          active: activeTab === "cambridge" && activeOrangeSubmissionType === tab.key,
+          onClick: () => {
+            setActiveWorkspaceGroup("orange");
+            setActiveTab("cambridge");
+            setPlatformSubmissionTypeByGroup((prev) => ({
+              ...prev,
+              orange: tab.key,
+            }));
+          },
+        };
+      }),
+    [activeOrangeSubmissionType, activeTab, mergedCambridgeRows]
+  );
+
+  const generalSubmissionTypeTabs = useMemo(
+    () =>
+      GENERAL_SUBMISSION_TYPE_TABS.map((tab) => {
+        const rows = getPlatformSubmissionTypeRows(mergedGeneralRows, tab.key);
+        return {
+          key: `general-${tab.key}`,
+          shortLabel: tab.shortLabel,
+          label: tab.label,
+          tone:
+            tab.key === "all"
+              ? "reading"
+              : tab.key === "listening"
+              ? "listening"
+              : "reading",
+          badge: countPendingItems(rows, getCambridgeFilterMeta),
+          active: activeTab === "general" && activeGeneralSubmissionType === tab.key,
+          onClick: () => {
+            setActiveWorkspaceGroup("general");
+            setActiveTab("general");
+            setPlatformSubmissionTypeByGroup((prev) => ({
+              ...prev,
+              general: tab.key,
+            }));
+          },
+        };
+      }),
+    [activeGeneralSubmissionType, activeTab, mergedGeneralRows]
+  );
+
   const reviewNeedsReviewCount = countPendingItems(mergedReviewRows, getReviewFilterMeta);
   const ixNeedsReviewCount = countPendingItems(mergedIxRows, getIxFilterMeta);
   const writingNeedsReviewCount = countPendingItems(
@@ -1860,6 +1918,11 @@ const Review = () => {
     }
 
     if (activeWorkspaceGroup === "orange") {
+      const activeChild = workspaceChildLinks.find((item) => item?.active);
+      if (activeChild?.label) {
+        return String(activeChild.label).toUpperCase();
+      }
+
       const selectedTab =
         ORANGE_SUBMISSION_TYPE_TABS.find(
           (tab) => tab.key === activeOrangeSubmissionType
@@ -1868,6 +1931,11 @@ const Review = () => {
     }
 
     if (activeWorkspaceGroup === "general") {
+      const activeChild = workspaceChildLinks.find((item) => item?.active);
+      if (activeChild?.label) {
+        return String(activeChild.label).toUpperCase();
+      }
+
       const selectedTab =
         GENERAL_SUBMISSION_TYPE_TABS.find(
           (tab) => tab.key === activeGeneralSubmissionType
@@ -1882,6 +1950,7 @@ const Review = () => {
     activeReviewTab.shortLabel,
     activeWorkspaceGroup,
     ixDisplayName,
+    workspaceChildLinks,
   ]);
   const workspaceChildAriaLabel =
     activeWorkspaceGroup === "ix"
@@ -1905,15 +1974,21 @@ const Review = () => {
     }
 
     if (activeWorkspaceGroup === "orange") {
-      return reviewTabs.filter((tab) => tab.key === "cambridge");
+      return orangeSubmissionTypeTabs;
     }
 
     if (activeWorkspaceGroup === "general") {
-      return reviewTabs.filter((tab) => tab.key === "general");
+      return generalSubmissionTypeTabs;
     }
 
     return reviewTabs;
-  }, [activeTab, activeWorkspaceGroup, reviewTabs]);
+  }, [
+    activeTab,
+    activeWorkspaceGroup,
+    generalSubmissionTypeTabs,
+    orangeSubmissionTypeTabs,
+    reviewTabs,
+  ]);
   const sidebarStats = useMemo(
     () => [
       {
@@ -2905,12 +2980,19 @@ const Review = () => {
 
                   <div style={reviewHubTabRowStyle}>
                     {submissionTypeTabs.map((tab) => {
-                      const isActive = activeTab === tab.key;
+                      const isActive =
+                        typeof tab.active === "boolean"
+                          ? tab.active
+                          : activeTab === tab.key;
+                      const handleClick =
+                        typeof tab.onClick === "function"
+                          ? tab.onClick
+                          : () => setActiveTab(tab.key);
                       return (
                         <button
                           key={tab.key}
                           type="button"
-                          onClick={() => setActiveTab(tab.key)}
+                          onClick={handleClick}
                           style={reviewHubTabButtonStyle(isDarkMode, tab.tone, isActive)}
                         >
                           <span>{tab.shortLabel || tab.label}</span>
