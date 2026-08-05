@@ -1262,9 +1262,10 @@ const CambridgeSubmissionsPage = ({
   const ixWorkspaceLinks = workspaceLinks.filter((item) =>
     ['writing', 'reading', 'listening'].includes(String(item?.key || ''))
   );
+  const ixWritingWorkspaceLink =
+    ixWorkspaceLinks.find((item) => String(item?.key || '') === 'writing') || null;
   const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === 'cambridge') || null;
   const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === 'fce') || null;
-  const isReviewRouteActive = Boolean(reviewWorkspaceLink?.active);
   const workspaceGroupLinks = [
     reviewWorkspaceLink
       ? {
@@ -1272,8 +1273,11 @@ const CambridgeSubmissionsPage = ({
           label: reviewWorkspaceLink.label,
           hint: reviewWorkspaceLink.hint,
           tone: reviewWorkspaceLink.tone,
-          active: isReviewRouteActive,
-          onClick: () => reviewWorkspaceLink.onClick?.(),
+          active: activeWorkspaceGroup === 'review',
+          onClick: () => {
+            setActiveWorkspaceGroup('review');
+            reviewWorkspaceLink.onClick?.();
+          },
         }
       : null,
     {
@@ -1281,8 +1285,13 @@ const CambridgeSubmissionsPage = ({
       label: ixDisplayName,
       hint: 'Writing, Reading, Listening',
       tone: 'blue',
-      active: !isReviewRouteActive && activeWorkspaceGroup === 'ix',
-      onClick: () => setActiveWorkspaceGroup('ix'),
+      active: activeWorkspaceGroup === 'ix',
+      onClick: () => {
+        setActiveWorkspaceGroup('ix');
+        if (workspaceCurrentKey !== 'writing') {
+          ixWritingWorkspaceLink?.onClick?.();
+        }
+      },
     },
     orangeWorkspaceLink
       ? {
@@ -1290,7 +1299,7 @@ const CambridgeSubmissionsPage = ({
           label: orangeWorkspaceLink.label,
           hint: orangeWorkspaceLink.hint,
           tone: orangeWorkspaceLink.tone,
-          active: !isReviewRouteActive && activeWorkspaceGroup === 'orange',
+          active: activeWorkspaceGroup === 'orange',
           onClick: () => {
             setActiveWorkspaceGroup('orange');
             if (activePlatformWorkspaceGroup !== 'orange') {
@@ -1305,7 +1314,7 @@ const CambridgeSubmissionsPage = ({
           label: generalWorkspaceLink.label,
           hint: generalWorkspaceLink.hint,
           tone: generalWorkspaceLink.tone,
-          active: !isReviewRouteActive && activeWorkspaceGroup === 'general',
+          active: activeWorkspaceGroup === 'general',
           onClick: () => {
             setActiveWorkspaceGroup('general');
             if (activePlatformWorkspaceGroup !== 'general') {

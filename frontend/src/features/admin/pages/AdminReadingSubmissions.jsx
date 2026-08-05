@@ -301,7 +301,6 @@ const AdminReadingSubmissions = () => {
     () => workspaceLinks.find((item) => item?.key === "fce") || null,
     [workspaceLinks]
   );
-  const isReviewRouteActive = Boolean(reviewWorkspaceLink?.active);
   const workspaceGroupLinks = useMemo(
     () =>
       [
@@ -311,8 +310,11 @@ const AdminReadingSubmissions = () => {
               label: reviewWorkspaceLink.label,
               hint: reviewWorkspaceLink.hint,
               tone: reviewWorkspaceLink.tone,
-              active: isReviewRouteActive,
-              onClick: () => reviewWorkspaceLink.onClick?.(),
+              active: activeWorkspaceGroup === "review",
+              onClick: () => {
+                setActiveWorkspaceGroup("review");
+                reviewWorkspaceLink.onClick?.();
+              },
             }
           : null,
         {
@@ -320,7 +322,7 @@ const AdminReadingSubmissions = () => {
           label: ixDisplayName,
           hint: "Writing, Reading, Listening",
           tone: "blue",
-          active: !isReviewRouteActive && activeWorkspaceGroup === "ix",
+          active: activeWorkspaceGroup === "ix",
           onClick: () => setActiveWorkspaceGroup("ix"),
         },
         orangeWorkspaceLink
@@ -329,7 +331,7 @@ const AdminReadingSubmissions = () => {
               label: orangeWorkspaceLink.label,
               hint: orangeWorkspaceLink.hint,
               tone: orangeWorkspaceLink.tone,
-              active: !isReviewRouteActive && activeWorkspaceGroup === "orange",
+              active: activeWorkspaceGroup === "orange",
               onClick: () => {
                 setActiveWorkspaceGroup("orange");
                 orangeWorkspaceLink.onClick?.();
@@ -342,7 +344,7 @@ const AdminReadingSubmissions = () => {
               label: generalWorkspaceLink.label,
               hint: generalWorkspaceLink.hint,
               tone: generalWorkspaceLink.tone,
-              active: !isReviewRouteActive && activeWorkspaceGroup === "general",
+              active: activeWorkspaceGroup === "general",
               onClick: () => {
                 setActiveWorkspaceGroup("general");
                 generalWorkspaceLink.onClick?.();
@@ -353,7 +355,6 @@ const AdminReadingSubmissions = () => {
     [
       activeWorkspaceGroup,
       generalWorkspaceLink,
-      isReviewRouteActive,
       ixDisplayName,
       orangeWorkspaceLink,
       reviewWorkspaceLink,
