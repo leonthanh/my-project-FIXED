@@ -16,6 +16,7 @@ const CambridgeReading = require('../models/CambridgeReading');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { logError } = require('../logger');
+const { normalizeAttemptLimit } = require('../utils/attemptLimit');
 
 const toPlain = (record) => (record && typeof record.toJSON === 'function' ? record.toJSON() : record);
 
@@ -169,7 +170,7 @@ router.get('/users', requireAuth, requireRole('admin'), async (req, res) => {
     }
     const users = await User.findAll({
       where,
-      attributes: ['id', 'name', 'phone', 'email', 'role', 'canManageTests', 'createdAt'],
+      attributes: ['id', 'name', 'phone', 'email', 'role', 'canManageTests', 'maxAttemptsPerTest', 'createdAt'],
       order: [['createdAt', 'DESC']],
     });
     res.json(users);
@@ -195,14 +196,14 @@ router.get('/users/:id/profile', requireAuth, requireRole('admin'), async (req, 
   }
 });
 
-// PATCH /api/admin/users/:id — update name / email / phone / role / canManageTests
+// PATCH /api/admin/users/:id — update name / email / phone / role / canManageTests / maxAttemptsPerTest
 router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const isSelfEdit = String(req.params.id) === String(req.user.id);
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
 
-    const { name, email, phone, role, canManageTests } = req.body;
+    const { name, email, phone, role, canManageTests, maxAttemptsPerTest } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = String(name).trim();
     if (email !== undefined) {
@@ -227,6 +228,13 @@ router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) =
       updates.role = role;
     }
     if (canManageTests !== undefined && !isSelfEdit) updates.canManageTests = !!canManageTests;
+    if (maxAttemptsPerTest !== undefined) {
+      const parsedLimit = Number.parseInt(String(maxAttemptsPerTest), 10);
+      if (!Number.isFinite(parsedLimit) || parsedLimit < 1) {
+        return res.status(400).json({ message: 'So lan lam bai toi da phai la so nguyen >= 1.' });
+      }
+      updates.maxAttemptsPerTest = normalizeAttemptLimit(parsedLimit);
+    }
 
     await user.update(updates);
     const updated = user.toJSON();

@@ -1801,9 +1801,8 @@ const DoCambridgeListeningTest = () => {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to submit the test");
-
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to submit the test");
 
       endTimeRef.current = null;
       submissionIdRef.current = null;
@@ -1837,7 +1836,7 @@ const DoCambridgeListeningTest = () => {
       console.error("Error submitting:", err);
       if (isPlacementRuntime) {
         setShowConfirm(false);
-        alert("Could not submit this placement test. Please try again.");
+        alert(err?.message || "Could not submit this placement test. Please try again.");
       } else {
         // For now, calculate locally if backend not ready
         const localResults = calculateLocalResults();

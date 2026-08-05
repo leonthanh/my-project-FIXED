@@ -58,6 +58,9 @@ const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
 
+const resolveIxDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+
 const AdminReadingSubmissions = () => {
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
@@ -78,6 +81,7 @@ const AdminReadingSubmissions = () => {
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [expandedItems, setExpandedItems] = useState(new Set());
+  const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("ix");
 
   const [searchClassCode, setSearchClassCode] = useState("");
   const [searchTeacher, setSearchTeacher] = useState("");
@@ -276,6 +280,99 @@ const AdminReadingSubmissions = () => {
   const workspaceLinks = useMemo(
     () => buildAdminWorkspaceLinks(navigate, "reading", undefined, "review", displayLabels),
     [displayLabels, navigate]
+  );
+  const ixDisplayName = resolveIxDisplayName(displayLabels);
+  const reviewWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "review") || null,
+    [workspaceLinks]
+  );
+  const ixWorkspaceLinks = useMemo(
+    () =>
+      workspaceLinks.filter((item) =>
+        ["writing", "reading", "listening"].includes(String(item?.key || ""))
+      ),
+    [workspaceLinks]
+  );
+  const orangeWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "cambridge") || null,
+    [workspaceLinks]
+  );
+  const generalWorkspaceLink = useMemo(
+    () => workspaceLinks.find((item) => item?.key === "fce") || null,
+    [workspaceLinks]
+  );
+  const workspaceGroupLinks = useMemo(
+    () =>
+      [
+        reviewWorkspaceLink
+          ? {
+              key: "workspace-review",
+              label: reviewWorkspaceLink.label,
+              hint: reviewWorkspaceLink.hint,
+              tone: reviewWorkspaceLink.tone,
+              active: activeWorkspaceGroup === "review",
+              onClick: () => {
+                setActiveWorkspaceGroup("review");
+                reviewWorkspaceLink.onClick?.();
+              },
+            }
+          : null,
+        {
+          key: "workspace-ix",
+          label: ixDisplayName,
+          hint: "Writing, Reading, Listening",
+          tone: "blue",
+          active: activeWorkspaceGroup === "ix",
+          onClick: () => setActiveWorkspaceGroup("ix"),
+        },
+        orangeWorkspaceLink
+          ? {
+              key: "workspace-orange",
+              label: orangeWorkspaceLink.label,
+              hint: orangeWorkspaceLink.hint,
+              tone: orangeWorkspaceLink.tone,
+              active: activeWorkspaceGroup === "orange",
+              onClick: () => {
+                setActiveWorkspaceGroup("orange");
+                orangeWorkspaceLink.onClick?.();
+              },
+            }
+          : null,
+        generalWorkspaceLink
+          ? {
+              key: "workspace-general",
+              label: generalWorkspaceLink.label,
+              hint: generalWorkspaceLink.hint,
+              tone: generalWorkspaceLink.tone,
+              active: activeWorkspaceGroup === "general",
+              onClick: () => {
+                setActiveWorkspaceGroup("general");
+                generalWorkspaceLink.onClick?.();
+              },
+            }
+          : null,
+      ].filter(Boolean),
+    [
+      activeWorkspaceGroup,
+      generalWorkspaceLink,
+      ixDisplayName,
+      orangeWorkspaceLink,
+      reviewWorkspaceLink,
+    ]
+  );
+  const workspaceChildLinks = useMemo(
+    () =>
+      activeWorkspaceGroup === "ix"
+        ? ixWorkspaceLinks.map((item) => ({
+            key: `workspace-child-${item.key}`,
+            label: item.label,
+            hint: item.hint,
+            tone: item.tone,
+            active: item.key === "reading",
+            onClick: item.onClick,
+          }))
+        : [],
+    [activeWorkspaceGroup, ixWorkspaceLinks]
   );
   const sidebarStats = useMemo(
     () => [
@@ -578,8 +675,14 @@ const AdminReadingSubmissions = () => {
                 title="Admin pages"
                 meta="Quick jump"
               >
-                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+                <AdminSidebarNavList items={workspaceGroupLinks} ariaLabel="Review workspace groups" />
               </AdminSidebarPanel>
+
+              {workspaceChildLinks.length > 0 ? (
+                <AdminSidebarPanel eyebrow="View" title="Submission type" meta={ixDisplayName}>
+                  <AdminSidebarNavList items={workspaceChildLinks} ariaLabel="IX submission pages" />
+                </AdminSidebarPanel>
+              ) : null}
 
               <AdminSidebarPanel
                 eyebrow="Summary"

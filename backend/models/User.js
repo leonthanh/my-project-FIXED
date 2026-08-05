@@ -65,6 +65,12 @@ const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    maxAttemptsPerTest: {
+      // Per-student limit for how many times they can submit the same test.
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+    },
   },
   {
     tableName: "users",

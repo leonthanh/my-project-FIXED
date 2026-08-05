@@ -13,6 +13,7 @@ const {
   normalizeExtensionMinutes,
   resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
+const { enforceAttemptLimitForNewSubmission } = require('../utils/attemptLimit');
 
 async function resolveSubmissionUser(userPayload) {
   const rawUserId = userPayload?.id;
@@ -262,6 +263,12 @@ router.post('/draft/autosave', async (req, res) => {
         timing: buildTimingPayload(existingDraft.draftEndAt),
       });
     }
+
+    await enforceAttemptLimitForNewSubmission({
+      userId,
+      scope: 'ix-writing',
+      testId: numericTestId,
+    });
 
     const created = await Submission.create({
       testId: numericTestId,
@@ -520,6 +527,14 @@ router.post('/submit', async (req, res) => {
     }
 
     if (!submission) {
+        if (!placementAttemptItemToken && userId) {
+          await enforceAttemptLimitForNewSubmission({
+            userId,
+            scope: 'ix-writing',
+            testId: numericTestId,
+          });
+        }
+
         submission = await Submission.create({
         task1,
         task2,
@@ -641,6 +656,47 @@ router.get('/list', async (req, res) => {
   } catch (err) {
     console.error('Get writing list error:', err);
     return res.status(500).json({ message: 'Server error while fetching submissions.' });
+  }
+});
+
+// GET: Get finalized writing submissions for a specific user (by phone)
+router.get('/user/:phone', async (req, res) => {
+  try {
+    const phone = String(req.params.phone || '').trim();
+    if (!phone) {
+      return res.json([]);
+    }
+
+    const user = await User.findOne({
+      where: { phone },
+      attributes: ['id', 'name', 'phone'],
+    });
+
+    if (!user) {
+      return res.json([]);
+    }
+
+    const submissions = await Submission.findAll({
+      where: {
+        userId: user.id,
+        [Op.or]: [{ isDraft: false }, { isDraft: null }],
+      },
+      include: [{ model: WritingTest, attributes: ['id', 'title', 'classCode', 'teacherName', 'testType'] }],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const result = submissions.map((submission) => ({
+      ...submission.toJSON(),
+      userName: submission.userName || user.name || null,
+      userPhone: submission.userPhone || user.phone || null,
+      User: { id: user.id, name: user.name || null, phone: user.phone || null },
+      WritingTest: submission.WritingTest || null,
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error('Get writing user submissions error:', err);
+    return res.status(500).json({ message: 'Server error while fetching writing submissions.' });
   }
 });
 

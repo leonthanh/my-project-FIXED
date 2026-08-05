@@ -13,10 +13,24 @@ const {
   resolveAuthoritativeExpiry,
 } = require("../utils/testTiming");
 const placementService = require("../modules/placement/service");
+const { enforceAttemptLimitForNewSubmission } = require("../utils/attemptLimit");
 
 const FINALIZED_READING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
 };
+
+function getClientErrorStatus(error) {
+  const status = Number(error?.statusCode);
+  if (!Number.isFinite(status)) {
+    return 0;
+  }
+
+  if (status >= 400 && status < 500) {
+    return status;
+  }
+
+  return 0;
+}
 
 function normalizeReadingUserName(value) {
   const normalized = value == null ? "" : String(value).trim();
@@ -391,6 +405,14 @@ router.post("/:testId/autosave", async (req, res) => {
       }
     }
 
+    if (resolvedUserId) {
+      await enforceAttemptLimitForNewSubmission({
+        userId: resolvedUserId,
+        scope: "ix-reading",
+        testId: normalizedTestId,
+      });
+    }
+
     const created = await ReadingSubmission.create({
       testId: normalizedTestId,
       userId: resolvedUserId,
@@ -405,7 +427,6 @@ router.post("/:testId/autosave", async (req, res) => {
       lastSavedAt: now,
       progressMeta: normalizedProgressMeta,
     });
-
     return res.status(201).json({
       message: "Draft created.",
       submissionId: created.id,
@@ -415,6 +436,15 @@ router.post("/:testId/autosave", async (req, res) => {
     });
   } catch (error) {
     console.error("Error autosaving reading draft:", error);
+    const statusCode = getClientErrorStatus(error);
+    if (statusCode) {
+      return res.status(statusCode).json({
+        message: error?.message || "Failed to autosave reading draft.",
+        code: error?.code,
+        allowedAttempts: error?.allowedAttempts,
+        usedAttempts: error?.usedAttempts,
+      });
+    }
     return res.status(500).json({
       message: "Failed to autosave reading draft.",
       error: error.message,

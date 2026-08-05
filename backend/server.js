@@ -249,6 +249,12 @@ try {
       await addColumnIfMissing(sequelizeInstance, "writing_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
       await addColumnIfMissing(sequelizeInstance, "reading_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
       await addColumnIfMissing(sequelizeInstance, "listening_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
+      await addColumnIfMissing(
+        sequelizeInstance,
+        "users",
+        "maxAttemptsPerTest",
+        "INT NOT NULL DEFAULT 1"
+      );
       console.log("✅ Inline DB column fallback complete.");
     } catch (migrationErr) {
       console.warn("⚠️ Inline ensureDbColumns warning:", migrationErr?.message || migrationErr);

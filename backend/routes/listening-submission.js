@@ -21,6 +21,7 @@ const {
   resolveAuthoritativeExpiry,
 } = require('../utils/testTiming');
 const placementService = require('../modules/placement/service');
+const { enforceAttemptLimitForNewSubmission } = require('../utils/attemptLimit');
 
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
@@ -30,6 +31,13 @@ const DEBUG_LISTENING = process.env.DEBUG_LISTENING === '1' || process.env.DEBUG
 const debug = (...args) => { if (DEBUG_LISTENING) console.log('[DEBUG]', ...args); };
 const FINALIZED_LISTENING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
+};
+
+const getClientErrorStatus = (error) => {
+  const status = Number(error?.statusCode);
+  if (!Number.isFinite(status)) return 0;
+  if (status >= 400 && status < 500) return status;
+  return 0;
 };
 
 // POST: Submit listening test answers
@@ -52,6 +60,14 @@ router.post('/', async (req, res) => {
         } catch (e) {
           console.error('[WARN] scoreListening failed on submit:', e);
         }
+      }
+
+      if (resolvedUserId) {
+        await enforceAttemptLimitForNewSubmission({
+          userId: resolvedUserId,
+          scope: 'ix-listening',
+          testId: Number(testId),
+        });
       }
 
       const submission = await ListeningSubmission.create({
@@ -95,6 +111,14 @@ router.post('/', async (req, res) => {
     const resolvedUserName = studentName || user?.name || user?.username || 'Unknown';
     const resolvedUserId = studentId || user?.id || null;
 
+    if (resolvedUserId) {
+      await enforceAttemptLimitForNewSubmission({
+        userId: resolvedUserId,
+        scope: 'ix-listening',
+        testId: Number(testId),
+      });
+    }
+
     const submission = await ListeningSubmission.create({
       testId: Number(testId),
       userId: resolvedUserId,
@@ -113,6 +137,15 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting listening test:', error);
+    const statusCode = getClientErrorStatus(error);
+    if (statusCode) {
+      return res.status(statusCode).json({
+        message: error?.message || 'Khong the tao bai nop moi.',
+        code: error?.code,
+        allowedAttempts: error?.allowedAttempts,
+        usedAttempts: error?.usedAttempts,
+      });
+    }
     res.status(500).json({
       message: '❌ Lỗi khi nộp bài',
       error: error.message
@@ -831,6 +864,14 @@ router.post('/:testId/autosave', async (req, res) => {
     }
 
     // Otherwise create a new partial attempt (user may be anonymous)
+    if (resolvedUserId) {
+      await enforceAttemptLimitForNewSubmission({
+        userId: resolvedUserId,
+        scope: 'ix-listening',
+        testId: Number(testId),
+      });
+    }
+
     const created = await ListeningSubmission.create({
       testId: Number(testId),
       userId: resolvedUserId,
@@ -853,6 +894,15 @@ router.post('/:testId/autosave', async (req, res) => {
     });
   } catch (error) {
     console.error('Error autosaving attempt:', error);
+    const statusCode = getClientErrorStatus(error);
+    if (statusCode) {
+      return res.status(statusCode).json({
+        message: error?.message || 'Khong the autosave attempt.',
+        code: error?.code,
+        allowedAttempts: error?.allowedAttempts,
+        usedAttempts: error?.usedAttempts,
+      });
+    }
     res.status(500).json({ message: '❌ Lỗi khi autosave', error: error.message });
   }
 });

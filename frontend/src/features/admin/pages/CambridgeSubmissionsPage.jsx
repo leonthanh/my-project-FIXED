@@ -114,6 +114,9 @@ const CAMBRIDGE_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
 ];
 
+const resolveIxDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.ixDisplayName || 'IX').trim() || 'IX';
+
 const parseJsonIfString = (value) => {
   if (typeof value !== "string") return value;
   try {
@@ -304,6 +307,9 @@ const CambridgeSubmissionsPage = ({
     reviewedBy: '',
   });
   const [activeTab, setActiveTab] = useState('all'); // all, listening, reading
+  const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState(
+    resolvedPlatformFilter === 'fce' ? 'general' : 'orange'
+  );
   const [reviewStatus, setReviewStatus] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
   const [activeReviewSubmissionId, setActiveReviewSubmissionId] = useState(null);
@@ -446,6 +452,10 @@ const CambridgeSubmissionsPage = ({
     reviewStatus,
     sortOrder,
   ]);
+
+  useEffect(() => {
+    setActiveWorkspaceGroup(resolvedPlatformFilter === 'fce' ? 'general' : 'orange');
+  }, [resolvedPlatformFilter]);
 
   const resetFilters = () => {
     setFilters({
@@ -1238,6 +1248,9 @@ const CambridgeSubmissionsPage = ({
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
   const workspaceCurrentKey = resolvedPlatformFilter === 'fce' ? 'fce' : 'cambridge';
+  const activePlatformWorkspaceGroup =
+    resolvedPlatformFilter === 'fce' ? 'general' : 'orange';
+  const ixDisplayName = resolveIxDisplayName(displayLabels);
   const workspaceLinks = buildAdminWorkspaceLinks(
     navigate,
     workspaceCurrentKey,
@@ -1245,9 +1258,75 @@ const CambridgeSubmissionsPage = ({
     "review",
     displayLabels
   );
+  const reviewWorkspaceLink = workspaceLinks.find((item) => item?.key === 'review') || null;
+  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
+    ['writing', 'reading', 'listening'].includes(String(item?.key || ''))
+  );
+  const ixWritingWorkspaceLink =
+    ixWorkspaceLinks.find((item) => String(item?.key || '') === 'writing') || null;
+  const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === 'cambridge') || null;
+  const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === 'fce') || null;
+  const workspaceGroupLinks = [
+    reviewWorkspaceLink
+      ? {
+          key: 'workspace-review',
+          label: reviewWorkspaceLink.label,
+          hint: reviewWorkspaceLink.hint,
+          tone: reviewWorkspaceLink.tone,
+          active: activeWorkspaceGroup === 'review',
+          onClick: () => {
+            setActiveWorkspaceGroup('review');
+            reviewWorkspaceLink.onClick?.();
+          },
+        }
+      : null,
+    {
+      key: 'workspace-ix',
+      label: ixDisplayName,
+      hint: 'Writing, Reading, Listening',
+      tone: 'blue',
+      active: activeWorkspaceGroup === 'ix',
+      onClick: () => {
+        setActiveWorkspaceGroup('ix');
+        if (workspaceCurrentKey !== 'writing') {
+          ixWritingWorkspaceLink?.onClick?.();
+        }
+      },
+    },
+    orangeWorkspaceLink
+      ? {
+          key: 'workspace-orange',
+          label: orangeWorkspaceLink.label,
+          hint: orangeWorkspaceLink.hint,
+          tone: orangeWorkspaceLink.tone,
+          active: activeWorkspaceGroup === 'orange',
+          onClick: () => {
+            setActiveWorkspaceGroup('orange');
+            if (activePlatformWorkspaceGroup !== 'orange') {
+              orangeWorkspaceLink.onClick?.();
+            }
+          },
+        }
+      : null,
+    generalWorkspaceLink
+      ? {
+          key: 'workspace-general',
+          label: generalWorkspaceLink.label,
+          hint: generalWorkspaceLink.hint,
+          tone: generalWorkspaceLink.tone,
+          active: activeWorkspaceGroup === 'general',
+          onClick: () => {
+            setActiveWorkspaceGroup('general');
+            if (activePlatformWorkspaceGroup !== 'general') {
+              generalWorkspaceLink.onClick?.();
+            }
+          },
+        }
+      : null,
+  ].filter(Boolean);
   const platformTone = resolvedPlatformFilter === 'fce' ? 'cyan' : 'orange';
   const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(resolvedPlatformFilter);
-  const submissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({
+  const platformSubmissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({
     key: tab.key,
     label: tab.shortLabel || tab.label,
     hint: tab.label,
@@ -1260,6 +1339,25 @@ const CambridgeSubmissionsPage = ({
     active: activeTab === tab.key,
     onClick: () => setActiveTab(tab.key),
   }));
+  const submissionViewLinks =
+    activeWorkspaceGroup === 'ix'
+      ? ixWorkspaceLinks.map((item) => ({
+          key: `workspace-child-${item.key}`,
+          label: item.label,
+          hint: item.hint,
+          tone: item.tone,
+          active: workspaceCurrentKey === item.key,
+          onClick: item.onClick,
+        }))
+      : platformSubmissionViewLinks;
+  const submissionViewMeta =
+    activeWorkspaceGroup === 'ix'
+      ? ixDisplayName
+      : cambridgeSubmissionTabs.find((tab) => tab.key === activeTab)?.shortLabel || activeTab;
+  const submissionViewAriaLabel =
+    activeWorkspaceGroup === 'ix'
+      ? `${ixDisplayName} submission pages`
+      : `${platformLabel} submission filters`;
   const sidebarStats = [
     {
       key: "visible",
@@ -1452,11 +1550,11 @@ const CambridgeSubmissionsPage = ({
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">
-                <AdminSidebarNavList items={workspaceLinks} ariaLabel="Admin workspace pages" />
+                <AdminSidebarNavList items={workspaceGroupLinks} ariaLabel="Review workspace groups" />
               </AdminSidebarPanel>
 
-              <AdminSidebarPanel eyebrow="View" title="Submission type" meta={activeTab}>
-                <AdminSidebarNavList items={submissionViewLinks} ariaLabel={`${platformLabel} submission filters`} />
+              <AdminSidebarPanel eyebrow="View" title="Submission type" meta={submissionViewMeta}>
+                <AdminSidebarNavList items={submissionViewLinks} ariaLabel={submissionViewAriaLabel} />
               </AdminSidebarPanel>
 
               <AdminSidebarPanel eyebrow="Summary" title="Result queue" meta={`Page ${pagination.page}`}>

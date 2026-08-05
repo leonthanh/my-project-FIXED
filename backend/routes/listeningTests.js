@@ -6,6 +6,7 @@ const fs = require('fs');
 const ListeningTest = require('../models/ListeningTest');
 const ListeningSubmission = require('../models/ListeningSubmission');
 const placementService = require('../modules/placement/service');
+const { enforceAttemptLimitForNewSubmission } = require('../utils/attemptLimit');
 const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 const {
   countListeningTableBlanks,
@@ -68,6 +69,13 @@ const safeParseJson = (value) => {
 const getUploadedFile = (files, matcher) => {
   if (!Array.isArray(files)) return null;
   return files.find((file) => matcher(file?.fieldname || '')) || null;
+};
+
+const getClientErrorStatus = (error) => {
+  const status = Number(error?.statusCode);
+  if (!Number.isFinite(status)) return 0;
+  if (status >= 400 && status < 500) return status;
+  return 0;
 };
 
 const normalizeStoredUploadRef = (value) => {
@@ -1368,6 +1376,14 @@ router.post('/:id/submit', async (req, res) => {
     }
 
     if (!submission) {
+      if (!placementAttemptItemToken && resolvedUserId) {
+        await enforceAttemptLimitForNewSubmission({
+          userId: resolvedUserId,
+          scope: 'ix-listening',
+          testId: Number(id),
+        });
+      }
+
       submission = await ListeningSubmission.create({
         testId: Number(id),
         userId: placementAttemptItemToken ? null : resolvedUserId,
@@ -1424,6 +1440,15 @@ router.post('/:id/submit', async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting listening test:', error);
+    const statusCode = getClientErrorStatus(error);
+    if (statusCode) {
+      return res.status(statusCode).json({
+        message: error?.message || 'Khong the tao bai nop moi.',
+        code: error?.code,
+        allowedAttempts: error?.allowedAttempts,
+        usedAttempts: error?.usedAttempts,
+      });
+    }
     res.status(500).json({
       message: '❌ Lỗi khi nộp bài',
       error: error.message

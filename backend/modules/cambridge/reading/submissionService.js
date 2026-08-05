@@ -7,6 +7,7 @@ const {
 } = require('../shared/submissionUtils');
 const { scoreTest } = require('../shared/scoring');
 const placementService = require('../../placement/service');
+const { enforceAttemptLimitForNewSubmission } = require('../../../utils/attemptLimit');
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -122,6 +123,15 @@ const submitReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   if (submission) {
     await submission.update(finalizedPayload);
   } else {
+    if (!placementAttemptItemToken && userId) {
+      await enforceAttemptLimitForNewSubmission({
+        userId,
+        scope: 'cambridge',
+        testId: parseInt(id, 10),
+        testType: test.testType,
+      });
+    }
+
     submission = await CambridgeSubmission.create(finalizedPayload);
   }
 

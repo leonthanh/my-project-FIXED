@@ -310,21 +310,39 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
   const { isDarkMode } = useTheme();
   const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const isCurrentUser = String(getStoredUser()?.id || '') === String(user.id);
-  const [form, setForm] = useState({ name: user.name, phone: user.phone, email: user.email || '', role: user.role, canManageTests: user.canManageTests });
+  const initialMaxAttempts = Math.max(1, Number.parseInt(String(user.maxAttemptsPerTest ?? 1), 10) || 1);
+  const [form, setForm] = useState({
+    name: user.name,
+    phone: user.phone,
+    email: user.email || '',
+    role: user.role,
+    canManageTests: user.canManageTests,
+    maxAttemptsPerTest: String(initialMaxAttempts),
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
   const save = async () => {
     setSaving(true); setErr('');
     try {
+      const parsedMaxAttempts = Number.parseInt(String(form.maxAttemptsPerTest || ''), 10);
+      if (!Number.isFinite(parsedMaxAttempts) || parsedMaxAttempts < 1) {
+        throw new Error('Max attempts must be an integer >= 1.');
+      }
+
+      const payload = {
+        ...form,
+        maxAttemptsPerTest: parsedMaxAttempts,
+      };
+
       const res = await authFetch(apiPath(`admin/users/${user.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || 'Could not save user changes.');
-      onSaved(data.user || { ...user, ...form });
+      onSaved(data.user || { ...user, ...payload });
     } catch (e) { setErr(e?.message || 'Could not save user changes.'); }
     finally { setSaving(false); }
   };
@@ -346,6 +364,22 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
           <option value="admin">Admin</option>
         </select>
         {isCurrentUser && <p style={{ margin: '6px 0 0', fontSize: 12, color: isDarkMode ? '#94a3b8' : '#6b7280' }}>You can update your own name, phone, and email here. Role changes stay disabled.</p>}
+        {form.role === 'student' && (
+          <>
+            <label style={s.label}>Max Attempts Per Test</label>
+            <input
+              style={s.input}
+              type="number"
+              min={1}
+              step={1}
+              value={form.maxAttemptsPerTest}
+              onChange={(e) => setForm({ ...form, maxAttemptsPerTest: e.target.value })}
+            />
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: isDarkMode ? '#94a3b8' : '#6b7280' }}>
+              Default is 1 attempt per test. Increase this to allow retakes.
+            </p>
+          </>
+        )}
         {form.role === 'teacher' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, margin: '8px 0' }}>
             <input type="checkbox" checked={!!form.canManageTests} onChange={(e) => setForm({ ...form, canManageTests: e.target.checked })} disabled={isCurrentUser} />
@@ -494,6 +528,7 @@ const UsersTab = ({ onViewSubmissions }) => {
                     title={u.name}
                     badges={[
                       roleBadge(u.role, isDarkMode),
+                      u.role === 'student' ? <span style={s.softPill}>Max attempts: {Math.max(1, Number(u.maxAttemptsPerTest) || 1)}</span> : null,
                       u.role === 'teacher' && u.canManageTests ? <span style={s.softPill}>Can manage tests</span> : null,
                     ]}
                     subtitle={`Created ${fmtDate(u.createdAt)}`}
@@ -510,6 +545,7 @@ const UsersTab = ({ onViewSubmissions }) => {
                       { label: 'Phone', value: u.phone || '—' },
                       { label: 'Email', value: u.email || '—' },
                       { label: 'Role', value: roleBadge(u.role, isDarkMode) },
+                      { label: 'Max attempts', value: Math.max(1, Number(u.maxAttemptsPerTest) || 1) },
                       { label: 'Created', value: fmtDate(u.createdAt) },
                     ]}
                   />
