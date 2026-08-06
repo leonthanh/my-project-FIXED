@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import AdminStickySidebarLayout, {
@@ -86,6 +86,12 @@ const REVIEW_HUB_PAGE_BY_TAB = {
     path: "/admin/fce-submissions",
     label: "General submissions page",
   },
+};
+
+const IX_SUBMISSION_PAGE_BY_TAB = {
+  writing: "/admin/writing-submissions",
+  reading: "/admin/reading-submissions",
+  listening: "/admin/listening-submissions",
 };
 
 const REVIEW_TAB_TONES = {
@@ -540,8 +546,6 @@ const Review = () => {
     `${String(source || "ix")}:${String(submissionId || "")}`;
 
   const getIxRowId = (row) => getIxRowKey(row?.source, row?.sub?.id);
-
-  const getReviewRowId = (row) => getIxRowKey(row?.source, row?.sub?.id);
 
   const mergedIxRows = useMemo(() => {
     const writingRows = unreviewedWriting.map((sub) => ({
@@ -1756,6 +1760,14 @@ const Review = () => {
     () => workspaceLinks.find((item) => item?.key === "fce") || null,
     [workspaceLinks]
   );
+  const navigateToIxSubmissionPage = useCallback(
+    (tabKey = "writing") => {
+      const path =
+        IX_SUBMISSION_PAGE_BY_TAB[tabKey] || IX_SUBMISSION_PAGE_BY_TAB.writing;
+      navigate(path);
+    },
+    [navigate]
+  );
   const workspaceParentLinks = useMemo(() => {
     const items = [];
 
@@ -1782,11 +1794,8 @@ const Review = () => {
       active: activeTab !== "review" && activeWorkspaceGroup === "ix",
       onClick: () => {
         setActiveWorkspaceGroup("ix");
-        setActiveTab((prev) =>
-          ["writing", "reading", "listening"].includes(prev)
-            ? prev
-            : "writing"
-        );
+        setActiveTab("writing");
+        navigateToIxSubmissionPage("writing");
       },
     });
 
@@ -1832,6 +1841,7 @@ const Review = () => {
     activeWorkspaceGroup,
     generalWorkspaceLink,
     ixDisplayName,
+    navigateToIxSubmissionPage,
     orangeWorkspaceLink,
     reviewWorkspaceLink,
   ]);
@@ -1858,6 +1868,7 @@ const Review = () => {
           onClick: () => {
             setActiveWorkspaceGroup("ix");
             setActiveTab(tab.key);
+            navigateToIxSubmissionPage(tab.key);
           },
         }));
     }
@@ -1910,6 +1921,7 @@ const Review = () => {
     activeOrangeSubmissionType,
     activeTab,
     activeWorkspaceGroup,
+    navigateToIxSubmissionPage,
     reviewTabs,
   ]);
   const workspaceChildMeta = useMemo(() => {
@@ -1970,7 +1982,16 @@ const Review = () => {
     }
 
     if (activeWorkspaceGroup === "ix") {
-      return reviewTabs.filter((tab) => ["writing", "reading", "listening"].includes(tab.key));
+      return reviewTabs
+        .filter((tab) => ["writing", "reading", "listening"].includes(tab.key))
+        .map((tab) => ({
+          ...tab,
+          onClick: () => {
+            setActiveWorkspaceGroup("ix");
+            setActiveTab(tab.key);
+            navigateToIxSubmissionPage(tab.key);
+          },
+        }));
     }
 
     if (activeWorkspaceGroup === "orange") {
@@ -1986,6 +2007,7 @@ const Review = () => {
     activeTab,
     activeWorkspaceGroup,
     generalSubmissionTypeTabs,
+    navigateToIxSubmissionPage,
     orangeSubmissionTypeTabs,
     reviewTabs,
   ]);
@@ -2336,13 +2358,13 @@ const Review = () => {
         items={filteredReviewRows}
         expandedItems={expandedQueueItems.review}
         onToggle={(rowId) => {
-          const row = filteredReviewRows.find((entry) => getReviewRowId(entry) === rowId);
+          const row = filteredReviewRows.find((entry) => getIxRowId(entry) === rowId);
           if (!row) return;
 
           toggleQueueItem("review", rowId);
           ensureCambridgeDetailLoaded(row);
         }}
-        getItemId={getReviewRowId}
+        getItemId={getIxRowId}
         getTone={(row) => getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)}
         renderHeader={({ item: row, index, tone }) => {
           const submission = row?.sub || {};
@@ -3085,7 +3107,6 @@ const reviewContentStackStyle = {
 const reviewHubSurfaceStyle = (isDarkMode) => ({
   display: "grid",
   gap: 8,  
-  top: 92,  
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
   borderRadius: 16,
   padding: "12px 14px 14px",
