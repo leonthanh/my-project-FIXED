@@ -80,14 +80,21 @@ const SubmissionTypeTabs = ({
 
   useEffect(() => {
     let isCancelled = false;
+    const controller = new AbortController();
 
     const loadCounts = async () => {
       try {
         if (countMode === "ix") {
           const [writingRes, readingRes, listeningRes] = await Promise.all([
-            fetch(apiPath("writing/list?includeDrafts=1")),
-            fetch(apiPath("reading-submissions/admin/list")),
-            fetch(apiPath("listening-submissions/admin/list")),
+            fetch(apiPath("writing/list?includeDrafts=1"), {
+              signal: controller.signal,
+            }),
+            fetch(apiPath("reading-submissions/admin/list"), {
+              signal: controller.signal,
+            }),
+            fetch(apiPath("listening-submissions/admin/list"), {
+              signal: controller.signal,
+            }),
           ]);
 
           if (!writingRes.ok || !readingRes.ok || !listeningRes.ok) {
@@ -113,9 +120,15 @@ const SubmissionTypeTabs = ({
 
         if (countMode === "cambridge") {
           const [allRes, listeningRes, readingRes] = await Promise.all([
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1")),
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=listening")),
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=reading")),
+            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1"), {
+              signal: controller.signal,
+            }),
+            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=listening"), {
+              signal: controller.signal,
+            }),
+            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=reading"), {
+              signal: controller.signal,
+            }),
           ]);
 
           if (!allRes.ok || !listeningRes.ok || !readingRes.ok) {
@@ -143,6 +156,9 @@ const SubmissionTypeTabs = ({
           setCountMap({});
         }
       } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
         if (!isCancelled) {
           setCountMap({});
         }
@@ -153,6 +169,7 @@ const SubmissionTypeTabs = ({
 
     return () => {
       isCancelled = true;
+      controller.abort();
     };
   }, [countMode]);
 
