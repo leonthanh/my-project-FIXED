@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -55,6 +55,13 @@ const getCambridgeSubmissionTabs = (platformFilter) => [
     tone: 'reading',
   },
 ];
+
+const normalizeSubmissionView = (value) => {
+  const normalized = String(value || "all").trim().toLowerCase();
+  return ["all", "listening", "reading"].includes(normalized)
+    ? normalized
+    : "all";
+};
 
 const CAMBRIDGE_STATUS_TONES = {
   pending: {
@@ -306,7 +313,9 @@ const CambridgeSubmissionsPage = ({
     teacherName: '',
     reviewedBy: '',
   });
-  const [activeTab, setActiveTab] = useState('all'); // all, listening, reading
+  const [activeTab, setActiveTab] = useState(() =>
+    normalizeSubmissionView(searchParams.get('view'))
+  ); // all, listening, reading
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState(
     resolvedPlatformFilter === 'fce' ? 'general' : 'orange'
   );
@@ -364,6 +373,30 @@ const CambridgeSubmissionsPage = ({
       onChange: (value) => setFilters((prev) => ({ ...prev, reviewedBy: value })),
     },
   ];
+
+  const handleSelectSubmissionView = useCallback(
+    (nextTabKey) => {
+      const nextTab = normalizeSubmissionView(nextTabKey);
+      setActiveTab(nextTab);
+
+      const nextParams = new URLSearchParams(searchParams);
+      if (nextTab === 'all') {
+        nextParams.delete('view');
+      } else {
+        nextParams.set('view', nextTab);
+      }
+
+      if (nextParams.toString() !== searchParams.toString()) {
+        setSearchParams(nextParams, { replace: true });
+      }
+    },
+    [searchParams, setSearchParams]
+  );
+
+  useEffect(() => {
+    const viewFromUrl = normalizeSubmissionView(searchParams.get('view'));
+    setActiveTab((prev) => (prev === viewFromUrl ? prev : viewFromUrl));
+  }, [searchParams]);
 
   // Fetch submissions
   useEffect(() => {
@@ -1337,7 +1370,7 @@ const CambridgeSubmissionsPage = ({
         ? "green"
         : platformTone,
     active: activeTab === tab.key,
-    onClick: () => setActiveTab(tab.key),
+    onClick: () => handleSelectSubmissionView(tab.key),
   }));
   const submissionViewLinks =
     activeWorkspaceGroup === 'ix'
@@ -1607,7 +1640,7 @@ const CambridgeSubmissionsPage = ({
               allowMobileWrap
               showZeroBadge
               countMode="cambridge"
-              onSelect={setActiveTab}
+              onSelect={handleSelectSubmissionView}
             />
           )}
           bottomContent={(
