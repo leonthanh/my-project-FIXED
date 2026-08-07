@@ -77,9 +77,17 @@ const AdminWritingSubmissions = () => {
   const canDeleteSubmissions = teacher?.role === "admin";
 
   useEffect(() => {
-    fetch(apiPath("writing/list?includeDrafts=1"))
-      .then((res) => res.json())
-      .then((items) => {
+    const controller = new AbortController();
+    let isActive = true;
+
+    const fetchSubmissions = async () => {
+      try {
+        const res = await fetch(apiPath("writing/list?includeDrafts=1"), {
+          signal: controller.signal,
+        });
+        const items = await res.json();
+        if (!isActive) return;
+
         setData(items);
         setFilteredData(items);
 
@@ -103,8 +111,18 @@ const AdminWritingSubmissions = () => {
         setFeedbacks(feedbackMap);
         setBands(bandMap);
         setHasSaved(savedMap);
-      })
-      .catch((err) => console.error("Failed to load writing submissions:", err));
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+        console.error("Failed to load writing submissions:", err);
+      }
+    };
+
+    fetchSubmissions();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {

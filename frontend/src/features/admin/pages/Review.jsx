@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import AdminStickySidebarLayout, {
@@ -24,6 +24,7 @@ import {
   getSubmissionTone,
 } from "../components/SubmissionCardList";
 import { getAttemptTimingMeta } from "../utils/attemptTiming";
+import { getPlatformSubmissionRoute } from "../utils/platformSubmissionRoutes";
 
 const DEFAULT_REVIEW_FILTERS = {
   studentName: "",
@@ -41,9 +42,7 @@ const cloneReviewFilters = (overrides = {}) => ({
 });
 
 const getDefaultFiltersForTab = (tabKey) =>
-  cloneReviewFilters(
-    ["cambridge", "general", "review"].includes(tabKey) ? { status: "" } : {}
-  );
+  cloneReviewFilters(tabKey === "review" ? { status: "" } : {});
 
 const createInitialFiltersByTab = () => ({
   review: getDefaultFiltersForTab("review"),
@@ -51,8 +50,6 @@ const createInitialFiltersByTab = () => ({
   writing: getDefaultFiltersForTab("writing"),
   reading: getDefaultFiltersForTab("reading"),
   listening: getDefaultFiltersForTab("listening"),
-  cambridge: getDefaultFiltersForTab("cambridge"),
-  general: getDefaultFiltersForTab("general"),
 });
 
 const normalizeFilterValue = (value) => String(value ?? "").trim().toLowerCase();
@@ -78,14 +75,12 @@ const REVIEW_HUB_PAGE_BY_TAB = {
     path: "/admin/listening-submissions",
     label: "Listening submissions page",
   },
-  cambridge: {
-    path: "/admin/cambridge-submissions",
-    label: "Orange submissions page",
-  },
-  general: {
-    path: "/admin/fce-submissions",
-    label: "General submissions page",
-  },
+};
+
+const IX_SUBMISSION_PAGE_BY_TAB = {
+  writing: "/admin/writing-submissions",
+  reading: "/admin/reading-submissions",
+  listening: "/admin/listening-submissions",
 };
 
 const REVIEW_TAB_TONES = {
@@ -178,11 +173,6 @@ const Review = () => {
   const [activeTab, setActiveTab] = useState("review");
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("review");
   const [filtersByTab, setFiltersByTab] = useState(createInitialFiltersByTab);
-  const [platformSubmissionTypeByGroup, setPlatformSubmissionTypeByGroup] =
-    useState({
-      orange: "all",
-      general: "all",
-    });
 
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
   const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
@@ -196,11 +186,8 @@ const Review = () => {
 
   const [cambridgeSubmissions, setCambridgeSubmissions] = useState([]);
   const [loadingCambridge, setLoadingCambridge] = useState(true);
-  const [cambridgeError, setCambridgeError] = useState(null);
   const [generalSubmissions, setGeneralSubmissions] = useState([]);
   const [loadingGeneral, setLoadingGeneral] = useState(true);
-  const [generalError, setGeneralError] = useState(null);
-  const [expandedCambridge, setExpandedCambridge] = useState(() => new Set());
   const [cambridgeDetailsById, setCambridgeDetailsById] = useState({});
   const [cambridgeLoadingDetailById, setCambridgeLoadingDetailById] = useState(
     {}
@@ -238,14 +225,7 @@ const Review = () => {
   }, []);
 
   useEffect(() => {
-    const expectedGroup =
-      activeTab === "review"
-        ? "review"
-        : activeTab === "cambridge"
-        ? "orange"
-        : activeTab === "general"
-        ? "general"
-        : "ix";
+    const expectedGroup = activeTab === "review" ? "review" : "ix";
 
     if (activeWorkspaceGroup !== expectedGroup) {
       setActiveWorkspaceGroup(expectedGroup);
@@ -324,7 +304,6 @@ const Review = () => {
     const fetchCambridgeSubmissions = async () => {
       try {
         setLoadingCambridge(true);
-        setCambridgeError(null);
         const buildUrl = (page) =>
           apiPath(
             `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1`
@@ -382,7 +361,6 @@ const Review = () => {
         setCambridgeSubmissions(submissions);
       } catch (err) {
         console.error("Failed to load Cambridge submissions:", err);
-        setCambridgeError(err.message);
         setCambridgeSubmissions([]);
       } finally {
         setLoadingCambridge(false);
@@ -392,7 +370,6 @@ const Review = () => {
     const fetchGeneralSubmissions = async () => {
       try {
         setLoadingGeneral(true);
-        setGeneralError(null);
         const buildUrl = (page) =>
           apiPath(
             `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1&platform=fce`
@@ -450,7 +427,6 @@ const Review = () => {
         setGeneralSubmissions(submissions);
       } catch (err) {
         console.error("Failed to load General submissions:", err);
-        setGeneralError(err.message);
         setGeneralSubmissions([]);
       } finally {
         setLoadingGeneral(false);
@@ -497,12 +473,6 @@ const Review = () => {
   const getCambridgeFeedbackStateKey = (submissionId, responseKey) =>
     `${submissionId}:${responseKey}`;
 
-  const getCambridgeRowKey = (source, submissionId) =>
-    `${String(source || "cambridge")}:${String(submissionId || "")}`;
-
-  const getCambridgeRowId = (row) =>
-    getCambridgeRowKey(row?.source, row?.sub?.id);
-
   const mergedCambridgeRows = useMemo(() => {
     const petRows = unreviewedPetWriting.map((sub) => ({
       source: "pet-writing",
@@ -540,8 +510,6 @@ const Review = () => {
     `${String(source || "ix")}:${String(submissionId || "")}`;
 
   const getIxRowId = (row) => getIxRowKey(row?.source, row?.sub?.id);
-
-  const getReviewRowId = (row) => getIxRowKey(row?.source, row?.sub?.id);
 
   const mergedIxRows = useMemo(() => {
     const writingRows = unreviewedWriting.map((sub) => ({
@@ -617,22 +585,6 @@ const Review = () => {
         [submissionId]: false,
       }));
     }
-  };
-
-  const handleToggleCambridgeDetail = async (row) => {
-    const rowId = getCambridgeRowId(row);
-
-    setExpandedCambridge((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowId)) {
-        next.delete(rowId);
-      } else {
-        next.add(rowId);
-      }
-      return next;
-    });
-
-    await ensureCambridgeDetailLoaded(row);
   };
 
   const handleGenerateCambridgeFeedback = async (submission, responseItem) => {
@@ -1419,40 +1371,6 @@ const Review = () => {
     return getCambridgeFilterMeta(row);
   };
 
-  const getPlatformSubmissionTypeRows = (rows, viewKey) => {
-    const list = Array.isArray(rows) ? rows : [];
-
-    if (viewKey === "all") {
-      return list;
-    }
-
-    const isListeningRow = (row) => {
-      const source = String(row?.source || "").toLowerCase();
-      if (source === "listening") return true;
-      if (source === "reading" || source === "writing" || source === "pet-writing") {
-        return false;
-      }
-
-      const descriptor = `${String(row?.sub?.testType || "")} ${String(
-        row?.sub?.testTitle || ""
-      )}`.toLowerCase();
-
-      if (descriptor.includes("listening")) return true;
-      if (descriptor.includes("reading")) return false;
-      return false;
-    };
-
-    if (viewKey === "listening") {
-      return list.filter((row) => isListeningRow(row));
-    }
-
-    if (viewKey === "reading") {
-      return list.filter((row) => !isListeningRow(row));
-    }
-
-    return list;
-  };
-
   const applyQueueFilters = (items, filters, getMeta) =>
     items.filter((item) => {
       const meta = getMeta(item);
@@ -1498,111 +1416,11 @@ const Review = () => {
     filtersByTab.listening,
     getListeningFilterMeta
   );
-  const filteredCambridgeRows = applyQueueFilters(
-    mergedCambridgeRows,
-    filtersByTab.cambridge,
-    getCambridgeFilterMeta
-  );
-  const filteredGeneralRows = applyQueueFilters(
-    mergedGeneralRows,
-    filtersByTab.general,
-    getCambridgeFilterMeta
-  );
-
-  const activeOrangeSubmissionType =
-    platformSubmissionTypeByGroup.orange || "all";
-  const activeGeneralSubmissionType =
-    platformSubmissionTypeByGroup.general || "all";
-
-  const scopedCambridgeRows = useMemo(
-    () =>
-      getPlatformSubmissionTypeRows(
-        mergedCambridgeRows,
-        activeOrangeSubmissionType
-      ),
-    [activeOrangeSubmissionType, mergedCambridgeRows]
-  );
-  const scopedFilteredCambridgeRows = useMemo(
-    () =>
-      getPlatformSubmissionTypeRows(
-        filteredCambridgeRows,
-        activeOrangeSubmissionType
-      ),
-    [activeOrangeSubmissionType, filteredCambridgeRows]
-  );
-  const scopedGeneralRows = useMemo(
-    () =>
-      getPlatformSubmissionTypeRows(
-        mergedGeneralRows,
-        activeGeneralSubmissionType
-      ),
-    [activeGeneralSubmissionType, mergedGeneralRows]
-  );
-  const scopedFilteredGeneralRows = useMemo(
-    () =>
-      getPlatformSubmissionTypeRows(
-        filteredGeneralRows,
-        activeGeneralSubmissionType
-      ),
-    [activeGeneralSubmissionType, filteredGeneralRows]
-  );
-
-  const orangeSubmissionTypeTabs = useMemo(
-    () =>
-      ORANGE_SUBMISSION_TYPE_TABS.map((tab) => {
-        const rows = getPlatformSubmissionTypeRows(mergedCambridgeRows, tab.key);
-        return {
-          key: `orange-${tab.key}`,
-          shortLabel: tab.shortLabel,
-          label: tab.label,
-          tone:
-            tab.key === "all"
-              ? "cambridge"
-              : tab.key === "listening"
-              ? "listening"
-              : "reading",
-          badge: countPendingItems(rows, getCambridgeFilterMeta),
-          active: activeTab === "cambridge" && activeOrangeSubmissionType === tab.key,
-          onClick: () => {
-            setActiveWorkspaceGroup("orange");
-            setActiveTab("cambridge");
-            setPlatformSubmissionTypeByGroup((prev) => ({
-              ...prev,
-              orange: tab.key,
-            }));
-          },
-        };
-      }),
-    [activeOrangeSubmissionType, activeTab, mergedCambridgeRows]
-  );
-
-  const generalSubmissionTypeTabs = useMemo(
-    () =>
-      GENERAL_SUBMISSION_TYPE_TABS.map((tab) => {
-        const rows = getPlatformSubmissionTypeRows(mergedGeneralRows, tab.key);
-        return {
-          key: `general-${tab.key}`,
-          shortLabel: tab.shortLabel,
-          label: tab.label,
-          tone:
-            tab.key === "all"
-              ? "reading"
-              : tab.key === "listening"
-              ? "listening"
-              : "reading",
-          badge: countPendingItems(rows, getCambridgeFilterMeta),
-          active: activeTab === "general" && activeGeneralSubmissionType === tab.key,
-          onClick: () => {
-            setActiveWorkspaceGroup("general");
-            setActiveTab("general");
-            setPlatformSubmissionTypeByGroup((prev) => ({
-              ...prev,
-              general: tab.key,
-            }));
-          },
-        };
-      }),
-    [activeGeneralSubmissionType, activeTab, mergedGeneralRows]
+  const navigateToPlatformSubmissionPage = useCallback(
+    (groupKey = "orange", tabKey = "all") => {
+      navigate(getPlatformSubmissionRoute(groupKey, tabKey));
+    },
+    [navigate]
   );
 
   const reviewNeedsReviewCount = countPendingItems(mergedReviewRows, getReviewFilterMeta);
@@ -1618,14 +1436,6 @@ const Review = () => {
   const listeningNeedsReviewCount = countPendingItems(
     unreviewedListening,
     getListeningFilterMeta
-  );
-  const cambridgeNeedsReviewCount = countPendingItems(
-    scopedCambridgeRows,
-    getCambridgeFilterMeta
-  );
-  const generalNeedsReviewCount = countPendingItems(
-    scopedGeneralRows,
-    getCambridgeFilterMeta
   );
   const reviewTabs = [
     {
@@ -1656,20 +1466,6 @@ const Review = () => {
       tone: "listening",
       badge: listeningNeedsReviewCount,
     },
-    {
-      key: "cambridge",
-      shortLabel: "Orange",
-      label: "Orange Review Queue",
-      tone: "cambridge",
-      badge: cambridgeNeedsReviewCount,
-    },
-    {
-      key: "general",
-      shortLabel: "General",
-      label: "General Review Queue",
-      tone: "reading",
-      badge: generalNeedsReviewCount,
-    },
   ];
 
   const activeFilters = filtersByTab[activeTab] || getDefaultFiltersForTab(activeTab);
@@ -1682,11 +1478,7 @@ const Review = () => {
       ? unreviewedWriting.length
       : activeTab === "reading"
       ? unreviewedReading.length
-      : activeTab === "listening"
-      ? unreviewedListening.length
-      : activeTab === "general"
-      ? scopedGeneralRows.length
-      : scopedCambridgeRows.length;
+      : unreviewedListening.length;
   const activeFilteredCount =
     activeTab === "review"
       ? filteredReviewRows.length
@@ -1696,11 +1488,7 @@ const Review = () => {
       ? filteredWriting.length
       : activeTab === "reading"
       ? filteredReading.length
-      : activeTab === "listening"
-      ? filteredListening.length
-      : activeTab === "general"
-      ? scopedFilteredGeneralRows.length
-      : scopedFilteredCambridgeRows.length;
+      : filteredListening.length;
   const activePendingCount =
     activeTab === "review"
       ? reviewNeedsReviewCount
@@ -1710,11 +1498,7 @@ const Review = () => {
       ? writingNeedsReviewCount
       : activeTab === "reading"
       ? readingNeedsReviewCount
-      : activeTab === "listening"
-      ? listeningNeedsReviewCount
-      : activeTab === "general"
-      ? generalNeedsReviewCount
-      : cambridgeNeedsReviewCount;
+      : listeningNeedsReviewCount;
   const activeReviewedCount = Math.max(activeTotalCount - activePendingCount, 0);
   const activeQueueHint =
     activeTab === "review"
@@ -1723,10 +1507,6 @@ const Review = () => {
       ? "Quick view for all IX writing, reading, and listening submissions."
       : activeTab === "writing"
       ? "Click a row to open the writing review page."
-      : activeTab === "cambridge"
-      ? "Click a row to review Orange details, feedback, and result actions."
-      : activeTab === "general"
-      ? "Click a row to review General details, feedback, and result actions."
       : "Click a row to view the score summary, feedback, and actions.";
   const activeReviewTab =
     activeTab === "review"
@@ -1756,6 +1536,14 @@ const Review = () => {
     () => workspaceLinks.find((item) => item?.key === "fce") || null,
     [workspaceLinks]
   );
+  const navigateToIxSubmissionPage = useCallback(
+    (tabKey = "writing") => {
+      const path =
+        IX_SUBMISSION_PAGE_BY_TAB[tabKey] || IX_SUBMISSION_PAGE_BY_TAB.writing;
+      navigate(path);
+    },
+    [navigate]
+  );
   const workspaceParentLinks = useMemo(() => {
     const items = [];
 
@@ -1782,11 +1570,8 @@ const Review = () => {
       active: activeTab !== "review" && activeWorkspaceGroup === "ix",
       onClick: () => {
         setActiveWorkspaceGroup("ix");
-        setActiveTab((prev) =>
-          ["writing", "reading", "listening"].includes(prev)
-            ? prev
-            : "writing"
-        );
+        setActiveTab("writing");
+        navigateToIxSubmissionPage("writing");
       },
     });
 
@@ -1798,12 +1583,7 @@ const Review = () => {
         tone: orangeWorkspaceLink.tone,
         active: activeTab !== "review" && activeWorkspaceGroup === "orange",
         onClick: () => {
-          setActiveWorkspaceGroup("orange");
-          setPlatformSubmissionTypeByGroup((prev) => ({
-            ...prev,
-            orange: "all",
-          }));
-          setActiveTab("cambridge");
+          navigateToPlatformSubmissionPage("orange", "all");
         },
       });
     }
@@ -1816,12 +1596,7 @@ const Review = () => {
         tone: generalWorkspaceLink.tone,
         active: activeTab !== "review" && activeWorkspaceGroup === "general",
         onClick: () => {
-          setActiveWorkspaceGroup("general");
-          setPlatformSubmissionTypeByGroup((prev) => ({
-            ...prev,
-            general: "all",
-          }));
-          setActiveTab("general");
+          navigateToPlatformSubmissionPage("general", "all");
         },
       });
     }
@@ -1832,6 +1607,8 @@ const Review = () => {
     activeWorkspaceGroup,
     generalWorkspaceLink,
     ixDisplayName,
+    navigateToPlatformSubmissionPage,
+    navigateToIxSubmissionPage,
     orangeWorkspaceLink,
     reviewWorkspaceLink,
   ]);
@@ -1858,6 +1635,7 @@ const Review = () => {
           onClick: () => {
             setActiveWorkspaceGroup("ix");
             setActiveTab(tab.key);
+            navigateToIxSubmissionPage(tab.key);
           },
         }));
     }
@@ -1872,15 +1650,9 @@ const Review = () => {
         label: tab.shortLabel,
         hint: tab.label,
         tone: tab.tone,
-        active:
-          activeTab === "cambridge" && activeOrangeSubmissionType === tab.key,
+        active: false,
         onClick: () => {
-          setActiveWorkspaceGroup("orange");
-          setActiveTab("cambridge");
-          setPlatformSubmissionTypeByGroup((prev) => ({
-            ...prev,
-            orange: tab.key,
-          }));
+          navigateToPlatformSubmissionPage("orange", tab.key);
         },
       }));
     }
@@ -1891,25 +1663,19 @@ const Review = () => {
         label: tab.shortLabel,
         hint: tab.label,
         tone: tab.tone,
-        active:
-          activeTab === "general" && activeGeneralSubmissionType === tab.key,
+        active: false,
         onClick: () => {
-          setActiveWorkspaceGroup("general");
-          setActiveTab("general");
-          setPlatformSubmissionTypeByGroup((prev) => ({
-            ...prev,
-            general: tab.key,
-          }));
+          navigateToPlatformSubmissionPage("general", tab.key);
         },
       }));
     }
 
     return [];
   }, [
-    activeGeneralSubmissionType,
-    activeOrangeSubmissionType,
     activeTab,
     activeWorkspaceGroup,
+    navigateToPlatformSubmissionPage,
+    navigateToIxSubmissionPage,
     reviewTabs,
   ]);
   const workspaceChildMeta = useMemo(() => {
@@ -1918,39 +1684,18 @@ const Review = () => {
     }
 
     if (activeWorkspaceGroup === "orange") {
-      const activeChild = workspaceChildLinks.find((item) => item?.active);
-      if (activeChild?.label) {
-        return String(activeChild.label).toUpperCase();
-      }
-
-      const selectedTab =
-        ORANGE_SUBMISSION_TYPE_TABS.find(
-          (tab) => tab.key === activeOrangeSubmissionType
-        ) || ORANGE_SUBMISSION_TYPE_TABS[0];
-      return String(selectedTab.shortLabel || "All").toUpperCase();
+      return "Open Cambridge submissions";
     }
 
     if (activeWorkspaceGroup === "general") {
-      const activeChild = workspaceChildLinks.find((item) => item?.active);
-      if (activeChild?.label) {
-        return String(activeChild.label).toUpperCase();
-      }
-
-      const selectedTab =
-        GENERAL_SUBMISSION_TYPE_TABS.find(
-          (tab) => tab.key === activeGeneralSubmissionType
-        ) || GENERAL_SUBMISSION_TYPE_TABS[0];
-      return String(selectedTab.shortLabel || "All").toUpperCase();
+      return "Open General submissions";
     }
 
     return activeReviewTab.shortLabel;
   }, [
-    activeGeneralSubmissionType,
-    activeOrangeSubmissionType,
     activeReviewTab.shortLabel,
     activeWorkspaceGroup,
     ixDisplayName,
-    workspaceChildLinks,
   ]);
   const workspaceChildAriaLabel =
     activeWorkspaceGroup === "ix"
@@ -1961,32 +1706,24 @@ const Review = () => {
       ? "General submission types"
       : "Submission types";
   const submissionTypeTabs = useMemo(() => {
-    if (activeTab === "review") {
+    if (activeTab === "review" || activeWorkspaceGroup !== "ix") {
       return [];
     }
 
-    if (activeWorkspaceGroup === "review") {
-      return [];
-    }
-
-    if (activeWorkspaceGroup === "ix") {
-      return reviewTabs.filter((tab) => ["writing", "reading", "listening"].includes(tab.key));
-    }
-
-    if (activeWorkspaceGroup === "orange") {
-      return orangeSubmissionTypeTabs;
-    }
-
-    if (activeWorkspaceGroup === "general") {
-      return generalSubmissionTypeTabs;
-    }
-
-    return reviewTabs;
+    return reviewTabs
+      .filter((tab) => ["writing", "reading", "listening"].includes(tab.key))
+      .map((tab) => ({
+        ...tab,
+        onClick: () => {
+          setActiveWorkspaceGroup("ix");
+          setActiveTab(tab.key);
+          navigateToIxSubmissionPage(tab.key);
+        },
+      }));
   }, [
     activeTab,
     activeWorkspaceGroup,
-    generalSubmissionTypeTabs,
-    orangeSubmissionTypeTabs,
+    navigateToIxSubmissionPage,
     reviewTabs,
   ]);
   const sidebarStats = useMemo(
@@ -2336,13 +2073,13 @@ const Review = () => {
         items={filteredReviewRows}
         expandedItems={expandedQueueItems.review}
         onToggle={(rowId) => {
-          const row = filteredReviewRows.find((entry) => getReviewRowId(entry) === rowId);
+          const row = filteredReviewRows.find((entry) => getIxRowId(entry) === rowId);
           if (!row) return;
 
           toggleQueueItem("review", rowId);
           ensureCambridgeDetailLoaded(row);
         }}
-        getItemId={getReviewRowId}
+        getItemId={getIxRowId}
         getTone={(row) => getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)}
         renderHeader={({ item: row, index, tone }) => {
           const submission = row?.sub || {};
@@ -2732,170 +2469,6 @@ const Review = () => {
     );
   };
 
-  const renderCambridgeStyleQueue = ({
-    rows,
-    allRows,
-    loading,
-    error,
-    loadingLabel,
-    emptyAllMessage,
-    emptyFilteredMessage,
-  }) => {
-    if (loading) {
-      return <p>{loadingLabel}</p>;
-    }
-
-    if (error) {
-      return <p style={{ color: "#dc2626" }}>{error}</p>;
-    }
-
-    if (!rows.length) {
-      return renderQueueEmptyState(
-        allRows.length === 0 ? emptyAllMessage : emptyFilteredMessage
-      );
-    }
-
-    return (
-      <ExpandableSubmissionList
-        items={rows}
-        expandedItems={expandedCambridge}
-        onToggle={(rowId) => {
-          const row = rows.find((entry) => getCambridgeRowId(entry) === rowId);
-          if (row) {
-            handleToggleCambridgeDetail(row);
-          }
-        }}
-        getItemId={getCambridgeRowId}
-        getTone={(row) => getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)}
-        renderHeader={({ item: row, index, tone }) => {
-          if (row?.source === "pet-writing") {
-            const submission = row?.sub || {};
-            return (
-              <>
-                <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
-                  #{index + 1}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: 10,
-                    whiteSpace: "nowrap",
-                    background: tone.chipBg,
-                    color: tone.chipColor,
-                  }}
-                >
-                  {getQueueStatusLabel(submission)}
-                </span>
-                <span style={typeBadgeStyle(isDarkMode)}>{getWritingTestTitle(submission)}</span>
-                <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
-                  {getSubmissionStudentName(submission)}
-                </span>
-                <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
-                  {getSubmissionPhone(submission)}
-                </span>
-                <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
-                  {getWritingTestLabel(submission)}
-                </span>
-                <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
-                  {formatDateTime(submission?.submittedAt || submission?.createdAt)}
-                </span>
-              </>
-            );
-          }
-
-          const submission = row?.sub || {};
-          const timingMeta =
-            submission?.finished === false
-              ? getAttemptTimingMeta(submission?.expiresAt)
-              : null;
-          const scoreSummary = getCambridgeScoreSummary(submission);
-
-          return (
-            <>
-              <span style={{ fontSize: 12, color: tone.subtleText, minWidth: 28 }}>
-                #{index + 1}
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "2px 8px",
-                  borderRadius: 10,
-                  whiteSpace: "nowrap",
-                  background: tone.chipBg,
-                  color: tone.chipColor,
-                }}
-              >
-                {getQueueStatusLabel(submission)}
-              </span>
-              <span style={typeBadgeStyle(isDarkMode)}>
-                {String(submission?.testType || "Orange")}
-              </span>
-              <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
-                {submission?.studentName || "N/A"}
-              </span>
-              <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
-                {submission?.studentPhone || "N/A"}
-              </span>
-              <span style={{ fontSize: 13, color: tone.secondaryText, flex: 1, minWidth: 220 }}>
-                {[
-                  submission?.testTitle || submission?.testType || "Orange",
-                  submission?.classCode || null,
-                  submission?.teacherName || null,
-                ]
-                  .filter(Boolean)
-                  .join(" - ")}
-              </span>
-              {scoreSummary && (
-                <span style={scoreBadgeStyle(tone, submission?.finished === false ? "#1d4ed8" : tone.primaryText)}>
-                  {scoreSummary}
-                </span>
-              )}
-              <span style={{ fontSize: 12, color: tone.subtleText, whiteSpace: "nowrap" }}>
-                {submission?.finished === false && timingMeta
-                  ? `${timingMeta.label} • ${formatDateTime(
-                      submission?.lastSavedAt || submission?.createdAt
-                    )}`
-                  : formatDateTime(submission?.submittedAt || submission?.createdAt)}
-              </span>
-            </>
-          );
-        }}
-        renderExpanded={({ item: row, tone }) =>
-          renderCambridgeRowExpandedContent(row, tone)
-        }
-      />
-    );
-  };
-
-  const renderCambridgeQueue = () => {
-    return renderCambridgeStyleQueue({
-      rows: scopedFilteredCambridgeRows,
-      allRows: scopedCambridgeRows,
-      loading: loadingWriting || loadingCambridge,
-      error: cambridgeError,
-      loadingLabel: loadingWriting
-        ? "Loading PET writing submissions..."
-        : "Loading Orange submissions...",
-      emptyAllMessage: "No Orange submissions found.",
-      emptyFilteredMessage: "No Orange submissions match the current filters.",
-    });
-  };
-
-  const renderGeneralQueue = () => {
-    return renderCambridgeStyleQueue({
-      rows: scopedFilteredGeneralRows,
-      allRows: scopedGeneralRows,
-      loading: loadingGeneral,
-      error: generalError,
-      loadingLabel: "Loading General submissions...",
-      emptyAllMessage: "No General submissions found.",
-      emptyFilteredMessage: "No General submissions match the current filters.",
-    });
-  };
-
   return (
     <>
       <AdminNavbar />
@@ -3062,14 +2635,6 @@ const Review = () => {
               })}
             </>
           )}
-
-          {activeTab === "cambridge" && (
-            <>{renderCambridgeQueue()}</>
-          )}
-
-          {activeTab === "general" && (
-            <>{renderGeneralQueue()}</>
-          )}
         </div>
         </AdminStickySidebarLayout>
       </div>
@@ -3085,7 +2650,6 @@ const reviewContentStackStyle = {
 const reviewHubSurfaceStyle = (isDarkMode) => ({
   display: "grid",
   gap: 8,  
-  top: 92,  
   border: `1px solid ${isDarkMode ? "#243047" : "#e5e7eb"}`,
   borderRadius: 16,
   padding: "12px 14px 14px",

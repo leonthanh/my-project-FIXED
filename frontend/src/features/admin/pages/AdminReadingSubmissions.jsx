@@ -94,23 +94,39 @@ const AdminReadingSubmissions = () => {
   const canDeleteSubmissions = currentUser?.role === "admin";
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
     const fetchSubs = async () => {
       setLoading(true);
       try {
-        const res = await fetch(apiPath("reading-submissions/admin/list"));
+        const res = await fetch(apiPath("reading-submissions/admin/list"), {
+          signal: controller.signal,
+        });
         const data = await res.json();
+        if (!isActive) return;
         const nextSubs = Array.isArray(data) ? data : [];
         setSubs(nextSubs);
       } catch (err) {
+        if (err?.name === "AbortError") return;
         console.error("Failed to load reading submissions", err);
-        setSubs([]);
+        if (isActive) {
+          setSubs([]);
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
     fetchSubs();
 
     if (currentUser?.name) setFeedbackBy(currentUser.name);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, [currentUser]);
 
   const hasReview = (submission) =>

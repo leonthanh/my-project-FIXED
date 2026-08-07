@@ -134,103 +134,87 @@ const AdminListeningSubmissions = () => {
   const canDeleteSubmissions = currentUser?.role === "admin";
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
     const fetchSubs = async () => {
       setLoading(true);
       try {
-        const res = await fetch(apiPath("listening-submissions/admin/list"));
+        const res = await fetch(apiPath("listening-submissions/admin/list"), {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("Fetch failed");
         const data = await res.json();
-        // Map submissions to compute a reliable total for display (prefer generated details when available)
-        const mapped = (data || []).map((s) => {
+        if (!isActive) return;
+
+        // Prefer server-provided counters, then stored details, then a safe fallback.
+        const mapped = (Array.isArray(data) ? data : []).map((s) => {
           const parsedDetails = Array.isArray(s.details)
             ? s.details
             : safeParseJson(s.details) || [];
-          const parsedAnswers = safeParseJson(s.answers) || {};
-
-          // Prefer server-provided computedTotal when present (added by backend admin list route)
-          let computedTotal =
+          const computedTotal =
             Number(s.computedTotal) ||
             Number(s.total) ||
             (parsedDetails.length ? parsedDetails.length : 40);
-
-          const testObj = s.ListeningTest
-            ? {
-                ...s.ListeningTest,
-                partInstructions: safeParseJson(s.ListeningTest.partInstructions),
-                questions: parseQuestionsDeep(s.ListeningTest.questions),
-              }
+          const parsedCorrectFromDetails =
+            Array.isArray(parsedDetails) && parsedDetails.length
+              ? parsedDetails.filter((d) => d.isCorrect).length
+              : null;
+          const storedCorrect = Number.isFinite(Number(s.correct))
+            ? Number(s.correct)
             : null;
 
-          // If we have full test data in the payload and answers, prefer generated details length
-          if (testObj && parsedAnswers && typeof parsedAnswers === "object") {
-            const generated = generateDetailsFromSections(testObj, parsedAnswers);
-            if (
-              generated.length &&
-              (parsedDetails.length !== computedTotal ||
-                parsedDetails.length < generated.length)
-            ) {
-              computedTotal = generated.length;
-            }
-          }
-
-          // Compute correct count: parsed details will be considered later when deciding preference
-
-          // If we have full test data + answers, try to generate details and prefer that when more complete
-          let generatedCorrect = null;
-          let generatedLength = 0;
-          if (testObj && parsedAnswers && typeof parsedAnswers === 'object') {
-            const generated = generateDetailsFromSections(testObj, parsedAnswers);
-            if (generated && generated.length) {
-              generatedCorrect = generated.filter((d) => d.isCorrect).length;
-              generatedLength = generated.length;
-              // prefer generated length as computedTotal when it seems more complete
-              if (generated.length && (parsedDetails.length !== computedTotal || parsedDetails.length < generated.length)) {
-                computedTotal = generated.length;
-              }
-            }
-          }
-
-          // Prefer parsedDetails when it is as complete or more complete than generated; otherwise prefer generated result.
-          const parsedCorrectFromDetails = Array.isArray(parsedDetails) && parsedDetails.length ? parsedDetails.filter((d) => d.isCorrect).length : null;
-          const storedCorrect = Number.isFinite(Number(s.correct)) && Number(s.correct) > 0 ? Number(s.correct) : null;
-
           let computedCorrect;
-          if (parsedCorrectFromDetails != null && (parsedDetails.length >= generatedLength || generatedLength === 0)) {
+          if (parsedCorrectFromDetails != null) {
             computedCorrect = parsedCorrectFromDetails;
-          } else if (generatedLength > 0) {
-            computedCorrect = generatedCorrect != null ? generatedCorrect : (storedCorrect != null ? storedCorrect : (Number(s.correct) || 0));
           } else if (storedCorrect != null) {
             computedCorrect = storedCorrect;
           } else if (s.computedPercentage != null) {
-            computedCorrect = Math.round((Number(s.computedPercentage) / 100) * computedTotal);
+            computedCorrect = Math.round(
+              (Number(s.computedPercentage) / 100) * computedTotal
+            );
           } else {
             computedCorrect = Number(s.correct) || 0;
           }
 
-          const percentage = s.computedPercentage != null ? Number(s.computedPercentage) : (computedTotal ? Math.round((computedCorrect / computedTotal) * 100) : 0);
+          const percentage =
+            s.computedPercentage != null
+              ? Number(s.computedPercentage)
+              : computedTotal
+              ? Math.round((computedCorrect / computedTotal) * 100)
+              : 0;
 
-          return { ...s, parsedDetails, computedTotal, computedPercentage: percentage, computedCorrect };
-
+          return {
+            ...s,
+            parsedDetails,
+            computedTotal,
+            computedPercentage: percentage,
+            computedCorrect,
+          };
         });
 
         setSubs(mapped);
 
-        // Enrich results for submissions that lack stored details but have answers
-        // (these are typically unfinished attempts where backend did not compute details).
-        const toEnrich = mapped.filter(s => {
+        // Enrich only unfinished/incomplete attempts to avoid N+1 heavy requests.
+        const toEnrich = mapped.filter((s) => {
+          if (s.finished !== false) return false;
           const parsedLen = (s.parsedDetails || []).length;
-          const hasTestQuestions = !!(s.ListeningTest && s.ListeningTest.questions);
-          // Enrich when answers exist and either test payload lacks questions (so we cannot generate),
-          // or parsedDetails exist but look incomplete (less than computedTotal)
-          return s.answers && (!hasTestQuestions || (parsedLen > 0 && parsedLen < (s.computedTotal || 40)) || parsedLen === 0);
+          return Boolean(s.answers) && parsedLen < (s.computedTotal || 40);
         });
 
         if (toEnrich.length) {
+          const targets = toEnrich.slice(0, 12);
+          const enrichedById = {};
+
           await Promise.all(
-            toEnrich.map(async (s) => {
+            targets.map(async (s) => {
               try {
+                if (controller.signal.aborted) return;
+
                 // Prefer the authoritative submission endpoint which returns submission + test + generated details
-                const subRes = await fetch(apiPath(`listening-submissions/${s.id}`));
+                const subRes = await fetch(apiPath(`listening-submissions/${s.id}`), {
+                  signal: controller.signal,
+                });
                 if (!subRes.ok) return null;
                 const payload = await subRes.json().catch(() => null);
                 const sub = payload?.submission || null;
@@ -250,62 +234,104 @@ const AdminListeningSubmissions = () => {
                       };
                       const generatedFromSub = generateDetailsFromSections(testObjFromSub, parsedAnswersFromSub);
                       if (generatedFromSub && generatedFromSub.length > parsedDetails.length) {
-                        s.computedCorrect = generatedFromSub.filter((d) => d.isCorrect).length;
-                        s.computedTotal = generatedFromSub.length;
-                        s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                        const computedCorrect = generatedFromSub.filter((d) => d.isCorrect).length;
+                        const computedTotal = generatedFromSub.length;
+                        enrichedById[s.id] = {
+                          computedCorrect,
+                          computedTotal,
+                          computedPercentage: computedTotal
+                            ? Math.round((computedCorrect / computedTotal) * 100)
+                            : 0,
+                        };
                         return;
                       }
                     }
 
                     // Default: use stored details
-                    s.computedCorrect = parsedDetails.filter((d) => d.isCorrect).length;
-                    s.computedTotal = parsedDetails.length;
-                    s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                    const computedCorrect = parsedDetails.filter((d) => d.isCorrect).length;
+                    const computedTotal = parsedDetails.length;
+                    enrichedById[s.id] = {
+                      computedCorrect,
+                      computedTotal,
+                      computedPercentage: computedTotal
+                        ? Math.round((computedCorrect / computedTotal) * 100)
+                        : 0,
+                    };
                     return;
                   }
                 }
 
                 // Fallback: if submission endpoint did not provide details but test exists, try fetching test and generating locally
                 const parsedAnswers = safeParseJson(s.answers) || {};
-                const testObj = s.ListeningTest && s.ListeningTest.questions ? {
-                  ...s.ListeningTest,
-                  partInstructions: safeParseJson(s.ListeningTest.partInstructions),
-                  questions: parseQuestionsDeep(s.ListeningTest.questions),
-                } : (testRaw ? { ...testRaw, partInstructions: safeParseJson(testRaw.partInstructions), questions: parseQuestionsDeep(testRaw.questions) } : null);
+                const testObj = s.ListeningTest && s.ListeningTest.questions
+                  ? {
+                      ...s.ListeningTest,
+                      partInstructions: safeParseJson(s.ListeningTest.partInstructions),
+                      questions: parseQuestionsDeep(s.ListeningTest.questions),
+                    }
+                  : testRaw
+                  ? {
+                      ...testRaw,
+                      partInstructions: safeParseJson(testRaw.partInstructions),
+                      questions: parseQuestionsDeep(testRaw.questions),
+                    }
+                  : null;
 
                 if (testObj) {
                   const generated = generateDetailsFromSections(testObj, parsedAnswers);
                   if (generated && generated.length) {
-                    s.computedCorrect = generated.filter(d => d.isCorrect).length;
-                    s.computedTotal = generated.length;
-                    s.computedPercentage = s.computedTotal ? Math.round((s.computedCorrect / s.computedTotal) * 100) : 0;
+                    const computedCorrect = generated.filter((d) => d.isCorrect).length;
+                    const computedTotal = generated.length;
+                    enrichedById[s.id] = {
+                      computedCorrect,
+                      computedTotal,
+                      computedPercentage: computedTotal
+                        ? Math.round((computedCorrect / computedTotal) * 100)
+                        : 0,
+                    };
                   }
                 }
               } catch (e) {
-                // ignore per-row errors
+                if (e?.name !== "AbortError") {
+                  // ignore per-row errors
+                }
               }
             })
           );
 
+          if (!isActive || controller.signal.aborted) return;
+
+          const enrichedIds = Object.keys(enrichedById);
+          if (!enrichedIds.length) return;
+
           // Update state with enriched data
-          setSubs((prev) => prev.map((x) => {
-            const enriched = mapped.find((m) => m.id === x.id);
-            if (enriched && (enriched.computedCorrect != null || enriched.computedTotal != null)) {
-              return { ...x, computedCorrect: enriched.computedCorrect, computedTotal: enriched.computedTotal, computedPercentage: enriched.computedPercentage };
-            }
-            return x;
-          }));
+          setSubs((prev) =>
+            prev.map((entry) => {
+              const enriched = enrichedById[entry.id];
+              return enriched ? { ...entry, ...enriched } : entry;
+            })
+          );
         }
       } catch (err) {
+        if (err?.name === "AbortError") return;
         console.error("Error fetching listening submissions:", err);
-        setSubs([]);
+        if (isActive) {
+          setSubs([]);
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
     fetchSubs();
 
     if (currentUser?.name) setFeedbackBy(currentUser.name);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, [currentUser]);
 
   const hasReview = (submission) =>
