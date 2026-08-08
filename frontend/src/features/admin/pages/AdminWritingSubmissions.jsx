@@ -1,8 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import {
+  AiAppendModeToggle,
+  AiFeedbackButton,
+  AiFeedbackStatus,
+} from "../../../shared/components/AiFeedbackAssist";
 import { apiPath, authFetch } from "../../../shared/utils/api";
-import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
+import {
+  buildAiFeedbackStatus,
+  clearAiDraftFromStorage,
+  getAiRequestErrorMessage,
+  loadAiDraftFromStorage,
+  mergeAiSuggestionText,
+  saveAiDraftToStorage,
+} from "../../../shared/utils/aiFeedback";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -65,6 +77,8 @@ const AdminWritingSubmissions = () => {
   const [feedbacks, setFeedbacks] = useState({});
   const [bands, setBands] = useState({});
   const [messages, setMessages] = useState({});
+  const [aiStatusById, setAiStatusById] = useState({});
+  const [appendModeById, setAppendModeById] = useState({});
   const [aiLoading, setAiLoading] = useState({});
   const [sendLoading, setSendLoading] = useState({});
   const [hasSaved, setHasSaved] = useState({});
@@ -112,6 +126,7 @@ const AdminWritingSubmissions = () => {
         const savedMap = {};
         const feedbackMap = {};
         const bandMap = {};
+        const appendMap = {};
         items.forEach((item) => {
           if (item.feedback && item.feedbackBy) {
             savedMap[item.id] = true;
@@ -125,10 +140,27 @@ const AdminWritingSubmissions = () => {
               task2: item.bandTask2 != null ? String(item.bandTask2) : "",
             };
           }
+
+          const localDraft = loadAiDraftFromStorage(item.id);
+          if (localDraft) {
+            if (localDraft.feedback != null) {
+              feedbackMap[item.id] = String(localDraft.feedback);
+            }
+
+            if (localDraft.bandTask1 != null || localDraft.bandTask2 != null) {
+              bandMap[item.id] = {
+                task1: localDraft.bandTask1 != null ? String(localDraft.bandTask1) : "",
+                task2: localDraft.bandTask2 != null ? String(localDraft.bandTask2) : "",
+              };
+            }
+
+            appendMap[item.id] = Boolean(localDraft.appendAiMode);
+          }
         });
         setFeedbacks(feedbackMap);
         setBands(bandMap);
         setHasSaved(savedMap);
+        setAppendModeById(appendMap);
       } catch (err) {
         if (err?.name === "AbortError") return;
         console.error("Failed to load writing submissions:", err);
@@ -290,6 +322,31 @@ const AdminWritingSubmissions = () => {
     return "";
   };
 
+  const persistDraftForSubmission = useCallback(
+    (submissionId, overrides = {}) => {
+      const currentItem = data.find((item) => item.id === submissionId);
+      const currentBand = bands[submissionId] || {};
+
+      saveAiDraftToStorage(submissionId, {
+        feedback:
+          overrides.feedback ??
+          feedbacks[submissionId] ??
+          currentItem?.feedback ??
+          "",
+        bandTask1:
+          overrides.bandTask1 ??
+          currentBand.task1 ??
+          (currentItem?.bandTask1 != null ? String(currentItem.bandTask1) : ""),
+        bandTask2:
+          overrides.bandTask2 ??
+          currentBand.task2 ??
+          (currentItem?.bandTask2 != null ? String(currentItem.bandTask2) : ""),
+        appendAiMode: overrides.appendAiMode ?? Boolean(appendModeById[submissionId]),
+      });
+    },
+    [appendModeById, bands, data, feedbacks]
+  );
+
   const handleSendFeedback = async (submissionId) => {
     const currentItem = data.find((item) => item.id === submissionId);
     const feedback = feedbacks[submissionId] ?? currentItem?.feedback ?? "";
@@ -356,6 +413,7 @@ const AdminWritingSubmissions = () => {
         },
       }));
       setHasSaved((prev) => ({ ...prev, [submissionId]: true }));
+      clearAiDraftFromStorage(submissionId);
     } catch (err) {
       console.error(err);
       setMessages((prev) => ({
@@ -367,16 +425,44 @@ const AdminWritingSubmissions = () => {
     }
   };
 
-  const handleAIComment = async (submission) => {
+  const handleAIComment = async (submission, { regenerate = false } = {}) => {
+    const task1 = String(submission?.task1 || "").trim();
+    const task2 = String(submission?.task2 || "").trim();
+    const appendMode = Boolean(appendModeById[submission.id]);
+
+    if (!task1 || !task2) {
+      setAiStatusById((prev) => ({
+        ...prev,
+        [submission.id]: {
+          tone: "warning",
+          text: "This submission is missing Task 1 or Task 2 content, so AI cannot draft feedback yet.",
+        },
+      }));
+      return;
+    }
+
     setAiLoading((prev) => ({ ...prev, [submission.id]: true }));
+    setAiStatusById((prev) => ({
+      ...prev,
+      [submission.id]: {
+        tone: "info",
+        text: regenerate
+          ? appendMode
+            ? "Regenerating AI feedback and appending to current notes..."
+            : "Regenerating AI feedback..."
+          : appendMode
+          ? "Generating AI feedback and appending to current notes..."
+          : "Generating AI feedback...",
+      },
+    }));
 
     try {
       const aiRes = await authFetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          task1: submission.task1,
-          task2: submission.task2,
+          task1,
+          task2,
         }),
       });
 
@@ -386,37 +472,42 @@ const AdminWritingSubmissions = () => {
       }
 
       if (aiData.suggestion) {
+        const currentFeedback = feedbacks[submission.id] ?? submission?.feedback ?? "";
+        const nextFeedback = mergeAiSuggestionText(
+          currentFeedback,
+          aiData.suggestion,
+          appendMode
+        );
+
         setFeedbacks((prev) => ({
           ...prev,
-          [submission.id]: aiData.suggestion,
+          [submission.id]: nextFeedback,
         }));
+        persistDraftForSubmission(submission.id, { feedback: nextFeedback });
 
-        const statusMessage = aiData.cached
-          ? aiData.source === "gemini"
-            ? "Loaded cached Gemini AI feedback."
-            : "Loaded cached AI feedback."
-          : aiData.source === "gemini"
-          ? aiData.upstreamProvider === "openai" && aiData.upstreamStatus === 429
-            ? "OpenAI returned 429. Gemini generated the AI feedback instead."
-            : aiData.upstreamProvider === "openai"
-            ? "OpenAI was unavailable. Gemini generated the AI feedback instead."
-            : "Gemini generated AI feedback."
-          : aiData.fallback
-          ? getAiFallbackRateLimitMessage(aiData) ||
-            aiData.warning ||
-            "OpenAI and Gemini are currently unavailable. The system generated fallback feedback so marking can continue."
-          : "AI feedback generated.";
+        const nextStatus = buildAiFeedbackStatus(aiData);
 
-        setMessages((prev) => ({
+        setAiStatusById((prev) => ({
           ...prev,
-          [submission.id]: statusMessage,
+          [submission.id]: {
+            ...nextStatus,
+            text: appendMode
+              ? `${nextStatus.text} The new draft was appended below your current notes.`
+              : nextStatus.text,
+          },
         }));
       } else {
-        alert(aiData.error || "AI could not generate feedback.");
+        throw new Error(aiData.error || "AI could not generate feedback.");
       }
     } catch (err) {
       console.error("AI error:", err);
-      alert(err.message || "Could not connect to the AI service.");
+      setAiStatusById((prev) => ({
+        ...prev,
+        [submission.id]: {
+          tone: "error",
+          text: err.message || "Could not connect to the AI service.",
+        },
+      }));
     } finally {
       setAiLoading((prev) => ({ ...prev, [submission.id]: false }));
     }
@@ -490,6 +581,7 @@ const AdminWritingSubmissions = () => {
       setAiLoading((prev) => omitRecordKey(prev, item.id));
       setSendLoading((prev) => omitRecordKey(prev, item.id));
       setHasSaved((prev) => omitRecordKey(prev, item.id));
+      clearAiDraftFromStorage(item.id);
 
       return true;
     } catch (err) {
@@ -540,6 +632,7 @@ const AdminWritingSubmissions = () => {
       setAiLoading((prev) => omitRecordKey(prev, submissionIds));
       setSendLoading((prev) => omitRecordKey(prev, submissionIds));
       setHasSaved((prev) => omitRecordKey(prev, submissionIds));
+      submissionIds.forEach((submissionId) => clearAiDraftFromStorage(submissionId));
 
       alert(data?.message || `Deleted ${submissionIds.length} submissions.`);
       return true;
@@ -1080,7 +1173,11 @@ const AdminWritingSubmissions = () => {
                           max="9"
                           placeholder="e.g. 6.5"
                           value={(bands[item.id]?.task1) ?? (item.bandTask1 != null ? String(item.bandTask1) : "")}
-                          onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task1: e.target.value } }))}
+                          onChange={(e) => {
+                            const nextTask1 = e.target.value;
+                            setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task1: nextTask1 } }));
+                            persistDraftForSubmission(item.id, { bandTask1: nextTask1 });
+                          }}
                           style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
                         />
                       </div>
@@ -1093,7 +1190,11 @@ const AdminWritingSubmissions = () => {
                           max="9"
                           placeholder="e.g. 6.5"
                           value={(bands[item.id]?.task2) ?? (item.bandTask2 != null ? String(item.bandTask2) : "")}
-                          onChange={(e) => setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task2: e.target.value } }))}
+                          onChange={(e) => {
+                            const nextTask2 = e.target.value;
+                            setBands((prev) => ({ ...prev, [item.id]: { ...prev[item.id], task2: nextTask2 } }));
+                            persistDraftForSubmission(item.id, { bandTask2: nextTask2 });
+                          }}
                           style={{ width: "100%", padding: "7px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }}
                         />
                       </div>
@@ -1133,9 +1234,11 @@ const AdminWritingSubmissions = () => {
                     }}
                     value={feedbacks[item.id] ?? item.feedback ?? ""}
                     disabled={isDraft}
-                    onChange={(e) =>
-                      setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const nextFeedback = e.target.value;
+                      setFeedbacks((prev) => ({ ...prev, [item.id]: nextFeedback }));
+                      persistDraftForSubmission(item.id, { feedback: nextFeedback });
+                    }}
                   />
                   <div
                     style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
@@ -1176,38 +1279,28 @@ const AdminWritingSubmissions = () => {
                         ? "Update Feedback"
                         : "Send Feedback"}
                     </button>
-                    <button
-                      onClick={() => handleAIComment(item)}
-                      disabled={
-                        isDraft ||
-                        aiLoading[item.id] ||
-                        sendLoading[item.id] ||
-                        hasSaved[item.id]
-                      }
+                    <AiFeedbackButton
+                      onClick={() => handleAIComment(item, { regenerate: false })}
+                      loading={Boolean(aiLoading[item.id])}
+                      disabled={isDraft || Boolean(sendLoading[item.id])}
+                      idleLabel={isDraft ? "Wait for student submission" : "Generate AI Draft"}
+                      loadingLabel="Generating..."
+                      backgroundColor="#ee0033"
                       style={{
                         flex: 1,
-                        padding: "9px 16px",
-                        border: "none",
-                        borderRadius: 6,
-                        fontWeight: 600,
-                        fontSize: 14,
-                        cursor: isDraft || aiLoading[item.id] ? "not-allowed" : "pointer",
-                        background:
-                          isDraft ||
-                          aiLoading[item.id] ||
-                          sendLoading[item.id] ||
-                          hasSaved[item.id]
-                            ? "#9ca3af"
-                            : "#ee0033",
-                        color: "#fff",
                       }}
-                    >
-                      {isDraft
-                        ? "Wait for student submission"
-                        : aiLoading[item.id]
-                        ? "Generating..."
-                        : "AI Feedback"}
-                    </button>
+                    />
+                    <AiFeedbackButton
+                      onClick={() => handleAIComment(item, { regenerate: true })}
+                      loading={Boolean(aiLoading[item.id])}
+                      disabled={isDraft || Boolean(sendLoading[item.id])}
+                      idleLabel={isDraft ? "Wait for student submission" : "Regenerate"}
+                      loadingLabel="Regenerating..."
+                      backgroundColor="#0d9488"
+                      style={{
+                        flex: 1,
+                      }}
+                    />
                     {canDeleteSubmissions && (
                       <button
                         onClick={() => openDeleteConfirmation(item)}
@@ -1232,11 +1325,30 @@ const AdminWritingSubmissions = () => {
                       </button>
                     )}
                   </div>
+                  <AiAppendModeToggle
+                    checked={Boolean(appendModeById[item.id])}
+                    disabled={isDraft || Boolean(sendLoading[item.id]) || Boolean(aiLoading[item.id])}
+                    onChange={(checked) => {
+                      setAppendModeById((prev) => ({ ...prev, [item.id]: checked }));
+                      persistDraftForSubmission(item.id, { appendAiMode: checked });
+                    }}
+                    style={{ marginTop: 6 }}
+                  />
                   {messages[item.id] && (
-                    <p style={{ marginTop: 6, color: "#16a34a", fontSize: 13 }}>
+                    <p
+                      style={{
+                        marginTop: 6,
+                        color:
+                          String(messages[item.id]).toLowerCase().includes("failed")
+                            ? "#b91c1c"
+                            : "#16a34a",
+                        fontSize: 13,
+                      }}
+                    >
                       {messages[item.id]}
                     </p>
                   )}
+                  <AiFeedbackStatus status={aiStatusById[item.id]} style={{ marginTop: 6 }} />
                 </div>
               </>
             );

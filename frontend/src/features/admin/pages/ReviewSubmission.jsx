@@ -1,8 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import {
+  AiAppendModeToggle,
+  AiFeedbackButton,
+  AiFeedbackStatus,
+} from "../../../shared/components/AiFeedbackAssist";
 import { apiPath, authFetch } from "../../../shared/utils/api";
-import { getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
+import {
+  clearAiDraftFromStorage,
+  buildAiFeedbackStatus,
+  getAiRequestErrorMessage,
+  loadAiDraftFromStorage,
+  mergeAiSuggestionText,
+  saveAiDraftToStorage,
+} from "../../../shared/utils/aiFeedback";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -16,131 +28,6 @@ const formatBand = (value) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return String(value);
   return Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
-};
-
-const buildAiStatus = (payload = {}) => {
-  if (payload.cached && payload.fallback && payload.warning) {
-    return {
-      tone: "warning",
-      text: `Loaded a cached fallback draft. ${payload.warning}`,
-    };
-  }
-
-  if (payload.cached && payload.fallback && payload.upstreamStatus === 429) {
-    return {
-      tone: "warning",
-      text:
-        payload.upstreamProvider === "gemini"
-          ? "Loaded a cached fallback draft. Gemini previously returned 429 Too Many Requests for this submission."
-          : "Loaded a cached fallback draft. OpenAI previously returned 429 Too Many Requests for this submission.",
-    };
-  }
-
-  if (payload.cached && payload.source === "gemini") {
-    return {
-      tone: "info",
-      text:
-        payload.upstreamProvider === "openai"
-          ? "Loaded a cached Gemini draft. OpenAI was unavailable when this draft was generated."
-          : "Loaded a cached Gemini draft for this submission.",
-    };
-  }
-
-  if (payload.cached) {
-    return {
-      tone: "info",
-      text: "Loaded cached AI draft for this submission.",
-    };
-  }
-
-  if (payload.fallback && payload.upstreamStatus === 429) {
-    if (payload.warning) {
-      return {
-        tone: "warning",
-        text: payload.warning,
-      };
-    }
-
-    return {
-      tone: "warning",
-      text:
-        payload.upstreamProvider === "gemini"
-          ? "Gemini returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue."
-          : "OpenAI returned 429 Too Many Requests. The system inserted a fallback draft so marking can continue.",
-    };
-  }
-
-  if (payload.source === "gemini" && payload.shared) {
-    return {
-      tone: "info",
-      text:
-        payload.upstreamProvider === "openai" && payload.upstreamStatus === 429
-          ? "OpenAI returned 429 Too Many Requests. Gemini generated the draft from a shared request instead."
-          : payload.upstreamProvider === "openai"
-          ? "OpenAI was unavailable for this request. Gemini generated the draft from a shared request instead."
-          : "Gemini generated the draft from a shared request.",
-    };
-  }
-
-  if (payload.source === "gemini") {
-    return {
-      tone: "info",
-      text:
-        payload.upstreamProvider === "openai" && payload.upstreamStatus === 429
-          ? "OpenAI returned 429 Too Many Requests. Gemini generated the draft instead."
-          : payload.upstreamProvider === "openai"
-          ? "OpenAI was unavailable for this request. Gemini generated the draft instead."
-          : "Gemini generated the AI draft successfully.",
-    };
-  }
-
-  if (payload.fallback) {
-    return {
-      tone: "warning",
-      text:
-        payload.warning ||
-        "The AI provider is temporarily unavailable, so the system inserted a fallback draft.",
-    };
-  }
-
-  if (payload.shared) {
-    return {
-      tone: "success",
-      text: "AI draft generated from a shared request.",
-    };
-  }
-
-  return {
-    tone: "success",
-    text: "AI draft generated successfully.",
-  };
-};
-
-const getAiStatusStyle = (tone = "info") => {
-  const tones = {
-    success: {
-      background: "#ecfdf5",
-      border: "1px solid #bbf7d0",
-      color: "#166534",
-    },
-    warning: {
-      background: "#fffbeb",
-      border: "1px solid #fde68a",
-      color: "#92400e",
-    },
-    error: {
-      background: "#fef2f2",
-      border: "1px solid #fecaca",
-      color: "#991b1b",
-    },
-    info: {
-      background: "#eff6ff",
-      border: "1px solid #bfdbfe",
-      color: "#1d4ed8",
-    },
-  };
-
-  return tones[tone] || tones.info;
 };
 
 const styles = {
@@ -478,6 +365,7 @@ const ReviewSubmission = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [hasSavedFeedback, setHasSavedFeedback] = useState(false);
   const [aiStatus, setAiStatus] = useState(null);
+  const [appendAiMode, setAppendAiMode] = useState(false);
 
   const bandOverall = (() => {
     const t1 = parseFloat(bandTask1);
@@ -512,7 +400,35 @@ const ReviewSubmission = () => {
         setHasSavedFeedback(false);
       }
 
-      setAiStatus(null);
+      const localDraft = loadAiDraftFromStorage(id);
+      const hasLocalDraft =
+        Boolean(String(localDraft?.feedback || "").trim()) ||
+        Boolean(String(localDraft?.teacherName || "").trim()) ||
+        (localDraft?.bandTask1 != null && localDraft.bandTask1 !== "") ||
+        (localDraft?.bandTask2 != null && localDraft.bandTask2 !== "");
+
+      if (localDraft && hasLocalDraft) {
+        if (localDraft.feedback != null) {
+          setFeedback(String(localDraft.feedback));
+        }
+        if (localDraft.teacherName != null) {
+          setTeacherName(String(localDraft.teacherName));
+        }
+        if (localDraft.bandTask1 != null) {
+          setBandTask1(String(localDraft.bandTask1));
+        }
+        if (localDraft.bandTask2 != null) {
+          setBandTask2(String(localDraft.bandTask2));
+        }
+        setAppendAiMode(Boolean(localDraft.appendAiMode));
+        setAiStatus({
+          tone: "info",
+          text: "Restored your local draft for this submission.",
+        });
+      } else {
+        setAppendAiMode(false);
+        setAiStatus(null);
+      }
     } catch (err) {
       console.error("Failed to load writing submission:", err);
     } finally {
@@ -523,6 +439,43 @@ const ReviewSubmission = () => {
   useEffect(() => {
     fetchSubmission();
   }, [fetchSubmission]);
+
+  useEffect(() => {
+    if (!submission?.id) return;
+
+    const serverFeedback = String(submission?.feedback || "");
+    const serverTeacherName = String(submission?.feedbackBy || teacher?.name || "");
+    const serverBandTask1 = submission?.bandTask1 != null ? String(submission.bandTask1) : "";
+    const serverBandTask2 = submission?.bandTask2 != null ? String(submission.bandTask2) : "";
+
+    const hasUnsavedDraft =
+      String(feedback || "") !== serverFeedback ||
+      String(teacherName || "") !== serverTeacherName ||
+      String(bandTask1 || "") !== serverBandTask1 ||
+      String(bandTask2 || "") !== serverBandTask2 ||
+      appendAiMode;
+
+    if (!hasUnsavedDraft) {
+      clearAiDraftFromStorage(submission.id);
+      return;
+    }
+
+    saveAiDraftToStorage(submission.id, {
+      feedback,
+      teacherName,
+      bandTask1,
+      bandTask2,
+      appendAiMode,
+    });
+  }, [
+    appendAiMode,
+    bandTask1,
+    bandTask2,
+    feedback,
+    submission,
+    teacher?.name,
+    teacherName,
+  ]);
 
   const handleSaveFeedback = async () => {
     if (!feedback.trim()) {
@@ -558,6 +511,7 @@ const ReviewSubmission = () => {
 
       alert(data.message || "Feedback saved.");
       setHasSavedFeedback(true);
+      clearAiDraftFromStorage(submission.id);
       fetchSubmission();
     } catch (err) {
       console.error("Failed to save feedback:", err);
@@ -567,19 +521,41 @@ const ReviewSubmission = () => {
     }
   };
 
-  const handleAIComment = async () => {
+  const handleAIComment = async ({ regenerate = false } = {}) => {
     if (!submission) return;
 
+    const task1 = String(submission?.task1 || "").trim();
+    const task2 = String(submission?.task2 || "").trim();
+
+    if (!task1 || !task2) {
+      setAiStatus({
+        tone: "warning",
+        text:
+          "The submission is missing Task 1 or Task 2 content, so AI cannot draft feedback yet.",
+      });
+      return;
+    }
+
     setAiLoading(true);
-    setAiStatus({ tone: "info", text: "Generating AI draft..." });
+    setAiStatus({
+      tone: "info",
+      text:
+        regenerate
+          ? appendAiMode
+            ? "Regenerating AI draft and appending to current feedback..."
+            : "Regenerating AI draft..."
+          : appendAiMode
+          ? "Generating AI draft and appending to current feedback..."
+          : "Generating AI draft...",
+    });
 
     try {
       const aiRes = await authFetch(apiPath("ai/generate-feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          task1: submission.task1,
-          task2: submission.task2,
+          task1,
+          task2,
         }),
       });
       const aiData = await aiRes.json().catch(() => ({}));
@@ -589,8 +565,17 @@ const ReviewSubmission = () => {
       }
 
       if (aiData.suggestion) {
-        setFeedback(aiData.suggestion);
-        setAiStatus(buildAiStatus(aiData));
+        setFeedback((prev) =>
+          mergeAiSuggestionText(prev, aiData.suggestion, appendAiMode)
+        );
+
+        const nextStatus = buildAiFeedbackStatus(aiData);
+        setAiStatus({
+          ...nextStatus,
+          text: appendAiMode
+            ? `${nextStatus.text} The new draft was appended below your existing notes.`
+            : nextStatus.text,
+        });
       } else {
         throw new Error(aiData?.error || "AI could not generate feedback.");
       }
@@ -819,16 +804,14 @@ const ReviewSubmission = () => {
                   />
                 </div>
 
-                {aiStatus && (
-                  <div
-                    style={{
-                      ...styles.aiStatusBox,
-                      ...getAiStatusStyle(aiStatus.tone),
-                    }}
-                  >
-                    {aiStatus.text}
-                  </div>
-                )}
+                <AiFeedbackStatus status={aiStatus} style={styles.aiStatusBox} />
+
+                <AiAppendModeToggle
+                  checked={appendAiMode}
+                  disabled={aiLoading || saveLoading}
+                  onChange={setAppendAiMode}
+                  style={{ marginBottom: 12 }}
+                />
 
                 <p style={styles.buttonHelpText}>
                   Generate AI Draft only fills the feedback box. Use Save Feedback to send the final comment after you review or edit the draft.
@@ -853,19 +836,31 @@ const ReviewSubmission = () => {
                       : "Save Feedback"}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleAIComment}
-                    disabled={aiLoading || saveLoading}
+                  <AiFeedbackButton
+                    onClick={() => handleAIComment({ regenerate: false })}
+                    loading={aiLoading}
+                    disabled={saveLoading}
+                    idleLabel="Generate AI Draft"
+                    loadingLabel="Generating Draft..."
+                    backgroundColor="#0f766e"
                     style={{
                       ...styles.actionButton,
-                      backgroundColor: aiLoading || saveLoading ? "#94a3b8" : "#0f766e",
-                      cursor: aiLoading || saveLoading ? "not-allowed" : "pointer",
-                      opacity: aiLoading || saveLoading ? 0.65 : 1,
+                      flex: "1 1 220px",
                     }}
-                  >
-                    {aiLoading ? "Generating Draft..." : "Generate AI Draft"}
-                  </button>
+                  />
+
+                  <AiFeedbackButton
+                    onClick={() => handleAIComment({ regenerate: true })}
+                    loading={aiLoading}
+                    disabled={saveLoading}
+                    idleLabel="Regenerate"
+                    loadingLabel="Regenerating..."
+                    backgroundColor="#0d9488"
+                    style={{
+                      ...styles.actionButton,
+                      flex: "1 1 220px",
+                    }}
+                  />
                 </div>
               </section>
             </>
