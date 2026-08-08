@@ -98,6 +98,17 @@ const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
 
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? "T23:59:59.999" : "T00:00:00"}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
 const resolveIxDisplayName = (displayLabels = {}) =>
   String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
 
@@ -121,6 +132,8 @@ const AdminListeningSubmissions = () => {
   const [searchStudent, setSearchStudent] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
   const [searchReviewedBy, setSearchReviewedBy] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [statusTab, setStatusTab] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
   const [extendingId, setExtendingId] = useState(null);
@@ -341,14 +354,20 @@ const AdminListeningSubmissions = () => {
     );
 
   const getSubmissionTime = (submission) =>
-    new Date(
-      submission?.submittedAt ||
-        submission?.createdAt ||
-        submission?.updatedAt ||
-        0
-    ).getTime();
+    (() => {
+      const timestamp = new Date(
+        submission?.submittedAt ||
+          submission?.createdAt ||
+          submission?.updatedAt ||
+          0
+      ).getTime();
+      return Number.isFinite(timestamp) ? timestamp : null;
+    })();
 
   const filteredSubs = useMemo(() => {
+    const fromDateStart = getDayBoundaryTimestamp(fromDate);
+    const toDateEnd = getDayBoundaryTimestamp(toDate, true);
+
     const next = subs.filter((submission) => {
       const classCode = String(
         submission?.ListeningTest?.classCode || submission?.classCode || ""
@@ -395,11 +414,18 @@ const AdminListeningSubmissions = () => {
         return false;
       }
 
+      if (fromDateStart !== null || toDateEnd !== null) {
+        const submissionTimestamp = getSubmissionTime(submission);
+        if (submissionTimestamp === null) return false;
+        if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+        if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
+      }
+
       return true;
     });
 
     next.sort((left, right) => {
-      const delta = getSubmissionTime(right) - getSubmissionTime(left);
+      const delta = (getSubmissionTime(right) || 0) - (getSubmissionTime(left) || 0);
       return sortOrder === "oldest" ? -delta : delta;
     });
 
@@ -408,6 +434,8 @@ const AdminListeningSubmissions = () => {
     searchClassCode,
     searchPhone,
     searchReviewedBy,
+    fromDate,
+    toDate,
     searchStudent,
     searchTeacher,
     sortOrder,
@@ -441,6 +469,8 @@ const AdminListeningSubmissions = () => {
     setSearchStudent("");
     setSearchPhone("");
     setSearchReviewedBy("");
+    setFromDate("");
+    setToDate("");
     setStatusTab("all");
     setSortOrder("newest");
   };
@@ -1025,6 +1055,20 @@ const AdminListeningSubmissions = () => {
                     placeholder: "Reviewer name",
                     value: searchReviewedBy,
                     onChange: setSearchReviewedBy,
+                  },
+                  {
+                    key: "fromDate",
+                    label: "From Date",
+                    type: "date",
+                    value: fromDate,
+                    onChange: setFromDate,
+                  },
+                  {
+                    key: "toDate",
+                    label: "To Date",
+                    type: "date",
+                    value: toDate,
+                    onChange: setToDate,
                   },
                 ]}
                 sortValue={sortOrder}

@@ -31,6 +31,8 @@ const DEFAULT_REVIEW_FILTERS = {
   classCode: "",
   teacherName: "",
   reviewedBy: "",
+  fromDate: "",
+  toDate: "",
   status: "pending",
 };
 
@@ -153,6 +155,30 @@ const GENERAL_SUBMISSION_TYPE_TABS = [
 const matchesFilterValue = (value, search) => {
   const query = normalizeFilterValue(search);
   return !query || normalizeFilterValue(value).includes(query);
+};
+
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? "T23:59:59.999" : "T00:00:00"}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const isWithinDateRange = (submissionDate, fromDate, toDate) => {
+  const fromDateStart = getDayBoundaryTimestamp(fromDate);
+  const toDateEnd = getDayBoundaryTimestamp(toDate, true);
+
+  if (fromDateStart === null && toDateEnd === null) return true;
+
+  const submissionTimestamp = new Date(submissionDate || 0).getTime();
+  if (!Number.isFinite(submissionTimestamp)) return false;
+  if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+  if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
+  return true;
 };
 
 const resolveIxDisplayName = (displayLabels = {}) =>
@@ -1287,6 +1313,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1298,6 +1325,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1309,6 +1337,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1323,6 +1352,7 @@ const Review = () => {
         classCode: test?.classCode || "",
         teacherName: test?.teacherName || "",
         reviewedBy: sub?.feedbackBy || "",
+        submittedAt: sub?.submittedAt || sub?.createdAt || sub?.updatedAt || null,
         status: getReviewStatus(sub),
       };
     }
@@ -1333,6 +1363,7 @@ const Review = () => {
       classCode: sub?.classCode || "",
       teacherName: sub?.teacherName || "",
       reviewedBy: sub?.feedbackBy || "",
+      submittedAt: sub?.submittedAt || sub?.createdAt || sub?.updatedAt || null,
       status: getReviewStatus(sub),
     };
   };
@@ -1379,6 +1410,7 @@ const Review = () => {
       if (!matchesFilterValue(meta.classCode, filters.classCode)) return false;
       if (!matchesFilterValue(meta.teacherName, filters.teacherName)) return false;
       if (!matchesFilterValue(meta.reviewedBy, filters.reviewedBy)) return false;
+      if (!isWithinDateRange(meta.submittedAt, filters.fromDate, filters.toDate)) return false;
       if (filters.status === "pending" && meta.status !== "pending") return false;
       if (filters.status === "done" && meta.status !== "done") return false;
 
@@ -1992,6 +2024,16 @@ const Review = () => {
         label: "Reviewed By",
         placeholder: "Reviewer name",
       },
+      {
+        key: "fromDate",
+        label: "From Date",
+        type: "date",
+      },
+      {
+        key: "toDate",
+        label: "To Date",
+        type: "date",
+      },
     ];
 
     return (
@@ -2001,7 +2043,7 @@ const Review = () => {
             <div key={field.key} style={filterFieldWrapStyle}>
               <label style={filterFieldLabelStyle(isDarkMode)}>{field.label}</label>
               <input
-                type="text"
+                type={field.type || "text"}
                 placeholder={field.placeholder}
                 value={activeFilters[field.key] || ""}
                 onChange={(e) => updateTabFilter(tabKey, field.key, e.target.value)}

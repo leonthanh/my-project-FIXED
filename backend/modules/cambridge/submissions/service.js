@@ -100,6 +100,22 @@ const buildSubmissionPlatformFilter = (platform) => {
   return null;
 };
 
+const parseDateBoundary = (value, endOfDay = false) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? 'T23:59:59.999' : 'T00:00:00'}`
+  );
+  const timestamp = parsed.getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return null;
+  }
+
+  return parsed;
+};
+
 const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
   const {
     testId,
@@ -361,6 +377,8 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
     studentPhone,
     teacherName,
     feedbackBy,
+    fromDate,
+    toDate,
     reviewStatus = 'all',
     sortOrder = 'newest',
     page = 1,
@@ -399,6 +417,26 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   pushContainsFilter('teacherName', teacherName);
   pushContainsFilter('feedbackBy', feedbackBy);
 
+  const submissionTimestampExpr = fn('COALESCE', col('submittedAt'), col('createdAt'));
+  const fromDateBoundary = parseDateBoundary(fromDate);
+  const toDateBoundary = parseDateBoundary(toDate, true);
+
+  if (fromDateBoundary) {
+    andConditions.push(
+      sequelizeWhere(submissionTimestampExpr, {
+        [Op.gte]: fromDateBoundary,
+      })
+    );
+  }
+
+  if (toDateBoundary) {
+    andConditions.push(
+      sequelizeWhere(submissionTimestampExpr, {
+        [Op.lte]: toDateBoundary,
+      })
+    );
+  }
+
   if (reviewStatus === 'reviewed') {
     andConditions.push({
       [Op.or]: [
@@ -427,11 +465,10 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   const limitNumber = Math.max(Number.parseInt(limit, 10) || 50, 1);
   const offset = (pageNumber - 1) * limitNumber;
   const direction = String(sortOrder).toLowerCase() === 'oldest' ? 'ASC' : 'DESC';
-  const submittedOrderExpr = fn('COALESCE', col('submittedAt'), col('createdAt'));
 
   const { count, rows: submissions } = await CambridgeSubmission.findAndCountAll({
     where,
-    order: [[submittedOrderExpr, direction]],
+    order: [[submissionTimestampExpr, direction]],
     limit: limitNumber,
     offset,
     attributes: [

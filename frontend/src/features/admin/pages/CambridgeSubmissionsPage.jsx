@@ -133,6 +133,24 @@ const parseJsonIfString = (value) => {
   }
 };
 
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? 'T23:59:59.999' : 'T00:00:00'}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getSubmissionTimestamp = (submission) => {
+  const timestamp = new Date(
+    submission?.submittedAt || submission?.createdAt || submission?.updatedAt || 0
+  ).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
 const escapeHtml = (value = "") =>
   String(value)
     .replace(/&/g, "&amp;")
@@ -312,6 +330,8 @@ const CambridgeSubmissionsPage = ({
     studentPhone: '',
     teacherName: '',
     reviewedBy: '',
+    fromDate: '',
+    toDate: '',
   });
   const [activeTab, setActiveTab] = useState(() =>
     normalizeSubmissionView(searchParams.get('view'))
@@ -372,6 +392,20 @@ const CambridgeSubmissionsPage = ({
       value: filters.reviewedBy,
       onChange: (value) => setFilters((prev) => ({ ...prev, reviewedBy: value })),
     },
+    {
+      key: 'fromDate',
+      label: 'From Date',
+      type: 'date',
+      value: filters.fromDate,
+      onChange: (value) => setFilters((prev) => ({ ...prev, fromDate: value })),
+    },
+    {
+      key: 'toDate',
+      label: 'To Date',
+      type: 'date',
+      value: filters.toDate,
+      onChange: (value) => setFilters((prev) => ({ ...prev, toDate: value })),
+    },
   ];
 
   const handleSelectSubmissionView = useCallback(
@@ -429,6 +463,12 @@ const CambridgeSubmissionsPage = ({
         if (filters.reviewedBy) {
           url += `&feedbackBy=${encodeURIComponent(filters.reviewedBy)}`;
         }
+        if (filters.fromDate) {
+          url += `&fromDate=${encodeURIComponent(filters.fromDate)}`;
+        }
+        if (filters.toDate) {
+          url += `&toDate=${encodeURIComponent(filters.toDate)}`;
+        }
         if (reviewStatus !== 'all') {
           url += `&reviewStatus=${encodeURIComponent(reviewStatus)}`;
         }
@@ -463,6 +503,8 @@ const CambridgeSubmissionsPage = ({
     filters.studentName,
     filters.studentPhone,
     filters.teacherName,
+    filters.fromDate,
+    filters.toDate,
     pagination.limit,
     pagination.page,
     refreshTick,
@@ -482,6 +524,8 @@ const CambridgeSubmissionsPage = ({
     filters.studentName,
     filters.studentPhone,
     filters.teacherName,
+    filters.fromDate,
+    filters.toDate,
     reviewStatus,
     sortOrder,
   ]);
@@ -497,6 +541,8 @@ const CambridgeSubmissionsPage = ({
       studentPhone: '',
       teacherName: '',
       reviewedBy: '',
+      fromDate: '',
+      toDate: '',
     });
     setReviewStatus('all');
     setSortOrder('newest');
@@ -515,6 +561,9 @@ const CambridgeSubmissionsPage = ({
 
   const hasReview = (submission) =>
     hasResolvedSubmissionFeedback(submission);
+
+  const fromDateStart = getDayBoundaryTimestamp(filters.fromDate);
+  const toDateEnd = getDayBoundaryTimestamp(filters.toDate, true);
 
   const filteredSubmissions = submissions.filter((submission) => {
     const normalizedStudentName = String(submission?.studentName || '').toLowerCase();
@@ -549,6 +598,13 @@ const CambridgeSubmissionsPage = ({
 
     if (reviewStatus === 'reviewed' && !hasReview(submission)) {
       return false;
+    }
+
+    if (fromDateStart !== null || toDateEnd !== null) {
+      const submissionTimestamp = getSubmissionTimestamp(submission);
+      if (submissionTimestamp === null) return false;
+      if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+      if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
     }
 
     return true;
