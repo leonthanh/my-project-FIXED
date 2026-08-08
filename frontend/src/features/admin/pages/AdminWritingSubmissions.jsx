@@ -8,7 +8,7 @@ import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
   AdminSidebarNavList,
   AdminSidebarPanel,
-  buildAdminWorkspaceLinks,
+  buildSubmissionWorkspaceNav,
 } from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
@@ -38,8 +38,24 @@ const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
 
-const resolveIxDisplayName = (displayLabels = {}) =>
-  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? "T23:59:59.999" : "T00:00:00"}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getSubmissionTimestamp = (submission) => {
+  const parsed = new Date(
+    submission?.submittedAt || submission?.createdAt || submission?.updatedAt || 0
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
 
 const AdminWritingSubmissions = () => {
   const { isDarkMode } = useTheme();
@@ -57,6 +73,8 @@ const AdminWritingSubmissions = () => {
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchStudentName, setSearchStudentName] = useState("");
   const [searchFeedbackBy, setSearchFeedbackBy] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [filteredData, setFilteredData] = useState([]);
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [filterStatus, setFilterStatus] = useState("all");
@@ -127,6 +145,8 @@ const AdminWritingSubmissions = () => {
 
   useEffect(() => {
     let filtered = data;
+    const fromDateStart = getDayBoundaryTimestamp(fromDate);
+    const toDateEnd = getDayBoundaryTimestamp(toDate, true);
 
     if (searchClassCode.trim()) {
       filtered = filtered.filter((item) =>
@@ -156,6 +176,16 @@ const AdminWritingSubmissions = () => {
       );
     }
 
+    if (fromDateStart !== null || toDateEnd !== null) {
+      filtered = filtered.filter((item) => {
+        const submissionTimestamp = getSubmissionTimestamp(item);
+        if (submissionTimestamp === null) return false;
+        if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+        if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
+        return true;
+      });
+    }
+
     if (filterStatus === "pending") {
       filtered = filtered.filter((item) => !item.feedback || !item.feedbackBy);
     }
@@ -170,6 +200,8 @@ const AdminWritingSubmissions = () => {
     searchTeacher,
     searchStudentName,
     searchFeedbackBy,
+    fromDate,
+    toDate,
     filterStatus,
     data,
   ]);
@@ -244,6 +276,8 @@ const AdminWritingSubmissions = () => {
     setSearchTeacher("");
     setSearchStudentName("");
     setSearchFeedbackBy("");
+    setFromDate("");
+    setToDate("");
     setFilterStatus("all");
   };
 
@@ -545,80 +579,18 @@ const AdminWritingSubmissions = () => {
 
   const pendingCount = data.filter((item) => !item.feedback || !item.feedbackBy).length;
   const reviewedCount = data.filter((item) => !!(item.feedback && item.feedbackBy)).length;
-  const workspaceLinks = buildAdminWorkspaceLinks(
+  const {
+    ixDisplayName,
+    workspaceGroupLinks,
+    workspaceChildLinks,
+  } = buildSubmissionWorkspaceNav({
     navigate,
-    "writing",
-    undefined,
-    "review",
-    displayLabels
-  );
-  const ixDisplayName = resolveIxDisplayName(displayLabels);
-  const reviewWorkspaceLink = workspaceLinks.find((item) => item?.key === "review") || null;
-  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
-    ["writing", "reading", "listening"].includes(String(item?.key || ""))
-  );
-  const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === "cambridge") || null;
-  const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === "fce") || null;
-  const workspaceGroupLinks = [
-    reviewWorkspaceLink
-      ? {
-          key: "workspace-review",
-          label: reviewWorkspaceLink.label,
-          hint: reviewWorkspaceLink.hint,
-          tone: reviewWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "review",
-          onClick: () => {
-            setActiveWorkspaceGroup("review");
-            reviewWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-    {
-      key: "workspace-ix",
-      label: ixDisplayName,
-      hint: "Writing, Reading, Listening",
-      tone: "blue",
-      active: activeWorkspaceGroup === "ix",
-      onClick: () => setActiveWorkspaceGroup("ix"),
-    },
-    orangeWorkspaceLink
-      ? {
-          key: "workspace-orange",
-          label: orangeWorkspaceLink.label,
-          hint: orangeWorkspaceLink.hint,
-          tone: orangeWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "orange",
-          onClick: () => {
-            setActiveWorkspaceGroup("orange");
-            orangeWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-    generalWorkspaceLink
-      ? {
-          key: "workspace-general",
-          label: generalWorkspaceLink.label,
-          hint: generalWorkspaceLink.hint,
-          tone: generalWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "general",
-          onClick: () => {
-            setActiveWorkspaceGroup("general");
-            generalWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-  ].filter(Boolean);
-  const workspaceChildLinks =
-    activeWorkspaceGroup === "ix"
-      ? ixWorkspaceLinks.map((item) => ({
-          key: `workspace-child-${item.key}`,
-          label: item.label,
-          hint: item.hint,
-          tone: item.tone,
-          active: item.key === "writing",
-          onClick: item.onClick,
-        }))
-      : [];
+    currentKey: "writing",
+    activeWorkspaceGroup,
+    setActiveWorkspaceGroup,
+    displayLabels,
+    activeIxKey: "writing",
+  });
   const sidebarStats = [
     {
       key: "total",
@@ -766,6 +738,20 @@ const AdminWritingSubmissions = () => {
                     placeholder: "Reviewer name",
                     value: searchFeedbackBy,
                     onChange: setSearchFeedbackBy,
+                  },
+                  {
+                    key: "fromDate",
+                    label: "From Date",
+                    type: "date",
+                    value: fromDate,
+                    onChange: setFromDate,
+                  },
+                  {
+                    key: "toDate",
+                    label: "To Date",
+                    type: "date",
+                    value: toDate,
+                    onChange: setToDate,
                   },
                 ]}
                 statusValue={filterStatus}

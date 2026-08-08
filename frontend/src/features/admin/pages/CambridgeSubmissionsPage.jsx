@@ -19,7 +19,7 @@ import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
   AdminSidebarNavList,
   AdminSidebarPanel,
-  buildAdminWorkspaceLinks,
+  buildSubmissionWorkspaceNav,
 } from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
@@ -121,9 +121,6 @@ const CAMBRIDGE_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
 ];
 
-const resolveIxDisplayName = (displayLabels = {}) =>
-  String(displayLabels?.ixDisplayName || 'IX').trim() || 'IX';
-
 const parseJsonIfString = (value) => {
   if (typeof value !== "string") return value;
   try {
@@ -131,6 +128,24 @@ const parseJsonIfString = (value) => {
   } catch {
     return value;
   }
+};
+
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? 'T23:59:59.999' : 'T00:00:00'}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getSubmissionTimestamp = (submission) => {
+  const timestamp = new Date(
+    submission?.submittedAt || submission?.createdAt || submission?.updatedAt || 0
+  ).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
 };
 
 const escapeHtml = (value = "") =>
@@ -312,6 +327,8 @@ const CambridgeSubmissionsPage = ({
     studentPhone: '',
     teacherName: '',
     reviewedBy: '',
+    fromDate: '',
+    toDate: '',
   });
   const [activeTab, setActiveTab] = useState(() =>
     normalizeSubmissionView(searchParams.get('view'))
@@ -372,6 +389,20 @@ const CambridgeSubmissionsPage = ({
       value: filters.reviewedBy,
       onChange: (value) => setFilters((prev) => ({ ...prev, reviewedBy: value })),
     },
+    {
+      key: 'fromDate',
+      label: 'From Date',
+      type: 'date',
+      value: filters.fromDate,
+      onChange: (value) => setFilters((prev) => ({ ...prev, fromDate: value })),
+    },
+    {
+      key: 'toDate',
+      label: 'To Date',
+      type: 'date',
+      value: filters.toDate,
+      onChange: (value) => setFilters((prev) => ({ ...prev, toDate: value })),
+    },
   ];
 
   const handleSelectSubmissionView = useCallback(
@@ -429,6 +460,12 @@ const CambridgeSubmissionsPage = ({
         if (filters.reviewedBy) {
           url += `&feedbackBy=${encodeURIComponent(filters.reviewedBy)}`;
         }
+        if (filters.fromDate) {
+          url += `&fromDate=${encodeURIComponent(filters.fromDate)}`;
+        }
+        if (filters.toDate) {
+          url += `&toDate=${encodeURIComponent(filters.toDate)}`;
+        }
         if (reviewStatus !== 'all') {
           url += `&reviewStatus=${encodeURIComponent(reviewStatus)}`;
         }
@@ -463,6 +500,8 @@ const CambridgeSubmissionsPage = ({
     filters.studentName,
     filters.studentPhone,
     filters.teacherName,
+    filters.fromDate,
+    filters.toDate,
     pagination.limit,
     pagination.page,
     refreshTick,
@@ -482,6 +521,8 @@ const CambridgeSubmissionsPage = ({
     filters.studentName,
     filters.studentPhone,
     filters.teacherName,
+    filters.fromDate,
+    filters.toDate,
     reviewStatus,
     sortOrder,
   ]);
@@ -497,6 +538,8 @@ const CambridgeSubmissionsPage = ({
       studentPhone: '',
       teacherName: '',
       reviewedBy: '',
+      fromDate: '',
+      toDate: '',
     });
     setReviewStatus('all');
     setSortOrder('newest');
@@ -515,6 +558,9 @@ const CambridgeSubmissionsPage = ({
 
   const hasReview = (submission) =>
     hasResolvedSubmissionFeedback(submission);
+
+  const fromDateStart = getDayBoundaryTimestamp(filters.fromDate);
+  const toDateEnd = getDayBoundaryTimestamp(filters.toDate, true);
 
   const filteredSubmissions = submissions.filter((submission) => {
     const normalizedStudentName = String(submission?.studentName || '').toLowerCase();
@@ -549,6 +595,13 @@ const CambridgeSubmissionsPage = ({
 
     if (reviewStatus === 'reviewed' && !hasReview(submission)) {
       return false;
+    }
+
+    if (fromDateStart !== null || toDateEnd !== null) {
+      const submissionTimestamp = getSubmissionTimestamp(submission);
+      if (submissionTimestamp === null) return false;
+      if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+      if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
     }
 
     return true;
@@ -1283,80 +1336,41 @@ const CambridgeSubmissionsPage = ({
   const workspaceCurrentKey = resolvedPlatformFilter === 'fce' ? 'fce' : 'cambridge';
   const activePlatformWorkspaceGroup =
     resolvedPlatformFilter === 'fce' ? 'general' : 'orange';
-  const ixDisplayName = resolveIxDisplayName(displayLabels);
-  const workspaceLinks = buildAdminWorkspaceLinks(
-    navigate,
-    workspaceCurrentKey,
-    undefined,
-    "review",
-    displayLabels
+  const { ixDisplayName, ixWorkspaceLinks, workspaceGroupLinks } = useMemo(
+    () =>
+      buildSubmissionWorkspaceNav({
+        navigate,
+        currentKey: workspaceCurrentKey,
+        activeWorkspaceGroup,
+        setActiveWorkspaceGroup,
+        displayLabels,
+        activeIxKey: workspaceCurrentKey,
+        onIxGroupClick: ({ ixWorkspaceLinks: links }) => {
+          if (workspaceCurrentKey !== 'writing') {
+            const ixWritingWorkspaceLink =
+              links.find((item) => String(item?.key || '') === 'writing') || null;
+            ixWritingWorkspaceLink?.onClick?.();
+          }
+        },
+        onOrangeGroupClick: ({ orangeWorkspaceLink }) => {
+          if (activePlatformWorkspaceGroup !== 'orange') {
+            orangeWorkspaceLink?.onClick?.();
+          }
+        },
+        onGeneralGroupClick: ({ generalWorkspaceLink }) => {
+          if (activePlatformWorkspaceGroup !== 'general') {
+            generalWorkspaceLink?.onClick?.();
+          }
+        },
+      }),
+    [
+      activePlatformWorkspaceGroup,
+      activeWorkspaceGroup,
+      displayLabels,
+      navigate,
+      workspaceCurrentKey,
+    ]
   );
-  const reviewWorkspaceLink = workspaceLinks.find((item) => item?.key === 'review') || null;
-  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
-    ['writing', 'reading', 'listening'].includes(String(item?.key || ''))
-  );
-  const ixWritingWorkspaceLink =
-    ixWorkspaceLinks.find((item) => String(item?.key || '') === 'writing') || null;
-  const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === 'cambridge') || null;
-  const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === 'fce') || null;
-  const workspaceGroupLinks = [
-    reviewWorkspaceLink
-      ? {
-          key: 'workspace-review',
-          label: reviewWorkspaceLink.label,
-          hint: reviewWorkspaceLink.hint,
-          tone: reviewWorkspaceLink.tone,
-          active: activeWorkspaceGroup === 'review',
-          onClick: () => {
-            setActiveWorkspaceGroup('review');
-            reviewWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-    {
-      key: 'workspace-ix',
-      label: ixDisplayName,
-      hint: 'Writing, Reading, Listening',
-      tone: 'blue',
-      active: activeWorkspaceGroup === 'ix',
-      onClick: () => {
-        setActiveWorkspaceGroup('ix');
-        if (workspaceCurrentKey !== 'writing') {
-          ixWritingWorkspaceLink?.onClick?.();
-        }
-      },
-    },
-    orangeWorkspaceLink
-      ? {
-          key: 'workspace-orange',
-          label: orangeWorkspaceLink.label,
-          hint: orangeWorkspaceLink.hint,
-          tone: orangeWorkspaceLink.tone,
-          active: activeWorkspaceGroup === 'orange',
-          onClick: () => {
-            setActiveWorkspaceGroup('orange');
-            if (activePlatformWorkspaceGroup !== 'orange') {
-              orangeWorkspaceLink.onClick?.();
-            }
-          },
-        }
-      : null,
-    generalWorkspaceLink
-      ? {
-          key: 'workspace-general',
-          label: generalWorkspaceLink.label,
-          hint: generalWorkspaceLink.hint,
-          tone: generalWorkspaceLink.tone,
-          active: activeWorkspaceGroup === 'general',
-          onClick: () => {
-            setActiveWorkspaceGroup('general');
-            if (activePlatformWorkspaceGroup !== 'general') {
-              generalWorkspaceLink.onClick?.();
-            }
-          },
-        }
-      : null,
-  ].filter(Boolean);
   const platformTone = resolvedPlatformFilter === 'fce' ? 'cyan' : 'orange';
   const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(resolvedPlatformFilter);
   const platformSubmissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({

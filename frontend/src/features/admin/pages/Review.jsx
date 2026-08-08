@@ -5,7 +5,7 @@ import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
   AdminSidebarNavList,
   AdminSidebarPanel,
-  buildAdminWorkspaceLinks,
+  buildReviewWorkspaceNav,
 } from "../components/AdminStickySidebarLayout";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
@@ -23,6 +23,7 @@ import {
   SubmissionStatCards,
   getSubmissionTone,
 } from "../components/SubmissionCardList";
+import { getReviewTabTone } from "../components/reviewTabTones";
 import { getAttemptTimingMeta } from "../utils/attemptTiming";
 import { getPlatformSubmissionRoute } from "../utils/platformSubmissionRoutes";
 
@@ -31,6 +32,8 @@ const DEFAULT_REVIEW_FILTERS = {
   classCode: "",
   teacherName: "",
   reviewedBy: "",
+  fromDate: "",
+  toDate: "",
   status: "pending",
 };
 
@@ -83,41 +86,6 @@ const IX_SUBMISSION_PAGE_BY_TAB = {
   listening: "/admin/listening-submissions",
 };
 
-const REVIEW_TAB_TONES = {
-  writing: {
-    activeBackground: "linear-gradient(135deg, #7c3aed 0%, #9f67ff 100%)",
-    activeBorder: "#7c3aed",
-    softBackground: "#f5f3ff",
-    softBorder: "#ddd6fe",
-    softText: "#6d28d9",
-    softBadgeBackground: "rgba(124, 58, 237, 0.12)",
-  },
-  reading: {
-    activeBackground: "linear-gradient(135deg, #0f3f94 0%, #2563eb 100%)",
-    activeBorder: "#0f3f94",
-    softBackground: "#eff6ff",
-    softBorder: "#bfdbfe",
-    softText: "#1d4ed8",
-    softBadgeBackground: "rgba(37, 99, 235, 0.12)",
-  },
-  listening: {
-    activeBackground: "linear-gradient(135deg, #0f8c4b 0%, #22c55e 100%)",
-    activeBorder: "#0f8c4b",
-    softBackground: "#f0fdf4",
-    softBorder: "#bbf7d0",
-    softText: "#15803d",
-    softBadgeBackground: "rgba(34, 197, 94, 0.14)",
-  },
-  cambridge: {
-    activeBackground: "linear-gradient(135deg, #d45512 0%, #fb923c 100%)",
-    activeBorder: "#d45512",
-    softBackground: "#fff7ed",
-    softBorder: "#fed7aa",
-    softText: "#c2410c",
-    softBadgeBackground: "rgba(251, 146, 60, 0.16)",
-  },
-};
-
 const ORANGE_SUBMISSION_TYPE_TABS = [
   { key: "all", shortLabel: "All", label: "All Submissions", tone: "orange" },
   {
@@ -155,8 +123,29 @@ const matchesFilterValue = (value, search) => {
   return !query || normalizeFilterValue(value).includes(query);
 };
 
-const resolveIxDisplayName = (displayLabels = {}) =>
-  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+const getDayBoundaryTimestamp = (value, endOfDay = false) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(
+    `${normalized}${endOfDay ? "T23:59:59.999" : "T00:00:00"}`
+  );
+  const timestamp = parsed.getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const isWithinDateRange = (submissionDate, fromDate, toDate) => {
+  const fromDateStart = getDayBoundaryTimestamp(fromDate);
+  const toDateEnd = getDayBoundaryTimestamp(toDate, true);
+
+  if (fromDateStart === null && toDateEnd === null) return true;
+
+  const submissionTimestamp = new Date(submissionDate || 0).getTime();
+  if (!Number.isFinite(submissionTimestamp)) return false;
+  if (fromDateStart !== null && submissionTimestamp < fromDateStart) return false;
+  if (toDateEnd !== null && submissionTimestamp > toDateEnd) return false;
+  return true;
+};
 
 const Review = () => {
   const { isDarkMode } = useTheme();
@@ -1287,6 +1276,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1298,6 +1288,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1309,6 +1300,7 @@ const Review = () => {
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
+      submittedAt: submission?.submittedAt || submission?.createdAt || submission?.updatedAt || null,
       status: getReviewStatus(submission),
     };
   };
@@ -1323,6 +1315,7 @@ const Review = () => {
         classCode: test?.classCode || "",
         teacherName: test?.teacherName || "",
         reviewedBy: sub?.feedbackBy || "",
+        submittedAt: sub?.submittedAt || sub?.createdAt || sub?.updatedAt || null,
         status: getReviewStatus(sub),
       };
     }
@@ -1333,6 +1326,7 @@ const Review = () => {
       classCode: sub?.classCode || "",
       teacherName: sub?.teacherName || "",
       reviewedBy: sub?.feedbackBy || "",
+      submittedAt: sub?.submittedAt || sub?.createdAt || sub?.updatedAt || null,
       status: getReviewStatus(sub),
     };
   };
@@ -1379,6 +1373,7 @@ const Review = () => {
       if (!matchesFilterValue(meta.classCode, filters.classCode)) return false;
       if (!matchesFilterValue(meta.teacherName, filters.teacherName)) return false;
       if (!matchesFilterValue(meta.reviewedBy, filters.reviewedBy)) return false;
+      if (!isWithinDateRange(meta.submittedAt, filters.fromDate, filters.toDate)) return false;
       if (filters.status === "pending" && meta.status !== "pending") return false;
       if (filters.status === "done" && meta.status !== "done") return false;
 
@@ -1519,23 +1514,6 @@ const Review = () => {
       : reviewTabs.find((tab) => tab.key === activeTab) || reviewTabs[0];
   const activeReviewPageTarget =
     REVIEW_HUB_PAGE_BY_TAB[activeTab] || REVIEW_HUB_PAGE_BY_TAB.review;
-  const ixDisplayName = resolveIxDisplayName(displayLabels);
-  const workspaceLinks = useMemo(
-    () => buildAdminWorkspaceLinks(navigate, "review", undefined, "review", displayLabels),
-    [displayLabels, navigate]
-  );
-  const reviewWorkspaceLink = useMemo(
-    () => workspaceLinks.find((item) => item?.key === "review") || null,
-    [workspaceLinks]
-  );
-  const orangeWorkspaceLink = useMemo(
-    () => workspaceLinks.find((item) => item?.key === "cambridge") || null,
-    [workspaceLinks]
-  );
-  const generalWorkspaceLink = useMemo(
-    () => workspaceLinks.find((item) => item?.key === "fce") || null,
-    [workspaceLinks]
-  );
   const navigateToIxSubmissionPage = useCallback(
     (tabKey = "writing") => {
       const path =
@@ -1544,188 +1522,42 @@ const Review = () => {
     },
     [navigate]
   );
-  const workspaceParentLinks = useMemo(() => {
-    const items = [];
-
-    if (reviewWorkspaceLink) {
-      items.push({
-        key: "workspace-review",
-        label: reviewWorkspaceLink.label,
-        hint: reviewWorkspaceLink.hint,
-        tone: reviewWorkspaceLink.tone,
-        active: activeTab === "review" || activeWorkspaceGroup === "review",
-        onClick: () => {
-          setActiveWorkspaceGroup("review");
-          setActiveTab("review");
-          reviewWorkspaceLink.onClick?.();
-        },
-      });
-    }
-
-    items.push({
-      key: "workspace-ix",
-      label: ixDisplayName,
-      hint: "Writing, Reading, Listening",
-      tone: "blue",
-      active: activeTab !== "review" && activeWorkspaceGroup === "ix",
-      onClick: () => {
-        setActiveWorkspaceGroup("ix");
-        setActiveTab("writing");
-        navigateToIxSubmissionPage("writing");
-      },
-    });
-
-    if (orangeWorkspaceLink) {
-      items.push({
-        key: "workspace-orange",
-        label: orangeWorkspaceLink.label,
-        hint: orangeWorkspaceLink.hint,
-        tone: orangeWorkspaceLink.tone,
-        active: activeTab !== "review" && activeWorkspaceGroup === "orange",
-        onClick: () => {
-          navigateToPlatformSubmissionPage("orange", "all");
-        },
-      });
-    }
-
-    if (generalWorkspaceLink) {
-      items.push({
-        key: "workspace-general",
-        label: generalWorkspaceLink.label,
-        hint: generalWorkspaceLink.hint,
-        tone: generalWorkspaceLink.tone,
-        active: activeTab !== "review" && activeWorkspaceGroup === "general",
-        onClick: () => {
-          navigateToPlatformSubmissionPage("general", "all");
-        },
-      });
-    }
-
-    return items;
-  }, [
-    activeTab,
-    activeWorkspaceGroup,
-    generalWorkspaceLink,
+  const {
     ixDisplayName,
-    navigateToPlatformSubmissionPage,
-    navigateToIxSubmissionPage,
-    orangeWorkspaceLink,
-    reviewWorkspaceLink,
-  ]);
-  const workspaceChildLinks = useMemo(() => {
-    if (activeTab === "review") {
-      return [];
-    }
-
-    if (activeWorkspaceGroup === "ix") {
-      return reviewTabs
-        .filter((tab) => ["writing", "reading", "listening"].includes(tab.key))
-        .map((tab) => ({
-          key: `workspace-child-${tab.key}`,
-          label: tab.shortLabel || tab.label,
-          hint: tab.label,
-          tone:
-            tab.key === "writing"
-              ? "violet"
-              : tab.key === "reading"
-              ? "blue"
-              : "green",
-          badge: tab.badge,
-          active: activeTab === tab.key,
-          onClick: () => {
-            setActiveWorkspaceGroup("ix");
-            setActiveTab(tab.key);
-            navigateToIxSubmissionPage(tab.key);
-          },
-        }));
-    }
-
-    if (activeWorkspaceGroup === "review") {
-      return [];
-    }
-
-    if (activeWorkspaceGroup === "orange") {
-      return ORANGE_SUBMISSION_TYPE_TABS.map((tab) => ({
-        key: `workspace-child-orange-${tab.key}`,
-        label: tab.shortLabel,
-        hint: tab.label,
-        tone: tab.tone,
-        active: false,
-        onClick: () => {
-          navigateToPlatformSubmissionPage("orange", tab.key);
-        },
-      }));
-    }
-
-    if (activeWorkspaceGroup === "general") {
-      return GENERAL_SUBMISSION_TYPE_TABS.map((tab) => ({
-        key: `workspace-child-general-${tab.key}`,
-        label: tab.shortLabel,
-        hint: tab.label,
-        tone: tab.tone,
-        active: false,
-        onClick: () => {
-          navigateToPlatformSubmissionPage("general", tab.key);
-        },
-      }));
-    }
-
-    return [];
-  }, [
-    activeTab,
-    activeWorkspaceGroup,
-    navigateToPlatformSubmissionPage,
-    navigateToIxSubmissionPage,
-    reviewTabs,
-  ]);
-  const workspaceChildMeta = useMemo(() => {
-    if (activeWorkspaceGroup === "ix") {
-      return ixDisplayName;
-    }
-
-    if (activeWorkspaceGroup === "orange") {
-      return "Open Cambridge submissions";
-    }
-
-    if (activeWorkspaceGroup === "general") {
-      return "Open General submissions";
-    }
-
-    return activeReviewTab.shortLabel;
-  }, [
-    activeReviewTab.shortLabel,
-    activeWorkspaceGroup,
-    ixDisplayName,
-  ]);
-  const workspaceChildAriaLabel =
-    activeWorkspaceGroup === "ix"
-      ? "IX submission types"
-      : activeWorkspaceGroup === "orange"
-      ? "Orange submission types"
-      : activeWorkspaceGroup === "general"
-      ? "General submission types"
-      : "Submission types";
-  const submissionTypeTabs = useMemo(() => {
-    if (activeTab === "review" || activeWorkspaceGroup !== "ix") {
-      return [];
-    }
-
-    return reviewTabs
-      .filter((tab) => ["writing", "reading", "listening"].includes(tab.key))
-      .map((tab) => ({
-        ...tab,
-        onClick: () => {
-          setActiveWorkspaceGroup("ix");
-          setActiveTab(tab.key);
-          navigateToIxSubmissionPage(tab.key);
-        },
-      }));
-  }, [
-    activeTab,
-    activeWorkspaceGroup,
-    navigateToIxSubmissionPage,
-    reviewTabs,
-  ]);
+    workspaceParentLinks,
+    workspaceChildLinks,
+    workspaceChildMeta,
+    workspaceChildAriaLabel,
+    submissionTypeTabs,
+  } = useMemo(
+    () =>
+      buildReviewWorkspaceNav({
+        navigate,
+        displayLabels,
+        activeTab,
+        activeWorkspaceGroup,
+        setActiveWorkspaceGroup,
+        setActiveTab,
+        reviewTabs,
+        navigateToIxSubmissionPage,
+        navigateToPlatformSubmissionPage,
+        orangeSubmissionTypeTabs: ORANGE_SUBMISSION_TYPE_TABS,
+        generalSubmissionTypeTabs: GENERAL_SUBMISSION_TYPE_TABS,
+        activeReviewTabShortLabel: activeReviewTab.shortLabel,
+      }),
+    [
+      activeReviewTab.shortLabel,
+      activeTab,
+      activeWorkspaceGroup,
+      displayLabels,
+      navigate,
+      navigateToIxSubmissionPage,
+      navigateToPlatformSubmissionPage,
+      reviewTabs,
+      setActiveWorkspaceGroup,
+      setActiveTab,
+    ]
+  );
   const sidebarStats = useMemo(
     () => [
       {
@@ -1992,6 +1824,16 @@ const Review = () => {
         label: "Reviewed By",
         placeholder: "Reviewer name",
       },
+      {
+        key: "fromDate",
+        label: "From Date",
+        type: "date",
+      },
+      {
+        key: "toDate",
+        label: "To Date",
+        type: "date",
+      },
     ];
 
     return (
@@ -2001,7 +1843,7 @@ const Review = () => {
             <div key={field.key} style={filterFieldWrapStyle}>
               <label style={filterFieldLabelStyle(isDarkMode)}>{field.label}</label>
               <input
-                type="text"
+                type={field.type || "text"}
                 placeholder={field.placeholder}
                 value={activeFilters[field.key] || ""}
                 onChange={(e) => updateTabFilter(tabKey, field.key, e.target.value)}
@@ -2704,9 +2546,6 @@ const reviewHubLabelStyle = (isDarkMode) => ({
   color: isDarkMode ? "#cbd5e1" : "#374151",
   whiteSpace: "nowrap",
 });
-
-const getReviewTabTone = (toneKey) =>
-  REVIEW_TAB_TONES[toneKey] || REVIEW_TAB_TONES.reading;
 
 const reviewHubOpenPageButtonStyle = (isDarkMode, toneKey) => {
   const tone = getReviewTabTone(toneKey);

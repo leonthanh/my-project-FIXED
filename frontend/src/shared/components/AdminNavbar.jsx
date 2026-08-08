@@ -305,6 +305,56 @@ const buildPendingNotification = (submission, category, route) => ({
   submittedAt: submission?.submittedAt || submission?.createdAt || null,
 });
 
+const NOTIFICATION_SEEN_STORAGE_PREFIX = "adminNavbarSeenNotifications";
+
+const NOTIFICATION_FILTERS = Object.freeze({
+  unseen: "unseen",
+  all: "all",
+});
+
+const getNotificationTimestamp = (value) => {
+  const parsedTime = new Date(value || 0).getTime();
+  return Number.isFinite(parsedTime) ? parsedTime : 0;
+};
+
+const formatNotificationTimeAgo = (value) => {
+  const timestamp = getNotificationTimestamp(value);
+  if (!timestamp) return "Unknown time";
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (diffSeconds < 60) return "Just now";
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return new Date(timestamp).toLocaleDateString();
+};
+
+const formatNotificationDateTime = (value) => {
+  const timestamp = getNotificationTimestamp(value);
+  return timestamp ? new Date(timestamp).toLocaleString() : "Unknown time";
+};
+
+const buildNotificationSeenStorageKey = (user) => {
+  const identity =
+    user?.id ||
+    user?.userId ||
+    user?.username ||
+    user?.email ||
+    user?.name ||
+    "anonymous";
+
+  return `${NOTIFICATION_SEEN_STORAGE_PREFIX}:${String(identity)
+    .trim()
+    .toLowerCase()}`;
+};
+
 const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -313,6 +363,11 @@ const AdminNavbar = () => {
   const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
     useState(false);
+  const [notificationFilter, setNotificationFilter] = useState(
+    NOTIFICATION_FILTERS.unseen
+  );
+  const [seenNotificationKeysById, setSeenNotificationKeysById] = useState({});
+  const [expandedNotificationGroups, setExpandedNotificationGroups] = useState({});
   const [adminDropdownVisible, setAdminDropdownVisible] = useState(false);
   const [isCompactMenu, setIsCompactMenu] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 768 : false
@@ -342,6 +397,10 @@ const AdminNavbar = () => {
   const canManageListening = canManageCategory(user, "listening");
   const { displayLabels } = useDisplaySettings();
   const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const notificationSeenStorageKey = useMemo(
+    () => buildNotificationSeenStorageKey(user),
+    [user]
+  );
 
   useEffect(() => {
     const syncUser = () => setUser(getStoredUser());
@@ -485,6 +544,66 @@ const AdminNavbar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const rawSeenState = window.localStorage.getItem(notificationSeenStorageKey);
+      if (!rawSeenState) {
+        setSeenNotificationKeysById({});
+        return;
+      }
+
+      const parsedSeenState = JSON.parse(rawSeenState);
+      setSeenNotificationKeysById(
+        parsedSeenState && typeof parsedSeenState === "object"
+          ? parsedSeenState
+          : {}
+      );
+    } catch {
+      setSeenNotificationKeysById({});
+    }
+  }, [notificationSeenStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(
+        notificationSeenStorageKey,
+        JSON.stringify(seenNotificationKeysById)
+      );
+    } catch {
+      // Ignore storage write errors (private mode / quota exceeded).
+    }
+  }, [notificationSeenStorageKey, seenNotificationKeysById]);
+
+  useEffect(() => {
+    setSeenNotificationKeysById((previousState) => {
+      if (!previousState || typeof previousState !== "object") {
+        return {};
+      }
+
+      const nextState = {};
+      pendingNotifications.forEach((item) => {
+        if (previousState[item.key]) {
+          nextState[item.key] = true;
+        }
+      });
+
+      const previousKeys = Object.keys(previousState);
+      const nextKeys = Object.keys(nextState);
+      if (
+        previousKeys.length === nextKeys.length &&
+        nextKeys.every((key) => previousState[key])
+      ) {
+        return previousState;
+      }
+
+      return nextState;
+    });
+  }, [pendingNotifications]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -661,6 +780,50 @@ const AdminNavbar = () => {
   };
 
   const closeAdminMenu = () => setAdminDropdownVisible(false);
+  const markNotificationAsSeen = (notificationKey) => {
+    if (!notificationKey) return;
+
+    setSeenNotificationKeysById((previousState) => {
+      if (previousState[notificationKey]) return previousState;
+      return {
+        ...previousState,
+        [notificationKey]: true,
+      };
+    });
+  };
+
+  const markAllNotificationsAsSeen = () => {
+    setSeenNotificationKeysById((previousState) => {
+      let hasUpdates = false;
+      const nextState = { ...previousState };
+
+      pendingNotifications.forEach((item) => {
+        if (!nextState[item.key]) {
+          nextState[item.key] = true;
+          hasUpdates = true;
+        }
+      });
+
+      return hasUpdates ? nextState : previousState;
+    });
+  };
+
+  const toggleNotificationGroup = (groupKey) => {
+    if (!groupKey) return;
+
+    setExpandedNotificationGroups((previousState) => ({
+      ...previousState,
+      [groupKey]: !previousState[groupKey],
+    }));
+  };
+
+  const handleOpenReviewFromNotifications = () => {
+    setNotificationDropdownVisible(false);
+    setMobileDrawerOpen(false);
+    setDesktopDrawerMode(null);
+    navigate("/review");
+  };
+
   const openDesktopDrawer = (mode) => {
     closeDesktopMenus();
 
@@ -689,6 +852,7 @@ const AdminNavbar = () => {
     openDesktopDrawer(mode);
   };
   const handlePendingNotificationClick = (item) => {
+    markNotificationAsSeen(item?.key);
     setNotificationDropdownVisible(false);
     setMobileDrawerOpen(false);
     setDesktopDrawerMode(null);
@@ -1090,6 +1254,108 @@ const AdminNavbar = () => {
     fceSections[0] ||
     null;
 
+  const notificationsWithSeenState = useMemo(
+    () =>
+      pendingNotifications.map((item) => ({
+        ...item,
+        isSeen: Boolean(seenNotificationKeysById[item.key]),
+      })),
+    [pendingNotifications, seenNotificationKeysById]
+  );
+
+  const unseenNotificationCount = useMemo(
+    () =>
+      notificationsWithSeenState.reduce(
+        (count, item) => count + (item.isSeen ? 0 : 1),
+        0
+      ),
+    [notificationsWithSeenState]
+  );
+
+  const bellNotifications = useMemo(() => {
+    if (notificationFilter === NOTIFICATION_FILTERS.unseen) {
+      return notificationsWithSeenState.filter((item) => !item.isSeen);
+    }
+
+    return notificationsWithSeenState;
+  }, [notificationFilter, notificationsWithSeenState]);
+
+  const groupedBellNotifications = useMemo(() => {
+    const groupsByStudent = new Map();
+
+    bellNotifications.forEach((item) => {
+      const studentName = String(item.studentName || "N/A").trim() || "N/A";
+      const phone = String(item.phone || "N/A").trim() || "N/A";
+      const groupKey = `${studentName.toLowerCase()}::${phone.toLowerCase()}`;
+
+      if (!groupsByStudent.has(groupKey)) {
+        groupsByStudent.set(groupKey, {
+          groupKey,
+          studentName,
+          phone,
+          items: [],
+        });
+      }
+
+      groupsByStudent.get(groupKey).items.push(item);
+    });
+
+    return Array.from(groupsByStudent.values())
+      .map((group) => {
+        const sortedItems = [...group.items].sort(
+          (left, right) =>
+            getNotificationTimestamp(right.submittedAt) -
+            getNotificationTimestamp(left.submittedAt)
+        );
+
+        return {
+          ...group,
+          items: sortedItems,
+          unseenCount: sortedItems.reduce(
+            (count, item) => count + (item.isSeen ? 0 : 1),
+            0
+          ),
+          latestSubmittedAt: sortedItems[0]?.submittedAt || null,
+        };
+      })
+      .sort((left, right) => {
+        if (right.unseenCount !== left.unseenCount) {
+          return right.unseenCount - left.unseenCount;
+        }
+
+        return (
+          getNotificationTimestamp(right.latestSubmittedAt) -
+          getNotificationTimestamp(left.latestSubmittedAt)
+        );
+      });
+  }, [bellNotifications]);
+
+  useEffect(() => {
+    setExpandedNotificationGroups((previousState) => {
+      const validGroupKeys = new Set(
+        groupedBellNotifications.map((group) => group.groupKey)
+      );
+      const nextState = {};
+
+      Object.keys(previousState).forEach((groupKey) => {
+        if (validGroupKeys.has(groupKey)) {
+          nextState[groupKey] = previousState[groupKey];
+        }
+      });
+
+      const previousKeys = Object.keys(previousState);
+      const nextKeys = Object.keys(nextState);
+      if (
+        previousKeys.length === nextKeys.length &&
+        nextKeys.every((key) => previousState[key] === nextState[key])
+      ) {
+        return previousState;
+      }
+
+      return nextState;
+    });
+  }, [groupedBellNotifications]);
+
   const pendingNotificationCount = pendingNotifications.length;
   const pathname = String(location.pathname || "").toLowerCase();
   const isOrangeCurrent = pathname.includes("cambridge") || pathname.includes("pet-writing");
@@ -1113,7 +1379,7 @@ const AdminNavbar = () => {
   const mobileDrawerTabs = [
     {
       key: "review",
-      label: `Review${pendingNotificationCount > 0 ? ` (${pendingNotificationCount})` : ""}`,
+      label: `Review${unseenNotificationCount > 0 ? ` (${unseenNotificationCount})` : ""}`,
     },
     { key: "ix", label: "IX" },
     { key: "orange", label: "Orange" },
@@ -1855,7 +2121,7 @@ const AdminNavbar = () => {
         )}
 
         <div
-          className={`adminNavbar__bellWrap${pendingNotificationCount > 0 ? " adminNavbar__bellWrap--shake" : ""}`}
+          className={`adminNavbar__bellWrap${unseenNotificationCount > 0 ? " adminNavbar__bellWrap--shake" : ""}`}
         >
           <div
             className={
@@ -1868,37 +2134,156 @@ const AdminNavbar = () => {
           >
             <NavIcon name="notifications" />
           </div>
-          {pendingNotificationCount > 0 && (
+          {unseenNotificationCount > 0 && (
             <span className="adminNavbar__badge">
-              {pendingNotificationCount}
+              {unseenNotificationCount}
             </span>
           )}
         </div>
 
         {notificationDropdownVisible && (
           <div ref={notificationDropdownRef} className="adminNavbar__notifyMenu">
-            {pendingNotificationCount === 0 ? (
-              <div>No pending submissions</div>
-            ) : (
-              pendingNotifications.map((item) => (
-                <div
-                  key={item.key}
-                  className="adminNavbar__notifyItem"
-                  onClick={() => {
-                    handlePendingNotificationClick(item);
-                  }}
+            <div className="adminNavbar__notifyMenuHeader">
+              <div className="adminNavbar__notifyMenuTitleRow">
+                <div className="adminNavbar__notifyMenuTitle">Pending submissions</div>
+                <button
+                  type="button"
+                  className="adminNavbar__notifyAction"
+                  onClick={markAllNotificationsAsSeen}
+                  disabled={unseenNotificationCount === 0}
                 >
-                  <div className="adminNavbar__notifyItemRow">
-                    <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="user" /></span>
-                    <span>{item.category}: {item.studentName}</span>
-                  </div>
-                  <div className="adminNavbar__notifyItemMeta">
-                    <span className="adminNavbar__notifyItemIcon" aria-hidden="true"><NavIcon name="phone" /></span>
-                    <span>{item.phone}</span>
-                  </div>
+                  Mark all seen
+                </button>
+              </div>
+              <div className="adminNavbar__notifyMenuStats">
+                <span>{pendingNotificationCount} total</span>
+                <span>{unseenNotificationCount} unseen</span>
+              </div>
+              <div className="adminNavbar__notifyFilterRow" role="tablist" aria-label="Notification filters">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={notificationFilter === NOTIFICATION_FILTERS.unseen}
+                  className={`adminNavbar__notifyFilterButton${
+                    notificationFilter === NOTIFICATION_FILTERS.unseen
+                      ? " adminNavbar__notifyFilterButton--active"
+                      : ""
+                  }`}
+                  onClick={() => setNotificationFilter(NOTIFICATION_FILTERS.unseen)}
+                >
+                  Unseen
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={notificationFilter === NOTIFICATION_FILTERS.all}
+                  className={`adminNavbar__notifyFilterButton${
+                    notificationFilter === NOTIFICATION_FILTERS.all
+                      ? " adminNavbar__notifyFilterButton--active"
+                      : ""
+                  }`}
+                  onClick={() => setNotificationFilter(NOTIFICATION_FILTERS.all)}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+
+            <div className="adminNavbar__notifyMenuBody">
+              {pendingNotificationCount === 0 ? (
+                <div className="adminNavbar__notifyEmptyState">No pending submissions.</div>
+              ) : groupedBellNotifications.length === 0 ? (
+                <div className="adminNavbar__notifyEmptyState">
+                  No submissions in this filter.
                 </div>
-              ))
-            )}
+              ) : (
+                groupedBellNotifications.map((group) => {
+                  const isExpanded = Boolean(expandedNotificationGroups[group.groupKey]);
+
+                  return (
+                    <div key={group.groupKey} className="adminNavbar__notifyGroup">
+                      <button
+                        type="button"
+                        className="adminNavbar__notifyGroupToggle"
+                        onClick={() => toggleNotificationGroup(group.groupKey)}
+                      >
+                        <span className="adminNavbar__notifyGroupIdentity">
+                          <span className="adminNavbar__notifyItemIcon" aria-hidden="true">
+                            <NavIcon name="user" />
+                          </span>
+                          <span className="adminNavbar__notifyGroupText">
+                            <span className="adminNavbar__notifyGroupName">{group.studentName}</span>
+                            <span className="adminNavbar__notifyGroupPhone">{group.phone}</span>
+                          </span>
+                        </span>
+                        <span className="adminNavbar__notifyGroupRight">
+                          <span className="adminNavbar__notifyGroupCount">
+                            {group.unseenCount > 0
+                              ? `${group.unseenCount} new`
+                              : `${group.items.length} items`}
+                          </span>
+                          <span
+                            className={`adminNavbar__notifyGroupChevron${
+                              isExpanded ? " adminNavbar__notifyGroupChevron--open" : ""
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <NavIcon name="chevron-down" />
+                          </span>
+                        </span>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="adminNavbar__notifyGroupItems">
+                          {group.items.map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              className={`adminNavbar__notifyItem${
+                                item.isSeen
+                                  ? " adminNavbar__notifyItem--seen"
+                                  : " adminNavbar__notifyItem--unseen"
+                              }`}
+                              onClick={() => {
+                                handlePendingNotificationClick(item);
+                              }}
+                            >
+                              <div className="adminNavbar__notifyItemRow">
+                                <span className="adminNavbar__notifyItemCategory">
+                                  {item.category}
+                                </span>
+                                <span
+                                  className="adminNavbar__notifyItemTime"
+                                  title={formatNotificationDateTime(item.submittedAt)}
+                                >
+                                  {formatNotificationTimeAgo(item.submittedAt)}
+                                </span>
+                              </div>
+                              <div className="adminNavbar__notifyItemMeta">
+                                <span className="adminNavbar__notifyItemIcon" aria-hidden="true">
+                                  <NavIcon name="phone" />
+                                </span>
+                                <span>{item.phone}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="adminNavbar__notifyMenuFooter">
+              <button
+                type="button"
+                className="adminNavbar__notifyOpenReview"
+                onClick={handleOpenReviewFromNotifications}
+              >
+                Open review queue
+              </button>
+            </div>
           </div>
         )}
       </div>
