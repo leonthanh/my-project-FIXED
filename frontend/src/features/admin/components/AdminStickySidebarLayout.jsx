@@ -8,6 +8,11 @@ import "./AdminStickySidebarLayout.css";
 const resolveFceDisplayName = (displayLabels = {}) =>
   String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
 
+const resolveIxDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
+
+const IX_WORKSPACE_KEYS = ["writing", "reading", "listening"];
+
 const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
   const fceDisplayName = resolveFceDisplayName(displayLabels);
 
@@ -113,6 +118,326 @@ export const buildAdminWorkspaceLinks = (
     ...(includeBaseLinks ? buildBaseWorkspaceLinks(navigate, currentKey, displayLabels) : []),
     ...(includeAdminLinks ? buildAdminOnlyWorkspaceLinks(navigate, currentKey) : []),
   ];
+};
+
+export const buildSubmissionWorkspaceContext = ({
+  navigate,
+  currentKey,
+  displayLabels = {},
+} = {}) => {
+  const workspaceLinks = buildAdminWorkspaceLinks(
+    navigate,
+    currentKey,
+    undefined,
+    WORKSPACE_LINK_GROUPS.review,
+    displayLabels
+  );
+  const ixDisplayName = resolveIxDisplayName(displayLabels);
+  const reviewWorkspaceLink =
+    workspaceLinks.find((item) => item?.key === "review") || null;
+  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
+    IX_WORKSPACE_KEYS.includes(String(item?.key || ""))
+  );
+  const orangeWorkspaceLink =
+    workspaceLinks.find((item) => item?.key === "cambridge") || null;
+  const generalWorkspaceLink =
+    workspaceLinks.find((item) => item?.key === "fce") || null;
+
+  return {
+    workspaceLinks,
+    ixDisplayName,
+    reviewWorkspaceLink,
+    ixWorkspaceLinks,
+    orangeWorkspaceLink,
+    generalWorkspaceLink,
+  };
+};
+
+export const buildSubmissionWorkspaceNav = ({
+  navigate,
+  currentKey,
+  activeWorkspaceGroup,
+  setActiveWorkspaceGroup,
+  displayLabels = {},
+  activeIxKey = "writing",
+  onIxGroupClick,
+  onOrangeGroupClick,
+  onGeneralGroupClick,
+} = {}) => {
+  const {
+    workspaceLinks,
+    ixDisplayName,
+    reviewWorkspaceLink,
+    ixWorkspaceLinks,
+    orangeWorkspaceLink,
+    generalWorkspaceLink,
+  } = buildSubmissionWorkspaceContext({
+    navigate,
+    currentKey,
+    displayLabels,
+  });
+
+  const workspaceGroupLinks = [
+    reviewWorkspaceLink
+      ? {
+          key: "workspace-review",
+          label: reviewWorkspaceLink.label,
+          hint: reviewWorkspaceLink.hint,
+          tone: reviewWorkspaceLink.tone,
+          active: activeWorkspaceGroup === "review",
+          onClick: () => {
+            setActiveWorkspaceGroup("review");
+            reviewWorkspaceLink.onClick?.();
+          },
+        }
+      : null,
+    {
+      key: "workspace-ix",
+      label: ixDisplayName,
+      hint: "Writing, Reading, Listening",
+      tone: "blue",
+      active: activeWorkspaceGroup === "ix",
+      onClick: () => {
+        setActiveWorkspaceGroup("ix");
+        onIxGroupClick?.({ ixWorkspaceLinks, workspaceLinks });
+      },
+    },
+    orangeWorkspaceLink
+      ? {
+          key: "workspace-orange",
+          label: orangeWorkspaceLink.label,
+          hint: orangeWorkspaceLink.hint,
+          tone: orangeWorkspaceLink.tone,
+          active: activeWorkspaceGroup === "orange",
+          onClick: () => {
+            setActiveWorkspaceGroup("orange");
+            if (onOrangeGroupClick) {
+              onOrangeGroupClick({ orangeWorkspaceLink, workspaceLinks });
+            } else {
+              orangeWorkspaceLink.onClick?.();
+            }
+          },
+        }
+      : null,
+    generalWorkspaceLink
+      ? {
+          key: "workspace-general",
+          label: generalWorkspaceLink.label,
+          hint: generalWorkspaceLink.hint,
+          tone: generalWorkspaceLink.tone,
+          active: activeWorkspaceGroup === "general",
+          onClick: () => {
+            setActiveWorkspaceGroup("general");
+            if (onGeneralGroupClick) {
+              onGeneralGroupClick({ generalWorkspaceLink, workspaceLinks });
+            } else {
+              generalWorkspaceLink.onClick?.();
+            }
+          },
+        }
+      : null,
+  ].filter(Boolean);
+
+  const workspaceChildLinks =
+    activeWorkspaceGroup === "ix"
+      ? ixWorkspaceLinks.map((item) => ({
+          key: `workspace-child-${item.key}`,
+          label: item.label,
+          hint: item.hint,
+          tone: item.tone,
+          active: item.key === activeIxKey,
+          onClick: item.onClick,
+        }))
+      : [];
+
+  return {
+    ixDisplayName,
+    workspaceLinks,
+    reviewWorkspaceLink,
+    ixWorkspaceLinks,
+    orangeWorkspaceLink,
+    generalWorkspaceLink,
+    workspaceGroupLinks,
+    workspaceChildLinks,
+  };
+};
+
+export const buildReviewWorkspaceNav = ({
+  navigate,
+  displayLabels = {},
+  activeTab = "review",
+  activeWorkspaceGroup = "review",
+  setActiveWorkspaceGroup,
+  setActiveTab,
+  reviewTabs = [],
+  navigateToIxSubmissionPage,
+  navigateToPlatformSubmissionPage,
+  orangeSubmissionTypeTabs = [],
+  generalSubmissionTypeTabs = [],
+  activeReviewTabShortLabel = "Review",
+} = {}) => {
+  const {
+    ixDisplayName,
+    reviewWorkspaceLink,
+    orangeWorkspaceLink,
+    generalWorkspaceLink,
+  } = buildSubmissionWorkspaceContext({
+    navigate,
+    currentKey: "review",
+    displayLabels,
+  });
+
+  const workspaceParentLinks = [];
+
+  if (reviewWorkspaceLink) {
+    workspaceParentLinks.push({
+      key: "workspace-review",
+      label: reviewWorkspaceLink.label,
+      hint: reviewWorkspaceLink.hint,
+      tone: reviewWorkspaceLink.tone,
+      active: activeTab === "review" || activeWorkspaceGroup === "review",
+      onClick: () => {
+        setActiveWorkspaceGroup("review");
+        setActiveTab("review");
+        reviewWorkspaceLink.onClick?.();
+      },
+    });
+  }
+
+  workspaceParentLinks.push({
+    key: "workspace-ix",
+    label: ixDisplayName,
+    hint: "Writing, Reading, Listening",
+    tone: "blue",
+    active: activeTab !== "review" && activeWorkspaceGroup === "ix",
+    onClick: () => {
+      setActiveWorkspaceGroup("ix");
+      setActiveTab("writing");
+      navigateToIxSubmissionPage("writing");
+    },
+  });
+
+  if (orangeWorkspaceLink) {
+    workspaceParentLinks.push({
+      key: "workspace-orange",
+      label: orangeWorkspaceLink.label,
+      hint: orangeWorkspaceLink.hint,
+      tone: orangeWorkspaceLink.tone,
+      active: activeTab !== "review" && activeWorkspaceGroup === "orange",
+      onClick: () => {
+        navigateToPlatformSubmissionPage("orange", "all");
+      },
+    });
+  }
+
+  if (generalWorkspaceLink) {
+    workspaceParentLinks.push({
+      key: "workspace-general",
+      label: generalWorkspaceLink.label,
+      hint: generalWorkspaceLink.hint,
+      tone: generalWorkspaceLink.tone,
+      active: activeTab !== "review" && activeWorkspaceGroup === "general",
+      onClick: () => {
+        navigateToPlatformSubmissionPage("general", "all");
+      },
+    });
+  }
+
+  const ixReviewTabs = Array.isArray(reviewTabs)
+    ? reviewTabs.filter((tab) => IX_WORKSPACE_KEYS.includes(tab?.key))
+    : [];
+
+  let workspaceChildLinks = [];
+
+  if (activeTab !== "review") {
+    if (activeWorkspaceGroup === "ix") {
+      workspaceChildLinks = ixReviewTabs.map((tab) => ({
+        key: `workspace-child-${tab.key}`,
+        label: tab.shortLabel || tab.label,
+        hint: tab.label,
+        tone:
+          tab.key === "writing"
+            ? "violet"
+            : tab.key === "reading"
+            ? "blue"
+            : "green",
+        badge: tab.badge,
+        active: activeTab === tab.key,
+        onClick: () => {
+          setActiveWorkspaceGroup("ix");
+          setActiveTab(tab.key);
+          navigateToIxSubmissionPage(tab.key);
+        },
+      }));
+    } else if (activeWorkspaceGroup === "orange") {
+      workspaceChildLinks = (Array.isArray(orangeSubmissionTypeTabs)
+        ? orangeSubmissionTypeTabs
+        : []
+      ).map((tab) => ({
+        key: `workspace-child-orange-${tab.key}`,
+        label: tab.shortLabel,
+        hint: tab.label,
+        tone: tab.tone,
+        active: false,
+        onClick: () => {
+          navigateToPlatformSubmissionPage("orange", tab.key);
+        },
+      }));
+    } else if (activeWorkspaceGroup === "general") {
+      workspaceChildLinks = (Array.isArray(generalSubmissionTypeTabs)
+        ? generalSubmissionTypeTabs
+        : []
+      ).map((tab) => ({
+        key: `workspace-child-general-${tab.key}`,
+        label: tab.shortLabel,
+        hint: tab.label,
+        tone: tab.tone,
+        active: false,
+        onClick: () => {
+          navigateToPlatformSubmissionPage("general", tab.key);
+        },
+      }));
+    }
+  }
+
+  const workspaceChildMeta =
+    activeWorkspaceGroup === "ix"
+      ? ixDisplayName
+      : activeWorkspaceGroup === "orange"
+      ? "Open Cambridge submissions"
+      : activeWorkspaceGroup === "general"
+      ? "Open General submissions"
+      : activeReviewTabShortLabel;
+
+  const workspaceChildAriaLabel =
+    activeWorkspaceGroup === "ix"
+      ? "IX submission types"
+      : activeWorkspaceGroup === "orange"
+      ? "Orange submission types"
+      : activeWorkspaceGroup === "general"
+      ? "General submission types"
+      : "Submission types";
+
+  const submissionTypeTabs =
+    activeTab === "review" || activeWorkspaceGroup !== "ix"
+      ? []
+      : ixReviewTabs.map((tab) => ({
+          ...tab,
+          onClick: () => {
+            setActiveWorkspaceGroup("ix");
+            setActiveTab(tab.key);
+            navigateToIxSubmissionPage(tab.key);
+          },
+        }));
+
+  return {
+    ixDisplayName,
+    workspaceParentLinks,
+    workspaceChildLinks,
+    workspaceChildMeta,
+    workspaceChildAriaLabel,
+    submissionTypeTabs,
+  };
 };
 
 export const AdminSidebarNavList = ({ items = [], ariaLabel = "Admin navigation" }) => {

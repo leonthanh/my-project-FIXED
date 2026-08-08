@@ -8,7 +8,7 @@ import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
   AdminSidebarNavList,
   AdminSidebarPanel,
-  buildAdminWorkspaceLinks,
+  buildSubmissionWorkspaceNav,
 } from "../components/AdminStickySidebarLayout";
 import {
   ExpandableSubmissionList,
@@ -37,9 +37,6 @@ const omitRecordKey = (record, key) => {
 const stopSelectionEvent = (event) => {
   event.stopPropagation();
 };
-
-const resolveIxDisplayName = (displayLabels = {}) =>
-  String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
 
 const getDayBoundaryTimestamp = (value, endOfDay = false) => {
   const normalized = String(value || "").trim();
@@ -582,80 +579,18 @@ const AdminWritingSubmissions = () => {
 
   const pendingCount = data.filter((item) => !item.feedback || !item.feedbackBy).length;
   const reviewedCount = data.filter((item) => !!(item.feedback && item.feedbackBy)).length;
-  const workspaceLinks = buildAdminWorkspaceLinks(
+  const {
+    ixDisplayName,
+    workspaceGroupLinks,
+    workspaceChildLinks,
+  } = buildSubmissionWorkspaceNav({
     navigate,
-    "writing",
-    undefined,
-    "review",
-    displayLabels
-  );
-  const ixDisplayName = resolveIxDisplayName(displayLabels);
-  const reviewWorkspaceLink = workspaceLinks.find((item) => item?.key === "review") || null;
-  const ixWorkspaceLinks = workspaceLinks.filter((item) =>
-    ["writing", "reading", "listening"].includes(String(item?.key || ""))
-  );
-  const orangeWorkspaceLink = workspaceLinks.find((item) => item?.key === "cambridge") || null;
-  const generalWorkspaceLink = workspaceLinks.find((item) => item?.key === "fce") || null;
-  const workspaceGroupLinks = [
-    reviewWorkspaceLink
-      ? {
-          key: "workspace-review",
-          label: reviewWorkspaceLink.label,
-          hint: reviewWorkspaceLink.hint,
-          tone: reviewWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "review",
-          onClick: () => {
-            setActiveWorkspaceGroup("review");
-            reviewWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-    {
-      key: "workspace-ix",
-      label: ixDisplayName,
-      hint: "Writing, Reading, Listening",
-      tone: "blue",
-      active: activeWorkspaceGroup === "ix",
-      onClick: () => setActiveWorkspaceGroup("ix"),
-    },
-    orangeWorkspaceLink
-      ? {
-          key: "workspace-orange",
-          label: orangeWorkspaceLink.label,
-          hint: orangeWorkspaceLink.hint,
-          tone: orangeWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "orange",
-          onClick: () => {
-            setActiveWorkspaceGroup("orange");
-            orangeWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-    generalWorkspaceLink
-      ? {
-          key: "workspace-general",
-          label: generalWorkspaceLink.label,
-          hint: generalWorkspaceLink.hint,
-          tone: generalWorkspaceLink.tone,
-          active: activeWorkspaceGroup === "general",
-          onClick: () => {
-            setActiveWorkspaceGroup("general");
-            generalWorkspaceLink.onClick?.();
-          },
-        }
-      : null,
-  ].filter(Boolean);
-  const workspaceChildLinks =
-    activeWorkspaceGroup === "ix"
-      ? ixWorkspaceLinks.map((item) => ({
-          key: `workspace-child-${item.key}`,
-          label: item.label,
-          hint: item.hint,
-          tone: item.tone,
-          active: item.key === "writing",
-          onClick: item.onClick,
-        }))
-      : [];
+    currentKey: "writing",
+    activeWorkspaceGroup,
+    setActiveWorkspaceGroup,
+    displayLabels,
+    activeIxKey: "writing",
+  });
   const sidebarStats = [
     {
       key: "total",
