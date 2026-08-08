@@ -136,10 +136,12 @@ jobs:
           set cmd:fail-exit true
           set net:max-retries 5
           set net:timeout 40
+          set net:reconnect-interval-base 5
+          set net:reconnect-interval-max 30
           set ftp:passive-mode true
           set ssl:verify-certificate no
           mkdir -p /ix.star-siec.edu.vn/frontend/build/
-          mirror -R --continue --delete --verbose=1 --parallel=2 \
+          mirror -R --continue --delete --verbose=1 --parallel=1 \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.txt$' \
             -x '(^|/)LICENSE$' \
@@ -162,7 +164,9 @@ jobs:
           done
 
   backend:
-    needs: prepare
+    needs:
+      - prepare
+      - frontend
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -204,6 +208,8 @@ jobs:
           echo "ZALO_APP_SECRET=${{ env.ZALO_APP_SECRET }}" >> backend-temp/.env
           echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
           echo "GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}" >> backend-temp/.env
+          echo "OPENAI_FEEDBACK_MODEL=gpt-5.4-mini" >> backend-temp/.env
+          echo "GEMINI_FEEDBACK_MODEL=gemini-2.0-flash" >> backend-temp/.env
           echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env
           echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> backend-temp/.env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> backend-temp/.env
@@ -234,10 +240,12 @@ jobs:
           set cmd:fail-exit true
           set net:max-retries 5
           set net:timeout 40
+          set net:reconnect-interval-base 5
+          set net:reconnect-interval-max 30
           set ftp:passive-mode true
           set ssl:verify-certificate no
           mkdir -p /ix.star-siec.edu.vn/backend/
-          mirror -R --continue --delete --verbose=1 --parallel=2 \
+          mirror -R --continue --delete --verbose=1 --parallel=1 \
             -x '(^|/)(node_modules|uploads)(/|$)' \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.md$' \
