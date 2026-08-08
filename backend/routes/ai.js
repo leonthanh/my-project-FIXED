@@ -12,7 +12,7 @@ const feedbackCache = new Map();
 const inFlightRequests = new Map();
 const SUCCESS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const FALLBACK_CACHE_TTL_MS = 30 * 60 * 1000;
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const GEMINI_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function stripHtml(value = "") {
@@ -76,19 +76,95 @@ function parseUpstreamError(detailText = "") {
   }
 }
 
+function isOpenAiQuotaExhausted(result = {}) {
+  if (result?.status !== 429) return false;
+
+  const parsed = parseUpstreamError(result?.detail || "");
+  const code = String(parsed?.error?.code || "").toLowerCase();
+  const type = String(parsed?.error?.type || "").toLowerCase();
+  const message = String(parsed?.error?.message || "").toLowerCase();
+
+  return (
+    code === "insufficient_quota" ||
+    code === "credit_balance_exhausted" ||
+    type === "insufficient_quota" ||
+    message.includes("no credits remaining") ||
+    message.includes("insufficient_quota")
+  );
+}
+
+function isGeminiQuotaExhausted(result = {}) {
+  if (result?.status !== 429) return false;
+
+  const parsed = parseUpstreamError(result?.detail || "");
+  const message = String(parsed?.error?.message || result?.detail || "").toLowerCase();
+  const statusText = String(parsed?.error?.status || "").toLowerCase();
+
+  return (
+    statusText === "resource_exhausted" ||
+    message.includes("quota exceeded") ||
+    message.includes("limit: 0") ||
+    message.includes("resource_exhausted") ||
+    message.includes("generate_content_free_tier")
+  );
+}
+
+function getCacheTtlMsForResult(result = {}) {
+  if (!result?.fallback) {
+    return SUCCESS_CACHE_TTL_MS;
+  }
+
+  // Do not pin 429 fallback responses in cache; this lets AI recover immediately
+  // after credits/quota are restored.
+  if (result?.upstreamStatus === 429) {
+    return 0;
+  }
+
+  return FALLBACK_CACHE_TTL_MS;
+}
+
 function shouldRetryOpenAI(status, detailText = "") {
   if (status >= 500) return true;
   if (status !== 429) return false;
 
   const parsed = parseUpstreamError(detailText);
-  const code = parsed?.error?.code;
-  const type = parsed?.error?.type;
+  const code = String(parsed?.error?.code || "").toLowerCase();
+  const type = String(parsed?.error?.type || "").toLowerCase();
 
-  if (code === "insufficient_quota" || type === "insufficient_quota") {
+  if (
+    code === "insufficient_quota" ||
+    code === "credit_balance_exhausted" ||
+    type === "insufficient_quota"
+  ) {
     return false;
   }
 
   return true;
+}
+
+function extractOpenAiSuggestion(payload = {}) {
+  const directOutputText =
+    typeof payload?.output_text === "string" ? payload.output_text.trim() : "";
+  if (directOutputText) return directOutputText;
+
+  const outputItems = Array.isArray(payload?.output) ? payload.output : [];
+  const suggestionFromOutput = outputItems
+    .flatMap((item) => (Array.isArray(item?.content) ? item.content : []))
+    .map((item) =>
+      typeof item?.text === "string"
+        ? item.text.trim()
+        : typeof item?.output_text === "string"
+        ? item.output_text.trim()
+        : ""
+    )
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+
+  if (suggestionFromOutput) return suggestionFromOutput;
+
+  // Backward-safe extraction for chat-completions-like payloads.
+  return String(payload?.choices?.[0]?.message?.content || "").trim();
 }
 
 function shouldRetryGemini(status) {
@@ -211,6 +287,14 @@ function buildProviderReason(providerName, result, language = "vi") {
   }
 
   if (result.status === 429) {
+    if (providerName === "OpenAI" && isOpenAiQuotaExhausted(result)) {
+      return language === "en" ? "OpenAI quota exhausted" : "OpenAI đã hết credit/quota";
+    }
+
+    if (providerName === "Gemini" && isGeminiQuotaExhausted(result)) {
+      return language === "en" ? "Gemini quota exhausted" : "Gemini đã hết quota";
+    }
+
     return language === "en"
       ? `${providerName} returned 429`
       : `${providerName} trả về 429`;
@@ -232,6 +316,10 @@ function buildGeminiWarningForWriting(openAiResult) {
     return "OpenAI chưa được cấu hình trên server. Hệ thống đã dùng Gemini để tạo draft thay thế.";
   }
 
+  if (isOpenAiQuotaExhausted(openAiResult)) {
+    return "OpenAI đã hết credit/quota. Hệ thống đã dùng Gemini để tạo draft thay thế.";
+  }
+
   if (openAiResult?.status === 429) {
     return "OpenAI đang bị giới hạn tạm thời. Hệ thống đã dùng Gemini để tạo draft thay thế.";
   }
@@ -246,6 +334,10 @@ function buildGeminiWarningForWriting(openAiResult) {
 function buildGeminiWarningForCambridge(openAiResult) {
   if (!process.env.OPENAI_API_KEY) {
     return "OpenAI is not configured on the server. Gemini generated the feedback instead.";
+  }
+
+  if (isOpenAiQuotaExhausted(openAiResult)) {
+    return "OpenAI quota is exhausted. Gemini generated the feedback instead.";
   }
 
   if (openAiResult?.status === 429) {
@@ -307,7 +399,7 @@ function buildFallbackSuggestion(task1, task2, reason = "") {
       : `Task 2 đang có khoảng ${task2Paragraphs} đoạn, bố cục tương đối ổn.`;
 
   const warningLine = reason
-    ? `Lưu ý: OpenAI đang bận hoặc bị giới hạn tạm thời (${reason}), nên hệ thống trả về nhận xét dự phòng để giáo viên tiếp tục làm việc.`
+    ? `Lưu ý: dịch vụ AI chưa sẵn sàng (${reason}), nên hệ thống trả về nhận xét dự phòng để giáo viên tiếp tục làm việc.`
     : "Lưu ý: hệ thống đang dùng nhận xét dự phòng để tránh gián đoạn thao tác chấm bài.";
 
   return `${warningLine}
@@ -375,6 +467,7 @@ async function callOpenAIWithRetry(prompt) {
     { attempt: 2, delayMs: 1200 },
     { attempt: 3, delayMs: 2500 },
   ];
+  const model = process.env.OPENAI_FEEDBACK_MODEL || "gpt-5.4-mini";
 
   let lastFailure = null;
 
@@ -387,26 +480,18 @@ async function callOpenAIWithRetry(prompt) {
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const response = await fetch(OPENAI_URL, {
+      const response = await fetch(OPENAI_RESPONSES_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "Bạn là giáo viên IELTS Writing chuyên nghiệp.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.4,
-          max_tokens: 1200,
+          model,
+          instructions: "Bạn là giáo viên IELTS Writing chuyên nghiệp.",
+          input: prompt,
+          max_output_tokens: 1200,
+          store: false,
         }),
         signal: controller.signal,
       });
@@ -415,7 +500,7 @@ async function callOpenAIWithRetry(prompt) {
 
       if (response.ok) {
         const data = await response.json();
-        const suggestion = data?.choices?.[0]?.message?.content?.trim();
+        const suggestion = extractOpenAiSuggestion(data);
 
         if (!suggestion) {
           throw new Error("OpenAI returned an empty suggestion");
@@ -507,9 +592,13 @@ async function generateFeedback(task1, task2) {
   }
 
   const reason = reasons.join("; ") || "lỗi kết nối AI";
+  const openAiQuotaExhausted = isOpenAiQuotaExhausted(openAiResult);
+  const geminiQuotaExhausted = isGeminiQuotaExhausted(geminiResult);
   const warning =
     !hasOpenAi && !hasGemini
       ? "OpenAI và Gemini chưa được cấu hình trên server. Hệ thống đã tạo nhận xét dự phòng."
+      : openAiQuotaExhausted || geminiQuotaExhausted
+      ? "OpenAI/Gemini đang hết credit hoặc quota. Hệ thống đã tạo nhận xét dự phòng; vui lòng nạp quota để dùng AI thật."
       : "OpenAI và Gemini đều không sẵn sàng lúc này. Hệ thống đã tạo nhận xét dự phòng để không gián đoạn việc chấm bài.";
 
   return {
@@ -675,9 +764,13 @@ async function generateCambridgeFeedback({
   }
 
   const reason = reasons.join("; ") || "AI connection error";
+  const openAiQuotaExhausted = isOpenAiQuotaExhausted(openAiResult);
+  const geminiQuotaExhausted = isGeminiQuotaExhausted(geminiResult);
   const warning =
     !hasOpenAi && !hasGemini
       ? "Neither OpenAI nor Gemini is configured on the server, so the system generated fallback feedback."
+      : openAiQuotaExhausted || geminiQuotaExhausted
+      ? "OpenAI/Gemini quota is exhausted. The system generated fallback feedback; add credits/quota to restore AI feedback."
       : "OpenAI and Gemini are both temporarily unavailable, so the system generated fallback feedback so marking can continue.";
 
   return {
@@ -741,11 +834,10 @@ router.post("/generate-feedback", async (req, res) => {
 
   try {
     const result = await requestPromise;
-    setCachedFeedback(
-      cacheKey,
-      result,
-      result.fallback ? FALLBACK_CACHE_TTL_MS : SUCCESS_CACHE_TTL_MS
-    );
+    const ttlMs = getCacheTtlMsForResult(result);
+    if (ttlMs > 0) {
+      setCachedFeedback(cacheKey, result, ttlMs);
+    }
 
     return res.json({
       suggestion: result.suggestion,
@@ -833,11 +925,10 @@ router.post("/generate-cambridge-feedback", async (req, res) => {
 
   try {
     const result = await requestPromise;
-    setCachedFeedback(
-      cacheKey,
-      result,
-      result.fallback ? FALLBACK_CACHE_TTL_MS : SUCCESS_CACHE_TTL_MS
-    );
+    const ttlMs = getCacheTtlMsForResult(result);
+    if (ttlMs > 0) {
+      setCachedFeedback(cacheKey, result, ttlMs);
+    }
 
     return res.json({
       suggestion: result.suggestion,

@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from "re
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
-import resolveAuthUserDisplayName from "../utils/authUserDisplayName";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
 import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
@@ -271,30 +270,6 @@ const getWritingCategoryLabel = (submission) => {
   return testType.includes("pet-writing") ? "PET Writing" : "Writing";
 };
 
-const normalizeTeacherIdentity = (value) =>
-  String(value || "").trim().toLowerCase();
-
-const getSubmissionTeacherName = (submission) =>
-  submission?.teacherName ||
-  submission?.writing_test?.teacherName ||
-  submission?.WritingTest?.teacherName ||
-  submission?.writingTest?.teacherName ||
-  "";
-
-const filterPendingSubmissionsForTeacher = (submissions, teacherName) => {
-  const normalizedTeacherName = normalizeTeacherIdentity(teacherName);
-
-  if (!normalizedTeacherName) {
-    return [];
-  }
-
-  return (submissions || []).filter(
-    (submission) =>
-      normalizeTeacherIdentity(getSubmissionTeacherName(submission)) ===
-      normalizedTeacherName
-  );
-};
-
 const buildPendingNotification = (submission, category, route) => ({
   key: `${category}-${submission.id}`,
   id: submission.id,
@@ -390,8 +365,6 @@ const AdminNavbar = () => {
   const adminDropdownRef = useRef(null);
   const navRef = useRef(null);
   const userDisplayName = resolveAdminUserDisplayName(user);
-  const teacherScopeName = resolveAuthUserDisplayName(user);
-  const shouldScopePendingNotifications = user?.role === "teacher";
   const canManageWriting = canManageCategory(user, "writing");
   const canManageReading = canManageCategory(user, "reading");
   const canManageListening = canManageCategory(user, "listening");
@@ -465,18 +438,8 @@ const AdminNavbar = () => {
         ? cambridgePayload
         : [];
 
-      const scopeSubmissions = (submissions) =>
-        shouldScopePendingNotifications
-          ? filterPendingSubmissionsForTeacher(submissions, teacherScopeName)
-          : submissions;
-
-      const scopedWritingSubmissions = scopeSubmissions(writingSubmissions);
-      const scopedReadingSubmissions = scopeSubmissions(readingSubmissions);
-      const scopedListeningSubmissions = scopeSubmissions(listeningSubmissions);
-      const scopedCambridgeSubmissions = scopeSubmissions(cambridgeSubmissions);
-
       const nextNotifications = [
-        ...scopedWritingSubmissions
+        ...writingSubmissions
           .filter(isPendingSubmission)
           .map((submission) =>
             buildPendingNotification(
@@ -485,7 +448,7 @@ const AdminNavbar = () => {
               `/review/${submission.id}`
             )
           ),
-        ...scopedReadingSubmissions
+        ...readingSubmissions
           .filter(isPendingSubmission)
           .map((submission) =>
             buildPendingNotification(
@@ -494,7 +457,7 @@ const AdminNavbar = () => {
               `/admin/reading-submissions?submissionId=${submission.id}&action=feedback`
             )
           ),
-        ...scopedListeningSubmissions
+        ...listeningSubmissions
           .filter(isPendingSubmission)
           .map((submission) =>
             buildPendingNotification(
@@ -503,7 +466,7 @@ const AdminNavbar = () => {
               `/admin/listening-submissions?submissionId=${submission.id}&action=feedback`
             )
           ),
-        ...scopedCambridgeSubmissions
+        ...cambridgeSubmissions
           .filter(isPendingSubmission)
           .map((submission) =>
             buildPendingNotification(
@@ -524,7 +487,7 @@ const AdminNavbar = () => {
     fetchPendingNotifications();
     const interval = setInterval(fetchPendingNotifications, 30000);
     return () => clearInterval(interval);
-  }, [shouldScopePendingNotifications, teacherScopeName]);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
