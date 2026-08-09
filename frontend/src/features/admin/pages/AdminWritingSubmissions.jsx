@@ -69,6 +69,12 @@ const getSubmissionTimestamp = (submission) => {
   return Number.isFinite(timestamp) ? timestamp : null;
 };
 
+const OPENAI_SOURCE_BADGE_STYLE = {
+  background: "#e0f2fe",
+  border: "1px solid #bae6fd",
+  color: "#075985",
+};
+
 const AdminWritingSubmissions = () => {
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
@@ -98,6 +104,8 @@ const AdminWritingSubmissions = () => {
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("ix");
+  const [openAiHealthStatus, setOpenAiHealthStatus] = useState(null);
+  const [openAiHealthLoading, setOpenAiHealthLoading] = useState(false);
 
   let teacher = null;
   try {
@@ -513,6 +521,61 @@ const AdminWritingSubmissions = () => {
     }
   };
 
+  const handleOpenAiHealthCheck = async () => {
+    setOpenAiHealthLoading(true);
+    setOpenAiHealthStatus({
+      tone: "info",
+      text: "Checking OpenAI availability...",
+      sourceLabel: "OpenAI",
+      sourceStyle: OPENAI_SOURCE_BADGE_STYLE,
+    });
+
+    try {
+      const response = await authFetch(apiPath("ai/health/openai"));
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(getAiRequestErrorMessage(response.status, payload));
+      }
+
+      const latencyMs = Number(payload?.latencyMs);
+      const latencyLabel = Number.isFinite(latencyMs)
+        ? `${Math.max(0, Math.round(latencyMs))}ms`
+        : null;
+      const statusLabel = payload?.status ? `HTTP ${payload.status}` : "no status";
+      const modelLabel = String(payload?.model || "gpt-5.4-mini");
+
+      if (payload?.ok) {
+        setOpenAiHealthStatus({
+          tone: "success",
+          text: `OpenAI is ready (${statusLabel}${latencyLabel ? `, ${latencyLabel}` : ""}). Model: ${modelLabel}.`,
+          sourceLabel: "OpenAI",
+          sourceStyle: OPENAI_SOURCE_BADGE_STYLE,
+        });
+        return;
+      }
+
+      const reason = String(payload?.reason || "openai_error");
+      const detail = String(payload?.message || payload?.detail || "OpenAI health check failed.");
+
+      setOpenAiHealthStatus({
+        tone: reason.includes("scope") ? "warning" : "error",
+        text: `${detail}${payload?.hint ? ` ${payload.hint}` : ""}`,
+        sourceLabel: "OpenAI",
+        sourceStyle: OPENAI_SOURCE_BADGE_STYLE,
+      });
+    } catch (error) {
+      setOpenAiHealthStatus({
+        tone: "error",
+        text: error?.message || "Could not run OpenAI health check.",
+        sourceLabel: "OpenAI",
+        sourceStyle: OPENAI_SOURCE_BADGE_STYLE,
+      });
+    } finally {
+      setOpenAiHealthLoading(false);
+    }
+  };
+
   const handleExtendDraft = async (submissionId, extraMinutes) => {
     setExtendingId(submissionId);
     try {
@@ -857,6 +920,35 @@ const AdminWritingSubmissions = () => {
               />
             )}
           />
+
+          <div
+            style={{
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <AiFeedbackButton
+              onClick={handleOpenAiHealthCheck}
+              loading={openAiHealthLoading}
+              disabled={false}
+              idleLabel="Check OpenAI"
+              loadingLabel="Checking..."
+              backgroundColor="#0f766e"
+              style={{
+                minWidth: 148,
+                flex: "0 0 auto",
+              }}
+            />
+            <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+              <AiFeedbackStatus
+                status={openAiHealthStatus}
+                style={{ marginTop: 0, marginBottom: 0 }}
+              />
+            </div>
+          </div>
 
           {canDeleteSubmissions && (
             <>
