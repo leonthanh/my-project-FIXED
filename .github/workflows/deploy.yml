@@ -163,7 +163,9 @@ jobs:
           done
 
   backend:
-    needs: prepare
+    needs:
+      - prepare
+      - frontend
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -239,12 +241,14 @@ jobs:
           set net:reconnect-interval-max 30
           set ftp:passive-mode true
           set ssl:verify-certificate no
-          mkdir -p /ix.star-siec.edu.vn/backend/
+          cd /ix.star-siec.edu.vn
+          mkdir -f backend
+          cd backend
           mirror -R --continue --delete --verbose=1 --parallel=1 \
             -x '(^|/)(node_modules|uploads)(/|$)' \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.md$' \
-            backend-temp/ /ix.star-siec.edu.vn/backend/
+            backend-temp/ ./
           bye
           LFTP_CMDS
             then
