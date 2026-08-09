@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 env:
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   EMAIL_USER: ${{ secrets.EMAIL_USER }}
   EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
@@ -207,9 +206,7 @@ jobs:
           echo "ZALO_APP_ID=${{ env.ZALO_APP_ID }}" >> backend-temp/.env
           echo "ZALO_APP_SECRET=${{ env.ZALO_APP_SECRET }}" >> backend-temp/.env
           echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> backend-temp/.env
-          echo "GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}" >> backend-temp/.env
           echo "OPENAI_FEEDBACK_MODEL=gpt-5.4-mini" >> backend-temp/.env
-          echo "GEMINI_FEEDBACK_MODEL=gemini-2.0-flash" >> backend-temp/.env
           echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env
           echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> backend-temp/.env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> backend-temp/.env
