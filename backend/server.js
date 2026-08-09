@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const pinoHttp = require('pino-http');
+const { Op } = require('sequelize');
 
 const loggerModule = require('./logger');
 const logger = loggerModule?.logger || loggerModule?.default || loggerModule || console;
@@ -22,6 +23,16 @@ const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(String(value || ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const ANALYTICS_RETENTION_DAYS = parsePositiveInt(
+  process.env.ANALYTICS_RETENTION_DAYS,
+  90,
+);
+const ANALYTICS_RETENTION_CLEANUP_INTERVAL_MS = parsePositiveInt(
+  process.env.ANALYTICS_RETENTION_CLEANUP_INTERVAL_MS,
+  12 * 60 * 60 * 1000,
+);
 
 const normalizeLimiterValue = (value) => {
   const normalized = String(value ?? '').trim();
@@ -272,6 +283,7 @@ require("./models/ReadingSubmission");
 require("./models/ListeningSubmission");
 require("./models/CambridgeListening");
 require("./models/CambridgeReading");
+const AnalyticsEvent = require("./models/AnalyticsEvent");
 require("./models/PlacementPackage");
 require("./models/PlacementPackageItem");
 require("./models/PlacementAttempt");
@@ -290,6 +302,7 @@ const listeningRouter = require("./modules/listening/router");
 const readingRouter = require("./modules/reading/router");
 const writingRouter = require("./modules/writing/router");
 const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission management
+const analyticsRoutes = require("./routes/analytics");
 const placementRoutes = require("./routes/placement");
 const settingsRoutes = require("./routes/settings");
 
@@ -399,6 +412,7 @@ app.use('/api', listeningRouter);
 app.use('/api', readingRouter);
 app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/placement', placementRoutes);
 app.use('/api/settings', settingsRoutes);
 
@@ -456,6 +470,64 @@ async function cleanupRefreshTokenSyncArtifacts() {
   }
 }
 
+async function cleanupOldAnalyticsEvents() {
+  const cutoffDate = new Date(Date.now() - ANALYTICS_RETENTION_DAYS * DAY_IN_MS);
+
+  try {
+    const deletedCount = await AnalyticsEvent.destroy({
+      where: {
+        createdAt: {
+          [Op.lt]: cutoffDate,
+        },
+      },
+    });
+
+    logger.info(
+      {
+        retentionDays: ANALYTICS_RETENTION_DAYS,
+        cutoffDate: cutoffDate.toISOString(),
+        deletedCount,
+      },
+      'Analytics retention cleanup completed',
+    );
+    return deletedCount;
+  } catch (cleanupErr) {
+    logger.warn(
+      {
+        retentionDays: ANALYTICS_RETENTION_DAYS,
+        err: cleanupErr,
+      },
+      'Analytics retention cleanup failed',
+    );
+    return 0;
+  }
+}
+
+function startAnalyticsRetentionCleanupScheduler() {
+  const intervalMs = Math.max(
+    5 * 60 * 1000,
+    ANALYTICS_RETENTION_CLEANUP_INTERVAL_MS,
+  );
+
+  const timer = setInterval(() => {
+    cleanupOldAnalyticsEvents().catch((cleanupErr) => {
+      logger.warn({ err: cleanupErr }, 'Unexpected analytics cleanup scheduler failure');
+    });
+  }, intervalMs);
+
+  if (typeof timer?.unref === 'function') {
+    timer.unref();
+  }
+
+  logger.info(
+    {
+      retentionDays: ANALYTICS_RETENTION_DAYS,
+      intervalMs,
+    },
+    'Analytics retention cleanup scheduler started',
+  );
+}
+
 // ✅ Connect DB, sync models, then start server
 const PORT = process.env.PORT || 5000;
 sequelize
@@ -503,8 +575,10 @@ sequelize
       return Promise.resolve();
     });
   })
+  .then(() => cleanupOldAnalyticsEvents())
   .then(() => {
     logger.info('Sequelize models synced (or sync-alter skipped)');
+    startAnalyticsRetentionCleanupScheduler();
     app.listen(PORT, () => {
       logger.info({ port: PORT }, 'Server started');
       if (process.env.SHOW_ENV_LOG !== 'false') {

@@ -1,6 +1,8 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes } from 'react-router-dom';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserRouter as Router, Routes, useLocation } from 'react-router-dom';
 import {
+  apiPath,
+  authFetch,
   refreshAccessToken,
   redirectToLogin,
   isAccessTokenUsable,
@@ -19,6 +21,91 @@ const hasStoredUserProfile = () => {
   const displayName = String(user?.name || user?.username || user?.fullName || '').trim();
   return Boolean(user?.role && displayName);
 };
+
+const ANALYTICS_SESSION_KEY = 'analytics:sessionId';
+
+const getAnalyticsSessionId = () => {
+  if (typeof window === 'undefined') return `ssr-${Date.now()}`;
+
+  try {
+    const existing = sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+    if (existing) return existing;
+
+    const generated =
+      (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      ).slice(0, 80);
+    sessionStorage.setItem(ANALYTICS_SESSION_KEY, generated);
+    return generated;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`.slice(0, 80);
+  }
+};
+
+function AuthenticatedAnalyticsTracker({ isAuthenticated }) {
+  const location = useLocation();
+  const [sessionId] = useState(() => getAnalyticsSessionId());
+  const lastPageViewRef = useRef({ path: '', ts: 0 });
+
+  const sendEvent = useCallback(
+    async (eventType) => {
+      if (!isAuthenticated || !getStoredUser()) return;
+
+      const pagePath = `${location.pathname}${location.search || ''}`.slice(0, 255);
+      const referrer = typeof document !== 'undefined' ? document.referrer || '' : '';
+
+      try {
+        await authFetch(apiPath('analytics/events'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventType,
+            pagePath,
+            sessionId,
+            referrer,
+          }),
+          keepalive: true,
+        });
+      } catch {
+        // Fire-and-forget: analytics failures should not affect UX.
+      }
+    },
+    [isAuthenticated, location.pathname, location.search, sessionId]
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (location.pathname.startsWith('/login')) return;
+
+    const pathKey = `${location.pathname}${location.search || ''}`;
+    const now = Date.now();
+    const last = lastPageViewRef.current;
+
+    if (last.path === pathKey && now - last.ts < 2500) {
+      return;
+    }
+
+    lastPageViewRef.current = { path: pathKey, ts: now };
+    void sendEvent('page_view');
+  }, [isAuthenticated, location.pathname, location.search, sendEvent]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void sendEvent('heartbeat');
+      }
+    }, 60 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated, sendEvent]);
+
+  return null;
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession);
@@ -97,6 +184,7 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AuthenticatedAnalyticsTracker isAuthenticated={isAuthenticated} />
       <Suspense fallback={
         <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: '#334155' }}>
           Loading...

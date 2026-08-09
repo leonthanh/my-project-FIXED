@@ -14,9 +14,14 @@ const ListeningSubmission = require('../models/ListeningSubmission');
 const CambridgeListening = require('../models/CambridgeListening');
 const CambridgeReading = require('../models/CambridgeReading');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
+const AnalyticsEvent = require('../models/AnalyticsEvent');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { logError } = require('../logger');
 const { normalizeAttemptLimit } = require('../utils/attemptLimit');
+
+const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const VIETNAM_OFFSET_MINUTES = 7 * 60;
+const LIVE_ACTIVITY_WINDOW_MINUTES = 15;
 
 const toPlain = (record) => (record && typeof record.toJSON === 'function' ? record.toJSON() : record);
 
@@ -149,6 +154,131 @@ const resolveAdminTestScope = (scope) => {
     default:
       return null;
   }
+};
+
+const getDayRangeWithOffset = (baseDate = new Date(), offsetMinutes = VIETNAM_OFFSET_MINUTES) => {
+  const offsetMs = offsetMinutes * 60 * 1000;
+  const shifted = new Date(baseDate.getTime() + offsetMs);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+
+  const startMs = Date.UTC(year, month, day, 0, 0, 0, 0) - offsetMs;
+  const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
+
+  return {
+    start: new Date(startMs),
+    end: new Date(endMs),
+    dateLabel: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  };
+};
+
+const normalizeIdentityText = (value = '') => String(value || '').trim().toLowerCase();
+
+const buildIdentityKey = (record = {}, fallbackPrefix = 'anon') => {
+  const userId = Number(record?.userId);
+  if (Number.isFinite(userId) && userId > 0) {
+    return `uid:${userId}`;
+  }
+
+  const phone = normalizeIdentityText(record?.userPhone || record?.studentPhone || record?.phone);
+  if (phone) {
+    return `phone:${phone}`;
+  }
+
+  const name = normalizeIdentityText(record?.userName || record?.studentName || record?.name);
+  if (name) {
+    return `name:${name}`;
+  }
+
+  const rowId = String(record?.id || '').trim();
+  return rowId ? `${fallbackPrefix}:id:${rowId}` : `${fallbackPrefix}:unknown`;
+};
+
+const addRecordsToIdentitySet = (targetSet, records = [], fallbackPrefix = 'anon') => {
+  (Array.isArray(records) ? records : []).forEach((record) => {
+    targetSet.add(buildIdentityKey(record, fallbackPrefix));
+  });
+};
+
+const countRows = (rows = []) => (Array.isArray(rows) ? rows.length : 0);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toDateKeyWithOffset = (value, offsetMinutes = VIETNAM_OFFSET_MINUTES) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseMonthRange = (monthValue = '') => {
+  const normalized = String(monthValue || '').trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return null;
+  }
+
+  const offsetMs = VIETNAM_OFFSET_MINUTES * 60 * 1000;
+  const startMs = Date.UTC(year, month - 1, 1, 0, 0, 0, 0) - offsetMs;
+  const endMs = Date.UTC(year, month, 1, 0, 0, 0, 0) - offsetMs - 1;
+  const dayCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  return {
+    start: new Date(startMs),
+    end: new Date(endMs),
+    dayCount,
+    month: normalized,
+    mode: 'month',
+  };
+};
+
+const parseRecentDaysRange = (rawDays, baseDate = new Date()) => {
+  const parsed = Number.parseInt(String(rawDays || ''), 10);
+  const normalizedDays = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 180) : 7;
+  const { start: todayStart, end: todayEnd } = getDayRangeWithOffset(baseDate);
+  return {
+    start: new Date(todayStart.getTime() - (normalizedDays - 1) * DAY_MS),
+    end: todayEnd,
+    dayCount: normalizedDays,
+    days: normalizedDays,
+    mode: 'days',
+  };
+};
+
+const buildDateKeyList = (startDate, dayCount) => {
+  const keys = [];
+  for (let index = 0; index < dayCount; index += 1) {
+    const current = new Date(startDate.getTime() + index * DAY_MS);
+    keys.push(toDateKeyWithOffset(current));
+  }
+  return keys;
+};
+
+const buildAnalyticsUserKey = (event = {}) => {
+  const userId = Number(event?.userId);
+  if (Number.isFinite(userId) && userId > 0) return `uid:${userId}`;
+
+  const sessionId = String(event?.sessionId || '').trim();
+  if (sessionId) return `sid:${sessionId}`;
+
+  return null;
+};
+
+const buildAnalyticsSessionKey = (event = {}) => {
+  const sessionId = String(event?.sessionId || '').trim();
+  if (sessionId) return `sid:${sessionId}`;
+
+  const userId = Number(event?.userId);
+  if (Number.isFinite(userId) && userId > 0) return `uid:${userId}`;
+
+  return null;
 };
 
 // ─────────────────────────────────────────────────────────
@@ -358,6 +488,353 @@ router.get('/users/duplicates', requireAuth, requireRole('admin'), async (req, r
   } catch (err) {
     logError('Lỗi tìm trùng', err);
     res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+// GET /api/admin/usage-overview — lightweight usage snapshot for admin decision-making
+router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, res) => {
+  try {
+    const now = new Date();
+    const liveWindowStart = new Date(now.getTime() - LIVE_ACTIVITY_WINDOW_MINUTES * 60 * 1000);
+    const { start: todayStart, end: todayEnd, dateLabel } = getDayRangeWithOffset(now);
+
+    const liveWritingDraftWhere = {
+      isDraft: true,
+      [Op.or]: [
+        { draftEndAt: { [Op.gte]: now } },
+        { draftSavedAt: { [Op.gte]: liveWindowStart } },
+      ],
+    };
+
+    const liveRuntimeWhere = {
+      finished: false,
+      [Op.or]: [
+        { expiresAt: { [Op.gte]: now } },
+        { lastSavedAt: { [Op.gte]: liveWindowStart } },
+      ],
+    };
+
+    const [
+      liveWritingDrafts,
+      liveReadingSessions,
+      liveListeningSessions,
+      liveCambridgeSessions,
+      liveVisitorEvents,
+      todayWritingActivity,
+      todayReadingActivity,
+      todayListeningActivity,
+      todayCambridgeActivity,
+      todayVisitorEvents,
+      todayWritingSubmissions,
+      todayReadingSubmissions,
+      todayListeningSubmissions,
+      todayCambridgeSubmissions,
+      todayNewStudents,
+    ] = await Promise.all([
+      Submission.findAll({
+        where: liveWritingDraftWhere,
+        attributes: ['id', 'userId', 'userPhone', 'userName'],
+        raw: true,
+      }),
+      ReadingSubmission.findAll({
+        where: liveRuntimeWhere,
+        attributes: ['id', 'userId', 'userName'],
+        raw: true,
+      }),
+      ListeningSubmission.findAll({
+        where: liveRuntimeWhere,
+        attributes: ['id', 'userId', 'userName'],
+        raw: true,
+      }),
+      CambridgeSubmission.findAll({
+        where: liveRuntimeWhere,
+        attributes: ['id', 'userId', 'studentPhone', 'studentName'],
+        raw: true,
+      }),
+      AnalyticsEvent.findAll({
+        where: {
+          createdAt: { [Op.gte]: liveWindowStart },
+          eventType: { [Op.in]: ['page_view', 'heartbeat'] },
+        },
+        attributes: ['userId', 'sessionId', 'eventType'],
+        raw: true,
+      }),
+      Submission.findAll({
+        where: {
+          updatedAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+        attributes: ['id', 'userId', 'userPhone', 'userName'],
+        raw: true,
+      }),
+      ReadingSubmission.findAll({
+        where: {
+          updatedAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+        attributes: ['id', 'userId', 'userName'],
+        raw: true,
+      }),
+      ListeningSubmission.findAll({
+        where: {
+          updatedAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+        attributes: ['id', 'userId', 'userName'],
+        raw: true,
+      }),
+      CambridgeSubmission.findAll({
+        where: {
+          updatedAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+        attributes: ['id', 'userId', 'studentPhone', 'studentName'],
+        raw: true,
+      }),
+      AnalyticsEvent.findAll({
+        where: {
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+          eventType: { [Op.in]: ['page_view', 'heartbeat'] },
+        },
+        attributes: ['userId', 'sessionId', 'eventType'],
+        raw: true,
+      }),
+      Submission.count({
+        where: {
+          [Op.and]: [
+            { [Op.or]: [{ isDraft: false }, { isDraft: null }] },
+            {
+              [Op.or]: [
+                { submittedAt: { [Op.between]: [todayStart, todayEnd] } },
+                {
+                  [Op.and]: [
+                    { submittedAt: null },
+                    { createdAt: { [Op.between]: [todayStart, todayEnd] } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      ReadingSubmission.count({
+        where: {
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+          [Op.or]: [{ finished: true }, { finished: null }],
+        },
+      }),
+      ListeningSubmission.count({
+        where: {
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+          [Op.or]: [{ finished: true }, { finished: null }],
+        },
+      }),
+      CambridgeSubmission.count({
+        where: {
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+          [Op.or]: [{ finished: true }, { finished: null }],
+        },
+      }),
+      User.count({
+        where: {
+          role: 'student',
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+      }),
+    ]);
+
+    const liveUsers = new Set();
+    addRecordsToIdentitySet(liveUsers, liveWritingDrafts, 'writing-draft');
+    addRecordsToIdentitySet(liveUsers, liveReadingSessions, 'reading-runtime');
+    addRecordsToIdentitySet(liveUsers, liveListeningSessions, 'listening-runtime');
+    addRecordsToIdentitySet(liveUsers, liveCambridgeSessions, 'cambridge-runtime');
+
+    const todayUsers = new Set();
+    addRecordsToIdentitySet(todayUsers, todayWritingActivity, 'writing-activity');
+    addRecordsToIdentitySet(todayUsers, todayReadingActivity, 'reading-activity');
+    addRecordsToIdentitySet(todayUsers, todayListeningActivity, 'listening-activity');
+    addRecordsToIdentitySet(todayUsers, todayCambridgeActivity, 'cambridge-activity');
+
+    const liveVisitors = new Set();
+    (liveVisitorEvents || []).forEach((event) => {
+      const key = buildAnalyticsUserKey(event);
+      if (key) liveVisitors.add(key);
+    });
+
+    const todayVisitors = new Set();
+    let todayPageViews = 0;
+    let todayHeartbeats = 0;
+    (todayVisitorEvents || []).forEach((event) => {
+      const key = buildAnalyticsUserKey(event);
+      if (key) todayVisitors.add(key);
+
+      if (String(event?.eventType || '').toLowerCase() === 'page_view') {
+        todayPageViews += 1;
+      }
+      if (String(event?.eventType || '').toLowerCase() === 'heartbeat') {
+        todayHeartbeats += 1;
+      }
+    });
+
+    const liveSessionsByType = {
+      writingDrafts: countRows(liveWritingDrafts),
+      reading: countRows(liveReadingSessions),
+      listening: countRows(liveListeningSessions),
+      cambridge: countRows(liveCambridgeSessions),
+    };
+
+    const submissionsByType = {
+      writing: Number(todayWritingSubmissions || 0),
+      reading: Number(todayReadingSubmissions || 0),
+      listening: Number(todayListeningSubmissions || 0),
+      cambridge: Number(todayCambridgeSubmissions || 0),
+    };
+
+    const activeTestSessions = Object.values(liveSessionsByType).reduce(
+      (sum, value) => sum + Number(value || 0),
+      0
+    );
+    const todaySubmissionTotal = Object.values(submissionsByType).reduce(
+      (sum, value) => sum + Number(value || 0),
+      0
+    );
+
+    return res.json({
+      generatedAt: now.toISOString(),
+      timezone: VIETNAM_TIMEZONE,
+      live: {
+        activeUsersInTests: liveUsers.size,
+        activeTestSessions,
+        activeVisitors: liveVisitors.size,
+        activityWindowMinutes: LIVE_ACTIVITY_WINDOW_MINUTES,
+        sessionsByType: liveSessionsByType,
+      },
+      today: {
+        date: dateLabel,
+        activeUsers: todayVisitors.size,
+        usersInTests: todayUsers.size,
+        submissions: todaySubmissionTotal,
+        submissionsByType,
+        pageViews: todayPageViews,
+        heartbeats: todayHeartbeats,
+        newStudentAccounts: Number(todayNewStudents || 0),
+      },
+    });
+  } catch (err) {
+    logError('Lỗi lấy usage overview cho admin', err);
+    return res.status(500).json({ message: 'Không thể tải thống kê truy cập lúc này.' });
+  }
+});
+
+// GET /api/admin/usage-trend?days=7 or ?month=2026-08
+router.get('/usage-trend', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const now = new Date();
+    const monthQuery = String(req.query?.month || '').trim();
+    const monthRange = monthQuery ? parseMonthRange(monthQuery) : null;
+
+    if (monthQuery && !monthRange) {
+      return res.status(400).json({
+        message: 'Invalid month format. Use YYYY-MM.',
+      });
+    }
+
+    const range = monthRange || parseRecentDaysRange(req.query?.days, now);
+    const dayKeys = buildDateKeyList(range.start, range.dayCount);
+
+    const events = await AnalyticsEvent.findAll({
+      where: {
+        createdAt: { [Op.between]: [range.start, range.end] },
+        eventType: { [Op.in]: ['page_view', 'heartbeat'] },
+      },
+      attributes: ['eventType', 'userId', 'sessionId', 'createdAt'],
+      raw: true,
+    });
+
+    const dailyMap = new Map(
+      dayKeys.map((dateKey) => [
+        dateKey,
+        {
+          date: dateKey,
+          pageViews: 0,
+          heartbeats: 0,
+          totalEvents: 0,
+          userSet: new Set(),
+          sessionSet: new Set(),
+        },
+      ])
+    );
+
+    const summaryUsers = new Set();
+    const summarySessions = new Set();
+
+    (events || []).forEach((event) => {
+      const dateKey = toDateKeyWithOffset(event?.createdAt);
+      const bucket = dailyMap.get(dateKey);
+      if (!bucket) return;
+
+      const userKey = buildAnalyticsUserKey(event);
+      if (userKey) {
+        bucket.userSet.add(userKey);
+        summaryUsers.add(userKey);
+      }
+
+      const sessionKey = buildAnalyticsSessionKey(event);
+      if (sessionKey) {
+        bucket.sessionSet.add(sessionKey);
+        summarySessions.add(sessionKey);
+      }
+
+      const eventType = String(event?.eventType || '').toLowerCase();
+      if (eventType === 'page_view') {
+        bucket.pageViews += 1;
+      } else if (eventType === 'heartbeat') {
+        bucket.heartbeats += 1;
+      }
+
+      bucket.totalEvents += 1;
+    });
+
+    const daily = dayKeys.map((dateKey) => {
+      const row = dailyMap.get(dateKey);
+      return {
+        date: dateKey,
+        uniqueUsers: row.userSet.size,
+        uniqueSessions: row.sessionSet.size,
+        pageViews: row.pageViews,
+        heartbeats: row.heartbeats,
+        totalEvents: row.totalEvents,
+      };
+    });
+
+    const summary = daily.reduce(
+      (acc, row) => {
+        acc.pageViews += row.pageViews;
+        acc.heartbeats += row.heartbeats;
+        acc.totalEvents += row.totalEvents;
+        return acc;
+      },
+      {
+        uniqueUsers: summaryUsers.size,
+        uniqueSessions: summarySessions.size,
+        pageViews: 0,
+        heartbeats: 0,
+        totalEvents: 0,
+      }
+    );
+
+    return res.json({
+      generatedAt: now.toISOString(),
+      timezone: VIETNAM_TIMEZONE,
+      mode: range.mode,
+      month: range.month || null,
+      range: {
+        start: range.start.toISOString(),
+        end: range.end.toISOString(),
+        days: range.dayCount,
+      },
+      summary,
+      daily,
+    });
+  } catch (err) {
+    logError('Lỗi lấy usage trend cho admin', err);
+    return res.status(500).json({ message: 'Không thể tải usage trend lúc này.' });
   }
 });
 

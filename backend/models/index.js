@@ -10,6 +10,7 @@ const ListeningSubmission = require("./ListeningSubmission");
 const CambridgeListening = require("./CambridgeListening");
 const CambridgeReading = require("./CambridgeReading");
 const CambridgeSubmission = require("./CambridgeSubmission");
+const AnalyticsEvent = require("./AnalyticsEvent");
 const PlacementPackage = require("./PlacementPackage");
 const PlacementPackageItem = require("./PlacementPackageItem");
 const PlacementAttempt = require("./PlacementAttempt");
@@ -55,6 +56,10 @@ CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(RefreshToken, { foreignKey: "userId" });
 RefreshToken.belongsTo(User, { foreignKey: "userId" });
 
+// Analytics events
+User.hasMany(AnalyticsEvent, { foreignKey: "userId" });
+AnalyticsEvent.belongsTo(User, { foreignKey: "userId" });
+
 module.exports = {
   sequelize,
   User,
@@ -67,6 +72,7 @@ module.exports = {
   CambridgeListening,
   CambridgeReading,
   CambridgeSubmission,
+  AnalyticsEvent,
   PlacementPackage,
   PlacementPackageItem,
   PlacementAttempt,
