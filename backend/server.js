@@ -528,6 +528,29 @@ function startAnalyticsRetentionCleanupScheduler() {
   );
 }
 
+const resolveShouldUseAlterSync = () => {
+  const raw = String(process.env.SEQUELIZE_SYNC_ALTER || '').trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return process.env.NODE_ENV !== 'production';
+};
+
+const syncSequelizeModels = async () => {
+  const shouldUseAlterSync = resolveShouldUseAlterSync();
+
+  if (!shouldUseAlterSync) {
+    logger.info('Sequelize sync in safe mode (alter disabled)');
+    return sequelize.sync();
+  }
+
+  // Attempt a schema alter but don't let an alter failure crash the dev server.
+  return sequelize.sync({ alter: true }).catch((syncErr) => {
+    console.warn('⚠️ sequelize.sync({ alter: true }) failed - continuing in dev:', syncErr?.message || syncErr);
+    // Still resolve so the server can start; in prod we expect proper migrations to handle schema.
+    return Promise.resolve();
+  });
+};
+
 // ✅ Connect DB, sync models, then start server
 const PORT = process.env.PORT || 5000;
 sequelize
@@ -567,14 +590,7 @@ sequelize
       );
     });
   })
-  .then(() => {
-    // Attempt a schema alter but don't let an alter failure crash the dev server.
-    return sequelize.sync({ alter: true }).catch((syncErr) => {
-      console.warn('⚠️ sequelize.sync({ alter: true }) failed - continuing in dev:', syncErr?.message || syncErr);
-      // Still resolve so the server can start; in prod we expect proper migrations to handle schema.
-      return Promise.resolve();
-    });
-  })
+  .then(() => syncSequelizeModels())
   .then(() => cleanupOldAnalyticsEvents())
   .then(() => {
     logger.info('Sequelize models synced (or sync-alter skipped)');
