@@ -1312,12 +1312,14 @@ const AdminWritingSubmissions = () => {
                         ? "This draft has not been submitted yet, so feedback cannot be sent."
                         : "Teacher feedback..."
                     }
-                    rows={4}
+                    rows={6}
                     style={{
                       width: "100%",
                       padding: 10,
                       boxSizing: "border-box",
                       fontSize: 14,
+                      lineHeight: 1.5,
+                      minHeight: "clamp(180px, 24vh, 220px)",
                       border: "1px solid #d1d5db",
                       borderRadius: 7,
                       resize: "vertical",

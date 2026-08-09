@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import {
   DEFAULT_DISPLAY_LABELS,
@@ -34,6 +35,12 @@ const FIELD_META = [
   },
 ];
 
+const getCurrentMonthInput = () => {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${now.getFullYear()}-${month}`;
+};
+
 const AdminDisplaySettingsPage = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
@@ -43,6 +50,15 @@ const AdminDisplaySettingsPage = () => {
   const [status, setStatus] = useState("");
   const [statusTone, setStatusTone] = useState("neutral");
   const [saving, setSaving] = useState(false);
+  const [usageOverview, setUsageOverview] = useState(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState("");
+  const [trend, setTrend] = useState(null);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [trendError, setTrendError] = useState("");
+  const [trendDays, setTrendDays] = useState(7);
+  const [trendMonth, setTrendMonth] = useState(getCurrentMonthInput);
+  const [trendMode, setTrendMode] = useState("days");
 
   useEffect(() => {
     setFormValues({
@@ -59,6 +75,70 @@ const AdminDisplaySettingsPage = () => {
     const timerId = window.setTimeout(() => setStatus(""), 2600);
     return () => window.clearTimeout(timerId);
   }, [status]);
+
+  const fetchUsageOverview = useCallback(async () => {
+    try {
+      setUsageLoading(true);
+      const response = await authFetch(apiPath("admin/usage-overview"));
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Could not load usage overview.");
+      }
+
+      setUsageOverview(payload);
+      setUsageError("");
+    } catch (error) {
+      setUsageError(error?.message || "Could not load usage overview.");
+    } finally {
+      setUsageLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsageOverview();
+  }, [fetchUsageOverview]);
+
+  const fetchUsageTrend = useCallback(async ({ days, month, mode } = {}) => {
+    try {
+      const nextMode = mode === "month" ? "month" : "days";
+      const nextDays = Number(days || 7) || 7;
+      const nextMonth = String(month || getCurrentMonthInput()).trim();
+
+      setTrendLoading(true);
+      setTrendError("");
+
+      const params = new URLSearchParams();
+      if (nextMode === "month") {
+        params.set("month", nextMonth);
+      } else {
+        params.set("days", String(nextDays));
+      }
+
+      const response = await authFetch(apiPath(`admin/usage-trend?${params.toString()}`));
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Could not load usage trend.");
+      }
+
+      setTrend(payload);
+      setTrendMode(nextMode);
+      if (nextMode === "days") {
+        setTrendDays(nextDays);
+      } else {
+        setTrendMonth(nextMonth);
+      }
+    } catch (error) {
+      setTrendError(error?.message || "Could not load usage trend.");
+    } finally {
+      setTrendLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsageTrend({ days: 7, mode: "days" });
+  }, [fetchUsageTrend]);
 
   const styles = useMemo(() => getStyles(isDarkMode), [isDarkMode]);
 
@@ -112,6 +192,69 @@ const AdminDisplaySettingsPage = () => {
       String(formValues.fceDisplayName || "") !== String(displayLabels?.fceDisplayName || "")
     );
   }, [displayLabels, formValues]);
+
+  const usageMetrics = useMemo(() => {
+    const live = usageOverview?.live || {};
+    const today = usageOverview?.today || {};
+
+    return [
+      {
+        key: "activeUsersNow",
+        label: "Users doing tests now",
+        value: Number(live.activeUsersInTests || 0),
+        bg: "#eff6ff",
+        border: "#bfdbfe",
+        color: "#1d4ed8",
+      },
+      {
+        key: "activeSessionsNow",
+        label: "Active test sessions now",
+        value: Number(live.activeTestSessions || 0),
+        bg: "#fff7ed",
+        border: "#fed7aa",
+        color: "#c2410c",
+      },
+      {
+        key: "activeUsersToday",
+        label: "Active users today",
+        value: Number(today.activeUsers || 0),
+        bg: "#ecfeff",
+        border: "#a5f3fc",
+        color: "#155e75",
+      },
+      {
+        key: "submissionsToday",
+        label: "Submissions today",
+        value: Number(today.submissions || 0),
+        bg: "#f0fdf4",
+        border: "#bbf7d0",
+        color: "#166534",
+      },
+      {
+        key: "newStudentsToday",
+        label: "New students today",
+        value: Number(today.newStudentAccounts || 0),
+        bg: "#f5f3ff",
+        border: "#ddd6fe",
+        color: "#6d28d9",
+      },
+    ];
+  }, [usageOverview]);
+
+  const usageByType = usageOverview?.today?.submissionsByType || {};
+  const liveByType = usageOverview?.live?.sessionsByType || {};
+
+  const trendDaily = Array.isArray(trend?.daily) ? trend.daily : [];
+  const trendSummary = trend?.summary || {};
+  const trendMaxPageViews = Math.max(
+    1,
+    ...trendDaily.map((entry) => Number(entry?.pageViews || 0))
+  );
+
+  const trendRangeLabel =
+    trendMode === "month"
+      ? `Month ${trend?.month || trendMonth}`
+      : `Last ${Number(trend?.range?.days || trendDays)} days`;
 
   const onChangeField = (fieldKey, value) => {
     setFormValues((prev) => ({
@@ -198,6 +341,171 @@ const AdminDisplaySettingsPage = () => {
             <p style={styles.headerSubtitle}>
               Teachers can rename visible platform labels directly from admin without code edits.
             </p>
+          </section>
+
+          <section style={styles.usageCard}>
+            <div style={styles.usageHeader}>
+              <div>
+                <p style={styles.usageEyebrow}>Traffic snapshot</p>
+                <h3 style={styles.usageTitle}>Daily Usage Overview</h3>
+                <p style={styles.usageSubtitle}>
+                  {usageOverview
+                    ? `Last updated ${new Date(usageOverview.generatedAt).toLocaleTimeString()} (${usageOverview.timezone || "Asia/Ho_Chi_Minh"}).`
+                    : "Loading usage data for this admin view."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchUsageOverview}
+                disabled={usageLoading}
+                style={{ ...styles.button, ...styles.ghostButton }}
+              >
+                {usageLoading ? "Refreshing..." : "Refresh Stats"}
+              </button>
+            </div>
+
+            <div style={styles.usageGrid}>
+              {usageMetrics.map((metric) => (
+                <div
+                  key={metric.key}
+                  style={{
+                    ...styles.usageMetricCard,
+                    background: metric.bg,
+                    borderColor: metric.border,
+                  }}
+                >
+                  <div style={{ ...styles.usageMetricLabel, color: metric.color }}>
+                    {metric.label}
+                  </div>
+                  <div style={{ ...styles.usageMetricValue, color: metric.color }}>
+                    {metric.value.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {usageError ? (
+              <div style={{ ...styles.status, ...styles.statusError }}>
+                {usageError}
+              </div>
+            ) : null}
+
+            {!usageError && usageOverview ? (
+              <>
+                <div style={styles.usageBreakdownWrap}>
+                  <div style={styles.usageBreakdownRow}>
+                    <strong>Today submissions:</strong>
+                    <span style={styles.usageBreakdownChip}>Writing {Number(usageByType.writing || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Reading {Number(usageByType.reading || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Listening {Number(usageByType.listening || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Cambridge {Number(usageByType.cambridge || 0)}</span>
+                  </div>
+                  <div style={styles.usageBreakdownRow}>
+                    <strong>Live sessions:</strong>
+                    <span style={styles.usageBreakdownChip}>Writing drafts {Number(liveByType.writingDrafts || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Reading {Number(liveByType.reading || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Listening {Number(liveByType.listening || 0)}</span>
+                    <span style={styles.usageBreakdownChip}>Cambridge {Number(liveByType.cambridge || 0)}</span>
+                  </div>
+                </div>
+
+                <p style={styles.usageHint}>
+                  Live numbers are estimated from recent test activity in the last {Number(usageOverview?.live?.activityWindowMinutes || 15)} minutes.
+                </p>
+              </>
+            ) : null}
+          </section>
+
+          <section style={styles.trendCard}>
+            <div style={styles.trendHeader}>
+              <div>
+                <p style={styles.usageEyebrow}>Traffic trend</p>
+                <h3 style={styles.usageTitle}>Daily Trend and Monthly Total</h3>
+                <p style={styles.usageSubtitle}>{trendRangeLabel}</p>
+              </div>
+              <div style={styles.trendActionRow}>
+                <button
+                  type="button"
+                  onClick={() => fetchUsageTrend({ days: 7, mode: "days" })}
+                  disabled={trendLoading}
+                  style={{
+                    ...styles.button,
+                    ...(trendMode === "days" && trendDays === 7 ? styles.primaryButton : styles.ghostButton),
+                  }}
+                >
+                  7 days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchUsageTrend({ days: 30, mode: "days" })}
+                  disabled={trendLoading}
+                  style={{
+                    ...styles.button,
+                    ...(trendMode === "days" && trendDays === 30 ? styles.primaryButton : styles.ghostButton),
+                  }}
+                >
+                  30 days
+                </button>
+                <input
+                  type="month"
+                  value={trendMonth}
+                  onChange={(event) => setTrendMonth(event.target.value)}
+                  style={styles.monthInput}
+                />
+                <button
+                  type="button"
+                  onClick={() => fetchUsageTrend({ month: trendMonth, mode: "month" })}
+                  disabled={trendLoading || !trendMonth}
+                  style={{ ...styles.button, ...styles.softButton }}
+                >
+                  {trendLoading && trendMode === "month" ? "Loading..." : "Search month"}
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.trendSummaryGrid}>
+              <div style={styles.trendSummaryCard}>
+                <div style={styles.trendSummaryLabel}>Unique users</div>
+                <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueUsers || 0).toLocaleString()}</div>
+              </div>
+              <div style={styles.trendSummaryCard}>
+                <div style={styles.trendSummaryLabel}>Unique sessions</div>
+                <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueSessions || 0).toLocaleString()}</div>
+              </div>
+              <div style={styles.trendSummaryCard}>
+                <div style={styles.trendSummaryLabel}>Page views</div>
+                <div style={styles.trendSummaryValue}>{Number(trendSummary.pageViews || 0).toLocaleString()}</div>
+              </div>
+            </div>
+
+            {trendError ? (
+              <div style={{ ...styles.status, ...styles.statusError }}>{trendError}</div>
+            ) : null}
+
+            {!trendError && trendDaily.length > 0 ? (
+              <div style={styles.trendChartWrap}>
+                <div style={styles.trendChartBars}>
+                  {trendDaily.map((entry) => {
+                    const pageViews = Number(entry?.pageViews || 0);
+                    const barHeight = Math.max(
+                      8,
+                      Math.round((pageViews / trendMaxPageViews) * 88)
+                    );
+                    return (
+                      <div key={entry.date} style={styles.trendBarColumn} title={`${entry.date}: ${pageViews} page views`}>
+                        <div style={{ ...styles.trendBar, height: barHeight }} />
+                        <span style={styles.trendBarLabel}>{String(entry.date || "").slice(5)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p style={styles.usageHint}>
+                  {trendMode === "month"
+                    ? `Monthly total users: ${Number(trendSummary.uniqueUsers || 0).toLocaleString()} (selected month).`
+                    : "Trend reflects daily page views from tracked page_view events."}
+                </p>
+              </div>
+            ) : null}
           </section>
 
           <section style={styles.formCard}>
@@ -315,6 +623,176 @@ const getStyles = (isDarkMode) => ({
     border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
     background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
     padding: "22px 24px",
+  },
+  usageCard: {
+    borderRadius: 20,
+    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
+    background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
+    padding: "20px 24px",
+    marginBottom: 18,
+  },
+  usageHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 12,
+  },
+  usageEyebrow: {
+    margin: 0,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: 700,
+    color: isDarkMode ? "#94a3b8" : "#64748b",
+  },
+  usageTitle: {
+    margin: "6px 0 0",
+    fontSize: "1.3rem",
+    lineHeight: 1.25,
+    color: isDarkMode ? "#f8fafc" : "#0f172a",
+  },
+  usageSubtitle: {
+    margin: "8px 0 0",
+    fontSize: 13,
+    color: isDarkMode ? "#cbd5e1" : "#475569",
+    lineHeight: 1.6,
+  },
+  usageGrid: {
+    display: "grid",
+    gap: 10,
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  },
+  usageMetricCard: {
+    border: "1px solid",
+    borderRadius: 14,
+    padding: "10px 12px",
+  },
+  usageMetricLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.3,
+  },
+  usageMetricValue: {
+    marginTop: 6,
+    fontSize: 24,
+    fontWeight: 800,
+    lineHeight: 1.1,
+  },
+  usageBreakdownWrap: {
+    marginTop: 12,
+    display: "grid",
+    gap: 8,
+  },
+  usageBreakdownRow: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center",
+    color: isDarkMode ? "#cbd5e1" : "#334155",
+    fontSize: 13,
+  },
+  usageBreakdownChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: 999,
+    padding: "4px 10px",
+    border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
+    background: isDarkMode ? "#0f172a" : "#f8fafc",
+    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+    fontWeight: 600,
+  },
+  usageHint: {
+    marginTop: 10,
+    marginBottom: 0,
+    color: isDarkMode ? "#94a3b8" : "#64748b",
+    fontSize: 12.5,
+    lineHeight: 1.6,
+  },
+  trendCard: {
+    borderRadius: 20,
+    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
+    background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
+    padding: "20px 24px",
+    marginBottom: 18,
+  },
+  trendHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  trendActionRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  monthInput: {
+    border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
+    borderRadius: 10,
+    padding: "9px 10px",
+    background: isDarkMode ? "#0f172a" : "#ffffff",
+    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+    fontSize: 13,
+  },
+  trendSummaryGrid: {
+    marginTop: 12,
+    display: "grid",
+    gap: 10,
+    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  },
+  trendSummaryCard: {
+    border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
+    borderRadius: 14,
+    background: isDarkMode ? "#0f172a" : "#f8fafc",
+    padding: "10px 12px",
+  },
+  trendSummaryLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: isDarkMode ? "#94a3b8" : "#64748b",
+  },
+  trendSummaryValue: {
+    marginTop: 6,
+    fontSize: 22,
+    fontWeight: 800,
+    color: isDarkMode ? "#f8fafc" : "#0f172a",
+    lineHeight: 1.1,
+  },
+  trendChartWrap: {
+    marginTop: 14,
+    borderTop: `1px solid ${isDarkMode ? "#1f2937" : "#e2e8f0"}`,
+    paddingTop: 12,
+  },
+  trendChartBars: {
+    minHeight: 108,
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 6,
+    overflowX: "auto",
+    paddingBottom: 6,
+  },
+  trendBarColumn: {
+    minWidth: 24,
+    display: "grid",
+    gap: 4,
+    justifyItems: "center",
+  },
+  trendBar: {
+    width: 18,
+    borderRadius: 6,
+    background: "linear-gradient(180deg, #22d3ee 0%, #2563eb 100%)",
+    boxShadow: isDarkMode
+      ? "0 6px 14px rgba(37, 99, 235, 0.35)"
+      : "0 6px 14px rgba(37, 99, 235, 0.2)",
+  },
+  trendBarLabel: {
+    fontSize: 11,
+    color: isDarkMode ? "#94a3b8" : "#64748b",
+    whiteSpace: "nowrap",
   },
   formGrid: {
     display: "grid",
