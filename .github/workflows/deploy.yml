@@ -86,7 +86,9 @@ jobs:
             backend-artifact.zip
 
   frontend:
-    needs: prepare
+    needs:
+      - prepare
+      - backend
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -165,7 +167,6 @@ jobs:
   backend:
     needs:
       - prepare
-      - frontend
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts

@@ -43,6 +43,15 @@ const normalizeAuthLimiterValue = (value) => {
   return normalized ? normalized : null;
 };
 
+const buildRefreshLimiterKey = (token) => {
+  const normalized = normalizeAuthLimiterValue(token);
+  if (!normalized) return null;
+
+  // Hash the refresh token so limiter keys never expose raw credentials.
+  const digest = crypto.createHash('sha256').update(normalized).digest('hex');
+  return `refresh:${digest.slice(0, 24)}`;
+};
+
 const extractAuthRateLimitKey = (req) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const query = req.query && typeof req.query === 'object' ? req.query : {};
@@ -54,6 +63,11 @@ const extractAuthRateLimitKey = (req) => {
 
   const email = normalizeAuthLimiterValue(body.email || query.email);
   if (email) return `email:${email.toLowerCase()}`;
+
+  const refreshKey =
+    buildRefreshLimiterKey(body.refreshToken) ||
+    buildRefreshLimiterKey(req.cookies?.rt);
+  if (refreshKey) return refreshKey;
 
   return `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
 };

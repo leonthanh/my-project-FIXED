@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
-import { apiPath } from "../../../shared/utils/api";
+import { apiPath, authFetch } from "../../../shared/utils/api";
 
 const SUBMISSION_PAGES = [
   {
@@ -86,13 +86,13 @@ const SubmissionTypeTabs = ({
       try {
         if (countMode === "ix") {
           const [writingRes, readingRes, listeningRes] = await Promise.all([
-            fetch(apiPath("writing/list?includeDrafts=1"), {
+            authFetch(apiPath("writing/list?includeDrafts=1"), {
               signal: controller.signal,
             }),
-            fetch(apiPath("reading-submissions/admin/list"), {
+            authFetch(apiPath("reading-submissions/admin/list"), {
               signal: controller.signal,
             }),
-            fetch(apiPath("listening-submissions/admin/list"), {
+            authFetch(apiPath("listening-submissions/admin/list"), {
               signal: controller.signal,
             }),
           ]);
@@ -120,13 +120,13 @@ const SubmissionTypeTabs = ({
 
         if (countMode === "cambridge") {
           const [allRes, listeningRes, readingRes] = await Promise.all([
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1"), {
+            authFetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1"), {
               signal: controller.signal,
             }),
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=listening"), {
+            authFetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=listening"), {
               signal: controller.signal,
             }),
-            fetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=reading"), {
+            authFetch(apiPath("cambridge/submissions?page=1&limit=1&includeActive=1&testType=reading"), {
               signal: controller.signal,
             }),
           ]);

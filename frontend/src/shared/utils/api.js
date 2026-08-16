@@ -393,11 +393,12 @@ async function refreshAccessToken(options = {}) {
           }
         }
 
+        const isAuthFailure = res.status === 401 || res.status === 403;
         if (hadStoredUser) {
-          if (logoutOnFailure) {
+          if (logoutOnFailure && isAuthFailure) {
             forceLogout();
           }
-        } else {
+        } else if (isAuthFailure) {
           clearAuth();
         }
         return false;

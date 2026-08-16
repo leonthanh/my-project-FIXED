@@ -110,7 +110,7 @@ const AdminReadingSubmissions = () => {
     const fetchSubs = async () => {
       setLoading(true);
       try {
-        const res = await fetch(apiPath("reading-submissions/admin/list"), {
+        const res = await authFetch(apiPath("reading-submissions/admin/list"), {
           signal: controller.signal,
         });
         const data = await res.json();
