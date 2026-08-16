@@ -153,6 +153,12 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 
+const normalizeLooseText = (value) =>
+  normalizeText(value)
+    .replace(/[^a-z0-9]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const stripHtml = (html) => String(html || "").replace(/<[^>]+>/g, "").trim();
 
 const getSentenceCompletionTitleState = (section, sectionQuestions) => {
@@ -378,6 +384,63 @@ const getMultiSelectIndices = (answers, key) => {
       return Number.isFinite(parsed) ? parsed : null;
     })
     .filter((item) => item !== null);
+};
+
+const stripOptionPrefix = (value) =>
+  String(value ?? "")
+    .replace(/^\s*[A-H](?:\s*[).:-]\s*|\s+)/i, "")
+    .trim();
+
+const extractOptionLetter = (value) => {
+  const plain = stripHtml(String(value ?? "")).trim().toUpperCase();
+  if (!plain) return "";
+
+  if (/^[A-H]$/.test(plain)) return plain;
+
+  const startMatch = plain.match(/^([A-H])(?:\s*[).:-]|\s|$)/);
+  return startMatch?.[1] || "";
+};
+
+const getComparableOptionText = (value) =>
+  normalizeLooseText(stripOptionPrefix(stripHtml(String(value ?? ""))));
+
+const optionMatchesValue = ({ optionLetter, optionText, optionValue }, answerValue) => {
+  if (!hasAnswerValue(answerValue)) return false;
+
+  const normalizedOptionText = getComparableOptionText(optionText);
+  const normalizedOptionValue = getComparableOptionText(optionValue);
+  const answerParts = Array.isArray(answerValue) ? answerValue : [answerValue];
+
+  return answerParts.some((part) => {
+    const asText = String(part ?? "");
+    const partLetter = extractOptionLetter(asText);
+    if (partLetter && partLetter === optionLetter) return true;
+
+    const normalizedRaw = normalizeText(stripHtml(asText));
+    const normalizedComparable = getComparableOptionText(asText);
+    const normalizedLooseRaw = normalizeLooseText(stripHtml(asText));
+    const optionLooseText = normalizeLooseText(stripHtml(optionText));
+    const optionLooseValue = normalizeLooseText(stripHtml(optionValue));
+
+    return (
+      (normalizedRaw &&
+        (normalizedRaw === normalizeText(stripHtml(optionText)) ||
+          normalizedRaw === normalizeText(stripHtml(optionValue)))) ||
+      (normalizedLooseRaw &&
+        (normalizedLooseRaw === optionLooseText ||
+          normalizedLooseRaw === optionLooseValue)) ||
+      (normalizedComparable &&
+        (normalizedComparable === normalizedOptionText ||
+          normalizedComparable === normalizedOptionValue))
+    );
+  });
+};
+
+const getShortAnswerDisplay = (value) => {
+  if (!hasAnswerValue(value)) return "No answer";
+  const text = stripHtml(String(value ?? "")).trim();
+  const letter = extractOptionLetter(text);
+  return letter || stripOptionPrefix(text) || text;
 };
 
 function Feedback({ detail, answerValue = "" }) {
@@ -633,31 +696,45 @@ export default function ReadingStudentStyleReview({ test, submission, details })
                 const optText = typeof opt === "object" ? opt.text || opt.label || "" : opt;
                 const optValue = typeof opt === "object" ? opt.id || opt.label || optText : opt;
                 const selectedValue = extractInlineAnswer(answers, key, detail);
-                const isSelected = normalizeText(selectedValue) === normalizeText(optValue);
-                const expectedRaw = detail?.expected;
-                const expectedLabel = detail?.expectedLabel;
-                const isExpected =
-                  normalizeText(expectedRaw) === normalizeText(optValue) ||
-                  normalizeText(expectedRaw) === normalizeText(optText) ||
-                  normalizeText(expectedLabel) === normalizeText(optText) ||
-                  normalizeText(expectedLabel) === normalizeText(optValue);
+                const expectedValue =
+                  detail?.expectedLabel ?? detail?.expected ?? question.correctAnswer ?? "";
+                const optionLetter = String.fromCharCode(65 + oi);
+                const optionMatcherInput = {
+                  optionLetter,
+                  optionText: optText,
+                  optionValue: optValue,
+                };
+                const isSelected = optionMatchesValue(optionMatcherInput, selectedValue);
+                const isExpected = optionMatchesValue(optionMatcherInput, expectedValue);
+                const isWrongSelected = isSelected && !isExpected;
 
                 return (
                   <label
                     key={oi}
-                    className={`option-label ${isSelected ? "selected" : ""}`}
-                    style={{
-                      borderColor: isExpected ? "#22c55e" : undefined,
-                      boxShadow: isExpected ? "0 0 0 1px rgba(34, 197, 94, 0.25)" : undefined,
-                      backgroundColor: isSelected && !detail?.isCorrect ? "#fef2f2" : undefined,
-                    }}
+                    className={`option-label ${isSelected ? "selected" : ""} ${isExpected ? "correct" : ""} ${isWrongSelected ? "wrong" : ""}`}
                   >
                     <input type="radio" className="option-input" checked={isSelected} readOnly />
-                    <span className="option-letter">{String.fromCharCode(65 + oi)}</span>
-                    <span className="option-text" dangerouslySetInnerHTML={{ __html: optText }} />
+                    <span className="option-letter">{optionLetter}</span>
+                    <span className="option-text-wrap">
+                      <span className="option-text" dangerouslySetInnerHTML={{ __html: optText }} />
+                      <span className="option-tags" aria-hidden="true">
+                        {isSelected && (
+                          <span className={`option-tag ${isExpected ? "selected-correct" : "selected-wrong"}`}>
+                            Your answer
+                          </span>
+                        )}
+                        {!isSelected && isExpected && <span className="option-tag correct-answer">Correct answer</span>}
+                      </span>
+                    </span>
                   </label>
                 );
               })}
+              {!detail?.isCorrect && (
+                <div className="mc-answer-summary">
+                  <span className="mc-answer-chip wrong">Your answer: {getShortAnswerDisplay(extractInlineAnswer(answers, key, detail))}</span>
+                  <span className="mc-answer-chip correct">Correct answer: {getShortAnswerDisplay(detail?.expectedLabel ?? detail?.expected ?? question.correctAnswer ?? "")}</span>
+                </div>
+              )}
             </div>
           )}
 
