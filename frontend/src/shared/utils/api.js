@@ -444,7 +444,8 @@ async function refreshAccessToken(options = {}) {
 /**
  * authFetch - wrapper that adds Authorization header and tries to refresh access token once when 401 occurs
  */
-async function authFetch(url, opts = {}) {
+async function authFetch(url, opts = {}, authOpts = {}) {
+  const { logoutOnRefreshFailure = true } = authOpts;
   const mergedOpts = { ...opts };
   mergedOpts.headers = { ...(mergedOpts.headers || {}), ...getAuthHeaders() };
 
@@ -452,7 +453,9 @@ async function authFetch(url, opts = {}) {
   if (res.status !== 401) return res;
 
   // Try refresh once
-  const refreshed = await refreshAccessToken();
+  const refreshed = await refreshAccessToken({
+    logoutOnFailure: logoutOnRefreshFailure,
+  });
   if (!refreshed) return res;
 
   // Retry with new token

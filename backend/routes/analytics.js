@@ -1,6 +1,6 @@
 const express = require("express");
-const { requireAuth } = require("../middlewares/auth");
 const AnalyticsEvent = require("../models/AnalyticsEvent");
+const { verifyAccessToken } = require("../utils/tokens");
 
 const router = express.Router();
 
@@ -17,7 +17,25 @@ const normalizeSessionId = (value = "") => {
   return normalized ? normalized.slice(0, 80) : null;
 };
 
-router.post("/events", requireAuth, async (req, res) => {
+const resolveOptionalUser = (req) => {
+  const header = String(req.headers?.authorization || "").trim();
+  if (!header) return null;
+
+  const [type, token] = header.split(" ");
+  if (String(type).toLowerCase() !== "bearer" || !token) return null;
+
+  try {
+    const payload = verifyAccessToken(token);
+    return {
+      id: payload?.sub,
+      role: payload?.role,
+    };
+  } catch {
+    return null;
+  }
+};
+
+router.post("/events", async (req, res) => {
   try {
     const eventType = String(req.body?.eventType || "").trim().toLowerCase();
     if (!VALID_EVENT_TYPES.has(eventType)) {
@@ -28,11 +46,12 @@ router.post("/events", requireAuth, async (req, res) => {
 
     const pagePath = normalizePagePath(req.body?.pagePath);
     const sessionId = normalizeSessionId(req.body?.sessionId);
+    const user = resolveOptionalUser(req);
 
-    const userId = Number(req.user?.id);
+    const userId = Number(user?.id);
     await AnalyticsEvent.create({
       userId: Number.isFinite(userId) && userId > 0 ? userId : null,
-      role: String(req.user?.role || "").trim() || null,
+      role: String(user?.role || "").trim() || null,
       eventType,
       pagePath,
       sessionId,
