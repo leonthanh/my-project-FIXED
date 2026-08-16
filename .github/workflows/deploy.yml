@@ -226,33 +226,42 @@ jobs:
 
           ls -la backend-temp || true
       - name: Deploy Backend
+        if: needs.prepare.outputs.backend-hash != ''
         env:
           FTP_HOST: ftp.star-siec.edu.vn
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -euo pipefail
+          deploy_timeout=180
           for attempt in 1 2 3; do
-            if lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
+            echo "Backend deploy attempt $attempt/3"
+            if timeout "$deploy_timeout" lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
           set cmd:fail-exit true
-          set net:max-retries 5
-          set net:timeout 40
-          set net:reconnect-interval-base 5
-          set net:reconnect-interval-max 30
+          set net:max-retries 1
+          set net:timeout 20
+          set net:reconnect-interval-base 3
+          set net:reconnect-interval-max 8
+          set net:persist-retries 0
           set ftp:passive-mode true
           set ssl:verify-certificate no
-          cd /ix.star-siec.edu.vn
-          mkdir -f backend
-          cd backend
+          mkdir -p /ix.star-siec.edu.vn/backend/
           mirror -R --continue --delete --verbose=1 --parallel=1 \
             -x '(^|/)(node_modules|uploads)(/|$)' \
             -x '(^|/).*\.map$' \
             -x '(^|/).*\.md$' \
-            backend-temp/ ./
+            backend-temp/ /ix.star-siec.edu.vn/backend/
           bye
           LFTP_CMDS
             then
               break
+            fi
+
+            status=$?
+            if [ "$status" -eq 124 ]; then
+              echo "Backend deploy attempt $attempt timed out after ${deploy_timeout}s."
+            else
+              echo "Backend deploy attempt $attempt failed with exit code $status."
             fi
 
             if [ "$attempt" -eq 3 ]; then
