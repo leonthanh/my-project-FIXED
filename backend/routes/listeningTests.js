@@ -1439,7 +1439,6 @@ router.post('/:id/submit', async (req, res) => {
       band,
     });
   } catch (error) {
-    console.error('Error submitting listening test:', error);
     const statusCode = getClientErrorStatus(error);
     if (statusCode) {
       return res.status(statusCode).json({
@@ -1449,6 +1448,7 @@ router.post('/:id/submit', async (req, res) => {
         usedAttempts: error?.usedAttempts,
       });
     }
+    console.error('Error submitting listening test:', error);
     res.status(500).json({
       message: '❌ Lỗi khi nộp bài',
       error: error.message

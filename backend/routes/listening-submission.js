@@ -136,7 +136,6 @@ router.post('/', async (req, res) => {
       score: scorePercentage,
     });
   } catch (error) {
-    console.error('Error submitting listening test:', error);
     const statusCode = getClientErrorStatus(error);
     if (statusCode) {
       return res.status(statusCode).json({
@@ -146,6 +145,7 @@ router.post('/', async (req, res) => {
         usedAttempts: error?.usedAttempts,
       });
     }
+    console.error('Error submitting listening test:', error);
     res.status(500).json({
       message: '❌ Lỗi khi nộp bài',
       error: error.message
@@ -893,7 +893,6 @@ router.post('/:testId/autosave', async (req, res) => {
       timing: buildTimingPayload(created.expiresAt),
     });
   } catch (error) {
-    console.error('Error autosaving attempt:', error);
     const statusCode = getClientErrorStatus(error);
     if (statusCode) {
       return res.status(statusCode).json({
@@ -903,6 +902,7 @@ router.post('/:testId/autosave', async (req, res) => {
         usedAttempts: error?.usedAttempts,
       });
     }
+    console.error('Error autosaving attempt:', error);
     res.status(500).json({ message: '❌ Lỗi khi autosave', error: error.message });
   }
 });
