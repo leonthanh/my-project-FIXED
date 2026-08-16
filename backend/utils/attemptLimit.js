@@ -13,7 +13,15 @@ const FINALIZED_READING_WHERE = {
 };
 
 const FINALIZED_LISTENING_WHERE = {
-  [Op.or]: [{ finished: true }, { finished: null }],
+  [Op.and]: [
+    {
+      [Op.or]: [{ finished: true }, { finished: null }],
+    },
+    {
+      // Ignore draft/cleanup rows that were never really submitted.
+      total: { [Op.gt]: 0 },
+    },
+  ],
 };
 
 const FINALIZED_CAMBRIDGE_WHERE = {
