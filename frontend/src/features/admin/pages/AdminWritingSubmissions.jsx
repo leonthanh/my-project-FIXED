@@ -122,7 +122,7 @@ const AdminWritingSubmissions = () => {
 
     const fetchSubmissions = async () => {
       try {
-        const res = await fetch(apiPath("writing/list?includeDrafts=1"), {
+        const res = await authFetch(apiPath("writing/list?includeDrafts=1"), {
           signal: controller.signal,
         });
         const items = await res.json();

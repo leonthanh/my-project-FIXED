@@ -225,7 +225,7 @@ const Review = () => {
     const fetchUnreviewedWriting = async () => {
       setLoadingWriting(true);
       try {
-        const res = await fetch(apiPath("writing/list"));
+        const res = await authFetch(apiPath("writing/list"));
         const all = await res.json();
         const filtered = Array.isArray(all) ? all : [];
 
@@ -255,7 +255,7 @@ const Review = () => {
     const fetchUnreviewedReading = async () => {
       setLoadingReading(true);
       try {
-        const res = await fetch(apiPath("reading-submissions/admin/list"));
+        const res = await authFetch(apiPath("reading-submissions/admin/list"));
         if (!res.ok) {
           throw new Error("Could not load Reading submissions.");
         }
@@ -274,7 +274,7 @@ const Review = () => {
     const fetchUnreviewedListening = async () => {
       setLoadingListening(true);
       try {
-        const res = await fetch(apiPath("listening-submissions/admin/list"));
+        const res = await authFetch(apiPath("listening-submissions/admin/list"));
         if (!res.ok) {
           throw new Error("Could not load Listening submissions.");
         }
@@ -298,7 +298,7 @@ const Review = () => {
             `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1`
           );
 
-        const firstRes = await fetch(buildUrl(1));
+        const firstRes = await authFetch(buildUrl(1));
         if (!firstRes.ok) {
           throw new Error("Could not load Orange submissions.");
         }
@@ -319,7 +319,7 @@ const Review = () => {
             ? await Promise.all(
                 Array.from({ length: totalPages - 1 }, (_, index) => index + 2).map(
                   async (page) => {
-                    const res = await fetch(buildUrl(page));
+                    const res = await authFetch(buildUrl(page));
                     if (!res.ok) {
                       throw new Error("Could not load Orange submissions.");
                     }
@@ -364,7 +364,7 @@ const Review = () => {
             `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1&platform=fce`
           );
 
-        const firstRes = await fetch(buildUrl(1));
+        const firstRes = await authFetch(buildUrl(1));
         if (!firstRes.ok) {
           throw new Error("Could not load General submissions.");
         }
@@ -385,7 +385,7 @@ const Review = () => {
             ? await Promise.all(
                 Array.from({ length: totalPages - 1 }, (_, index) => index + 2).map(
                   async (page) => {
-                    const res = await fetch(buildUrl(page));
+                    const res = await authFetch(buildUrl(page));
                     if (!res.ok) {
                       throw new Error("Could not load General submissions.");
                     }

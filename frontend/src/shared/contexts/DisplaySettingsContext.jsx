@@ -54,7 +54,7 @@ const DisplaySettingsContext = createContext({
 });
 
 const fetchDisplayLabels = async (signal) => {
-  const res = await fetch(apiPath("settings/display-labels"), { signal });
+  const res = await authFetch(apiPath("settings/display-labels"), { signal });
   const payload = await res.json().catch(() => null);
 
   if (!res.ok) {

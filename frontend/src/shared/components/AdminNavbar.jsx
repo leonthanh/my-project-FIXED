@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiPath, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
+import { apiPath, authFetch, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
 import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
@@ -389,7 +389,7 @@ const AdminNavbar = () => {
 
   useEffect(() => {
     const readJsonOrThrow = async (path) => {
-      const res = await fetch(apiPath(path));
+      const res = await authFetch(apiPath(path));
       if (!res.ok) {
         throw new Error(`Request failed for ${path}`);
       }

@@ -150,7 +150,7 @@ const AdminListeningSubmissions = () => {
     const fetchSubs = async () => {
       setLoading(true);
       try {
-        const res = await fetch(apiPath("listening-submissions/admin/list"), {
+        const res = await authFetch(apiPath("listening-submissions/admin/list"), {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error("Fetch failed");
@@ -222,7 +222,7 @@ const AdminListeningSubmissions = () => {
                 if (controller.signal.aborted) return;
 
                 // Prefer the authoritative submission endpoint which returns submission + test + generated details
-                const subRes = await fetch(apiPath(`listening-submissions/${s.id}`), {
+                const subRes = await authFetch(apiPath(`listening-submissions/${s.id}`), {
                   signal: controller.signal,
                 });
                 if (!subRes.ok) return null;

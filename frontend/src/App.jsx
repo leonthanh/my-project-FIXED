@@ -66,6 +66,8 @@ function AuthenticatedAnalyticsTracker({ isAuthenticated }) {
             referrer,
           }),
           keepalive: true,
+        }, {
+          logoutOnRefreshFailure: false,
         });
       } catch {
         // Fire-and-forget: analytics failures should not affect UX.
