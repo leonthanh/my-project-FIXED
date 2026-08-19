@@ -190,6 +190,12 @@ jobs:
         if: needs.prepare.outputs.backend-hash != ''
         run: |
           set -e
+          # Rate-limit tuning for production peaks (3 campuses). Allow secret override,
+          # otherwise use safe defaults to reduce 429 during weekend rush.
+          api_rate_limit_max="2400"
+          api_runtime_sync_rate_limit_max="7200"
+          api_rate_limit_window_ms="60000"
+
           # Build .env from GitHub Secrets (never use committed env files)
           echo "NODE_ENV=production" > backend-temp/.env
           echo "PORT=5000" >> backend-temp/.env
@@ -211,6 +217,11 @@ jobs:
           echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env
           echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> backend-temp/.env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> backend-temp/.env
+          echo "API_RATE_LIMIT_MAX=$api_rate_limit_max" >> backend-temp/.env
+          echo "API_RUNTIME_SYNC_RATE_LIMIT_MAX=$api_runtime_sync_rate_limit_max" >> backend-temp/.env
+          echo "API_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms" >> backend-temp/.env
+          echo "API_RUNTIME_SYNC_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms" >> backend-temp/.env
+          echo "✅ Rate-limit config: API_RATE_LIMIT_MAX=$api_rate_limit_max, API_RUNTIME_SYNC_RATE_LIMIT_MAX=$api_runtime_sync_rate_limit_max, API_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms"
           echo "✅ .env built from GitHub Secrets"
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
