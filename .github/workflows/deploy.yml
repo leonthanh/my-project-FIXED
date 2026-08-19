@@ -34,34 +34,57 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      frontend-hash: ${{ steps.hash.outputs.frontend }}
-      backend-hash: ${{ steps.hash.outputs.backend }}
+      frontend-changed: ${{ steps.detect.outputs.frontend_changed }}
+      backend-changed: ${{ steps.detect.outputs.backend_changed }}
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 1
-      - name: Compute changed tree hashes
-        id: hash
+          fetch-depth: 0
+      - name: Detect deploy targets
+        id: detect
         run: |
-          if [ -d frontend ]; then
-            frontend_hash=$(git rev-list --objects HEAD -- frontend | git hash-object --stdin 2>/dev/null || echo "")
-            echo "frontend=$frontend_hash" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          frontend_changed=false
+          backend_changed=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            frontend_changed=true
+            backend_changed=true
+            echo "Manual dispatch: deploy both backend and frontend."
           else
-            echo "frontend=" >> $GITHUB_OUTPUT
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+
+            if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+                base="$(git rev-parse HEAD^)"
+              else
+                frontend_changed=true
+                backend_changed=true
+                echo "Unable to resolve previous commit, deploy both targets for safety."
+              fi
+            fi
+
+            if [ "$frontend_changed" = false ] || [ "$backend_changed" = false ]; then
+              changed_files="$(git diff --name-only "$base" "$head" || true)"
+              echo "Changed files:"
+              echo "$changed_files"
+
+              if echo "$changed_files" | grep -Eq '^(frontend/|\.github/workflows/deploy\.yml$)'; then
+                frontend_changed=true
+              fi
+
+              if echo "$changed_files" | grep -Eq '^(backend/|utils/|\.github/workflows/deploy\.yml$)'; then
+                backend_changed=true
+              fi
+            fi
           fi
-          if [ -d backend ]; then
-            backend_hash=$(git rev-list --objects HEAD -- backend | git hash-object --stdin 2>/dev/null || echo "")
-          else
-            backend_hash=""
-          fi
-          # Include utils dir changes so deploy triggers when utils/ changes
-          if [ -d utils ]; then
-            utils_hash=$(git rev-list --objects HEAD -- utils | git hash-object --stdin 2>/dev/null || echo "")
-            backend_hash="${backend_hash}${utils_hash}"
-          fi
-          echo "backend=$backend_hash" >> $GITHUB_OUTPUT
+
+          echo "frontend_changed=$frontend_changed" >> "$GITHUB_OUTPUT"
+          echo "backend_changed=$backend_changed" >> "$GITHUB_OUTPUT"
+          echo "Detected targets -> frontend=$frontend_changed backend=$backend_changed"
       - name: Create frontend artifact
-        if: steps.hash.outputs.frontend != ''
+        if: steps.detect.outputs.frontend_changed == 'true'
         run: |
           set -e
           cd frontend
@@ -69,7 +92,7 @@ jobs:
             package.json package-lock.json index.html public src \
             vite.config.mjs postcss.config.js tailwind.config.js || true
       - name: Create backend artifact
-        if: steps.hash.outputs.backend != ''
+        if: steps.detect.outputs.backend_changed == 'true'
         run: |
           set -e
           cd backend
@@ -78,6 +101,7 @@ jobs:
             server.js db.js logger.js routes models middlewares modules scripts package.json package-lock.json \
             utils ../utils || true
       - name: Upload artifacts
+        if: steps.detect.outputs.frontend_changed == 'true' || steps.detect.outputs.backend_changed == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: deploy-artifacts
@@ -91,26 +115,33 @@ jobs:
       - backend
     runs-on: ubuntu-latest
     steps:
+      - name: Skip frontend deploy (no frontend changes)
+        if: needs.prepare.outputs.frontend-changed != 'true'
+        run: echo "No frontend changes detected. Skipping frontend deploy."
       - name: Download artifacts
+        if: needs.prepare.outputs.frontend-changed == 'true'
         uses: actions/download-artifact@v8
         with:
           name: deploy-artifacts
           path: .
       - name: Unpack frontend
-        if: needs.prepare.outputs.frontend-hash != ''
+        if: needs.prepare.outputs.frontend-changed == 'true'
         run: |
           unzip -o frontend-artifact.zip -d frontend || true
       - name: Setup Node.js
+        if: needs.prepare.outputs.frontend-changed == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "20.x"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - name: Install lftp
+        if: needs.prepare.outputs.frontend-changed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y lftp
       - name: Install & Build Frontend
+        if: needs.prepare.outputs.frontend-changed == 'true'
         run: |
           cd frontend
           echo "VITE_API_URL=${{ env.REACT_APP_API_URL }}" > .env.production
@@ -126,6 +157,7 @@ jobs:
           CI: false
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Deploy Frontend
+        if: needs.prepare.outputs.frontend-changed == 'true'
         env:
           FTP_HOST: ftp.star-siec.edu.vn
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -169,27 +201,39 @@ jobs:
       - prepare
     runs-on: ubuntu-latest
     steps:
+      - name: Skip backend deploy (no backend changes)
+        if: needs.prepare.outputs.backend-changed != 'true'
+        run: echo "No backend changes detected. Skipping backend deploy."
       - name: Download artifacts
+        if: needs.prepare.outputs.backend-changed == 'true'
         uses: actions/download-artifact@v8
         with:
           name: deploy-artifacts
           path: .
       - name: Unpack backend
-        if: needs.prepare.outputs.backend-hash != ''
+        if: needs.prepare.outputs.backend-changed == 'true'
         run: |
           unzip -o backend-artifact.zip -d backend-temp || true
       - name: Setup Node.js
+        if: needs.prepare.outputs.backend-changed == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "20.x"
       - name: Install lftp
+        if: needs.prepare.outputs.backend-changed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y lftp
       - name: Prepare backend package
-        if: needs.prepare.outputs.backend-hash != ''
+        if: needs.prepare.outputs.backend-changed == 'true'
         run: |
           set -e
+          # Rate-limit tuning for production peaks (3 campuses). Allow secret override,
+          # otherwise use safe defaults to reduce 429 during weekend rush.
+          api_rate_limit_max="2400"
+          api_runtime_sync_rate_limit_max="7200"
+          api_rate_limit_window_ms="60000"
+
           # Build .env from GitHub Secrets (never use committed env files)
           echo "NODE_ENV=production" > backend-temp/.env
           echo "PORT=5000" >> backend-temp/.env
@@ -211,6 +255,11 @@ jobs:
           echo "JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}" >> backend-temp/.env
           echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> backend-temp/.env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> backend-temp/.env
+          echo "API_RATE_LIMIT_MAX=$api_rate_limit_max" >> backend-temp/.env
+          echo "API_RUNTIME_SYNC_RATE_LIMIT_MAX=$api_runtime_sync_rate_limit_max" >> backend-temp/.env
+          echo "API_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms" >> backend-temp/.env
+          echo "API_RUNTIME_SYNC_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms" >> backend-temp/.env
+          echo "✅ Rate-limit config: API_RATE_LIMIT_MAX=$api_rate_limit_max, API_RUNTIME_SYNC_RATE_LIMIT_MAX=$api_runtime_sync_rate_limit_max, API_RATE_LIMIT_WINDOW_MS=$api_rate_limit_window_ms"
           echo "✅ .env built from GitHub Secrets"
 
           # Copy utils/ (if present at repo root) into package so modules like readingScorer are deployed
@@ -227,7 +276,7 @@ jobs:
 
           ls -la backend-temp || true
       - name: Deploy Backend
-        if: needs.prepare.outputs.backend-hash != ''
+        if: needs.prepare.outputs.backend-changed == 'true'
         env:
           FTP_HOST: ftp.star-siec.edu.vn
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -274,12 +323,14 @@ jobs:
             sleep 15
           done
       - name: Notify Manual Restart
+        if: needs.prepare.outputs.backend-changed == 'true'
         run: |
           echo "✅ Backend đã được deploy lên cPanel."
           echo "📌 Nếu backend vừa thêm package mới, vào cPanel → Setup Node.js App → chọn app → nhấn Run NPM Install trước."
           echo "📌 Sau đó nhấn Restart để khởi động lại server với dependencies mới nhất."
 
       - name: Post-deploy smoke check (non-blocking)
+        if: needs.prepare.outputs.backend-changed == 'true'
         run: |
           echo "⏱️ Running post-deploy smoke check (non-blocking) against /api/reading-tests"
           set +e
