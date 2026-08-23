@@ -29,7 +29,13 @@ const FINALIZED_CAMBRIDGE_WHERE = {
 };
 
 const FINALIZED_WRITING_WHERE = {
-  [Op.or]: [{ isDraft: false }, { isDraft: null }],
+  [Op.or]: [
+    { isDraft: false },
+    {
+      // Legacy rows may have isDraft=NULL; only count them if they were actually submitted.
+      [Op.and]: [{ isDraft: null }, { submittedAt: { [Op.not]: null } }],
+    },
+  ],
 };
 
 const createAttemptLimitError = ({ allowedAttempts, usedAttempts }) => {
