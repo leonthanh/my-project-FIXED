@@ -641,13 +641,6 @@ const shouldPreferGeneratedDetails = (storedDetails, generatedDetails, totalTarg
   });
 };
 
-const setEq = (a, b) => {
-  if (!(a instanceof Set) || !(b instanceof Set)) return false;
-  if (a.size !== b.size) return false;
-  for (const x of a) if (!b.has(x)) return false;
-  return true;
-};
-
 const idxToLetter = (idx) => {
   const n = Number(idx);
   if (!Number.isFinite(n) || n < 0) return "";
@@ -662,6 +655,21 @@ const formatChoiceList = (indices) => {
         .sort((a, b) => a - b)
     : [];
   return arr.map(idxToLetter).filter(Boolean).join(", ");
+};
+
+const toChoiceIndex = (value) => {
+  const token = String(value ?? "").trim();
+  if (!token) return null;
+  if (/^[A-Z]$/i.test(token)) return token.toUpperCase().charCodeAt(0) - 65;
+  const parsed = Number(token);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChoiceIndices = (value) => {
+  const source = Array.isArray(value) ? value : explodeChoiceList(value);
+  return source
+    .map((entry) => toChoiceIndex(entry))
+    .filter((entry) => entry != null);
 };
 
 const hasDetailAnswer = (detail) => {
@@ -845,45 +853,37 @@ const generateDetailsFromSections = (test, answers) => {
         let groupStart = sectionStart;
         let totalCount = 0;
         for (const q of sectionQuestions) {
-          const required = Number(q?.requiredAnswers) || 2;
+          const required = Math.max(1, Number(q?.requiredAnswers) || 2);
           const studentRaw = normalizedAnswers[`q${groupStart}`];
           const expectedRaw = q?.correctAnswer ?? q?.answers;
 
-          const studentIndicesArr = Array.isArray(studentRaw)
-            ? studentRaw.map((x) => Number(x)).filter((n) => Number.isFinite(n))
-            : explodeChoiceList(studentRaw)
-                .map((x) => {
-                  const t = String(x).trim();
-                  if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
-                  const n = Number(t);
-                  return Number.isFinite(n) ? n : null;
-                })
-                .filter((n) => n != null);
+          const studentIndices = Array.from(new Set(normalizeChoiceIndices(studentRaw))).slice(0, required);
+          const expectedIndices = Array.from(new Set(normalizeChoiceIndices(expectedRaw))).slice(0, required);
 
-          const expectedIndicesArr = explodeChoiceList(expectedRaw)
-            .map((x) => {
-              const t = String(x).trim();
-              if (/^[A-Z]$/i.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
-              const n = Number(t);
-              return Number.isFinite(n) ? n : null;
-            })
-            .filter((n) => n != null);
-
-          const ok = expectedIndicesArr.length
-            ? setEq(new Set(studentIndicesArr), new Set(expectedIndicesArr))
-            : false;
-
-          const studentDisplay = formatChoiceList(studentIndicesArr);
-          const expectedDisplay = formatChoiceList(expectedIndicesArr) || String(expectedRaw ?? "");
+          const studentDisplay = formatChoiceList(studentIndices);
+          const expectedDisplay =
+            formatChoiceList(expectedIndices) || String(expectedRaw ?? "");
 
           for (let i = 0; i < required; i++) {
+            const studentIndex = studentIndices[i];
+            const expectedIndex = expectedIndices[i];
+            const expectedLetter =
+              expectedIndex != null ? idxToLetter(expectedIndex) : "";
+            const studentLetter =
+              studentIndex != null ? idxToLetter(studentIndex) : "";
+            const ok = expectedIndex != null && studentIndices.includes(expectedIndex);
+
             details.push({
               questionNumber: groupStart + i,
               partIndex: pIdx,
               sectionIndex: sIdx,
               questionType: sectionType,
-              studentAnswer: studentDisplay || (Array.isArray(studentRaw) ? "" : String(studentRaw ?? "")),
-              correctAnswer: expectedDisplay,
+              studentAnswer:
+                studentLetter ||
+                (studentDisplay || (Array.isArray(studentRaw) ? "" : String(studentRaw ?? ""))),
+              correctAnswer: expectedLetter || expectedDisplay,
+              groupStudentAnswer: studentDisplay,
+              groupCorrectAnswer: expectedDisplay,
               isCorrect: ok,
             });
           }
