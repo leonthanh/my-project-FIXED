@@ -106,4 +106,49 @@ describe('generateDetailsFromSections', () => {
     expect(details.map((detail) => detail.isCorrect)).toEqual([true, true, false]);
     expect(details[0].correctAnswer).toBe('23/07/1970');
   });
+
+  test('awards per-slot credit for multi-select when student matches only part of the expected set', () => {
+    const testObj = {
+      partInstructions: [
+        {
+          sections: [
+            { sectionTitle: 'Questions 23-24', questionType: 'multi-select', startingQuestionNumber: 23 },
+          ],
+        },
+      ],
+      questions: [
+        {
+          partIndex: 0,
+          sectionIndex: 0,
+          questionIndex: 0,
+          questionType: 'multi-select',
+          questionText: 'Choose TWO letters, A-E.',
+          requiredAnswers: 2,
+          correctAnswer: 'B, E',
+        },
+      ],
+    };
+
+    const details = generateDetailsFromSections(testObj, {
+      q23: [0, 4], // Student chose A and E
+    });
+
+    expect(details).toHaveLength(2);
+
+    const q23 = details.find((detail) => detail.questionNumber === 23);
+    const q24 = details.find((detail) => detail.questionNumber === 24);
+
+    expect(q23).toBeDefined();
+    expect(q24).toBeDefined();
+
+    expect(q23.correctAnswer).toBe('B');
+    expect(q23.studentAnswer).toBe('A');
+    expect(q23.isCorrect).toBe(false);
+
+    expect(q24.correctAnswer).toBe('E');
+    expect(q24.studentAnswer).toBe('E');
+    expect(q24.isCorrect).toBe(true);
+
+    expect(details.filter((detail) => detail.isCorrect)).toHaveLength(1);
+  });
 });

@@ -169,4 +169,26 @@ describe('ListeningStudentStyleReview', () => {
     expect(screen.getAllByText('Original Audio').length).toBeGreaterThan(0);
     expect(container.querySelectorAll('audio[controls]').length).toBeGreaterThan(0);
   });
+
+  test('shows partial status for multi-select when student gets one option correct', () => {
+    const partialSubmission = {
+      ...reviewSubmission,
+      answers: {
+        ...reviewSubmission.answers,
+        q4: [0, 2], // Student chose A and C while expected is A and B
+      },
+    };
+
+    const details = generateDetailsFromSections(reviewTest, partialSubmission.answers);
+
+    render(
+      <ListeningStudentStyleReview
+        test={reviewTest}
+        submission={partialSubmission}
+        details={details}
+      />
+    );
+
+    expect(screen.getByText('Partial (1/2)')).toBeInTheDocument();
+  });
 });

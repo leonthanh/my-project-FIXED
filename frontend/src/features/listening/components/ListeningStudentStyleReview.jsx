@@ -275,6 +275,22 @@ const getStatusConfig = (detail, answerValue = "") => {
     };
   }
 
+  const partialCorrectCount = Number(detail?.partialCorrectCount);
+  const partialTotalCount = Number(detail?.partialTotalCount);
+  if (
+    Number.isFinite(partialCorrectCount) &&
+    Number.isFinite(partialTotalCount) &&
+    partialTotalCount > 0 &&
+    partialCorrectCount > 0 &&
+    partialCorrectCount < partialTotalCount
+  ) {
+    return {
+      label: `Partial (${partialCorrectCount}/${partialTotalCount})`,
+      style: { ...reviewStyles.statusChip, background: "#fef3c7", color: "#92400e" },
+      isCorrect: false,
+    };
+  }
+
   if (!hasAnswerValue(detail.studentAnswer ?? detail.student ?? detail.studentLabel)) {
     return {
       label: "Blank",
@@ -420,6 +436,32 @@ export default function ListeningStudentStyleReview({ test, submission, details 
       .filter((value) => value !== null);
   };
 
+  const parseChoiceIndices = (raw) => {
+    const parsedRaw = safeParseJson(raw);
+    if (Array.isArray(parsedRaw)) {
+      return parsedRaw
+        .map((part) => {
+          const token = String(part ?? "").trim();
+          if (!token) return null;
+          if (/^[A-Z]$/i.test(token)) return token.toUpperCase().charCodeAt(0) - 65;
+          const parsed = Number(token);
+          return Number.isFinite(parsed) ? parsed : null;
+        })
+        .filter((value) => value != null);
+    }
+
+    return String(parsedRaw || "")
+      .split(/[^0-9A-Za-z]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        if (/^[A-Z]$/i.test(part)) return part.toUpperCase().charCodeAt(0) - 65;
+        const parsed = Number(part);
+        return Number.isFinite(parsed) ? parsed : null;
+      })
+      .filter((value) => value != null);
+  };
+
   const getSectionType = (section, firstQuestion) => {
     return getListeningSectionType(section, firstQuestion);
   };
@@ -465,13 +507,44 @@ export default function ListeningStudentStyleReview({ test, submission, details 
 
   const renderMultipleChoiceMany = (question, startNumber, count = 2) => {
     const options = question.options || [];
-    const selectedAnswers = parseSelectedMultiAnswers(startNumber);
+    const selectedAnswers = Array.from(new Set(parseSelectedMultiAnswers(startNumber))).slice(
+      0,
+      count
+    );
     const endNumber = startNumber + count - 1;
-    const detail = detailMap.get(startNumber);
-    const expectedLetters = String(detail?.correctAnswer || "")
-      .split(",")
-      .map((value) => value.trim().toUpperCase())
+    const slotDetails = Array.from({ length: count }, (_, idx) =>
+      detailMap.get(startNumber + idx)
+    ).filter(Boolean);
+
+    const expectedIndices = Array.from(
+      new Set(parseChoiceIndices(question?.correctAnswer ?? question?.answers))
+    ).slice(0, count);
+    const expectedLetters = expectedIndices
+      .map((value) => String.fromCharCode(65 + value))
       .filter(Boolean);
+    const expectedDisplay = expectedLetters.join(", ");
+
+    const correctSlotCountFromDetails = slotDetails.filter((detail) => detail?.isCorrect).length;
+    const correctSlotCountFromSelection = expectedIndices.filter((idx) =>
+      selectedAnswers.includes(idx)
+    ).length;
+    const correctSlotCount = slotDetails.length
+      ? correctSlotCountFromDetails
+      : correctSlotCountFromSelection;
+    const isFullyCorrect = count > 0 && correctSlotCount === count;
+
+    const feedbackDetail = {
+      ...(slotDetails[0] || {}),
+      isCorrect: isFullyCorrect,
+      partialCorrectCount: correctSlotCount,
+      partialTotalCount: count,
+      studentAnswer: selectedAnswers
+        .map((value) => String.fromCharCode(65 + value))
+        .filter(Boolean)
+        .join(", "),
+      correctAnswer:
+        expectedDisplay || String(slotDetails[0]?.groupCorrectAnswer || slotDetails[0]?.correctAnswer || ""),
+    };
 
     return (
       <div key={startNumber} style={styles.multiSelectContainer}>
@@ -504,7 +577,7 @@ export default function ListeningStudentStyleReview({ test, submission, details 
             );
           })}
         </div>
-        <Feedback detail={detail} answerValue={selectedAnswers} />
+        <Feedback detail={feedbackDetail} answerValue={selectedAnswers} />
       </div>
     );
   };
