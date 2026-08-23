@@ -7,7 +7,9 @@
     "start": "cross-env NODE_ENV=production node server.js",
     "test": "jest --runInBand",
     "migrate:add-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js",
-    "migrate:rollback-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js --down"
+    "migrate:rollback-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js --down",
+    "backfill:writing-isdraft-null": "node scripts/backfill-writing-isdraft-null.js --dry-run",
+    "backfill:writing-isdraft-null:apply": "node scripts/backfill-writing-isdraft-null.js --apply"
   },
   "keywords": [],
   "author": "",
