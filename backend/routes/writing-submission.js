@@ -35,6 +35,22 @@ async function resolveSubmissionUser(userPayload) {
 
 const normalizeLower = (value) => String(value || '').trim().toLowerCase();
 
+const ACTIVE_WRITING_DRAFT_WHERE = {
+  [Op.or]: [
+    { isDraft: true },
+    {
+      // Legacy draft rows could be NULL before isDraft was enforced.
+      [Op.and]: [{ isDraft: null }, { submittedAt: null }],
+    },
+  ],
+};
+
+const isActiveDraftSubmissionRecord = (submission) => {
+  if (!submission) return false;
+  if (submission.isDraft === true) return true;
+  return submission.isDraft === null && !submission.submittedAt;
+};
+
 const resolvePlacementWritingRuntimeContext = async ({
   placementAttemptItemToken,
   testId,
@@ -154,7 +170,7 @@ router.post('/draft/autosave', async (req, res) => {
       const placementUserPhone = attempt?.studentPhone || userPhone;
 
       if (submission) {
-        if (!submission.isDraft) {
+        if (!isActiveDraftSubmissionRecord(submission)) {
           return res.status(400).json({ message: 'Submission is already finished.' });
         }
 
@@ -237,7 +253,11 @@ router.post('/draft/autosave', async (req, res) => {
     }
 
     const existingDraft = await Submission.findOne({
-      where: { testId: numericTestId, userId, isDraft: true },
+      where: {
+        testId: numericTestId,
+        userId,
+        ...ACTIVE_WRITING_DRAFT_WHERE,
+      },
       order: [['updatedAt', 'DESC']],
     });
 
@@ -250,6 +270,8 @@ router.post('/draft/autosave', async (req, res) => {
         : (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : existingDraft.timeLeft);
       existingDraft.userName = userName;
       existingDraft.userPhone = userPhone;
+      existingDraft.isDraft = true;
+      existingDraft.submittedAt = null;
       existingDraft.draftSavedAt = now;
       existingDraft.draftEndAt = authoritativeEndAt;
       existingDraft.draftStarted = Boolean(started);
@@ -331,7 +353,7 @@ router.get('/draft/active', async (req, res) => {
         testType: runtimeContext.testType,
       });
 
-      const draft = submission && submission.isDraft ? submission : null;
+      const draft = isActiveDraftSubmissionRecord(submission) ? submission : null;
 
       return res.json({
         submission: draft ? draft.toJSON() : null,
@@ -343,7 +365,7 @@ router.get('/draft/active', async (req, res) => {
       return res.status(400).json({ message: 'Invalid userId.' });
     }
 
-    const where = { userId: numericUserId, isDraft: true };
+    const where = { userId: numericUserId, ...ACTIVE_WRITING_DRAFT_WHERE };
     if (Number.isFinite(numericTestId) && numericTestId > 0) {
       where.testId = numericTestId;
     }
@@ -409,7 +431,7 @@ router.post('/draft/clear', async (req, res) => {
       return res.status(400).json({ message: 'Invalid user id.' });
     }
 
-    const where = { userId: numericUserId, isDraft: true };
+    const where = { userId: numericUserId, ...ACTIVE_WRITING_DRAFT_WHERE };
     if (Number.isFinite(numericTestId) && numericTestId > 0) {
       where.testId = numericTestId;
     }
@@ -464,7 +486,7 @@ router.post('/submit', async (req, res) => {
       const placementUserPhone = attempt?.studentPhone || userPhone;
 
       if (runtimeSubmission) {
-        if (!runtimeSubmission.isDraft) {
+        if (!isActiveDraftSubmissionRecord(runtimeSubmission)) {
           return res.status(400).json({ message: 'Submission is already finished.' });
         }
 
@@ -505,7 +527,11 @@ router.post('/submit', async (req, res) => {
 
     if (!placementAttemptItemToken && userId) {
       const existingDraft = await Submission.findOne({
-        where: { testId: numericTestId, userId, isDraft: true },
+        where: {
+          testId: numericTestId,
+          userId,
+          ...ACTIVE_WRITING_DRAFT_WHERE,
+        },
         order: [['updatedAt', 'DESC']],
       });
 
