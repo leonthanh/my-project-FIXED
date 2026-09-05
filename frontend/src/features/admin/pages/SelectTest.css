@@ -2438,6 +2438,11 @@ body.dark-mode .select-test-search::placeholder {
     padding: 22px 12px 24px;
   }
 
+  .select-test-shell,
+  .select-test-main {
+    gap: 14px;
+  }
+
   .select-test-sidebarCard {
     border-radius: 24px;
   }
@@ -2455,7 +2460,36 @@ body.dark-mode .select-test-search::placeholder {
   .select-test-selectorBlock,
   .select-test-spotlightCard,
   .select-test-resultsSection {
-    padding: 18px;
+    padding: 16px;
+  }
+
+  .select-test-toolbar,
+  .select-test-sidebarCard,
+  .select-test-sidebarPanel,
+  .select-test-placementStrip {
+    padding: 13px;
+  }
+
+  .select-test-toolbar .select-test-tab {
+    min-height: 60px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    gap: 11px;
+  }
+
+  .select-test-toolbar .select-test-tabLabel {
+    font-size: 1.15rem;
+  }
+
+  .select-test-toolbar .select-test-platformIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .select-test-toolbar .select-test-platformCount {
+    min-width: 32px;
+    height: 32px;
+    font-size: 0.76rem;
   }
 
   .select-test-tabs,
@@ -2470,8 +2504,96 @@ body.dark-mode .select-test-search::placeholder {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .select-test-tab,
+  .select-test-subtab,
+  .cambridge-type-btn,
+  .cambridge-tab,
+  .select-test-control,
+  .select-test-feedback,
+  .select-test-cardMain {
+    padding: 12px;
+    border-radius: 17px;
+    gap: 10px;
+  }
+
+  .select-test-tabLabel {
+    font-size: 0.9rem;
+  }
+
+  .cambridge-type-btn .select-test-tabLabel {
+    font-size: 0.94rem;
+  }
+
+  .select-test-tabMeta,
+  .select-test-skillHint,
+  .select-test-controlLabel,
+  .select-test-feedbackMeta,
+  .select-test-heroText,
+  .select-test-selectorText,
+  .select-test-resultsText,
+  .select-test-spotlightText,
+  .select-test-heroPanelText,
+  .select-test-cardFootnote,
+  .select-test-empty,
+  .select-test-loading,
+  .select-test-spotlightHint,
+  .select-test-infoText {
+    font-size: 0.8rem;
+  }
+
+  .select-test-platformIcon,
+  .select-test-skillIcon,
+  .select-test-controlIcon,
+  .select-test-feedbackIcon,
+  .select-test-stateIcon,
+  .select-test-sidePlatformIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .select-test-platformCount,
+  .select-test-subtab-count,
+  .cambridge-tab__badge,
+  .select-test-cardNum,
+  .select-test-sidePlatformCount {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
   .select-test-pillRow {
     gap: 8px;
+  }
+
+  .select-test-pillButton {
+    min-height: 34px;
+    padding: 0 9px;
+    gap: 7px;
+  }
+
+  .select-test-pillLabel {
+    font-size: 0.76rem;
+  }
+
+  .select-test-pillCount {
+    min-width: 22px;
+    height: 20px;
+    font-size: 0.64rem;
+  }
+
+  .select-test-sidePlatform {
+    padding: 10px 11px;
+    border-radius: 14px;
+  }
+
+  .select-test-sidePlatformLabel {
+    font-size: 0.86rem;
+  }
+
+  .select-test-sidePlatformHint {
+    font-size: 0.68rem;
   }
 
   .select-test-resultsIntro,
@@ -2505,6 +2627,19 @@ body.dark-mode .select-test-search::placeholder {
   .select-test-cardActions {
     grid-template-columns: 1fr;
   }
+
+  .select-test-cardText {
+    font-size: 0.92rem;
+  }
+
+  .select-test-edit,
+  .select-test-create,
+  .select-test-loadMore,
+  .select-test-placementAction,
+  .select-test-placementToggle {
+    min-height: 38px;
+    font-size: 0.82rem;
+  }
 }
 
 @media (max-width: 520px) {
@@ -2518,12 +2653,12 @@ body.dark-mode .select-test-search::placeholder {
   }
 
   .select-test-heroTitle {
-    font-size: 1.9rem;
+    font-size: 1.7rem;
   }
 
   .select-test-spotlightTitle,
   .select-test-resultsTitle {
-    font-size: 1.55rem;
+    font-size: 1.38rem;
   }
 
   .select-test-tab,
@@ -2533,22 +2668,22 @@ body.dark-mode .select-test-search::placeholder {
   .select-test-control,
   .select-test-feedback,
   .select-test-cardMain {
-    padding: 14px;
-    border-radius: 20px;
+    padding: 12px;
+    border-radius: 18px;
   }
 
   .select-test-toolbar {
-    padding: 14px;
+    padding: 12px;
   }
 
   .select-test-sidebarCard,
   .select-test-sidebarPanel,
   .select-test-placementStrip {
-    padding: 14px;
+    padding: 12px;
   }
 
   .select-test-toolbarTitle {
-    font-size: 1.25rem;
+    font-size: 1.12rem;
   }
 
   .select-test-platformIcon,
@@ -2556,9 +2691,9 @@ body.dark-mode .select-test-search::placeholder {
   .select-test-controlIcon,
   .select-test-feedbackIcon,
   .select-test-stateIcon {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
   }
 
   .cambridge-type-list,
@@ -2572,7 +2707,7 @@ body.dark-mode .select-test-search::placeholder {
   }
 
   .select-test-sidePlatform {
-    padding: 14px;
+    padding: 12px;
   }
 
   .select-test-placementStripActions {
@@ -2581,7 +2716,7 @@ body.dark-mode .select-test-search::placeholder {
   }
 
   .select-test-cardActions {
-    padding: 0 14px 14px;
+    padding: 0 12px 12px;
   }
 
   .select-test-cardTitle {
@@ -2589,7 +2724,7 @@ body.dark-mode .select-test-search::placeholder {
   }
 
   .select-test-cardText {
-    font-size: 1.08rem;
+    font-size: 0.95rem;
   }
 
   .select-test-edit,
@@ -2598,5 +2733,216 @@ body.dark-mode .select-test-search::placeholder {
   .select-test-placementAction,
   .select-test-placementToggle {
     width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .select-test-page {
+    padding: 56px 8px 14px;
+  }
+
+  .select-test-shell,
+  .select-test-main {
+    gap: 12px;
+  }
+
+  .select-test-sidebarCard,
+  .select-test-sidebarPanel,
+  .select-test-placementStrip,
+  .select-test-hero,
+  .select-test-selectorBlock,
+  .select-test-spotlightCard,
+  .select-test-resultsSection,
+  .select-test-stateCard,
+  .select-test-emptyState,
+  .select-test-toolbar {
+    border-radius: 18px;
+  }
+
+  .select-test-hero,
+  .select-test-selectorBlock,
+  .select-test-spotlightCard,
+  .select-test-resultsSection,
+  .select-test-sidebarCard,
+  .select-test-sidebarPanel,
+  .select-test-placementStrip {
+    padding: 11px;
+  }
+
+  .select-test-sidebarTitle {
+    font-size: 1.25rem;
+  }
+
+  .select-test-sidebarEyebrow,
+  .select-test-toolbarEyebrow,
+  .select-test-platformEyebrow,
+  .select-test-resultsEyebrow,
+  .select-test-spotlightEyebrow,
+  .select-test-heroPanelEyebrow,
+  .select-test-placementEyebrow {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+  }
+
+  .select-test-toolbar .select-test-tab {
+    min-height: 52px;
+    padding: 10px 11px;
+    border-radius: 14px;
+    gap: 10px;
+  }
+
+  .select-test-toolbar .select-test-tabLabel {
+    font-size: 1.02rem;
+  }
+
+  .select-test-toolbar .select-test-platformIcon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .select-test-toolbar .select-test-platformCount {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.74rem;
+  }
+
+  .select-test-tab,
+  .select-test-subtab,
+  .cambridge-type-btn,
+  .cambridge-tab,
+  .select-test-control,
+  .select-test-feedback,
+  .select-test-cardMain {
+    padding: 11px;
+    border-radius: 15px;
+    gap: 10px;
+  }
+
+  .select-test-tabLabel {
+    font-size: 0.86rem;
+  }
+
+  .cambridge-type-btn .select-test-tabLabel {
+    font-size: 0.92rem;
+  }
+
+  .select-test-tabMeta,
+  .select-test-skillHint,
+  .select-test-controlLabel,
+  .select-test-feedbackMeta,
+  .select-test-heroText,
+  .select-test-selectorText,
+  .select-test-resultsText,
+  .select-test-spotlightText,
+  .select-test-heroPanelText,
+  .select-test-cardFootnote,
+  .select-test-empty,
+  .select-test-loading,
+  .select-test-spotlightHint,
+  .select-test-infoText {
+    font-size: 0.76rem;
+    line-height: 1.42;
+  }
+
+  .select-test-platformIcon,
+  .select-test-skillIcon,
+  .select-test-controlIcon,
+  .select-test-feedbackIcon,
+  .select-test-stateIcon,
+  .select-test-sidePlatformIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+  }
+
+  .select-test-platformCount,
+  .select-test-subtab-count,
+  .cambridge-tab__badge,
+  .select-test-cardNum,
+  .select-test-sidePlatformCount {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .select-test-sidePlatform {
+    padding: 10px;
+    border-radius: 14px;
+    gap: 8px;
+  }
+
+  .select-test-sidePlatformLabel {
+    font-size: 0.82rem;
+  }
+
+  .select-test-sidePlatformHint {
+    font-size: 0.66rem;
+  }
+
+  .select-test-pillButton {
+    min-height: 32px;
+    padding: 0 9px;
+    gap: 6px;
+  }
+
+  .select-test-pillButton .select-test-skillIcon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .select-test-pillLabel {
+    font-size: 0.73rem;
+  }
+
+  .select-test-pillCount {
+    min-width: 22px;
+    height: 20px;
+    font-size: 0.62rem;
+  }
+
+  .select-test-selectorStep {
+    min-width: 60px;
+    height: 27px;
+    padding: 0 11px;
+    font-size: 0.65rem;
+  }
+
+  .select-test-toolbarTitle,
+  .select-test-selectorTitle,
+  .select-test-placementTitle,
+  .select-test-infoTitle,
+  .select-test-heroPanelTitle,
+  .select-test-cardText {
+    line-height: 1.16;
+  }
+
+  .select-test-heroTitle {
+    font-size: 1.45rem;
+  }
+
+  .select-test-resultsTitle,
+  .select-test-spotlightTitle {
+    font-size: 1.22rem;
+  }
+
+  .select-test-search,
+  .select-test-sort {
+    font-size: 0.9rem;
+  }
+
+  .select-test-edit,
+  .select-test-create,
+  .select-test-loadMore,
+  .select-test-placementAction,
+  .select-test-placementToggle {
+    min-height: 36px;
+    padding: 0 11px;
+    font-size: 0.78rem;
+    border-radius: 12px;
+  }
+
+  .select-test-cardActions {
+    padding: 0 11px 11px;
   }
 }
