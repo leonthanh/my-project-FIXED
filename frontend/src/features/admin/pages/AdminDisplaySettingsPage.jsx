@@ -604,11 +604,7 @@ const AdminDisplaySettingsPage = () => {
                   {usageMetrics.map((metric) => (
                     <div
                       key={metric.key}
-                      style={{
-                        ...styles.usageMetricCard,
-                        background: metric.bg,
-                        borderColor: metric.border,
-                      }}
+                      style={styles.usageMetricItem}
                     >
                       <div style={{ ...styles.usageMetricLabel, color: metric.color }}>
                         {metric.label}
@@ -698,15 +694,15 @@ const AdminDisplaySettingsPage = () => {
 
                 <div style={styles.trendBody}>
                   <div style={styles.trendSummaryGrid}>
-                    <div style={styles.trendSummaryCard}>
+                    <div style={styles.trendSummaryItem}>
                       <div style={styles.trendSummaryLabel}>Unique users</div>
                       <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueUsers || 0).toLocaleString()}</div>
                     </div>
-                    <div style={styles.trendSummaryCard}>
+                    <div style={styles.trendSummaryItem}>
                       <div style={styles.trendSummaryLabel}>Unique sessions</div>
                       <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueSessions || 0).toLocaleString()}</div>
                     </div>
-                    <div style={styles.trendSummaryCard}>
+                    <div style={styles.trendSummaryItem}>
                       <div style={styles.trendSummaryLabel}>Page views</div>
                       <div style={styles.trendSummaryValue}>{Number(trendSummary.pageViews || 0).toLocaleString()}</div>
                     </div>
@@ -1257,7 +1253,6 @@ const getStyles = (isDarkMode, densityPreset) => ({
     border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
     background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
     padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
-    minHeight: densityPreset === "compact" ? 300 : 340,
     display: "grid",
     alignContent: "start",
   },
@@ -1291,16 +1286,14 @@ const getStyles = (isDarkMode, densityPreset) => ({
   },
   usageGrid: {
     display: "grid",
-    gap: 10,
-    gridTemplateColumns: "repeat(auto-fit, minmax(138px, 1fr))",
+    gap: 8,
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
   },
-  usageMetricCard: {
-    border: "1px solid",
-    borderRadius: 14,
-    padding: "10px 10px",
-    minHeight: 92,
+  usageMetricItem: {
+    padding: "4px 2px",
     display: "grid",
-    alignContent: "space-between",
+    gap: 2,
+    alignContent: "start",
   },
   usageMetricLabel: {
     fontSize: 11,
@@ -1308,8 +1301,8 @@ const getStyles = (isDarkMode, densityPreset) => ({
     lineHeight: 1.3,
   },
   usageMetricValue: {
-    marginTop: 6,
-    fontSize: 21,
+    marginTop: 0,
+    fontSize: 20,
     fontWeight: 800,
     lineHeight: 1.1,
   },
@@ -1349,15 +1342,14 @@ const getStyles = (isDarkMode, densityPreset) => ({
     border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
     background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
     padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
-    minHeight: densityPreset === "compact" ? 300 : 340,
     display: "grid",
     alignContent: "start",
   },
   trendBody: {
     marginTop: 10,
     display: "grid",
-    gap: 10,
-    gridTemplateColumns: "minmax(170px, 220px) minmax(0, 1fr)",
+    gap: 8,
+    gridTemplateColumns: "minmax(0, 1fr)",
     alignItems: "start",
   },
   trendHeader: {
@@ -1382,49 +1374,48 @@ const getStyles = (isDarkMode, densityPreset) => ({
     fontSize: 12,
   },
   trendSummaryGrid: {
-    display: "grid",
-    gap: 8,
+    display: "flex",
+    gap: 14,
+    flexWrap: "wrap",
   },
-  trendSummaryCard: {
-    border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
-    borderRadius: 14,
-    background: isDarkMode ? "#0f172a" : "#f8fafc",
-    padding: "10px 11px",
-    minHeight: 78,
+  trendSummaryItem: {
     display: "grid",
-    alignContent: "space-between",
+    gap: 2,
+    minWidth: 112,
   },
   trendSummaryLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 700,
     color: isDarkMode ? "#94a3b8" : "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
   },
   trendSummaryValue: {
-    marginTop: 6,
-    fontSize: 20,
+    marginTop: 0,
+    fontSize: 21,
     fontWeight: 800,
     color: isDarkMode ? "#f8fafc" : "#0f172a",
     lineHeight: 1.1,
   },
   trendChartWrap: {
-    border: `1px solid ${isDarkMode ? "#1f2937" : "#e2e8f0"}`,
-    borderRadius: 14,
-    padding: "10px 10px 8px",
-    background: isDarkMode ? "rgba(15, 23, 42, 0.68)" : "#f8fafc",
+    border: "none",
+    borderRadius: 0,
+    padding: "2px 0 0",
+    background: "transparent",
     alignSelf: "start",
   },
   trendChartBars: {
-    minHeight: 84,
+    minHeight: 72,
     display: "flex",
     alignItems: "flex-end",
-    gap: 8,
+    gap: 6,
     justifyContent: "flex-start",
     overflowX: "auto",
     paddingBottom: 4,
   },
   trendBarColumn: {
-    minWidth: 34,
-    flex: "0 0 40px",
+    minWidth: 28,
+    flex: "1 1 34px",
     display: "grid",
     gap: 4,
     justifyItems: "center",

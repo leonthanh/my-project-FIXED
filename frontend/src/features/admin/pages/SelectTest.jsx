@@ -771,6 +771,24 @@ const SelectTest = () => {
     };
   };
 
+  const resolveCambridgeAttemptState = (test) => {
+    const normalizedTestType = normalizeTestTypeKey(test?.testType);
+
+    // PET Writing attempts are persisted via the writing submissions flow.
+    if (normalizedTestType === "pet-writing") {
+      return resolveAttemptState({
+        scope: "ix-writing",
+        testId: test?.id,
+      });
+    }
+
+    return resolveAttemptState({
+      scope: "cambridge",
+      testId: test?.id,
+      testType: normalizedTestType,
+    });
+  };
+
   const buildIxPlacementSelection = (test, title) => {
     return createPlacementSelection({
       platform: "ix",
@@ -1235,11 +1253,7 @@ const SelectTest = () => {
                             : numericIndex > 0
                             ? String(numericIndex)
                             : String(descendingFallbackNumber);
-                          const { isComplete: isAttemptComplete } = resolveAttemptState({
-                            scope: "cambridge",
-                            testId: test.id,
-                            testType: test.testType,
-                          });
+                          const { isComplete: isAttemptComplete } = resolveCambridgeAttemptState(test);
                           const placementSelection = buildOrangePlacementSelection(test, orangeCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "orange",
@@ -1342,11 +1356,7 @@ const SelectTest = () => {
                             : numericIndex > 0
                             ? String(numericIndex)
                             : String(descendingFallbackNumber);
-                          const { isComplete: isAttemptComplete } = resolveAttemptState({
-                            scope: "cambridge",
-                            testId: test.id,
-                            testType: test.testType,
-                          });
+                          const { isComplete: isAttemptComplete } = resolveCambridgeAttemptState(test);
                           const placementSelection = buildFcePlacementSelection(test, fceCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
                             platform: "fce",
