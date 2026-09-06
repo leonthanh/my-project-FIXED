@@ -9,6 +9,11 @@ import {
   getPlacementItemSummaryCounts,
   groupPlacementItems,
 } from "../../../shared/utils/placementTests";
+import {
+  replaceFceDisplayName,
+  resolveFceDisplayName,
+  useDisplaySettings,
+} from "../../../shared/contexts/DisplaySettingsContext";
 import "./PlacementEntry.css";
 
 const formatPercentage = (value) => {
@@ -23,8 +28,17 @@ const getStatusLabel = (status) => {
   return "Ready";
 };
 
+const getPlatformLabel = (platform, fceDisplayName) => {
+  const normalizedPlatform = String(platform || "").trim().toLowerCase();
+  if (normalizedPlatform === "orange") return "Orange";
+  if (normalizedPlatform === "ix") return "IX";
+  if (normalizedPlatform === "fce") return fceDisplayName;
+  return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
+};
+
 const PlacementAttempt = () => {
   const { attemptToken } = useParams();
+  const { displayLabels } = useDisplaySettings();
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,13 +86,24 @@ const PlacementAttempt = () => {
   }, [attemptToken]);
 
   const items = Array.isArray(attempt?.items) ? attempt.items : [];
-  const summary = useMemo(
-    () => attempt?.summary || getPlacementItemSummaryCounts(items),
-    [attempt?.summary, items]
-  );
+  const summary = useMemo(() => {
+    const fallbackSummary = getPlacementItemSummaryCounts(items);
+    if (!attempt?.summary || typeof attempt.summary !== "object") {
+      return fallbackSummary;
+    }
+
+    return {
+      ...fallbackSummary,
+      ...attempt.summary,
+    };
+  }, [attempt?.summary, items]);
   const groupedItems = useMemo(() => groupPlacementItems(items), [items]);
   const placementFilterTabs = useMemo(
-    () => groupedItems.filter((group) => group.platform === "ix" || group.platform === "orange"),
+    () =>
+      groupedItems.filter(
+        (group) =>
+          group.platform === "ix" || group.platform === "orange" || group.platform === "fce"
+      ),
     [groupedItems]
   );
   const selectedPlatform =
@@ -93,6 +118,19 @@ const PlacementAttempt = () => {
     () => buildPlacementSharePath(attempt?.shareToken),
     [attempt?.shareToken]
   );
+  const fceDisplayName = useMemo(
+    () => resolveFceDisplayName(displayLabels),
+    [displayLabels]
+  );
+  const platformSummaryLine = useMemo(() => {
+    const summaryParts = [`${summary.ix} IX`, `${summary.orange} Orange`];
+
+    if (summary.fce > 0) {
+      summaryParts.push(`${summary.fce} ${fceDisplayName}`);
+    }
+
+    return summaryParts.join(" • ");
+  }, [fceDisplayName, summary.fce, summary.ix, summary.orange]);
 
   return (
     <div className="placement-entry-page">
@@ -161,7 +199,7 @@ const PlacementAttempt = () => {
                   </span>
                   <span className="placement-entry-pill">
                     <LineIcon name="tests" size={14} />
-                    <span>{summary.ix} IX • {summary.orange} Orange</span>
+                    <span>{platformSummaryLine}</span>
                   </span>
                 </div>
               </div>
@@ -176,7 +214,7 @@ const PlacementAttempt = () => {
                       onClick={() => setActivePlatform(group.platform)}
                       aria-pressed={selectedPlatform === group.platform}
                     >
-                      <span>{group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}</span>
+                      <span>{getPlatformLabel(group.platform, fceDisplayName)}</span>
                       <span className="placement-entry-jumpCount">{group.items.length}</span>
                     </button>
                   ))}
@@ -200,9 +238,9 @@ const PlacementAttempt = () => {
                       <div className="placement-entry-groupHeader">
                         <div className="placement-entry-groupTitleRow">
                           <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
-                            {group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}
+                            {getPlatformLabel(group.platform, fceDisplayName)}
                           </span>
-                          <h3 className="placement-entry-groupTitle">{group.title}</h3>
+                          <h3 className="placement-entry-groupTitle">{replaceFceDisplayName(group.title, displayLabels)}</h3>
                         </div>
                         <span className="placement-entry-groupCount">
                           {group.items.length} test{group.items.length === 1 ? "" : "s"}
@@ -230,8 +268,8 @@ const PlacementAttempt = () => {
                               className={`placement-entry-testCard${itemAccent === "orange" ? " placement-entry-testCard--orange" : ""}`}
                             >
                               <div className="placement-entry-testHeader">
-                                <span className="placement-entry-testNumber">#{group.startIndex + index + 1}</span>
                                 <span className="placement-entry-testBadge">{getStatusLabel(item.status)}</span>
+                                <span className="placement-entry-testNumber">{group.startIndex + index + 1}</span>
                               </div>
 
                               <h3 className="placement-entry-testTitle">{item.title}</h3>
@@ -241,7 +279,7 @@ const PlacementAttempt = () => {
                               ) : null}
 
                               <div className="placement-entry-testMeta">
-                                <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
+                                <span>{getPlatformLabel(item.platform, fceDisplayName)}</span>
                                 <span>{item.skill}</span>
                                 {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                                 {item.durationLabel ? <span>{item.durationLabel}</span> : null}

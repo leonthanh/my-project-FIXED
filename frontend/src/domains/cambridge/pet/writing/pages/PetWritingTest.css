@@ -319,8 +319,7 @@ body.dark-mode .footer__arrowIconBtn___3AiJS {
 }
 
 body.dark-mode .footer__questionWrapper___1tZ46.selected .footer__questionNo___3WNct,
-body.dark-mode .footer__subquestionWrapper___9GgoP .subQuestion.active,
-body.dark-mode .footer__deliverButton___3FM07 {
+body.dark-mode .footer__subquestionWrapper___9GgoP .subQuestion.active {
   background: #1f2b47;
   color: #e5e7eb;
   border-color: #2a3350;
@@ -499,15 +498,6 @@ body.dark-mode .pet-writing-mobile-divider {
   border-color: #0e276f;
 }
 
-.footer__deliverButton___3FM07 {
-  background: #0e276f;
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
 @media (max-width: 1024px) {
   .pet-writing-passage,
   .pet-writing-questions {
@@ -655,10 +645,6 @@ body.dark-mode .pet-writing-mobile-divider {
 
   .footer__subquestionWrapper___9GgoP {
     flex-wrap: wrap;
-  }
-
-  .footer__deliverButton___3FM07 {
-    align-self: flex-end;
   }
 
   .pet-writing-toast {

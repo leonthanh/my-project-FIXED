@@ -11,13 +11,27 @@ import {
   readPlacementLeadDraft,
   savePlacementLeadDraft,
 } from "../../../shared/utils/placementTests";
+import {
+  replaceFceDisplayName,
+  resolveFceDisplayName,
+  useDisplaySettings,
+} from "../../../shared/contexts/DisplaySettingsContext";
 import "./PlacementEntry.css";
 
 const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
+const getPlatformLabel = (platform, fceDisplayName) => {
+  const normalizedPlatform = String(platform || "").trim().toLowerCase();
+  if (normalizedPlatform === "orange") return "Orange";
+  if (normalizedPlatform === "ix") return "IX";
+  if (normalizedPlatform === "fce") return fceDisplayName;
+  return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
+};
+
 const PlacementEntry = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
+  const { displayLabels } = useDisplaySettings();
   const [lead, setLead] = useState(() => readPlacementLeadDraft());
   const [message, setMessage] = useState("");
   const [savedLead, setSavedLead] = useState(false);
@@ -82,12 +96,34 @@ const PlacementEntry = () => {
     return getPlacementItemSummaryCounts(selections);
   }, [selections]);
 
+  const fceDisplayName = useMemo(
+    () => resolveFceDisplayName(displayLabels),
+    [displayLabels]
+  );
+
+  const platformSummaryLine = useMemo(() => {
+    const summaryParts = [
+      `${selectionSummary.ix} IX`,
+      `${selectionSummary.orange} Orange`,
+    ];
+
+    if (selectionSummary.fce > 0) {
+      summaryParts.push(`${selectionSummary.fce} ${fceDisplayName}`);
+    }
+
+    return summaryParts.join(" • ");
+  }, [fceDisplayName, selectionSummary.fce, selectionSummary.ix, selectionSummary.orange]);
+
   const groupedSelections = useMemo(() => {
     return groupPlacementItems(selections);
   }, [selections]);
 
   const placementFilterTabs = useMemo(
-    () => groupedSelections.filter((group) => group.platform === "ix" || group.platform === "orange"),
+    () =>
+      groupedSelections.filter(
+        (group) =>
+          group.platform === "ix" || group.platform === "orange" || group.platform === "fce"
+      ),
     [groupedSelections]
   );
 
@@ -205,7 +241,7 @@ const PlacementEntry = () => {
                 </span>
                 <span className="placement-entry-pill">
                   <LineIcon name="target" size={14} />
-                  <span>{selectionSummary.ix} IX • {selectionSummary.orange} Orange</span>
+                  <span>{platformSummaryLine}</span>
                 </span>
               </div>
             </section>
@@ -273,7 +309,7 @@ const PlacementEntry = () => {
                     onClick={() => setActivePlatform(group.platform)}
                     aria-pressed={selectedPlatform === group.platform}
                   >
-                    <span>{group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}</span>
+                    <span>{getPlatformLabel(group.platform, fceDisplayName)}</span>
                     <span className="placement-entry-jumpCount">{group.items.length}</span>
                   </button>
                 ))}
@@ -310,9 +346,9 @@ const PlacementEntry = () => {
                     <div className="placement-entry-groupHeader">
                       <div className="placement-entry-groupTitleRow">
                         <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
-                          {group.platform === "orange" ? "Orange" : group.platform === "ix" ? "IX" : group.platform.toUpperCase()}
+                          {getPlatformLabel(group.platform, fceDisplayName)}
                         </span>
-                        <h3 className="placement-entry-groupTitle">{group.title}</h3>
+                        <h3 className="placement-entry-groupTitle">{replaceFceDisplayName(group.title, displayLabels)}</h3>
                       </div>
                       <span className="placement-entry-groupCount">
                         {group.items.length} test{group.items.length === 1 ? "" : "s"}
@@ -329,10 +365,10 @@ const PlacementEntry = () => {
                             className={`placement-entry-testCard placement-entry-testCard--${itemAccent}`}
                           >
                             <div className="placement-entry-testHeader">
-                              <span className="placement-entry-testNumber">#{group.startIndex + index + 1}</span>
                               <span className={`placement-entry-testBadge placement-entry-testBadge--${itemAccent}`}>
-                                {item.badge || item.platform.toUpperCase()}
+                                {replaceFceDisplayName(item.badge, displayLabels) || getPlatformLabel(item.platform, fceDisplayName)}
                               </span>
+                              <span className="placement-entry-testNumber">{group.startIndex + index + 1}</span>
                             </div>
 
                             <h3 className="placement-entry-testTitle">{item.title}</h3>
@@ -342,7 +378,7 @@ const PlacementEntry = () => {
                             ) : null}
 
                             <div className="placement-entry-testMeta">
-                              <span>{item.platform === "orange" ? "Orange" : "IX"}</span>
+                              <span>{getPlatformLabel(item.platform, fceDisplayName)}</span>
                               <span>{item.skill}</span>
                               {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                               {item.durationLabel ? <span>{item.durationLabel}</span> : null}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { apiPath, hostPath, redirectInApp, redirectToLogin } from '../../../../../shared/utils/api';
+import { apiPath, hostPath, redirectInApp } from '../../../../../shared/utils/api';
 import TestHeader from '../../../../../shared/components/TestHeader';
 import TestStartModal from '../../../../../shared/components/TestStartModal';
 import { getOrangeSelectTestPathForTestType } from '../../../config/navigation';
@@ -368,17 +368,9 @@ const PetWritingTestPage = () => {
 			if (!isPlacementRuntime) {
 				localStorage.removeItem('selectedPetWritingTestId');
 				localStorage.removeItem('selectedTestId');
-				localStorage.removeItem('user');
 			}
 
-			setTimeout(() => {
-				if (isPlacementRuntime) {
-					navigate(exitPath, { replace: true });
-					return;
-				}
-
-				redirectToLogin({ replace: true });
-			}, isPlacementRuntime ? 1200 : 3000);
+			navigate(exitPath, { replace: true });
 		} catch (err) {
 			console.error('Submit error:', err);
 			setMessage(err?.message || 'Failed to submit. Please try again.');
@@ -789,15 +781,6 @@ const PetWritingTestPage = () => {
 						</div>
 					</div>
 
-					<button
-						id="deliver-button"
-						aria-label="Submit your answers"
-						className="footer__deliverButton___3FM07"
-						onClick={handleSubmit}
-						disabled={isSubmitting || submitted}
-					>
-						<i className="fa fa fa-check" aria-hidden="true"></i>
-					</button>
 				</nav>
 
 				<div
