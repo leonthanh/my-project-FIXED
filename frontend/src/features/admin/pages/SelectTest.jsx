@@ -1293,9 +1293,9 @@ const SelectTest = () => {
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
-                                      {isAttemptComplete ? "Locked" : "Open test"}
-                                    </span>
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardActionHint is-complete">Locked</span>
+                                    ) : null}
                                   </div>
                                 </div>
                               </button>
@@ -1400,9 +1400,9 @@ const SelectTest = () => {
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
-                                      {isAttemptComplete ? "Locked" : "Open test"}
-                                    </span>
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardActionHint is-complete">Locked</span>
+                                    ) : null}
                                   </div>
                                 </div>
                               </button>
@@ -1509,9 +1509,9 @@ const SelectTest = () => {
                                         {placementShown ? "Placement On" : "Placement Off"}
                                       </span>
                                     ) : null}
-                                    <span className={`select-test-cardActionHint${isAttemptComplete ? " is-complete" : ""}`}>
-                                      {isAttemptComplete ? "Locked" : "Open test"}
-                                    </span>
+                                    {isAttemptComplete ? (
+                                      <span className="select-test-cardActionHint is-complete">Locked</span>
+                                    ) : null}
                                   </div>
                                 </div>
                               </button>

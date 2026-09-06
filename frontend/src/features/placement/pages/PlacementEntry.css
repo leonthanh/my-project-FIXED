@@ -609,8 +609,38 @@
 }
 
 .placement-entry-testNumber {
-  background: rgba(15, 23, 42, 0.06);
-  color: #6f7d97;
+  position: relative;
+  min-width: 68px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.96) 100%);
+  color: #1d4ed8;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: 0.96rem;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.placement-entry-testNumber::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 22%, rgba(255, 255, 255, 0.54) 48%, transparent 74%);
+  transform: translateX(-135%);
+  pointer-events: none;
+  animation: placement-entry-buttonSheen 5.4s ease-in-out infinite;
+}
+
+.placement-entry-testCard--orange .placement-entry-testNumber {
+  border-color: rgba(249, 115, 22, 0.34);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.98) 0%, rgba(255, 237, 213, 0.98) 100%);
+  color: #c95a14;
+}
+
+.placement-entry-testCard--ix .placement-entry-testNumber {
+  border-color: rgba(37, 99, 235, 0.34);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.96) 100%);
+  color: #1d4ed8;
 }
 
 .placement-entry-testBadge {

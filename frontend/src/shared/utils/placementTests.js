@@ -271,6 +271,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     (acc, item) => {
       if (item?.platform === "ix") acc.ix += 1;
       if (item?.platform === "orange") acc.orange += 1;
+      if (item?.platform === "fce") acc.fce += 1;
       if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
       if (item?.skill === "listening") acc.listening += 1;
@@ -282,6 +283,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     {
       ix: 0,
       orange: 0,
+      fce: 0,
       writing: 0,
       reading: 0,
       listening: 0,
