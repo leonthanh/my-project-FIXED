@@ -602,10 +602,22 @@ const SelectTest = () => {
       return Number(t.id || 0);
     };
 
+    const isIndexFirstType =
+      testType === "writing" ||
+      testType === "reading" ||
+      testType === "listening" ||
+      testType === "fce";
+
     const sorted = [...filtered].sort((a, b) => {
       if (sortMode === "oldest") return getCreatedOrId(a) - getCreatedOrId(b);
       if (sortMode === "index-asc") return Number(a.index || 0) - Number(b.index || 0);
       if (sortMode === "index-desc") return Number(b.index || 0) - Number(a.index || 0);
+      if (isIndexFirstType) {
+        const aIndex = Number(a.index || 0);
+        const bIndex = Number(b.index || 0);
+        if (aIndex > 0 || bIndex > 0) return bIndex - aIndex;
+        return Number(b.id || 0) - Number(a.id || 0);
+      }
       return getCreatedOrId(b) - getCreatedOrId(a);
     });
 
@@ -1215,6 +1227,14 @@ const SelectTest = () => {
                           const teacherName = test.teacherName || "N/A";
                           const displayTitle = SKILL_META[activeOrangeTab]?.label || "Orange";
                           const orangeCardTitle = test.title || `${activeOrangeLevel.shortLabel} ${displayTitle}`;
+                          const titleNumberMatch = String(orangeCardTitle || "").trim().match(/(\d+)\s*$/);
+                          const numericIndex = Number(test?.index || 0);
+                          const descendingFallbackNumber = Math.max(1, activeList.length - index);
+                          const titleBadgeValue = titleNumberMatch
+                            ? titleNumberMatch[1]
+                            : numericIndex > 0
+                            ? String(numericIndex)
+                            : String(descendingFallbackNumber);
                           const { isComplete: isAttemptComplete } = resolveAttemptState({
                             scope: "cambridge",
                             testId: test.id,
@@ -1247,11 +1267,9 @@ const SelectTest = () => {
                                     <LineIcon name={SKILL_META[activeOrangeTab]?.icon || "orange"} size={16} />
                                     <span>{displayTitle}</span>
                                   </span>
-                                  <span className="select-test-cardNum">#{index + 1}</span>
-                                </div>
-
-                                <div className="select-test-cardTitle">
-                                  <span className="select-test-cardText">{orangeCardTitle}</span>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeOrangeTab}`}>
+                                    {titleBadgeValue}
+                                  </span>
                                 </div>
 
                                 <div className="select-test-cardMeta select-test-cardMeta--grid">
@@ -1316,6 +1334,14 @@ const SelectTest = () => {
                           const teacherName = test.teacherName || "N/A";
                           const displayTitle = FCE_SKILL_META[activeFceTab]?.label || fceDisplayName;
                           const fceCardTitle = test.title || `${fceDisplayName} ${displayTitle}`;
+                          const titleNumberMatch = String(fceCardTitle || "").trim().match(/(\d+)\s*$/);
+                          const numericIndex = Number(test?.index || 0);
+                          const descendingFallbackNumber = Math.max(1, activeList.length - index);
+                          const titleBadgeValue = titleNumberMatch
+                            ? titleNumberMatch[1]
+                            : numericIndex > 0
+                            ? String(numericIndex)
+                            : String(descendingFallbackNumber);
                           const { isComplete: isAttemptComplete } = resolveAttemptState({
                             scope: "cambridge",
                             testId: test.id,
@@ -1348,11 +1374,9 @@ const SelectTest = () => {
                                     <LineIcon name={FCE_SKILL_META[activeFceTab]?.icon || "tests"} size={16} />
                                     <span>{displayTitle}</span>
                                   </span>
-                                  <span className="select-test-cardNum">#{index + 1}</span>
-                                </div>
-
-                                <div className="select-test-cardTitle">
-                                  <span className="select-test-cardText">{fceCardTitle}</span>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeFceTab}`}>
+                                    {titleBadgeValue}
+                                  </span>
                                 </div>
 
                                 <div className="select-test-cardMeta select-test-cardMeta--grid">
@@ -1414,6 +1438,14 @@ const SelectTest = () => {
                       ) : (
                         visibleList.map((test, index) => {
                           const title = getTestTitle(test, currentContext.displayType, index + 1);
+                          const titleNumberMatch = String(title || "").trim().match(/(\d+)\s*$/);
+                          const numericIndex = Number(test?.index || 0);
+                          const descendingFallbackNumber = Math.max(1, activeList.length - index);
+                          const titleBadgeValue = titleNumberMatch
+                            ? titleNumberMatch[1]
+                            : numericIndex > 0
+                            ? String(numericIndex)
+                            : String(descendingFallbackNumber);
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
                           const ixScope = activeIxTab === "writing"
@@ -1454,11 +1486,9 @@ const SelectTest = () => {
                                     <LineIcon name={SKILL_META[activeIxTab]?.icon || "tests"} size={16} />
                                     <span>{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
                                   </span>
-                                  <span className="select-test-cardNum">#{index + 1}</span>
-                                </div>
-
-                                <div className="select-test-cardTitle">
-                                  <span className="select-test-cardText">{title}</span>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeIxTab}`}>
+                                    {titleBadgeValue}
+                                  </span>
                                 </div>
 
                                 <div className="select-test-cardMeta select-test-cardMeta--grid">
@@ -1469,8 +1499,7 @@ const SelectTest = () => {
                                   </span>
                                 </div>
 
-                                <div className="select-test-cardFooter">
-                                  <span className="select-test-cardFootnote">{SKILL_META[activeIxTab]?.label || activeIxTab}</span>
+                                <div className="select-test-cardFooter select-test-cardFooter--noFootnote">
                                   <div className="select-test-cardFooterMeta">
                                     {isAttemptComplete ? (
                                       <span className="select-test-cardCompletionState">Complete</span>
