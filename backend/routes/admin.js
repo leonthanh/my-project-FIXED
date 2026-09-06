@@ -239,6 +239,60 @@ const parseMonthRange = (monthValue = '') => {
   };
 };
 
+const parseDateToken = (value = '') => {
+  const normalized = String(value || '').trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    utcDate.getUTCFullYear() !== year ||
+    utcDate.getUTCMonth() !== month - 1 ||
+    utcDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day, normalized };
+};
+
+const parseCustomDateRange = ({ startDate, endDate } = {}) => {
+  const startToken = parseDateToken(startDate);
+  const endToken = parseDateToken(endDate);
+  if (!startToken || !endToken) return null;
+
+  const offsetMs = VIETNAM_OFFSET_MINUTES * 60 * 1000;
+  const startMs = Date.UTC(startToken.year, startToken.month - 1, startToken.day, 0, 0, 0, 0) - offsetMs;
+  const endStartMs = Date.UTC(endToken.year, endToken.month - 1, endToken.day, 0, 0, 0, 0) - offsetMs;
+  const endMs = endStartMs + DAY_MS - 1;
+
+  if (endMs < startMs) return null;
+
+  const dayCount = Math.floor((endStartMs - startMs) / DAY_MS) + 1;
+  if (!Number.isFinite(dayCount) || dayCount < 1 || dayCount > 180) {
+    return null;
+  }
+
+  return {
+    start: new Date(startMs),
+    end: new Date(endMs),
+    dayCount,
+    mode: 'custom',
+    startDate: startToken.normalized,
+    endDate: endToken.normalized,
+  };
+};
+
 const parseRecentDaysRange = (rawDays, baseDate = new Date()) => {
   const parsed = Number.parseInt(String(rawDays || ''), 10);
   const normalizedDays = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 180) : 7;
@@ -722,12 +776,24 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
   }
 });
 
-// GET /api/admin/usage-trend?days=7 or ?month=2026-08
+// GET /api/admin/usage-trend?days=7 or ?month=2026-08 or ?startDate=2026-09-01&endDate=2026-09-06
 router.get('/usage-trend', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const now = new Date();
+    const customStartDate = String(req.query?.startDate || '').trim();
+    const customEndDate = String(req.query?.endDate || '').trim();
+    const hasCustomRange = Boolean(customStartDate || customEndDate);
+    const customRange = hasCustomRange
+      ? parseCustomDateRange({ startDate: customStartDate, endDate: customEndDate })
+      : null;
     const monthQuery = String(req.query?.month || '').trim();
     const monthRange = monthQuery ? parseMonthRange(monthQuery) : null;
+
+    if (hasCustomRange && !customRange) {
+      return res.status(400).json({
+        message: 'Invalid custom date range. Use startDate/endDate in YYYY-MM-DD (max 180 days).',
+      });
+    }
 
     if (monthQuery && !monthRange) {
       return res.status(400).json({
@@ -735,7 +801,7 @@ router.get('/usage-trend', requireAuth, requireRole('admin'), async (req, res) =
       });
     }
 
-    const range = monthRange || parseRecentDaysRange(req.query?.days, now);
+    const range = customRange || monthRange || parseRecentDaysRange(req.query?.days, now);
     const dayKeys = buildDateKeyList(range.start, range.dayCount);
 
     const events = await AnalyticsEvent.findAll({
@@ -828,6 +894,8 @@ router.get('/usage-trend', requireAuth, requireRole('admin'), async (req, res) =
         start: range.start.toISOString(),
         end: range.end.toISOString(),
         days: range.dayCount,
+        startDate: range.startDate || toDateKeyWithOffset(range.start),
+        endDate: range.endDate || toDateKeyWithOffset(range.end),
       },
       summary,
       daily,

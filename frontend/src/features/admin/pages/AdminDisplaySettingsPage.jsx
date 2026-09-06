@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
@@ -40,6 +40,18 @@ const getCurrentMonthInput = () => {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${now.getFullYear()}-${month}`;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getRelativeDateInput = (offsetDays = 0) =>
+  toDateInputValue(new Date(Date.now() + offsetDays * DAY_MS));
 
 const KpiIcon = ({ name, color }) => {
   const iconColor = color || "#2563eb";
@@ -104,6 +116,33 @@ const KpiIcon = ({ name, color }) => {
 const formatMetricValue = (value) =>
   typeof value === "number" ? value.toLocaleString() : String(value || "-");
 
+const getNiceTickStep = (maxValue, targetTickCount = 4) => {
+  const safeMax = Math.max(1, Number(maxValue || 0));
+  const roughStep = safeMax / Math.max(1, targetTickCount);
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / magnitude;
+
+  let niceMultiplier = 1;
+  if (normalized <= 1) {
+    niceMultiplier = 1;
+  } else if (normalized <= 2) {
+    niceMultiplier = 2;
+  } else if (normalized <= 5) {
+    niceMultiplier = 5;
+  } else {
+    niceMultiplier = 10;
+  }
+
+  return niceMultiplier * magnitude;
+};
+
+const toMonthLabel = (dateKey) => {
+  if (!dateKey) return "";
+  const parsedDate = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) return "";
+  return parsedDate.toLocaleString("en-US", { month: "short" });
+};
+
 const AdminDisplaySettingsPage = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
@@ -122,7 +161,13 @@ const AdminDisplaySettingsPage = () => {
   const [trendDays, setTrendDays] = useState(7);
   const [trendMonth, setTrendMonth] = useState(getCurrentMonthInput);
   const [trendMode, setTrendMode] = useState("days");
+  const [trendStartDate, setTrendStartDate] = useState(() => getRelativeDateInput(-6));
+  const [trendEndDate, setTrendEndDate] = useState(() => getRelativeDateInput(0));
   const [densityPreset, setDensityPreset] = useState("compact");
+  const [alertFilter, setAlertFilter] = useState("all");
+  const [activeDrilldownKey, setActiveDrilldownKey] = useState("submissionsToday");
+  const alertsSectionRef = useRef(null);
+  const drilldownSectionRef = useRef(null);
 
   useEffect(() => {
     setFormValues({
@@ -163,11 +208,13 @@ const AdminDisplaySettingsPage = () => {
     fetchUsageOverview();
   }, [fetchUsageOverview]);
 
-  const fetchUsageTrend = useCallback(async ({ days, month, mode } = {}) => {
+  const fetchUsageTrend = useCallback(async ({ days, month, mode, startDate, endDate } = {}) => {
     try {
-      const nextMode = mode === "month" ? "month" : "days";
+      const nextMode = mode === "month" ? "month" : mode === "custom" ? "custom" : "days";
       const nextDays = Number(days || 7) || 7;
       const nextMonth = String(month || getCurrentMonthInput()).trim();
+      const nextStartDate = String(startDate || "").trim();
+      const nextEndDate = String(endDate || "").trim();
 
       setTrendLoading(true);
       setTrendError("");
@@ -175,6 +222,12 @@ const AdminDisplaySettingsPage = () => {
       const params = new URLSearchParams();
       if (nextMode === "month") {
         params.set("month", nextMonth);
+      } else if (nextMode === "custom") {
+        if (!nextStartDate || !nextEndDate) {
+          throw new Error("Please choose both start and end date.");
+        }
+        params.set("startDate", nextStartDate);
+        params.set("endDate", nextEndDate);
       } else {
         params.set("days", String(nextDays));
       }
@@ -190,8 +243,11 @@ const AdminDisplaySettingsPage = () => {
       setTrendMode(nextMode);
       if (nextMode === "days") {
         setTrendDays(nextDays);
-      } else {
+      } else if (nextMode === "month") {
         setTrendMonth(nextMonth);
+      } else {
+        setTrendStartDate(nextStartDate);
+        setTrendEndDate(nextEndDate);
       }
     } catch (error) {
       setTrendError(error?.message || "Could not load usage trend.");
@@ -322,16 +378,136 @@ const AdminDisplaySettingsPage = () => {
   const usageByType = usageOverview?.today?.submissionsByType || {};
   const liveByType = usageOverview?.live?.sessionsByType || {};
 
-  const trendDaily = Array.isArray(trend?.daily) ? trend.daily : [];
+  const trendDaily = useMemo(() => (Array.isArray(trend?.daily) ? trend.daily : []), [trend?.daily]);
   const trendSummary = trend?.summary || {};
-  const trendMaxPageViews = Math.max(
-    1,
-    ...trendDaily.map((entry) => Number(entry?.pageViews || 0))
+  const trendSeries = useMemo(
+    () => [
+      {
+        key: "pageViews",
+        label: "Page views",
+        stroke: isDarkMode ? "#22c55e" : "#16a34a",
+      },
+      {
+        key: "uniqueUsers",
+        label: "Unique users",
+        stroke: isDarkMode ? "#67e8f9" : "#0891b2",
+      },
+      {
+        key: "uniqueSessions",
+        label: "Unique sessions",
+        stroke: isDarkMode ? "#a78bfa" : "#7c3aed",
+      },
+    ],
+    [isDarkMode]
   );
+
+  const trendYAxisStep = useMemo(() => {
+    const maxValue = Math.max(
+      1,
+      ...trendDaily.flatMap((entry) => [
+        Number(entry?.pageViews || 0),
+        Number(entry?.uniqueUsers || 0),
+        Number(entry?.uniqueSessions || 0),
+      ])
+    );
+
+    return getNiceTickStep(maxValue, 4);
+  }, [trendDaily]);
+
+  const trendYAxisMax = trendYAxisStep * 4;
+  const trendYAxisTicks = useMemo(
+    () => Array.from({ length: 5 }, (_, index) => trendYAxisMax - index * trendYAxisStep),
+    [trendYAxisMax, trendYAxisStep]
+  );
+
+  const trendChart = useMemo(() => {
+    const width = 560;
+    const height = 250;
+    const paddingTop = 12;
+    const paddingRight = 14;
+    const paddingBottom = 32;
+    const paddingLeft = 38;
+    const plotWidth = width - paddingLeft - paddingRight;
+    const plotHeight = height - paddingTop - paddingBottom;
+    const pointCount = trendDaily.length;
+
+    const getX = (index) =>
+      pointCount <= 1
+        ? paddingLeft + plotWidth / 2
+        : paddingLeft + (index / (pointCount - 1)) * plotWidth;
+
+    const getY = (value) => {
+      const safeValue = Math.max(0, Number(value || 0));
+      return paddingTop + plotHeight - (safeValue / Math.max(1, trendYAxisMax)) * plotHeight;
+    };
+
+    const chartSeries = trendSeries.map((series) => {
+      const points = trendDaily.map((entry, index) => {
+        const value = Number(entry?.[series.key] || 0);
+        return {
+          date: String(entry?.date || ""),
+          value,
+          x: getX(index),
+          y: getY(value),
+        };
+      });
+
+      return {
+        ...series,
+        total: points.reduce((sum, point) => sum + point.value, 0),
+        points,
+        polyline: points.map((point) => `${point.x},${point.y}`).join(" "),
+      };
+    });
+
+    const monthMarkers = [];
+    let previousMonthToken = "";
+    trendDaily.forEach((entry, index) => {
+      const dateKey = String(entry?.date || "");
+      const monthToken = dateKey.slice(0, 7);
+      if (!monthToken) return;
+      if (index === 0 || monthToken !== previousMonthToken) {
+        monthMarkers.push({
+          key: `${monthToken}-${index}`,
+          index,
+          label: toMonthLabel(dateKey),
+        });
+      }
+      previousMonthToken = monthToken;
+    });
+
+    const lastIndex = trendDaily.length - 1;
+    if (
+      lastIndex >= 0 &&
+      !monthMarkers.some((marker) => marker.index === lastIndex)
+    ) {
+      monthMarkers.push({
+        key: `last-${lastIndex}`,
+        index: lastIndex,
+        label: toMonthLabel(String(trendDaily[lastIndex]?.date || "")),
+      });
+    }
+
+    return {
+      width,
+      height,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      plotHeight,
+      getY,
+      getX,
+      monthMarkers,
+      series: chartSeries,
+    };
+  }, [trendDaily, trendSeries, trendYAxisMax]);
 
   const trendRangeLabel =
     trendMode === "month"
       ? `Month ${trend?.month || trendMonth}`
+      : trendMode === "custom"
+      ? `${trend?.range?.startDate || trendStartDate} to ${trend?.range?.endDate || trendEndDate}`
       : `Last ${Number(trend?.range?.days || trendDays)} days`;
 
   const liveWindowMinutes = Number(usageOverview?.live?.activityWindowMinutes || 15);
@@ -444,6 +620,7 @@ const AdminDisplaySettingsPage = () => {
       bg: "#eff6ff",
       border: "#bfdbfe",
       color: "#1d4ed8",
+      drilldownKey: "live-users",
     },
     {
       key: "kpi-live-sessions",
@@ -454,6 +631,7 @@ const AdminDisplaySettingsPage = () => {
       bg: "#fff7ed",
       border: "#fed7aa",
       color: "#c2410c",
+      drilldownKey: "live-sessions",
     },
     {
       key: "kpi-alerts",
@@ -464,6 +642,7 @@ const AdminDisplaySettingsPage = () => {
       bg: "#fff7ed",
       border: "#fdba74",
       color: openAlertCount > 0 ? "#c2410c" : "#166534",
+      drilldownKey: "open-alerts",
     },
     {
       key: "kpi-label-coverage",
@@ -474,6 +653,7 @@ const AdminDisplaySettingsPage = () => {
       bg: "#ecfeff",
       border: "#a5f3fc",
       color: labelCoveragePercent < 100 ? "#0e7490" : "#166534",
+      drilldownKey: "label-coverage",
     },
   ];
 
@@ -483,12 +663,187 @@ const AdminDisplaySettingsPage = () => {
     Number(usageByType.listening || 0) +
     Number(usageByType.cambridge || 0);
 
-  const submissionTypeRows = [
-    { key: "writing", label: "Writing", value: Number(usageByType.writing || 0), tone: "#a855f7" },
-    { key: "reading", label: "Reading", value: Number(usageByType.reading || 0), tone: "#2563eb" },
-    { key: "listening", label: "Listening", value: Number(usageByType.listening || 0), tone: "#0ea5e9" },
-    { key: "cambridge", label: "Cambridge", value: Number(usageByType.cambridge || 0), tone: "#f97316" },
-  ];
+  const submissionTypeRows = useMemo(
+    () => [
+      { key: "writing", label: "Writing", value: Number(usageByType.writing || 0), tone: "#a855f7" },
+      { key: "reading", label: "Reading", value: Number(usageByType.reading || 0), tone: "#2563eb" },
+      { key: "listening", label: "Listening", value: Number(usageByType.listening || 0), tone: "#0ea5e9" },
+      { key: "cambridge", label: "Cambridge", value: Number(usageByType.cambridge || 0), tone: "#f97316" },
+    ],
+    [usageByType.cambridge, usageByType.listening, usageByType.reading, usageByType.writing]
+  );
+
+  const openAlertItems = useMemo(
+    () => alertItems.filter((item) => item.level !== "ok"),
+    [alertItems]
+  );
+
+  const filteredAlertItems = useMemo(() => {
+    if (alertFilter === "open") {
+      if (openAlertItems.length > 0) return openAlertItems;
+      return [{
+        id: "no-open-alerts",
+        level: "ok",
+        title: "No open alerts",
+        detail: "All current checks are healthy.",
+        at: new Date().toLocaleTimeString(),
+      }];
+    }
+    return alertItems;
+  }, [alertFilter, alertItems, openAlertItems]);
+
+  const scrollToPanel = useCallback((panelRef) => {
+    if (!panelRef?.current) return;
+    panelRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const handleDrilldownSelect = useCallback((nextKey) => {
+    setActiveDrilldownKey(String(nextKey || "submissionsToday"));
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => scrollToPanel(drilldownSectionRef));
+    }
+  }, [scrollToPanel]);
+
+  const handleKpiClick = useCallback((item) => {
+    const drilldownKey = item?.drilldownKey || "submissionsToday";
+    setActiveDrilldownKey(drilldownKey);
+
+    if (drilldownKey === "open-alerts") {
+      setAlertFilter("open");
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => scrollToPanel(alertsSectionRef));
+      }
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => scrollToPanel(drilldownSectionRef));
+    }
+  }, [scrollToPanel]);
+
+  const drilldownRows = useMemo(() => {
+    const today = usageOverview?.today || {};
+    const live = usageOverview?.live || {};
+
+    const submissionRows = submissionTypeRows.map((row) => ({
+      label: row.label,
+      value: row.value,
+      note:
+        submissionTypeTotal > 0
+          ? `${Math.round((row.value / submissionTypeTotal) * 100)}% of today's submissions`
+          : "No submissions yet",
+    }));
+
+    if (activeDrilldownKey === "open-alerts") {
+      return {
+        title: "Open Alerts Details",
+        description: "Actionable items from the latest telemetry checks.",
+        kind: "alerts",
+        rows: openAlertItems.length ? openAlertItems : filteredAlertItems,
+      };
+    }
+
+    if (activeDrilldownKey === "live-users" || activeDrilldownKey === "activeUsersToday") {
+      return {
+        title: "Users Activity Details",
+        description: "Current live users and today's visitor footprint.",
+        kind: "kv",
+        rows: [
+          { label: "Active users in tests", value: Number(live.activeUsersInTests || 0), note: `${liveWindowMinutes} minute window` },
+          { label: "Today's active users", value: Number(today.activeUsers || 0), note: "Unique visitors today" },
+          { label: "Users in tests today", value: Number(today.usersInTests || 0), note: "Learners with test activity" },
+        ],
+      };
+    }
+
+    if (activeDrilldownKey === "live-sessions" || activeDrilldownKey === "writingDraftsNow") {
+      return {
+        title: "Live Sessions By Skill",
+        description: "Unfinished runtime sessions seen in the live activity window.",
+        kind: "kv",
+        rows: [
+          { label: "Writing drafts", value: Number(liveByType.writingDrafts || 0), note: "Active drafts" },
+          { label: "Reading sessions", value: Number(liveByType.reading || 0), note: "In-progress attempts" },
+          { label: "Listening sessions", value: Number(liveByType.listening || 0), note: "In-progress attempts" },
+          { label: "Cambridge sessions", value: Number(liveByType.cambridge || 0), note: "In-progress attempts" },
+        ],
+      };
+    }
+
+    if (
+      activeDrilldownKey === "submissionsToday" ||
+      activeDrilldownKey === "activeSubmissionTypes"
+    ) {
+      return {
+        title: "Submission Workload Details",
+        description: "Distribution of submissions by skill for today.",
+        kind: "kv",
+        rows: submissionRows,
+      };
+    }
+
+    if (activeDrilldownKey === "newStudentsToday") {
+      return {
+        title: "New Student Accounts",
+        description: "New student registration volume today.",
+        kind: "kv",
+        rows: [
+          { label: "New students", value: Number(today.newStudentAccounts || 0), note: "Accounts created today" },
+        ],
+      };
+    }
+
+    if (activeDrilldownKey === "label-coverage") {
+      return {
+        title: "Label Coverage Details",
+        description: "Visibility and completeness of platform display labels.",
+        kind: "kv",
+        rows: [
+          { label: "Coverage", value: `${labelCoveragePercent}%`, note: `${labelFilledCount}/${FIELD_META.length} labels set` },
+          { label: "IX label", value: formValues.ixDisplayName || "-", note: "Navbar + test library" },
+          { label: "Orange label", value: formValues.orangeDisplayName || "-", note: "Orange library" },
+          { label: "FCE label", value: formValues.fceDisplayName || "-", note: "FCE surfaces" },
+        ],
+      };
+    }
+
+    if (activeDrilldownKey === "liveWindow") {
+      return {
+        title: "Live Window Details",
+        description: "Current aggregation window used for live counters.",
+        kind: "kv",
+        rows: [
+          { label: "Live window", value: `${liveWindowMinutes} min`, note: "Used for live users and session cards" },
+          { label: "Heartbeat events", value: Number(today.heartbeats || 0), note: "Heartbeat count today" },
+          { label: "Page views", value: Number(today.pageViews || 0), note: "Page views tracked today" },
+        ],
+      };
+    }
+
+    return {
+      title: "Submission Workload Details",
+      description: "Distribution of submissions by skill for today.",
+      kind: "kv",
+      rows: submissionRows,
+    };
+  }, [
+    activeDrilldownKey,
+    filteredAlertItems,
+    formValues.fceDisplayName,
+    formValues.ixDisplayName,
+    formValues.orangeDisplayName,
+    labelCoveragePercent,
+    labelFilledCount,
+    liveByType.cambridge,
+    liveByType.listening,
+    liveByType.reading,
+    liveByType.writingDrafts,
+    liveWindowMinutes,
+    openAlertItems,
+    submissionTypeRows,
+    submissionTypeTotal,
+    usageOverview,
+  ]);
 
   const onChangeField = (fieldKey, value) => {
     setFormValues((prev) => ({
@@ -579,363 +934,568 @@ const AdminDisplaySettingsPage = () => {
 
           <div style={styles.dashboardSplit}>
             <div style={styles.primaryColumn}>
-              <section style={styles.usageCard}>
-                <div style={styles.usageHeader}>
-                  <div>
-                    <p style={styles.usageEyebrow}>Traffic snapshot</p>
-                    <h3 style={styles.usageTitle}>Daily Usage Overview</h3>
-                    <p style={styles.usageSubtitle}>
-                      {usageOverview
-                        ? `Last updated ${new Date(usageOverview.generatedAt).toLocaleTimeString()} (${usageOverview.timezone || "Asia/Ho_Chi_Minh"}).`
-                        : "Loading usage data for this admin view."}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fetchUsageOverview}
-                    disabled={usageLoading}
-                    style={{ ...styles.button, ...styles.ghostButton }}
-                  >
-                    {usageLoading ? "Refreshing..." : "Refresh Stats"}
-                  </button>
-                </div>
-
-                <div style={styles.usageGrid}>
-                  {usageMetrics.map((metric) => (
-                    <div
-                      key={metric.key}
-                      style={{
-                        ...styles.usageMetricCard,
-                        background: metric.bg,
-                        borderColor: metric.border,
-                      }}
-                    >
-                      <div style={{ ...styles.usageMetricLabel, color: metric.color }}>
-                        {metric.label}
-                      </div>
-                      <div style={{ ...styles.usageMetricValue, color: metric.color }}>
-                        {metric.value.toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {usageError ? (
-                  <div style={{ ...styles.status, ...styles.statusError }}>
-                    {usageError}
-                  </div>
-                ) : null}
-
-                {!usageError && usageOverview ? (
-                  <>
-                    <div style={styles.usageBreakdownWrap}>
-                      <div style={styles.usageBreakdownRow}>
-                        <strong>Live sessions:</strong>
-                        <span style={styles.usageBreakdownChip}>Writing drafts {Number(liveByType.writingDrafts || 0)}</span>
-                        <span style={styles.usageBreakdownChip}>Reading {Number(liveByType.reading || 0)}</span>
-                        <span style={styles.usageBreakdownChip}>Listening {Number(liveByType.listening || 0)}</span>
-                        <span style={styles.usageBreakdownChip}>Cambridge {Number(liveByType.cambridge || 0)}</span>
+              <section style={styles.trafficFrame}>
+                <div style={styles.trafficRow}>
+                  <section style={styles.usageCard}>
+                    <div style={styles.trafficPanelHeader}>
+                      <div style={styles.trafficPanelHeading}>
+                        <p style={styles.usageEyebrow}>Traffic snapshot</p>
+                        <h3 style={styles.usageTitle}>Daily Usage Overview</h3>
+                        <p style={styles.usageSubtitle}>
+                          {usageOverview
+                            ? `Last updated ${new Date(usageOverview.generatedAt).toLocaleTimeString()} (${usageOverview.timezone || "Asia/Ho_Chi_Minh"}).`
+                            : "Loading usage data for this admin view."}
+                        </p>
                       </div>
                     </div>
 
-                    <p style={styles.usageHint}>
-                      Live numbers are estimated from recent test activity in the last {liveWindowMinutes} minutes.
-                    </p>
-                  </>
-                ) : null}
+                    <div style={styles.usageGrid}>
+                      {usageMetrics.map((metric) => (
+                        <button
+                          type="button"
+                          key={metric.key}
+                          onClick={() => handleDrilldownSelect(metric.key)}
+                          style={{
+                            ...styles.usageMetricItem,
+                            ...styles.metricActionButton,
+                            ...(activeDrilldownKey === metric.key ? styles.metricActionButtonActive : null),
+                          }}
+                        >
+                          <div style={{ ...styles.usageMetricLabel, color: metric.color }}>
+                            {metric.label}
+                          </div>
+                          <div style={{ ...styles.usageMetricValue, color: metric.color }}>
+                            {metric.value.toLocaleString()}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {usageError ? (
+                      <div style={{ ...styles.status, ...styles.statusError }}>
+                        {usageError}
+                      </div>
+                    ) : null}
+
+                    {!usageError && usageOverview ? (
+                      <>
+                        <div style={styles.usageBreakdownWrap}>
+                          <div style={styles.usageBreakdownRow}>
+                            <strong>Live sessions:</strong>
+                            <span style={styles.usageBreakdownChip}>Writing drafts {Number(liveByType.writingDrafts || 0)}</span>
+                            <span style={styles.usageBreakdownChip}>Reading {Number(liveByType.reading || 0)}</span>
+                            <span style={styles.usageBreakdownChip}>Listening {Number(liveByType.listening || 0)}</span>
+                            <span style={styles.usageBreakdownChip}>Cambridge {Number(liveByType.cambridge || 0)}</span>
+                          </div>
+                        </div>
+
+                        <p style={styles.usageHint}>
+                          Live numbers are estimated from recent test activity in the last {liveWindowMinutes} minutes.
+                        </p>
+                      </>
+                    ) : null}
+
+                    <div style={styles.usageFooterControls}>
+                      <div style={styles.usageFooterControlRow}>
+                        <button
+                          type="button"
+                          onClick={fetchUsageOverview}
+                          disabled={usageLoading}
+                          style={{ ...styles.button, ...styles.ghostButton }}
+                        >
+                          {usageLoading ? "Refreshing..." : "Refresh Stats"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fetchUsageTrend({ days: 7, mode: "days" })}
+                          disabled={trendLoading}
+                          style={{
+                            ...styles.button,
+                            ...(trendMode === "days" && trendDays === 7 ? styles.primaryButton : styles.ghostButton),
+                          }}
+                        >
+                          7 days
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fetchUsageTrend({ days: 30, mode: "days" })}
+                          disabled={trendLoading}
+                          style={{
+                            ...styles.button,
+                            ...(trendMode === "days" && trendDays === 30 ? styles.primaryButton : styles.ghostButton),
+                          }}
+                        >
+                          30 days
+                        </button>
+                        <input
+                          type="month"
+                          value={trendMonth}
+                          onChange={(event) => setTrendMonth(event.target.value)}
+                          style={styles.monthInput}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fetchUsageTrend({ month: trendMonth, mode: "month" })}
+                          disabled={trendLoading || !trendMonth}
+                          style={{ ...styles.button, ...styles.softButton }}
+                        >
+                          {trendLoading && trendMode === "month" ? "Loading..." : "Search month"}
+                        </button>
+                      </div>
+
+                      <div style={styles.usageFooterControlRow}>
+                        <input
+                          type="date"
+                          value={trendStartDate}
+                          onChange={(event) => setTrendStartDate(event.target.value)}
+                          style={styles.monthInput}
+                        />
+                        <input
+                          type="date"
+                          value={trendEndDate}
+                          onChange={(event) => setTrendEndDate(event.target.value)}
+                          style={styles.monthInput}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fetchUsageTrend({
+                            mode: "custom",
+                            startDate: trendStartDate,
+                            endDate: trendEndDate,
+                          })}
+                          disabled={trendLoading || !trendStartDate || !trendEndDate}
+                          style={{
+                            ...styles.button,
+                            ...(trendMode === "custom" ? styles.primaryButton : styles.ghostButton),
+                          }}
+                        >
+                          {trendLoading && trendMode === "custom" ? "Loading..." : "Apply range"}
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section style={styles.trendCard}>
+                    <div style={styles.trafficPanelHeader}>
+                      <div style={styles.trafficPanelHeading}>
+                        <p style={styles.usageEyebrow}>Traffic trend</p>
+                        <h3 style={styles.usageTitle}>Daily Trend and Monthly Total</h3>
+                        <p style={styles.usageSubtitle}>{trendRangeLabel}</p>
+                      </div>
+                    </div>
+
+                    {trendError ? (
+                      <div style={{ ...styles.status, ...styles.statusError }}>{trendError}</div>
+                    ) : null}
+
+                    <div style={styles.trendBody}>
+                      <div style={styles.trendSummaryColumn}>
+                        <div style={styles.trendSummaryGrid}>
+                          <div style={styles.trendSummaryItem}>
+                            <div style={styles.trendSummaryLabel}>Unique users</div>
+                            <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueUsers || 0).toLocaleString()}</div>
+                          </div>
+                          <div style={styles.trendSummaryItem}>
+                            <div style={styles.trendSummaryLabel}>Unique sessions</div>
+                            <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueSessions || 0).toLocaleString()}</div>
+                          </div>
+                          <div style={styles.trendSummaryItem}>
+                            <div style={styles.trendSummaryLabel}>Page views</div>
+                            <div style={styles.trendSummaryValue}>{Number(trendSummary.pageViews || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+
+                        <div style={styles.trendLegendGrid}>
+                          {trendChart.series.map((series) => (
+                            <div key={series.key} style={styles.trendLegendItem}>
+                              <span style={{ ...styles.trendLegendSwatch, background: series.stroke }} />
+                              <span style={styles.trendLegendLabel}>{series.label}</span>
+                              <span style={styles.trendLegendValue}>{series.total.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p style={styles.usageHint}>
+                          {trendMode === "month"
+                            ? `Monthly total users: ${Number(trendSummary.uniqueUsers || 0).toLocaleString()} (selected month).`
+                            : "Three-line trend helps compare users, sessions, and page views in one chart."}
+                        </p>
+                      </div>
+
+                      {!trendError && trendDaily.length > 0 ? (
+                        <div style={styles.trendChartPanel}>
+                          <svg
+                            role="img"
+                            aria-label="Users, sessions, and page views line chart"
+                            viewBox={`0 0 ${trendChart.width} ${trendChart.height}`}
+                            style={styles.trendChartSvg}
+                          >
+                            {trendYAxisTicks.map((tick) => {
+                              const y = trendChart.getY(tick);
+                              return (
+                                <g key={`tick-${tick}`}>
+                                  <line
+                                    x1={trendChart.paddingLeft}
+                                    y1={y}
+                                    x2={trendChart.width - trendChart.paddingRight}
+                                    y2={y}
+                                    stroke={isDarkMode ? "rgba(148, 163, 184, 0.35)" : "#e2e8f0"}
+                                    strokeWidth="1"
+                                  />
+                                  <text
+                                    x={trendChart.paddingLeft - 8}
+                                    y={y + 4}
+                                    textAnchor="end"
+                                    style={{
+                                      fontSize: 11,
+                                      fill: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {tick}
+                                  </text>
+                                </g>
+                              );
+                            })}
+
+                          <line
+                            x1={trendChart.paddingLeft}
+                            y1={trendChart.paddingTop + trendChart.plotHeight}
+                            x2={trendChart.width - trendChart.paddingRight}
+                            y2={trendChart.paddingTop + trendChart.plotHeight}
+                            stroke={isDarkMode ? "rgba(148, 163, 184, 0.5)" : "#cbd5e1"}
+                            strokeWidth="1"
+                          />
+
+                          {trendChart.monthMarkers.map((marker) => (
+                            <text
+                              key={marker.key}
+                              x={trendChart.getX(marker.index)}
+                              y={trendChart.height - 10}
+                              textAnchor="middle"
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                fill: isDarkMode ? "#e2e8f0" : "#0f172a",
+                              }}
+                            >
+                              {marker.label}
+                            </text>
+                          ))}
+
+                            {trendChart.series.map((series) => (
+                              <g key={series.key}>
+                                <polyline
+                                  fill="none"
+                                  stroke={series.stroke}
+                                  strokeWidth="3"
+                                  strokeLinejoin="round"
+                                  strokeLinecap="round"
+                                  points={series.polyline}
+                                />
+                                {series.points.map((point) => (
+                                  <circle
+                                    key={`${series.key}-${point.date}`}
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r="2.4"
+                                    fill={series.stroke}
+                                  >
+                                    <title>{`${series.label} | ${point.date}: ${point.value}`}</title>
+                                  </circle>
+                                ))}
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+                </div>
               </section>
 
-              <section style={styles.trendCard}>
-                <div style={styles.trendHeader}>
-                  <div>
-                    <p style={styles.usageEyebrow}>Traffic trend</p>
-                    <h3 style={styles.usageTitle}>Daily Trend and Monthly Total</h3>
-                    <p style={styles.usageSubtitle}>{trendRangeLabel}</p>
-                  </div>
-                  <div style={styles.trendActionRow}>
-                    <button
-                      type="button"
-                      onClick={() => fetchUsageTrend({ days: 7, mode: "days" })}
-                      disabled={trendLoading}
-                      style={{
-                        ...styles.button,
-                        ...(trendMode === "days" && trendDays === 7 ? styles.primaryButton : styles.ghostButton),
-                      }}
-                    >
-                      7 days
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fetchUsageTrend({ days: 30, mode: "days" })}
-                      disabled={trendLoading}
-                      style={{
-                        ...styles.button,
-                        ...(trendMode === "days" && trendDays === 30 ? styles.primaryButton : styles.ghostButton),
-                      }}
-                    >
-                      30 days
-                    </button>
-                    <input
-                      type="month"
-                      value={trendMonth}
-                      onChange={(event) => setTrendMonth(event.target.value)}
-                      style={styles.monthInput}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fetchUsageTrend({ month: trendMonth, mode: "month" })}
-                      disabled={trendLoading || !trendMonth}
-                      style={{ ...styles.button, ...styles.softButton }}
-                    >
-                      {trendLoading && trendMode === "month" ? "Loading..." : "Search month"}
-                    </button>
-                  </div>
-                </div>
-
-                {trendError ? (
-                  <div style={{ ...styles.status, ...styles.statusError }}>{trendError}</div>
-                ) : null}
-
-                <div style={styles.trendBody}>
-                  <div style={styles.trendSummaryGrid}>
-                    <div style={styles.trendSummaryCard}>
-                      <div style={styles.trendSummaryLabel}>Unique users</div>
-                      <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueUsers || 0).toLocaleString()}</div>
-                    </div>
-                    <div style={styles.trendSummaryCard}>
-                      <div style={styles.trendSummaryLabel}>Unique sessions</div>
-                      <div style={styles.trendSummaryValue}>{Number(trendSummary.uniqueSessions || 0).toLocaleString()}</div>
-                    </div>
-                    <div style={styles.trendSummaryCard}>
-                      <div style={styles.trendSummaryLabel}>Page views</div>
-                      <div style={styles.trendSummaryValue}>{Number(trendSummary.pageViews || 0).toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  {!trendError && trendDaily.length > 0 ? (
-                    <div style={styles.trendChartWrap}>
-                      <div style={styles.trendChartBars}>
-                        {trendDaily.map((entry) => {
-                          const pageViews = Number(entry?.pageViews || 0);
-                          const barHeight = Math.max(
-                            12,
-                            Math.round((pageViews / trendMaxPageViews) * 68)
-                          );
-                          return (
-                            <div key={entry.date} style={styles.trendBarColumn} title={`${entry.date}: ${pageViews} page views`}>
-                              <div style={{ ...styles.trendBar, height: barHeight }} />
-                              <span style={styles.trendBarLabel}>{String(entry.date || "").slice(5)}</span>
-                            </div>
-                          );
-                        })}
+              <div style={styles.inlineRailRow}>
+                <section style={{ ...styles.rightRailCard, ...styles.inlineRailCard }}>
+                  <div style={styles.rightRailHeader}>
+                    <p style={styles.usageEyebrow}>Admin control center</p>
+                    <h3 style={styles.rightRailTitle}>Right-side snapshot</h3>
+                    <p style={styles.rightRailSubtitle}>
+                      Square KPI cards inspired by Microsoft-style at-a-glance dashboards.
+                    </p>
+                    <div style={styles.densityRow}>
+                      <span style={styles.densityLabel}>Density</span>
+                      <div style={styles.densitySwitch} role="group" aria-label="Density preset">
+                        <button
+                          type="button"
+                          onClick={() => setDensityPreset("compact")}
+                          style={{
+                            ...styles.densityButton,
+                            ...(densityPreset === "compact" ? styles.densityButtonActive : null),
+                          }}
+                        >
+                          Compact
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDensityPreset("comfortable")}
+                          style={{
+                            ...styles.densityButton,
+                            ...(densityPreset === "comfortable" ? styles.densityButtonActive : null),
+                          }}
+                        >
+                          Comfortable
+                        </button>
                       </div>
-                      <p style={styles.usageHint}>
-                        {trendMode === "month"
-                          ? `Monthly total users: ${Number(trendSummary.uniqueUsers || 0).toLocaleString()} (selected month).`
-                          : "Trend reflects daily page views from tracked page_view events."}
-                      </p>
                     </div>
-                  ) : null}
+                  </div>
+
+                  <div style={styles.kpiSquareGrid}>
+                    {rightRailKpis.map((item) => (
+                      <button
+                        type="button"
+                        key={item.key}
+                        onClick={() => handleKpiClick(item)}
+                        style={{
+                          ...styles.kpiSquareAction,
+                          ...(activeDrilldownKey === item.drilldownKey ? styles.kpiSquareActionActive : null),
+                        }}
+                      >
+                        <div
+                          style={{
+                            ...styles.kpiSquareCard,
+                            borderColor: isDarkMode ? "rgba(71, 85, 105, 0.82)" : item.border,
+                            background: isDarkMode
+                              ? "linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%)"
+                              : item.bg,
+                          }}
+                        >
+                          <div style={styles.kpiSquareTop}>
+                            <span style={{ ...styles.kpiSquareIcon, borderColor: item.border }}>
+                              <KpiIcon name={item.icon} color={item.color} />
+                            </span>
+                            <span style={{ ...styles.kpiSquareLabel, color: item.color }}>{item.label}</span>
+                          </div>
+                          <span style={{ ...styles.kpiSquareValue, color: item.color }}>{formatMetricValue(item.value)}</span>
+                          <span style={styles.kpiSquareHint}>{item.hint}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section ref={alertsSectionRef} style={{ ...styles.rightRailCard, ...styles.inlineRailCard }}>
+                  <div style={styles.rightRailHeader}>
+                    <p style={styles.usageEyebrow}>Monitor</p>
+                    <h3 style={styles.rightRailTitle}>Last 5 alerts</h3>
+                    <p style={styles.rightRailSubtitle}>
+                      Immediate signals for data issues and publishing actions.
+                    </p>
+                    <div style={styles.alertFilterRow}>
+                      <button
+                        type="button"
+                        onClick={() => setAlertFilter("all")}
+                        style={{
+                          ...styles.alertFilterButton,
+                          ...(alertFilter === "all" ? styles.alertFilterButtonActive : null),
+                        }}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAlertFilter("open")}
+                        style={{
+                          ...styles.alertFilterButton,
+                          ...(alertFilter === "open" ? styles.alertFilterButtonActive : null),
+                        }}
+                      >
+                        Open ({openAlertCount})
+                      </button>
+                    </div>
+                  </div>
+                  <div style={styles.alertList}>
+                    {filteredAlertItems.map((alertItem) => (
+                      <div key={alertItem.id} style={styles.alertItem}>
+                        <div style={styles.alertItemHeader}>
+                          <span style={styles.alertTitle}>{alertItem.title}</span>
+                          <span
+                            style={{
+                              ...styles.alertBadge,
+                              ...(alertItem.level === "critical"
+                                ? styles.alertBadgeCritical
+                                : alertItem.level === "warn"
+                                ? styles.alertBadgeWarn
+                                : alertItem.level === "info"
+                                ? styles.alertBadgeInfo
+                                : styles.alertBadgeOk),
+                            }}
+                          >
+                            {alertItem.level}
+                          </span>
+                        </div>
+                        <p style={styles.alertDetail}>{alertItem.detail}</p>
+                        <span style={styles.alertTime}>{alertItem.at}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section style={{ ...styles.rightRailCard, ...styles.inlineRailCard }}>
+                  <div style={styles.rightRailHeader}>
+                    <p style={styles.usageEyebrow}>Today split</p>
+                    <h3 style={styles.rightRailTitle}>Submission workload</h3>
+                  </div>
+                  <div style={styles.breakdownList}>
+                    {submissionTypeRows.map((row) => {
+                      const percent = submissionTypeTotal > 0
+                        ? Math.round((row.value / submissionTypeTotal) * 100)
+                        : 0;
+                      return (
+                        <div key={row.key} style={styles.breakdownRow}>
+                          <div style={styles.breakdownMeta}>
+                            <span style={styles.breakdownLabel}>{row.label}</span>
+                            <span style={styles.breakdownValue}>{row.value}</span>
+                          </div>
+                          <div style={styles.breakdownTrack}>
+                            <div
+                              style={{
+                                ...styles.breakdownFill,
+                                width: `${percent}%`,
+                                background: row.tone,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+
+              <section ref={drilldownSectionRef} style={styles.drilldownCard}>
+                <div style={styles.rightRailHeader}>
+                  <p style={styles.usageEyebrow}>KPI drill-down</p>
+                  <h3 style={styles.rightRailTitle}>{drilldownRows.title}</h3>
+                  <p style={styles.rightRailSubtitle}>{drilldownRows.description}</p>
                 </div>
+
+                {drilldownRows.kind === "alerts" ? (
+                  <div style={styles.alertList}>
+                    {drilldownRows.rows.map((alertItem) => (
+                      <div key={`drill-${alertItem.id}`} style={styles.alertItem}>
+                        <div style={styles.alertItemHeader}>
+                          <span style={styles.alertTitle}>{alertItem.title}</span>
+                          <span
+                            style={{
+                              ...styles.alertBadge,
+                              ...(alertItem.level === "critical"
+                                ? styles.alertBadgeCritical
+                                : alertItem.level === "warn"
+                                ? styles.alertBadgeWarn
+                                : alertItem.level === "info"
+                                ? styles.alertBadgeInfo
+                                : styles.alertBadgeOk),
+                            }}
+                          >
+                            {alertItem.level}
+                          </span>
+                        </div>
+                        <p style={styles.alertDetail}>{alertItem.detail}</p>
+                        <span style={styles.alertTime}>{alertItem.at}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={styles.drilldownList}>
+                    {drilldownRows.rows.map((row) => (
+                      <div key={`${drilldownRows.title}-${row.label}`} style={styles.drilldownRow}>
+                        <div style={styles.drilldownMain}>
+                          <span style={styles.drilldownLabel}>{row.label}</span>
+                          <span style={styles.drilldownValue}>{formatMetricValue(row.value)}</span>
+                        </div>
+                        <span style={styles.drilldownNote}>{row.note}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section style={styles.formCard}>
-                <div style={styles.formGrid}>
-                  {FIELD_META.map((field) => (
-                    <label key={field.key} style={styles.fieldLabel}>
-                      <span style={styles.fieldTitle}>{field.label}</span>
-                      <span style={styles.fieldDescription}>{field.description}</span>
-                      <input
-                        type="text"
-                        maxLength={40}
-                        value={formValues[field.key] || ""}
-                        onChange={(event) => onChangeField(field.key, event.target.value)}
-                        placeholder={field.placeholder}
-                        style={styles.input}
-                      />
-                    </label>
-                  ))}
-                </div>
-
-                <div style={styles.actionRow}>
-                  <button
-                    type="button"
-                    onClick={onSave}
-                    disabled={saving || loading || !hasChanges}
-                    style={{ ...styles.button, ...styles.primaryButton }}
-                  >
-                    {saving ? "Saving..." : "Save Labels"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onResetFromLive}
-                    disabled={saving || loading}
-                    style={{ ...styles.button, ...styles.ghostButton }}
-                  >
-                    Reset Form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onRestoreDefaults}
-                    disabled={saving || loading}
-                    style={{ ...styles.button, ...styles.softButton }}
-                  >
-                    Restore Defaults
-                  </button>
-                </div>
-
-                {status ? (
-                  <div
-                    style={{
-                      ...styles.status,
-                      ...(statusTone === "success"
-                        ? styles.statusSuccess
-                        : statusTone === "error"
-                        ? styles.statusError
-                        : styles.statusNeutral),
-                    }}
-                  >
-                    {status}
+                <div style={styles.formCompactLayout}>
+                  <div style={styles.formGrid}>
+                    {FIELD_META.map((field) => (
+                      <label key={field.key} style={styles.fieldLabel}>
+                        <div style={styles.fieldRow}>
+                          <span style={styles.fieldTitle}>{field.label}</span>
+                          <input
+                            type="text"
+                            maxLength={40}
+                            value={formValues[field.key] || ""}
+                            onChange={(event) => onChangeField(field.key, event.target.value)}
+                            placeholder={field.placeholder}
+                            style={styles.input}
+                          />
+                        </div>
+                        <span style={styles.fieldDescription}>{field.description}</span>
+                      </label>
+                    ))}
                   </div>
-                ) : null}
 
-                <div style={styles.previewWrap}>
-                  <div style={styles.previewLabel}>Preview chips</div>
-                  <div style={styles.previewRow}>
-                    <span style={styles.previewChip}>{formValues.ixDisplayName || "IX"}</span>
-                    <span style={styles.previewChip}>{formValues.orangeDisplayName || "Orange"}</span>
-                    <span style={styles.previewChip}>{formValues.fceDisplayName || "FCE"}</span>
+                  <div style={styles.formControlColumn}>
+                    <div style={styles.actionRow}>
+                      <button
+                        type="button"
+                        onClick={onSave}
+                        disabled={saving || loading || !hasChanges}
+                        style={{ ...styles.button, ...styles.primaryButton }}
+                      >
+                        {saving ? "Saving..." : "Save Labels"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onResetFromLive}
+                        disabled={saving || loading}
+                        style={{ ...styles.button, ...styles.ghostButton }}
+                      >
+                        Reset Form
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onRestoreDefaults}
+                        disabled={saving || loading}
+                        style={{ ...styles.button, ...styles.softButton }}
+                      >
+                        Restore Defaults
+                      </button>
+                    </div>
+
+                    {status ? (
+                      <div
+                        style={{
+                          ...styles.status,
+                          ...(statusTone === "success"
+                            ? styles.statusSuccess
+                            : statusTone === "error"
+                            ? styles.statusError
+                            : styles.statusNeutral),
+                        }}
+                      >
+                        {status}
+                      </div>
+                    ) : null}
+
+                    <div style={styles.previewWrap}>
+                      <div style={styles.previewLabel}>Preview chips</div>
+                      <div style={styles.previewRow}>
+                        <span style={styles.previewChip}>{formValues.ixDisplayName || "IX"}</span>
+                        <span style={styles.previewChip}>{formValues.orangeDisplayName || "Orange"}</span>
+                        <span style={styles.previewChip}>{formValues.fceDisplayName || "FCE"}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
             </div>
-
-            <aside style={styles.rightRail}>
-              <section style={styles.rightRailCard}>
-                <div style={styles.rightRailHeader}>
-                  <p style={styles.usageEyebrow}>Admin control center</p>
-                  <h3 style={styles.rightRailTitle}>Right-side snapshot</h3>
-                  <p style={styles.rightRailSubtitle}>
-                    Square KPI cards inspired by Microsoft-style at-a-glance dashboards.
-                  </p>
-                  <div style={styles.densityRow}>
-                    <span style={styles.densityLabel}>Density</span>
-                    <div style={styles.densitySwitch} role="group" aria-label="Density preset">
-                      <button
-                        type="button"
-                        onClick={() => setDensityPreset("compact")}
-                        style={{
-                          ...styles.densityButton,
-                          ...(densityPreset === "compact" ? styles.densityButtonActive : null),
-                        }}
-                      >
-                        Compact
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDensityPreset("comfortable")}
-                        style={{
-                          ...styles.densityButton,
-                          ...(densityPreset === "comfortable" ? styles.densityButtonActive : null),
-                        }}
-                      >
-                        Comfortable
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.kpiSquareGrid}>
-                  {rightRailKpis.map((item) => (
-                    <div
-                      key={item.key}
-                      style={{
-                        ...styles.kpiSquareCard,
-                        borderColor: isDarkMode ? "rgba(71, 85, 105, 0.82)" : item.border,
-                        background: isDarkMode
-                          ? "linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%)"
-                          : item.bg,
-                      }}
-                    >
-                      <div style={styles.kpiSquareTop}>
-                        <span style={{ ...styles.kpiSquareIcon, borderColor: item.border }}>
-                          <KpiIcon name={item.icon} color={item.color} />
-                        </span>
-                        <span style={{ ...styles.kpiSquareLabel, color: item.color }}>{item.label}</span>
-                      </div>
-                      <span style={{ ...styles.kpiSquareValue, color: item.color }}>{formatMetricValue(item.value)}</span>
-                      <span style={styles.kpiSquareHint}>{item.hint}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section style={styles.rightRailCard}>
-                <div style={styles.rightRailHeader}>
-                  <p style={styles.usageEyebrow}>Monitor</p>
-                  <h3 style={styles.rightRailTitle}>Last 5 alerts</h3>
-                  <p style={styles.rightRailSubtitle}>
-                    Immediate signals for data issues and publishing actions.
-                  </p>
-                </div>
-                <div style={styles.alertList}>
-                  {alertItems.map((alertItem) => (
-                    <div key={alertItem.id} style={styles.alertItem}>
-                      <div style={styles.alertItemHeader}>
-                        <span style={styles.alertTitle}>{alertItem.title}</span>
-                        <span
-                          style={{
-                            ...styles.alertBadge,
-                            ...(alertItem.level === "critical"
-                              ? styles.alertBadgeCritical
-                              : alertItem.level === "warn"
-                              ? styles.alertBadgeWarn
-                              : alertItem.level === "info"
-                              ? styles.alertBadgeInfo
-                              : styles.alertBadgeOk),
-                          }}
-                        >
-                          {alertItem.level}
-                        </span>
-                      </div>
-                      <p style={styles.alertDetail}>{alertItem.detail}</p>
-                      <span style={styles.alertTime}>{alertItem.at}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section style={styles.rightRailCard}>
-                <div style={styles.rightRailHeader}>
-                  <p style={styles.usageEyebrow}>Today split</p>
-                  <h3 style={styles.rightRailTitle}>Submission workload</h3>
-                </div>
-                <div style={styles.breakdownList}>
-                  {submissionTypeRows.map((row) => {
-                    const percent = submissionTypeTotal > 0
-                      ? Math.round((row.value / submissionTypeTotal) * 100)
-                      : 0;
-                    return (
-                      <div key={row.key} style={styles.breakdownRow}>
-                        <div style={styles.breakdownMeta}>
-                          <span style={styles.breakdownLabel}>{row.label}</span>
-                          <span style={styles.breakdownValue}>{row.value}</span>
-                        </div>
-                        <div style={styles.breakdownTrack}>
-                          <div
-                            style={{
-                              ...styles.breakdownFill,
-                              width: `${percent}%`,
-                              background: row.tone,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </aside>
           </div>
         </AdminStickySidebarLayout>
       </div>
@@ -986,10 +1546,33 @@ const getStyles = (isDarkMode, densityPreset) => ({
     flexWrap: "wrap",
   },
   primaryColumn: {
-    flex: "1 1 680px",
+    flex: "1 1 100%",
     minWidth: 0,
     display: "grid",
     gap: 14,
+  },
+  trafficRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(460px, 1fr))",
+    gap: 0,
+    alignItems: "stretch",
+    gridAutoRows: "1fr",
+  },
+  trafficFrame: {
+    borderRadius: 20,
+    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
+    background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
+    overflow: "hidden",
+    boxShadow: isDarkMode ? "0 12px 28px rgba(2, 6, 23, 0.28)" : "0 8px 24px rgba(15, 23, 42, 0.06)",
+  },
+  inlineRailRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 14,
+    alignItems: "start",
+  },
+  inlineRailCard: {
+    height: "100%",
   },
   rightRail: {
     flex: "0 1 320px",
@@ -1058,28 +1641,46 @@ const getStyles = (isDarkMode, densityPreset) => ({
   },
   kpiSquareGrid: {
     display: "grid",
-    gap: 10,
+    gap: 8,
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   },
+  kpiSquareAction: {
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    margin: 0,
+    textAlign: "left",
+    borderRadius: 12,
+    cursor: "pointer",
+  },
+  kpiSquareActionActive: {
+    boxShadow: isDarkMode
+      ? "0 0 0 2px rgba(59, 130, 246, 0.42)"
+      : "0 0 0 2px rgba(37, 99, 235, 0.26)",
+  },
   kpiSquareCard: {
-    border: "1px solid",
-    borderRadius: 14,
-    padding: "10px 10px",
-    aspectRatio: "1 / 1",
-    minHeight: densityPreset === "compact" ? 120 : 132,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
+    borderRadius: 12,
+    padding: densityPreset === "compact" ? "8px 9px" : "10px 11px",
+    minHeight: densityPreset === "compact" ? 84 : 96,
     display: "grid",
-    alignContent: "space-between",
+    alignContent: "start",
+    gap: 4,
   },
   kpiSquareTop: {
     display: "flex",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
   },
   kpiSquareIcon: {
     width: 24,
     height: 24,
     borderRadius: 999,
-    border: "1px solid",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1087,19 +1688,19 @@ const getStyles = (isDarkMode, densityPreset) => ({
     flex: "0 0 auto",
   },
   kpiSquareLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 700,
     letterSpacing: "0.02em",
   },
   kpiSquareValue: {
-    fontSize: "1.32rem",
-    lineHeight: 1.05,
+    fontSize: "1.05rem",
+    lineHeight: 1.15,
     fontWeight: 800,
   },
   kpiSquareHint: {
-    fontSize: 11,
+    fontSize: 10,
     color: isDarkMode ? "#94a3b8" : "#64748b",
-    lineHeight: 1.35,
+    lineHeight: 1.25,
   },
   healthGrid: {
     display: "grid",
@@ -1131,7 +1732,9 @@ const getStyles = (isDarkMode, densityPreset) => ({
     letterSpacing: "0.06em",
     textTransform: "uppercase",
     fontWeight: 800,
-    border: "1px solid",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
   },
   statusBadgeSuccess: {
     color: isDarkMode ? "#86efac" : "#166534",
@@ -1183,6 +1786,32 @@ const getStyles = (isDarkMode, densityPreset) => ({
     display: "grid",
     gap: 8,
   },
+  alertFilterRow: {
+    marginTop: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  alertFilterButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: isDarkMode ? "#475569" : "#cbd5e1",
+    background: "transparent",
+    color: isDarkMode ? "#cbd5e1" : "#475569",
+    fontSize: 11,
+    fontWeight: 700,
+    padding: "4px 9px",
+    cursor: "pointer",
+  },
+  alertFilterButtonActive: {
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: isDarkMode ? "#1d4ed8" : "#2563eb",
+    background: isDarkMode ? "rgba(37, 99, 235, 0.24)" : "#eff6ff",
+    color: isDarkMode ? "#dbeafe" : "#1d4ed8",
+  },
   alertItem: {
     border: `1px solid ${isDarkMode ? "#334155" : "#dbe4f0"}`,
     borderRadius: 12,
@@ -1204,7 +1833,9 @@ const getStyles = (isDarkMode, densityPreset) => ({
   },
   alertBadge: {
     borderRadius: 999,
-    border: "1px solid",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
     padding: "2px 7px",
     fontSize: 9,
     letterSpacing: "0.05em",
@@ -1247,27 +1878,39 @@ const getStyles = (isDarkMode, densityPreset) => ({
     borderRadius: 20,
     border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
     background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
-    padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
-    minHeight: densityPreset === "compact" ? 300 : 340,
+    padding: densityPreset === "compact" ? "12px 14px" : "16px 18px",
     display: "grid",
+    alignContent: "start",
+  },
+  formCompactLayout: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 12,
+    alignItems: "start",
+  },
+  formControlColumn: {
+    display: "grid",
+    gap: 8,
     alignContent: "start",
   },
   usageCard: {
-    borderRadius: 20,
-    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
-    background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
+    borderRadius: 0,
+    border: "none",
+    background: "transparent",
     padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
-    minHeight: densityPreset === "compact" ? 300 : 340,
+    display: "flex",
+    flexDirection: "column",
+    alignContent: "stretch",
+    height: "100%",
+  },
+  trafficPanelHeader: {
+    display: "grid",
+    gap: 6,
+    marginBottom: 8,
+  },
+  trafficPanelHeading: {
     display: "grid",
     alignContent: "start",
-  },
-  usageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap",
-    marginBottom: 12,
   },
   usageEyebrow: {
     margin: 0,
@@ -1291,16 +1934,29 @@ const getStyles = (isDarkMode, densityPreset) => ({
   },
   usageGrid: {
     display: "grid",
-    gap: 10,
-    gridTemplateColumns: "repeat(auto-fit, minmax(138px, 1fr))",
+    gap: 8,
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
   },
-  usageMetricCard: {
-    border: "1px solid",
-    borderRadius: 14,
-    padding: "10px 10px",
-    minHeight: 92,
+  usageMetricItem: {
+    padding: "4px 2px",
     display: "grid",
-    alignContent: "space-between",
+    gap: 2,
+    alignContent: "start",
+  },
+  metricActionButton: {
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
+    borderRadius: 10,
+    background: "transparent",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  metricActionButtonActive: {
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: isDarkMode ? "rgba(59, 130, 246, 0.46)" : "#bfdbfe",
+    background: isDarkMode ? "rgba(30, 41, 59, 0.55)" : "#f8fbff",
   },
   usageMetricLabel: {
     fontSize: 11,
@@ -1308,8 +1964,8 @@ const getStyles = (isDarkMode, densityPreset) => ({
     lineHeight: 1.3,
   },
   usageMetricValue: {
-    marginTop: 6,
-    fontSize: 21,
+    marginTop: 0,
+    fontSize: 20,
     fontWeight: 800,
     lineHeight: 1.1,
   },
@@ -1344,34 +2000,83 @@ const getStyles = (isDarkMode, densityPreset) => ({
     fontSize: 11.5,
     lineHeight: 1.6,
   },
+  usageFooterControls: {
+    marginTop: 0,
+    paddingTop: 12,
+    borderTop: `1px solid ${isDarkMode ? "#1f2937" : "#e2e8f0"}`,
+    display: "grid",
+    gap: 8,
+  },
+  usageFooterControlRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
   trendCard: {
+    borderRadius: 0,
+    border: "none",
+    borderLeft: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.5)" : "#e2e8f0"}`,
+    background: "transparent",
+    padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
+    display: "flex",
+    flexDirection: "column",
+    alignContent: "stretch",
+    height: "100%",
+  },
+  drilldownCard: {
     borderRadius: 20,
     border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
     background: isDarkMode ? "rgba(15, 23, 42, 0.9)" : "#ffffff",
-    padding: densityPreset === "compact" ? "16px 18px" : "20px 22px",
-    minHeight: densityPreset === "compact" ? 300 : 340,
+    padding: densityPreset === "compact" ? "14px 16px" : "18px 20px",
     display: "grid",
     alignContent: "start",
-  },
-  trendBody: {
-    marginTop: 10,
-    display: "grid",
     gap: 10,
-    gridTemplateColumns: "minmax(170px, 220px) minmax(0, 1fr)",
-    alignItems: "start",
   },
-  trendHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap",
+  drilldownList: {
+    display: "grid",
+    gap: 8,
   },
-  trendActionRow: {
+  drilldownRow: {
+    border: `1px solid ${isDarkMode ? "#334155" : "#dbe4f0"}`,
+    borderRadius: 12,
+    padding: "8px 10px",
+    background: isDarkMode ? "#0f172a" : "#f8fafc",
+    display: "grid",
+    gap: 4,
+  },
+  drilldownMain: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
-    flexWrap: "wrap",
+  },
+  drilldownLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+  },
+  drilldownValue: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: isDarkMode ? "#dbeafe" : "#1e3a8a",
+  },
+  drilldownNote: {
+    fontSize: 10.5,
+    color: isDarkMode ? "#94a3b8" : "#64748b",
+  },
+  trendBody: {
+    marginTop: 4,
+    display: "grid",
+    gap: 12,
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    alignItems: "start",
+    flex: "1 1 auto",
+  },
+  trendSummaryColumn: {
+    display: "grid",
+    gap: 10,
+    alignContent: "start",
   },
   monthInput: {
     border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
@@ -1382,103 +2087,119 @@ const getStyles = (isDarkMode, densityPreset) => ({
     fontSize: 12,
   },
   trendSummaryGrid: {
+    display: "flex",
+    gap: 14,
+    flexWrap: "wrap",
+  },
+  trendLegendGrid: {
     display: "grid",
+    gap: 7,
+  },
+  trendLegendItem: {
+    display: "grid",
+    gridTemplateColumns: "12px minmax(0, 1fr) auto",
+    alignItems: "center",
     gap: 8,
+    borderRadius: 10,
+    padding: "6px 8px",
+    background: isDarkMode ? "rgba(15, 23, 42, 0.72)" : "#f8fafc",
+    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.45)" : "#e2e8f0"}`,
   },
-  trendSummaryCard: {
-    border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
-    borderRadius: 14,
-    background: isDarkMode ? "#0f172a" : "#f8fafc",
-    padding: "10px 11px",
-    minHeight: 78,
-    display: "grid",
-    alignContent: "space-between",
+  trendLegendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    display: "inline-block",
   },
-  trendSummaryLabel: {
+  trendLegendLabel: {
     fontSize: 11,
     fontWeight: 700,
+    color: isDarkMode ? "#e2e8f0" : "#1e293b",
+  },
+  trendLegendValue: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: isDarkMode ? "#cbd5e1" : "#334155",
+  },
+  trendSummaryItem: {
+    display: "grid",
+    gap: 2,
+    minWidth: 112,
+  },
+  trendSummaryLabel: {
+    fontSize: 10.5,
+    fontWeight: 700,
     color: isDarkMode ? "#94a3b8" : "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
   },
   trendSummaryValue: {
-    marginTop: 6,
-    fontSize: 20,
+    marginTop: 0,
+    fontSize: 21,
     fontWeight: 800,
     color: isDarkMode ? "#f8fafc" : "#0f172a",
     lineHeight: 1.1,
   },
-  trendChartWrap: {
-    border: `1px solid ${isDarkMode ? "#1f2937" : "#e2e8f0"}`,
+  trendChartPanel: {
     borderRadius: 14,
-    padding: "10px 10px 8px",
-    background: isDarkMode ? "rgba(15, 23, 42, 0.68)" : "#f8fafc",
-    alignSelf: "start",
+    border: `1px solid ${isDarkMode ? "rgba(71, 85, 105, 0.66)" : "#dbe4f0"}`,
+    background: isDarkMode ? "#0f172a" : "#ffffff",
+    padding: "8px 10px 6px",
+    minHeight: 220,
   },
-  trendChartBars: {
-    minHeight: 84,
-    display: "flex",
-    alignItems: "flex-end",
-    gap: 8,
-    justifyContent: "flex-start",
-    overflowX: "auto",
-    paddingBottom: 4,
-  },
-  trendBarColumn: {
-    minWidth: 34,
-    flex: "0 0 40px",
-    display: "grid",
-    gap: 4,
-    justifyItems: "center",
-  },
-  trendBar: {
-    width: "64%",
-    minWidth: 14,
-    borderRadius: 6,
-    background: "linear-gradient(180deg, #22d3ee 0%, #2563eb 100%)",
-    boxShadow: isDarkMode
-      ? "0 6px 14px rgba(37, 99, 235, 0.35)"
-      : "0 6px 14px rgba(37, 99, 235, 0.2)",
-  },
-  trendBarLabel: {
-    fontSize: 10,
-    color: isDarkMode ? "#94a3b8" : "#64748b",
-    whiteSpace: "nowrap",
+  trendChartSvg: {
+    width: "100%",
+    height: 220,
+    display: "block",
   },
   formGrid: {
     display: "grid",
-    gap: 10,
-    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 6,
+    gridTemplateColumns: "minmax(0, 1fr)",
   },
   fieldLabel: {
     display: "grid",
-    gap: 6,
+    gap: 4,
     border: `1px solid ${isDarkMode ? "#334155" : "#dbe4f0"}`,
-    borderRadius: 14,
+    borderRadius: 12,
     background: isDarkMode ? "#0f172a" : "#f8fafc",
-    padding: "10px 11px",
-    minHeight: densityPreset === "compact" ? 100 : 116,
+    padding: densityPreset === "compact" ? "8px 10px" : "10px 12px",
+    minHeight: 0,
+  },
+  fieldRow: {
+    display: "grid",
+    gridTemplateColumns: "88px minmax(0, 1fr)",
+    alignItems: "center",
+    gap: 8,
   },
   fieldTitle: {
     fontWeight: 700,
+    fontSize: 11.5,
     color: isDarkMode ? "#f8fafc" : "#0f172a",
   },
   fieldDescription: {
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 1.35,
+    overflowWrap: "anywhere",
     color: isDarkMode ? "#94a3b8" : "#64748b",
   },
   input: {
     border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
-    borderRadius: 12,
-    padding: "9px 11px",
-    fontSize: 13,
+    borderRadius: 10,
+    padding: "6px 9px",
+    width: "100%",
+    maxWidth: 260,
+    justifySelf: "start",
+    fontSize: 12,
     outline: "none",
     background: isDarkMode ? "#0f172a" : "#ffffff",
     color: isDarkMode ? "#e2e8f0" : "#0f172a",
   },
   actionRow: {
-    marginTop: 12,
+    marginTop: 0,
     display: "flex",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   button: {
     borderRadius: 999,
@@ -1502,11 +2223,11 @@ const getStyles = (isDarkMode, densityPreset) => ({
     color: isDarkMode ? "#e2e8f0" : "#0f172a",
   },
   status: {
-    marginTop: 14,
+    marginTop: 0,
     borderRadius: 12,
-    padding: "10px 12px",
+    padding: "8px 10px",
     fontWeight: 600,
-    fontSize: 12,
+    fontSize: 11.5,
   },
   statusSuccess: {
     background: isDarkMode ? "rgba(22, 163, 74, 0.16)" : "#ecfdf3",
@@ -1524,9 +2245,9 @@ const getStyles = (isDarkMode, densityPreset) => ({
     color: isDarkMode ? "#bfdbfe" : "#1e3a8a",
   },
   previewWrap: {
-    marginTop: 12,
+    marginTop: 0,
     borderTop: `1px solid ${isDarkMode ? "#1f2937" : "#e2e8f0"}`,
-    paddingTop: 10,
+    paddingTop: 6,
   },
   previewLabel: {
     fontSize: 12,
