@@ -78,6 +78,14 @@ const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
     onClick: () => navigate("/admin/display-settings"),
   },
   {
+    key: "runtime-sync-metrics",
+    label: "Runtime sync",
+    hint: "Live client metrics",
+    tone: "cyan",
+    active: currentKey === "runtime-sync-metrics",
+    onClick: () => navigate("/admin/runtime-sync-metrics"),
+  },
+  {
     key: "permissions",
     label: "Permissions",
     hint: "Teacher access",

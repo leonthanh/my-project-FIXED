@@ -38,6 +38,33 @@ function createTransporter() {
 // Lưu OTP tạm thời (trong thực tế nên dùng Redis)
 const otpStore = new Map();
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const AUTH_RATE_LIMIT_WINDOW_MS = parsePositiveInt(
+  process.env.AUTH_RATE_LIMIT_WINDOW_MS,
+  10 * 60 * 1000
+);
+const AUTH_RATE_LIMIT_MAX = parsePositiveInt(process.env.AUTH_RATE_LIMIT_MAX, 50);
+const AUTH_LOGIN_RATE_LIMIT_MAX = parsePositiveInt(
+  process.env.AUTH_LOGIN_RATE_LIMIT_MAX,
+  60
+);
+const AUTH_REFRESH_RATE_LIMIT_MAX = parsePositiveInt(
+  process.env.AUTH_REFRESH_RATE_LIMIT_MAX,
+  240
+);
+const AUTH_REGISTER_RATE_LIMIT_MAX = parsePositiveInt(
+  process.env.AUTH_REGISTER_RATE_LIMIT_MAX,
+  20
+);
+const AUTH_OTP_RATE_LIMIT_MAX = parsePositiveInt(
+  process.env.AUTH_OTP_RATE_LIMIT_MAX,
+  20
+);
+
 const normalizeAuthLimiterValue = (value) => {
   const normalized = String(value ?? '').trim();
   return normalized ? normalized : null;
@@ -73,8 +100,8 @@ const extractAuthRateLimitKey = (req) => {
 };
 
 const buildAuthLimiter = (overrides = {}) => rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 50,
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  limit: AUTH_RATE_LIMIT_MAX,
   keyGenerator: extractAuthRateLimitKey,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
@@ -87,21 +114,21 @@ const buildAuthLimiter = (overrides = {}) => rateLimit({
 
 const authLimiter = buildAuthLimiter();
 const loginLimiter = buildAuthLimiter({
-  limit: 20,
+  limit: AUTH_LOGIN_RATE_LIMIT_MAX,
   skipSuccessfulRequests: true,
 });
 const refreshLimiter = buildAuthLimiter({
-  limit: 240,
+  limit: AUTH_REFRESH_RATE_LIMIT_MAX,
   skipSuccessfulRequests: true,
 });
 const registerLimiter = buildAuthLimiter({
-  limit: 20,
+  limit: AUTH_REGISTER_RATE_LIMIT_MAX,
   skipSuccessfulRequests: true,
 });
 
 const otpLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 10,
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  limit: AUTH_OTP_RATE_LIMIT_MAX,
   keyGenerator: extractAuthRateLimitKey,
   standardHeaders: 'draft-7',
   legacyHeaders: false,

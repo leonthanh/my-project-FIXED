@@ -43,6 +43,10 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import {
+  getServerCooldownMs,
+  recordRuntimeSyncRequestMetric,
+} from "../../../shared/utils/runtimeSync";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
@@ -835,6 +839,10 @@ const DoReadingTest = () => {
   // Throttled server autosave: localStorage is the source of truth for the current device.
   // We sync to the server only every SERVER_AUTOSAVE_INTERVAL_MS or on page leave.
   const lastServerSaveAtRef = useRef(0);
+  const autosaveBlockedUntilRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const timingSyncBlockedUntilRef = useRef(0);
+  const timingSyncInFlightRef = useRef(false);
   useEffect(() => {
     if (!started || submitted || timeRemaining === null) return;
 
@@ -849,6 +857,9 @@ const DoReadingTest = () => {
 
     const persistDraft = async () => {
       const now = Date.now();
+      if (autosaveInFlightRef.current || now < autosaveBlockedUntilRef.current) {
+        return;
+      }
       // Guard against accidental bursts from effect re-runs.
       if (now - lastServerSaveAtRef.current < SERVER_AUTOSAVE_INTERVAL_MS - 1000) {
         return;
@@ -860,6 +871,7 @@ const DoReadingTest = () => {
       }
 
       lastServerSaveAtRef.current = now;
+      autosaveInFlightRef.current = true;
 
       try {
         const payload = {
@@ -881,13 +893,23 @@ const DoReadingTest = () => {
           body: JSON.stringify(payload),
         });
         const json = await res.json().catch(() => null);
+        recordRuntimeSyncRequestMetric({
+          scope: "ix-reading",
+          endpoint: "autosave",
+          status: res.status,
+        });
         if (!res.ok) {
           const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
           if (runtimeMessage) {
             setRuntimeLimitToast(runtimeMessage);
           }
+          if (res.status === 429) {
+            autosaveBlockedUntilRef.current =
+              Date.now() + getServerCooldownMs(res, json || {});
+          }
           return;
         }
+        autosaveBlockedUntilRef.current = 0;
         setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
@@ -902,7 +924,14 @@ const DoReadingTest = () => {
           syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
+        recordRuntimeSyncRequestMetric({
+          scope: "ix-reading",
+          endpoint: "autosave",
+          status: "network_error",
+        });
         // Keep localStorage as a fallback if the network is unstable.
+      } finally {
+        autosaveInFlightRef.current = false;
       }
     };
 
@@ -941,6 +970,7 @@ const DoReadingTest = () => {
   const reconcileServerTiming = useCallback(async () => {
     if (!started || submitted) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
 
     const localUser = getStoredUser();
     const query = placementContext.placementAttemptItemToken
@@ -955,8 +985,20 @@ const DoReadingTest = () => {
     if (!query) return;
 
     try {
+      timingSyncInFlightRef.current = true;
       const res = await fetch(apiPath(`reading-submissions/${id}/active${query}`));
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-reading",
+        endpoint: "active",
+        status: res.status,
+      });
+      if (res.status === 429) {
+        timingSyncBlockedUntilRef.current =
+          Date.now() + getServerCooldownMs(res);
+        return;
+      }
       if (!res.ok) return;
+      timingSyncBlockedUntilRef.current = 0;
       const data = await res.json().catch(() => ({}));
       const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
       const nextExpiresAtMs = toTimestamp(nextExpiresAt);
@@ -970,7 +1012,14 @@ const DoReadingTest = () => {
         syncTimingState(nextExpiresAtMs);
       }
     } catch (_err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-reading",
+        endpoint: "active",
+        status: "network_error",
+      });
       // ignore polling errors; autosave and refresh can still recover timing
+    } finally {
+      timingSyncInFlightRef.current = false;
     }
   }, [announceExtension, id, placementContext.placementAttemptItemToken, started, submitted, syncTimingState]);
 
@@ -3785,4 +3834,3 @@ const DoReadingTest = () => {
 /* eslint-enable no-loop-func */
 
 export default DoReadingTest;
-

@@ -7,3 +7,4 @@ export { default as MyFeedback } from './MyFeedback';
 export { default as AdminReadingSubmissions } from './AdminReadingSubmissions';
 export { default as CambridgeSubmissionsPage } from './CambridgeSubmissionsPage';
 export { default as AdminListeningSubmissions } from './AdminListeningSubmissions';
+export { default as AdminRuntimeSyncMetricsPage } from './AdminRuntimeSyncMetricsPage';

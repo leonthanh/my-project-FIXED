@@ -16,6 +16,10 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import {
+  getServerCooldownMs,
+  recordRuntimeSyncRequestMetric,
+} from "../../../shared/utils/runtimeSync";
 import ExtensionToast from "../../../shared/components/ExtensionToast";
 import TestStartModal from "../../../shared/components/TestStartModal";
 import InlineIcon from "../../../shared/components/InlineIcon.jsx";
@@ -146,6 +150,10 @@ const WritingTest = () => {
   const lastAnnouncedExpiryRef = useRef(null);
   const localDraftRef = useRef(initialLocalDraft);
   const lastServerDraftFingerprintRef = useRef("");
+  const autosaveBlockedUntilRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const timingSyncBlockedUntilRef = useRef(0);
+  const timingSyncInFlightRef = useRef(false);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -447,6 +455,8 @@ const WritingTest = () => {
   const saveDraftToServer = useCallback(async ({ force = false, keepalive = false } = {}) => {
     if (isHydratingDraft || submitted) return;
     if (!isPlacementRuntime && !user?.id) return;
+    if (autosaveInFlightRef.current) return;
+    if (!force && Date.now() < autosaveBlockedUntilRef.current) return;
 
     const numericTestId = parseInt(selectedTestId || routeTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) return;
@@ -467,6 +477,7 @@ const WritingTest = () => {
     }
 
     lastServerSaveAtRef.current = now;
+    autosaveInFlightRef.current = true;
 
     try {
       const payload = {
@@ -498,14 +509,24 @@ const WritingTest = () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-writing",
+        endpoint: "autosave",
+        status: res.status,
+      });
       if (!res.ok) {
         const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, data || {});
         if (runtimeMessage) {
           setRuntimeLimitToast(runtimeMessage);
         }
+        if (res.status === 429) {
+          autosaveBlockedUntilRef.current =
+            Date.now() + getServerCooldownMs(res, data || {});
+        }
         return;
       }
 
+      autosaveBlockedUntilRef.current = 0;
       setRuntimeLimitToast("");
       lastServerDraftFingerprintRef.current = draftSyncFingerprint;
       const nextEndAt = data?.timing?.expiresAt || data?.draftEndAt;
@@ -514,7 +535,14 @@ const WritingTest = () => {
         syncTimingState(nextEndAt);
       }
     } catch (err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-writing",
+        endpoint: "autosave",
+        status: "network_error",
+      });
       console.error("Error autosaving writing draft:", err);
+    } finally {
+      autosaveInFlightRef.current = false;
     }
   }, [
     announceExtension,
@@ -533,17 +561,21 @@ const WritingTest = () => {
     timeLeft,
     user,
     draftSyncFingerprint,
+    autosaveInFlightRef,
+    autosaveBlockedUntilRef,
   ]);
 
   const reconcileServerTiming = useCallback(async () => {
     if (isHydratingDraft || submitted || !started) return;
     if (!isPlacementRuntime && !user?.id) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
 
     const numericTestId = Number(selectedTestId || routeTestId);
     if (!Number.isFinite(numericTestId) || numericTestId <= 0) return;
 
     try {
+      timingSyncInFlightRef.current = true;
       const params = new URLSearchParams();
 
       if (isPlacementRuntime) {
@@ -555,7 +587,18 @@ const WritingTest = () => {
       params.set("testId", String(numericTestId));
 
       const res = await fetch(apiPath(`writing/draft/active?${params.toString()}`));
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-writing",
+        endpoint: "active",
+        status: res.status,
+      });
+      if (res.status === 429) {
+        timingSyncBlockedUntilRef.current =
+          Date.now() + getServerCooldownMs(res);
+        return;
+      }
       if (!res.ok) return;
+      timingSyncBlockedUntilRef.current = 0;
       const data = await res.json().catch(() => ({}));
       const nextEndAt = data?.submission?.draftEndAt || data?.timing?.expiresAt;
       const nextEndAtMs = toTimestamp(nextEndAt);
@@ -569,7 +612,14 @@ const WritingTest = () => {
         syncTimingState(nextEndAtMs);
       }
     } catch (_err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-writing",
+        endpoint: "active",
+        status: "network_error",
+      });
       // ignore polling errors; autosave and refresh can still recover timing
+    } finally {
+      timingSyncInFlightRef.current = false;
     }
   }, [
     announceExtension,
