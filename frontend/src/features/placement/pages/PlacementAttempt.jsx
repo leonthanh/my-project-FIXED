@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath } from "../../../shared/utils/api";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   buildPlacementAttemptItemRuntimePath,
   buildPlacementSharePath,
@@ -153,7 +154,7 @@ const PlacementAttempt = () => {
               <div className="placement-entry-pillRow placement-entry-pillRow--sidebar">
                 <span className="placement-entry-pill">
                   <LineIcon name="form" size={14} />
-                  <span>{attempt?.studentName || "Student"}</span>
+                  <span>{formatStudentDisplayName(attempt?.studentName, "Student")}</span>
                 </span>
                 <span className="placement-entry-pill">
                   <LineIcon name="phone" size={14} />

@@ -33,6 +33,7 @@ import SubmissionHeaderSurface from "../components/SubmissionHeaderSurface";
 import SubmissionTypeTabs from "../components/SubmissionTypeTabs";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
@@ -1083,7 +1084,7 @@ const AdminWritingSubmissions = () => {
                   {isDraft ? "Draft not submitted" : isDone ? "Reviewed" : "Pending"}
                 </span>
                 <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
-                  {item.userName || "N/A"}
+                  {formatStudentDisplayName(item.userName, "N/A")}
                 </span>
                 <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 100 }}>
                   {item.userPhone || "N/A"}
@@ -1486,7 +1487,7 @@ const AdminWritingSubmissions = () => {
             <>
               <p style={confirmMetaHeadingStyle}>Submission summary</p>
               <p style={confirmMetaTextStyle}>
-                <strong>Student:</strong> {deleteConfirm?.submission?.userName || "Unknown student"}
+                <strong>Student:</strong> {formatStudentDisplayName(deleteConfirm?.submission?.userName, "Unknown student")}
               </p>
               <p style={confirmMetaTextStyle}>
                 <strong>Status:</strong> {deleteConfirm?.submission?.isDraft ? "Draft not submitted" : "Submitted"}

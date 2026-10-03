@@ -11,6 +11,7 @@ import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   buildCambridgeResponseFeedbackDraftMap,
   countMissingCambridgeResponseFeedback,
@@ -593,7 +594,7 @@ const Review = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentName: submission.studentName || "N/A",
+          studentName: formatStudentDisplayName(submission.studentName, "N/A"),
           testType: submission.testType || "Orange",
           classCode: submission.classCode || "",
           responses: [
@@ -791,11 +792,14 @@ const Review = () => {
   };
 
   const getSubmissionStudentName = (submission) =>
-    submission?.studentName ||
-    submission?.userName ||
-    submission?.user?.name ||
-    submission?.User?.name ||
-    "N/A";
+    formatStudentDisplayName(
+      submission?.studentName ||
+        submission?.userName ||
+        submission?.user?.name ||
+        submission?.User?.name ||
+        "",
+      "N/A"
+    );
 
   const getSubmissionPhone = (submission) =>
     submission?.studentPhone ||
@@ -1272,7 +1276,10 @@ const Review = () => {
   const getWritingFilterMeta = (submission) => {
     const test = submission?.writing_test || submission?.WritingTest || {};
     return {
-      studentName: submission?.userName || submission?.user?.name || submission?.User?.name || "",
+      studentName: formatStudentDisplayName(
+        submission?.userName || submission?.user?.name || submission?.User?.name || "",
+        ""
+      ),
       classCode: test?.classCode || "",
       teacherName: test?.teacherName || "",
       reviewedBy: submission?.feedbackBy || "",
@@ -1311,7 +1318,10 @@ const Review = () => {
       const test = sub?.writing_test || sub?.WritingTest || {};
 
       return {
-        studentName: sub?.userName || sub?.user?.name || sub?.User?.name || "",
+        studentName: formatStudentDisplayName(
+          sub?.userName || sub?.user?.name || sub?.User?.name || "",
+          ""
+        ),
         classCode: test?.classCode || "",
         teacherName: test?.teacherName || "",
         reviewedBy: sub?.feedbackBy || "",
@@ -1322,7 +1332,7 @@ const Review = () => {
 
     const sub = row?.sub || {};
     return {
-      studentName: sub?.studentName || sub?.userName || "",
+      studentName: formatStudentDisplayName(sub?.studentName || sub?.userName || "", ""),
       classCode: sub?.classCode || "",
       teacherName: sub?.teacherName || "",
       reviewedBy: sub?.feedbackBy || "",

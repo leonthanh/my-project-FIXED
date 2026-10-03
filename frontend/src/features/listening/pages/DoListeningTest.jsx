@@ -21,6 +21,7 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -210,9 +211,10 @@ const DoListeningTest = () => {
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
   }, []);
 
   const annotationStorageKey = useMemo(
@@ -680,7 +682,10 @@ const DoListeningTest = () => {
       user = null;
     }
 
-    const studentName = user?.name || user?.username || user?.email || null;
+    const studentName = formatStudentDisplayName(
+      user?.name || user?.username || user?.email,
+      null
+    );
     const studentId = user?.id || null;
 
     try {

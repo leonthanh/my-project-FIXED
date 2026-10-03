@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
 
 const formatScore = (value) => {
   const numeric = Number(value);
@@ -12,6 +13,7 @@ const formatScore = (value) => {
 const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actions = [] }) => {
   const modalRef = useRef(null);
   const { isDarkMode } = useTheme();
+  const displayStudentName = formatStudentDisplayName(studentName, "");
   const colors = useMemo(() => (
     isDarkMode
       ? {
@@ -429,7 +431,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
           )}
 
           {/* Student info */}
-          {studentName && (
+          {displayStudentName && (
             <div
               style={{
                 background: colors.surfaceAlt,
@@ -441,7 +443,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
                 marginBottom: 20,
               }}
             >
-                <strong style={{ color: colors.text }}>Student:</strong> {studentName}
+                <strong style={{ color: colors.text }}>Student:</strong> {displayStudentName}
             </div>
           )}
 

@@ -21,6 +21,7 @@ import {
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -169,9 +170,10 @@ const DoCambridgeListeningTest = () => {
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
   }, []);
 
   const syncTimingState = useCallback(
@@ -1840,7 +1842,7 @@ const DoCambridgeListeningTest = () => {
           placementAttemptItemToken:
             placementContext.placementAttemptItemToken || undefined,
           answers,
-          studentName: user.name || user.username || 'Unknown',
+          studentName: formatStudentDisplayName(user.name || user.username, 'Unknown'),
           studentPhone: user.phone || null,
           studentEmail: user.email || null,
           classCode: test?.classCode || null,
@@ -3470,7 +3472,7 @@ const DoCambridgeListeningTest = () => {
       <CambridgeResultsModal
         results={submitted ? results : null}
         testTitle={test?.title || localizedTestConfigName || 'Cambridge Listening'}
-        studentName={getStoredUser()?.name || getStoredUser()?.username}
+        studentName={currentStudentName}
         onClose={() => navigate('/cambridge')}
         actions={[
           {
@@ -3513,4 +3515,3 @@ const DoCambridgeListeningTest = () => {
 };
 
 export default DoCambridgeListeningTest;
-

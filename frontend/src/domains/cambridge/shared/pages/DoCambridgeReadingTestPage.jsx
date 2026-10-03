@@ -40,6 +40,7 @@ import {
   toTimestamp,
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -263,9 +264,10 @@ const DoCambridgeReadingTest = ({
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
   }, []);
 
   const effectiveDuration = useMemo(() => {
@@ -805,7 +807,7 @@ const DoCambridgeReadingTest = ({
           placementAttemptItemToken:
             placementContext.placementAttemptItemToken || undefined,
           answers,
-          studentName: user.name || user.username || 'Unknown',
+          studentName: formatStudentDisplayName(user.name || user.username, 'Unknown'),
           studentPhone: user.phone || null,
           studentEmail: user.email || null,
           classCode: test?.classCode || null,
@@ -4132,7 +4134,7 @@ const DoCambridgeReadingTest = ({
         <CambridgeResultsModal
           results={results}
           testTitle={test?.title}
-          studentName={JSON.parse(localStorage.getItem("user") || "{}").name || JSON.parse(localStorage.getItem("user") || "{}").username}
+          studentName={currentStudentName}
           onClose={() => {
             setResults(null);
             setSubmitted(false);

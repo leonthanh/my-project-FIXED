@@ -43,6 +43,7 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -201,9 +202,10 @@ const DoReadingTest = () => {
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
   }, []);
 
   const annotationStorageKey = useMemo(
@@ -1749,7 +1751,7 @@ const DoReadingTest = () => {
           placementAttemptItemToken:
             placementContext.placementAttemptItemToken || undefined,
           user,
-          studentName: user?.name || undefined,
+          studentName: formatStudentDisplayName(user?.name, undefined),
           studentId: user?.id || undefined,
         }),
       });

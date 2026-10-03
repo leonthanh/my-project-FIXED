@@ -4,6 +4,7 @@ import AdminNavbar from '../../../shared/components/AdminNavbar';
 import { apiPath } from '../../../shared/utils/api';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsContext';
+import { formatStudentDisplayName } from '../../../shared/utils/personName';
 import CambridgeStudentStyleReview from '../../cambridge/shared/components/CambridgeStudentStyleReview';
 import { parseClozeBlanksFromText } from '../../cambridge/shared/utils/questionNumbering';
 
@@ -766,7 +767,7 @@ const FceReadingResultPage = () => {
                     { label: 'Time Spent', value: formatTime(submission.timeSpent) },
                     { label: 'Class', value: submission.classCode || '--' },
                     { label: 'Submitted', value: formatDate(submission.submittedAt) },
-                    { label: 'Student', value: submission.studentName || '--' },
+                    { label: 'Student', value: formatStudentDisplayName(submission.studentName, '--') },
                     { label: 'Teacher', value: submission.teacherName || '--' },
                   ].map((item) => (
                     <div key={item.label} style={{ background: colors.surfaceAlt, border: `1px solid ${colors.border}`, borderRadius: '18px', padding: '16px 18px' }}>
