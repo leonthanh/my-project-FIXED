@@ -32,6 +32,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "cambridge",
       "fce",
       "display-settings",
+      "runtime-sync-metrics",
       "permissions",
       "users",
     ]);

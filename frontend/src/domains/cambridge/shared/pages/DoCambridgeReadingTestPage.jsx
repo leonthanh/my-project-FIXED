@@ -41,6 +41,10 @@ import {
 } from "../../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
 import {
+  getServerCooldownMs,
+  recordRuntimeSyncRequestMetric,
+} from "../../../../shared/utils/runtimeSync";
+import {
   replaceFceDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
@@ -164,6 +168,10 @@ const DoCambridgeReadingTest = ({
   const confirmSubmitRef = useRef(null);
   const autoSubmittingRef = useRef(false);
   const lastAnnouncedExpiryRef = useRef(null);
+  const autosaveBlockedUntilRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const timingSyncBlockedUntilRef = useRef(0);
+  const timingSyncInFlightRef = useRef(false);
 
   // States
   const [test, setTest] = useState(null);
@@ -592,6 +600,11 @@ const DoCambridgeReadingTest = ({
     }
 
     const persistDraft = async () => {
+      if (autosaveInFlightRef.current || Date.now() < autosaveBlockedUntilRef.current) {
+        return;
+      }
+
+      autosaveInFlightRef.current = true;
       try {
         const payload = {
           submissionId: submissionIdRef.current,
@@ -614,14 +627,24 @@ const DoCambridgeReadingTest = ({
           body: JSON.stringify(payload),
         });
         const json = await res.json().catch(() => null);
+        recordRuntimeSyncRequestMetric({
+          scope: "orange-reading",
+          endpoint: "autosave",
+          status: res.status,
+        });
         if (!res.ok) {
           const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
           if (runtimeMessage) {
             setRuntimeLimitToast(runtimeMessage);
           }
+          if (res.status === 429) {
+            autosaveBlockedUntilRef.current =
+              Date.now() + getServerCooldownMs(res, json || {});
+          }
           return;
         }
 
+        autosaveBlockedUntilRef.current = 0;
         setRuntimeLimitToast("");
         if (json?.submissionId) {
           submissionIdRef.current = json.submissionId;
@@ -633,7 +656,14 @@ const DoCambridgeReadingTest = ({
           syncTimingState(nextExpiresAt);
         }
       } catch (_err) {
+        recordRuntimeSyncRequestMetric({
+          scope: "orange-reading",
+          endpoint: "autosave",
+          status: "network_error",
+        });
         // Keep local progress if the network is unavailable.
+      } finally {
+        autosaveInFlightRef.current = false;
       }
     };
 
@@ -673,6 +703,7 @@ const DoCambridgeReadingTest = ({
   const reconcileServerTiming = useCallback(async () => {
     if (!started || submitted) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
 
     const localUser = getStoredUser();
     const query = placementContext.placementAttemptItemToken
@@ -687,10 +718,22 @@ const DoCambridgeReadingTest = ({
     if (!query || !test?.testType) return;
 
     try {
+      timingSyncInFlightRef.current = true;
       const res = await fetch(
         apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
+      recordRuntimeSyncRequestMetric({
+        scope: "orange-reading",
+        endpoint: "active",
+        status: res.status,
+      });
+      if (res.status === 429) {
+        timingSyncBlockedUntilRef.current =
+          Date.now() + getServerCooldownMs(res);
+        return;
+      }
       if (!res.ok) return;
+      timingSyncBlockedUntilRef.current = 0;
       const data = await res.json().catch(() => ({}));
       const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
       const nextExpiresAtMs = toTimestamp(nextExpiresAt);
@@ -704,7 +747,14 @@ const DoCambridgeReadingTest = ({
         syncTimingState(nextExpiresAtMs);
       }
     } catch (_err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "orange-reading",
+        endpoint: "active",
+        status: "network_error",
+      });
       // ignore polling errors; autosave and refresh can still recover timing
+    } finally {
+      timingSyncInFlightRef.current = false;
     }
   }, [announceExtension, id, started, submitted, syncTimingState, test?.testType]);
 
@@ -4095,4 +4145,3 @@ const DoCambridgeReadingTest = ({
 };
 
 export default DoCambridgeReadingTest;
-

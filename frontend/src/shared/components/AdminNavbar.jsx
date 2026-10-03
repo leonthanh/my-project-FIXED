@@ -189,6 +189,7 @@ const adminRoutePreloaders = {
   "/admin/create-fce-reading": () => import("../../domains/fce/reading/pages/CreateFceReadingTestPage"),
   "/admin/create-fce-listening": () => import("../../domains/fce/listening/pages/CreateFceListeningTestPage"),
   "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
+  "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
 };
@@ -1088,6 +1089,13 @@ const AdminNavbar = () => {
           "admin"
         ),
         buildAdminLinkItem(
+          "runtime-sync-metrics",
+          "/admin/runtime-sync-metrics",
+          "Runtime Sync Metrics",
+          true,
+          "management"
+        ),
+        buildAdminLinkItem(
           "teacher-permissions",
           "/admin/teacher-permissions",
           "Teacher Permissions",
@@ -1337,7 +1345,8 @@ const AdminNavbar = () => {
   const isAdminCurrent =
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions") ||
-    pathname.startsWith("/admin/display-settings");
+    pathname.startsWith("/admin/display-settings") ||
+    pathname.startsWith("/admin/runtime-sync-metrics");
 
   const mobileDrawerTabs = [
     {

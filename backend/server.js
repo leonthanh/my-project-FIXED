@@ -80,6 +80,76 @@ const extractApiRateLimitKey = (req) => {
   return `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
 };
 
+const extractRuntimeSyncRouteMeta = (req) => {
+  const requestPath = getRequestPath(req);
+  const endpointMatch = requestPath.match(/\/(autosave|active)$/i);
+  const endpoint = endpointMatch ? endpointMatch[1].toLowerCase() : 'unknown';
+
+  if (/^\/api\/writing\/draft\//i.test(requestPath)) {
+    return { scope: 'writing', endpoint, testId: null };
+  }
+
+  const readingMatch = requestPath.match(/^\/api\/reading-submissions\/([^/]+)\//i);
+  if (readingMatch) {
+    return { scope: 'reading', endpoint, testId: normalizeLimiterValue(readingMatch[1]) };
+  }
+
+  const listeningMatch = requestPath.match(/^\/api\/listening-submissions\/([^/]+)\//i);
+  if (listeningMatch) {
+    return { scope: 'listening', endpoint, testId: normalizeLimiterValue(listeningMatch[1]) };
+  }
+
+  if (/^\/api\/cambridge\/submissions\//i.test(requestPath)) {
+    return { scope: 'cambridge', endpoint, testId: null };
+  }
+
+  return { scope: 'runtime', endpoint, testId: null };
+};
+
+const extractRuntimeSyncRateLimitKey = (req) => {
+  const decodedSubject = decodeBearerSubject(req);
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const bodyUser = body.user && typeof body.user === 'object' ? body.user : {};
+  const query = req.query || {};
+  const placementAttemptItemToken = normalizeLimiterValue(
+    query.placementAttemptItemToken || body.placementAttemptItemToken
+  );
+
+  const actorKey = normalizeLimiterValue(
+    placementAttemptItemToken ||
+      query.submissionId ||
+      body.submissionId ||
+      decodedSubject ||
+      query.userId ||
+      body.userId ||
+      bodyUser.id ||
+      query.phone ||
+      body.phone ||
+      body.studentPhone ||
+      bodyUser.phone
+  );
+
+  const actorSegment = actorKey
+    ? (placementAttemptItemToken ? `placement:${actorKey}` : `actor:${actorKey}`)
+    : `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
+
+  const routeMeta = extractRuntimeSyncRouteMeta(req);
+  const payloadTestId = normalizeLimiterValue(
+    query.testId || body.testId || routeMeta.testId
+  );
+  const payloadTestType = normalizeLimiterValue(query.testType || body.testType);
+  const testSegment = payloadTestId
+    ? `test:${payloadTestId}`
+    : (payloadTestType ? `testType:${payloadTestType.toLowerCase()}` : 'test:unknown');
+
+  return [
+    actorSegment,
+    `scope:${routeMeta.scope}`,
+    `endpoint:${routeMeta.endpoint}`,
+    testSegment,
+  ].join('|');
+};
+
 const resolveTrustProxy = () => {
   const raw = String(process.env.TRUST_PROXY || '').trim();
   if (!raw) return 1;
@@ -135,13 +205,13 @@ const buildRateLimitHandler = (limiterId, message) => (req, res) => {
   });
 };
 
-const createApiLimiter = ({ limiterId, windowMs, limit, message, skip }) =>
+const createApiLimiter = ({ limiterId, windowMs, limit, message, skip, keyGenerator }) =>
   rateLimit({
     windowMs,
     limit,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: extractApiRateLimitKey,
+    keyGenerator: typeof keyGenerator === 'function' ? keyGenerator : extractApiRateLimitKey,
     skip: (req) => {
       if (req.method === 'OPTIONS') return true;
       return typeof skip === 'function' ? skip(req) : false;
@@ -160,9 +230,10 @@ const apiRateLimiter = createApiLimiter({
 const runtimeSyncRateLimiter = createApiLimiter({
   limiterId: 'runtime-sync',
   windowMs: parsePositiveInt(process.env.API_RUNTIME_SYNC_RATE_LIMIT_WINDOW_MS, 60 * 1000),
-  limit: parsePositiveInt(process.env.API_RUNTIME_SYNC_RATE_LIMIT_MAX, 1800),
+  limit: parsePositiveInt(process.env.API_RUNTIME_SYNC_RATE_LIMIT_MAX, 3000),
   message: 'Too many autosave or runtime sync requests. Please retry in a moment.',
   skip: (req) => !isRuntimeSyncRequest(req),
+  keyGenerator: extractRuntimeSyncRateLimitKey,
 });
 
 const aiRateLimiter = createApiLimiter({

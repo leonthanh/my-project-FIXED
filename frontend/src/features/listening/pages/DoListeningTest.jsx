@@ -21,6 +21,10 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import {
+  getServerCooldownMs,
+  recordRuntimeSyncRequestMetric,
+} from "../../../shared/utils/runtimeSync";
 import MapLabelingQuestion from "../../../shared/components/MapLabelingQuestion";
 import TableCompletion from "../../../shared/components/questions/editors/TableCompletion.jsx";
 import ResultModal from "../../../shared/components/ResultModal";
@@ -226,6 +230,10 @@ const DoListeningTest = () => {
   const submissionIdRef = useRef(null);
   const autoSubmittingRef = useRef(false);
   const lastAnnouncedExpiryRef = useRef(null);
+  const autosaveBlockedUntilRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const timingSyncBlockedUntilRef = useRef(0);
+  const timingSyncInFlightRef = useRef(false);
 
   const resetPersistedAttempt = useCallback(
     (durationSeconds) => {
@@ -886,6 +894,11 @@ const DoListeningTest = () => {
 
     // Also attempt server autosave (debounced + non-blocking)
     const serverAutosave = async () => {
+      const now = Date.now();
+      if (autosaveInFlightRef.current || now < autosaveBlockedUntilRef.current) {
+        return;
+      }
+
       try {
         if (!started) {
           return;
@@ -897,6 +910,8 @@ const DoListeningTest = () => {
           // nothing to save yet
           return;
         }
+
+        autosaveInFlightRef.current = true;
 
         const user = (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
         const payload = {
@@ -913,7 +928,13 @@ const DoListeningTest = () => {
           body: JSON.stringify(payload),
         });
         const json = await res.json().catch(() => null);
+        recordRuntimeSyncRequestMetric({
+          scope: "ix-listening",
+          endpoint: "autosave",
+          status: res.status,
+        });
         if (res.ok) {
+          autosaveBlockedUntilRef.current = 0;
           setRuntimeLimitToast("");
           if (json?.submissionId) {
             submissionIdRef.current = json.submissionId;
@@ -935,9 +956,20 @@ const DoListeningTest = () => {
           if (runtimeMessage) {
             setRuntimeLimitToast(runtimeMessage);
           }
+          if (res.status === 429) {
+            autosaveBlockedUntilRef.current =
+              Date.now() + getServerCooldownMs(res, json || {});
+          }
         }
       } catch (err) {
+        recordRuntimeSyncRequestMetric({
+          scope: "ix-listening",
+          endpoint: "autosave",
+          status: "network_error",
+        });
         // ignore server autosave failures (we still have localStorage fallback)
+      } finally {
+        autosaveInFlightRef.current = false;
       }
     };
 
@@ -1011,6 +1043,7 @@ const DoListeningTest = () => {
   const reconcileServerTiming = useCallback(async () => {
     if (!resumeHydrated || !started || submitted) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
 
     const hasLocalAnswers = hasMeaningfulAnswers(answers);
     if (!submissionIdRef.current && !hasLocalAnswers) {
@@ -1036,8 +1069,20 @@ const DoListeningTest = () => {
     if (!query) return;
 
     try {
+      timingSyncInFlightRef.current = true;
       const res = await fetch(apiPath(`listening-submissions/${id}/active${query}`));
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-listening",
+        endpoint: "active",
+        status: res.status,
+      });
+      if (res.status === 429) {
+        timingSyncBlockedUntilRef.current =
+          Date.now() + getServerCooldownMs(res);
+        return;
+      }
       if (!res.ok) return;
+      timingSyncBlockedUntilRef.current = 0;
       const data = await res.json().catch(() => ({}));
       const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
       const nextExpiresAtMs = toTimestamp(nextExpiresAt);
@@ -1051,7 +1096,14 @@ const DoListeningTest = () => {
         syncTimingState(nextExpiresAtMs);
       }
     } catch (_err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "ix-listening",
+        endpoint: "active",
+        status: "network_error",
+      });
       // ignore polling errors; autosave and refresh can still recover timing
+    } finally {
+      timingSyncInFlightRef.current = false;
     }
   }, [announceExtension, answers, id, placementContext.placementAttemptItemToken, resumeHydrated, started, submitted, syncTimingState]);
 
@@ -3367,4 +3419,3 @@ const DoListeningTest = () => {
 };
 
 export default DoListeningTest;
-
