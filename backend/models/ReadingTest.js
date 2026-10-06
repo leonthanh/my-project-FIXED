@@ -20,6 +20,12 @@ const ReadingTest = sequelize.define('ReadingTest', {
     defaultValue: true,
     comment: 'Whether to show result modal after submission'
   },
+  studentResultVisibility: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'score',
+    comment: 'Student result display mode: confirmation, score, or details'
+  },
   passages: {
     type: DataTypes.JSON, // Store complex nested structure
     allowNull: false,

@@ -34,6 +34,10 @@ function requireAuth(req, _res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  return getBearerToken(req) ? requireAuth(req, res, next) : next();
+}
+
 function requireRole(...allowed) {
   return (req, _res, next) => {
     const role = req.user?.role;
@@ -45,4 +49,4 @@ function requireRole(...allowed) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+module.exports = { requireAuth, optionalAuth, requireRole };

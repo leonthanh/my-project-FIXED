@@ -216,6 +216,10 @@ const DoListeningTest = () => {
       "Student"
     );
   }, []);
+  const isStudent = useMemo(() => {
+    const role = getStoredUser()?.role;
+    return !role || role === "student";
+  }, []);
 
   const annotationStorageKey = useMemo(
     () => `listening:${id}:annotations:${storageUserId}`,
@@ -766,6 +770,8 @@ const DoListeningTest = () => {
                 // provide details for potential later use in modal
                 details: generated,
               };
+            } else if (!Array.isArray(result.details) || result.details.length < generated.length) {
+              result = { ...result, details: generated };
             }
           }
         }
@@ -831,16 +837,7 @@ const DoListeningTest = () => {
 
       setResultData(result);
 
-      if (isPlacementRuntime && placementContext.placementAttemptToken) {
-        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
-          replace: true,
-        });
-      } else if (test?.showResultModal !== false) {
-        setResultModalOpen(true);
-      } else {
-        alert("Submission successful. Your teacher can review your results.");
-        navigate("/select-test");
-      }
+      setResultModalOpen(true);
       setSubmitted(true);
       setShowConfirm(false);
 
@@ -3413,11 +3410,24 @@ const DoListeningTest = () => {
             // ignore
           }
 
-          navigate("/select-test");
+          if (isPlacementRuntime && placementContext.placementAttemptToken) {
+            navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+              replace: true,
+            });
+          } else {
+            navigate("/select-test");
+          }
         }}
         result={resultData}
         title="Listening Results"
         iconName="listening"
+        displayMode={
+          isStudent
+            ? (test?.showResultModal === false
+              ? "confirmation"
+              : test?.studentResultVisibility || "score")
+            : "score"
+        }
       />
     </div>
   );

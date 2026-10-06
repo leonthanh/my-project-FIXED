@@ -27,6 +27,7 @@ jest.mock('../utils/listeningTableQuestions', () => ({
 }));
 jest.mock('../middlewares/auth', () => ({
   requireAuth: (_req, _res, next) => next(),
+  optionalAuth: (_req, _res, next) => next(),
   requireRole: () => (_req, _res, next) => next(),
 }));
 jest.mock('../middlewares/testPermissions', () => ({
@@ -36,6 +37,7 @@ jest.mock('../middlewares/testPermissions', () => ({
 const ReadingTest = require('../models/ReadingTest');
 const ListeningTest = require('../models/ListeningTest');
 const WritingTest = require('../models/WritingTests');
+const { normalizeStudentResultVisibility } = require('../utils/studentResultVisibility');
 
 const readingRouter = require('../routes/readingTest');
 const listeningRouter = require('../routes/listeningTests');
@@ -73,6 +75,10 @@ describe('IX create visibility defaults', () => {
     WritingTest.create.mockResolvedValue({ id: 13 });
   });
 
+  test('legacy hidden setting takes precedence over migrated visibility defaults', () => {
+    expect(normalizeStudentResultVisibility('score', false)).toBe('confirmation');
+  });
+
   test('reading create defaults new tests to visible', async () => {
     const req = {
       body: {
@@ -91,6 +97,49 @@ describe('IX create visibility defaults', () => {
       expect.objectContaining({
         title: 'IX Reading 1',
         isArchived: false,
+        studentResultVisibility: 'score',
+      })
+    );
+  });
+
+  test('reading create stores the selected student result visibility', async () => {
+    const req = {
+      body: {
+        title: 'IX Reading 2',
+        classCode: 'READ-02',
+        teacherName: 'Admin User',
+        showResultModal: true,
+        studentResultVisibility: 'score',
+        passages: [],
+      },
+    };
+    const res = makeRes();
+
+    await createReadingHandler(req, res);
+
+    expect(ReadingTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({ studentResultVisibility: 'score' })
+    );
+  });
+
+  test('legacy unchecked reading setting remains confirmation-only after migration', async () => {
+    const req = {
+      body: {
+        title: 'IX Reading 3',
+        classCode: 'READ-03',
+        teacherName: 'Admin User',
+        showResultModal: false,
+        passages: [],
+      },
+    };
+    const res = makeRes();
+
+    await createReadingHandler(req, res);
+
+    expect(ReadingTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showResultModal: false,
+        studentResultVisibility: 'confirmation',
       })
     );
   });
@@ -129,6 +178,7 @@ describe('IX create visibility defaults', () => {
       expect.objectContaining({
         classCode: 'LIST-01',
         isArchived: false,
+        studentResultVisibility: 'score',
       })
     );
   });

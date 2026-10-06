@@ -171,8 +171,8 @@ const ListeningTestEditor = ({
   teacherName,
   setTeacherName,
   isTeacherNameLocked = false,
-  showResultModal,
-  setShowResultModal,
+  studentResultVisibility,
+  setStudentResultVisibility,
 
   // Parts state (thay vì passages)
   parts,
@@ -474,8 +474,8 @@ const ListeningTestEditor = ({
         teacherName={teacherName}
         setTeacherName={setTeacherName}
         isTeacherNameLocked={isTeacherNameLocked}
-        showResultModal={showResultModal}
-        setShowResultModal={setShowResultModal}
+        studentResultVisibility={studentResultVisibility}
+        setStudentResultVisibility={setStudentResultVisibility}
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}

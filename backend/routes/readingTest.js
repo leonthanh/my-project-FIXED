@@ -5,6 +5,8 @@ const ReadingSubmission = require("../models/ReadingSubmission");
 const { countClozeBlanks } = require("../utils/readingQuestionUtils");
 const placementService = require("../modules/placement/service");
 const { enforceAttemptLimitForNewSubmission } = require("../utils/attemptLimit");
+const { normalizeStudentResultVisibility } = require("../utils/studentResultVisibility");
+const { optionalAuth } = require("../middlewares/auth");
 
 const normalizeUploadsInHtml = (html, req) => {
   if (!html || typeof html !== 'string') return html;
@@ -317,14 +319,19 @@ router.get("/:id", async (req, res) => {
 const { requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
 router.post("/", requireAuth, requireTestPermission('reading'), async (req, res) => {
-  const { title, classCode, teacherName, showResultModal, passages, isArchived } = req.body;
+  const { title, classCode, teacherName, showResultModal, studentResultVisibility, passages, isArchived } = req.body;
 
   try {
+    const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
+      studentResultVisibility,
+      showResultModal
+    );
     const newTest = await ReadingTest.create({
       title,
       classCode,
       teacherName,
-      showResultModal,
+      showResultModal: resolvedStudentResultVisibility !== "confirmation",
+      studentResultVisibility: resolvedStudentResultVisibility,
       passages,
       isArchived: normalizeCreateArchivedFlag(isArchived),
     });
@@ -344,8 +351,19 @@ router.put("/:id", requireAuth, requireTestPermission('reading'), async (req, re
       return res.status(404).json({ message: "Cannot find test" });
     }
     const { teacherName: _ignoredTeacherName, ...updates } = req.body || {};
+    const visibilityWasUpdated =
+      req.body?.studentResultVisibility !== undefined || req.body?.showResultModal !== undefined;
+    const studentResultVisibility = visibilityWasUpdated
+      ? normalizeStudentResultVisibility(req.body.studentResultVisibility, req.body.showResultModal)
+      : test.studentResultVisibility || "details";
     await test.update({
       ...updates,
+      ...(visibilityWasUpdated
+        ? {
+            studentResultVisibility,
+            showResultModal: studentResultVisibility !== "confirmation",
+          }
+        : {}),
       teacherName: test.teacherName,
     });
     const data = test.toJSON();
@@ -360,7 +378,7 @@ router.put("/:id", requireAuth, requireTestPermission('reading'), async (req, re
 });
 
 // Submit answers for a reading test and compute score
-router.post("/:id/submit", async (req, res) => {
+router.post("/:id/submit", optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const answers = req.body && req.body.answers ? req.body.answers : {};
@@ -494,7 +512,20 @@ router.post("/:id/submit", async (req, res) => {
         `✅ Saved reading submission id=${sub.id} (test=${id}, user=${sub.userName})`
       );
 
-      return res.json({ submissionId: sub.id, ...result });
+      const visibility = normalizeStudentResultVisibility(
+        data.studentResultVisibility,
+        data.showResultModal
+      );
+      const isStudentRequest = !req.user || req.user.role === "student";
+      if (isStudentRequest && visibility === "confirmation") {
+        return res.json({ submissionId: sub.id, message: "Submission received." });
+      }
+
+      const details =
+        isStudentRequest && visibility === "details" && scorerModule?.getDetailedScoring
+          ? scorerModule.getDetailedScoring({ passages }, answers || {})
+          : undefined;
+      return res.json({ submissionId: sub.id, ...result, ...(details ? { details } : {}) });
     } catch (e) {
       console.error("Error saving submission:", e);
       const statusCode = getClientErrorStatus(e);

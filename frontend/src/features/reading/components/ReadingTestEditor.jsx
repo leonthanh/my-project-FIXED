@@ -78,8 +78,8 @@ const getMessageColors = (message) => {
  * @param {Function} props.setClassCode - Setter cho classCode
  * @param {string} props.teacherName - Tên giáo viên
  * @param {Function} props.setTeacherName - Setter cho teacherName
- * @param {boolean} props.showResultModal - Hiển thị modal kết quả sau khi nộp bài?
- * @param {Function} props.setShowResultModal - Setter cho showResultModal
+ * @param {"confirmation"|"score"|"details"} props.studentResultVisibility - Student result display mode
+ * @param {Function} props.setStudentResultVisibility - Setter for student result display mode
  *
  * @param {Array} props.passages - Mảng passages
  * @param {number} props.selectedPassageIndex - Index passage đang chọn
@@ -129,8 +129,8 @@ const ReadingTestEditor = ({
   teacherName,
   setTeacherName,
   isTeacherNameLocked = false,
-  showResultModal,
-  setShowResultModal,
+  studentResultVisibility,
+  setStudentResultVisibility,
 
   // Passages state
   passages,
@@ -262,8 +262,8 @@ const ReadingTestEditor = ({
         teacherName={teacherName}
         setTeacherName={setTeacherName}
         isTeacherNameLocked={isTeacherNameLocked}
-        showResultModal={showResultModal}
-        setShowResultModal={setShowResultModal}
+        studentResultVisibility={studentResultVisibility}
+        setStudentResultVisibility={setStudentResultVisibility}
         lastSaved={lastSaved}
         isSaving={isSaving}
         message={message}

@@ -15,6 +15,18 @@ const handlePlacementError = (error, res, fallbackMessage) => {
   return res.status(statusCode).json({ message: error?.message || fallbackMessage });
 };
 
+const hideStudentAttemptScores = (attempt) => ({
+  ...attempt,
+  items: (attempt.items || []).map((item) => {
+    const sanitizedItem = { ...item };
+    delete sanitizedItem.correct;
+    delete sanitizedItem.totalQuestions;
+    delete sanitizedItem.percentage;
+    delete sanitizedItem.band;
+    return sanitizedItem;
+  }),
+});
+
 router.get("/packages/current", requirePlacementManager, async (req, res) => {
   try {
     const placementPackage = await placementService.getCurrentPackageForOwner(req.user);
@@ -74,7 +86,7 @@ router.get("/attempts/:attemptToken", async (req, res) => {
     const attempt = await placementService.getPlacementAttemptByToken(
       req.params.attemptToken
     );
-    res.json(attempt);
+    res.json(hideStudentAttemptScores(attempt));
   } catch (error) {
     handlePlacementError(error, res, "Failed to load placement attempt.");
   }

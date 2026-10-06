@@ -10,7 +10,22 @@ const getBandColor = (band) => {
   return '#6b7280'; // gray
 };
 
-const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading Results', iconName = 'overview' }) => {
+const formatAnswer = (answer) => {
+  if (answer == null || answer === '') return '—';
+  if (Array.isArray(answer)) return answer.map(formatAnswer).join(', ');
+  if (typeof answer === 'object') return Object.values(answer).map(formatAnswer).join(', ');
+  return String(answer);
+};
+
+const ResultModal = ({
+  isOpen,
+  onClose,
+  result,
+  onViewDetails,
+  title = 'Reading Results',
+  iconName = 'overview',
+  displayMode = 'score',
+}) => {
   const { isDarkMode } = useTheme();
 
   if (!isOpen || !result) return null;
@@ -24,6 +39,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
   const btnSecondaryBg = isDarkMode ? '#0b1d2e' : '#eef2ff';
   const btnSecondaryColor = isDarkMode ? '#cbd5f5' : '#0c4a6e';
 
+  const isConfirmationOnly = displayMode === 'confirmation';
   const { total, correct, scorePercentage, band } = result;
   const pct = scorePercentage || (total > 0 ? Math.round((correct / total) * 100) : 0);
 
@@ -40,7 +56,7 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
             <span style={{ width: 42, height: 42, borderRadius: 12, background: isDarkMode ? '#1f2b47' : '#e0f2fe', color: isDarkMode ? '#7dd3fc' : '#0369a1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <LineIcon name={iconName} size={22} strokeWidth={2.1} />
             </span>
-            <h2>{title}</h2>
+            <h2>{isConfirmationOnly ? 'Submission received' : title}</h2>
           </div>
           <button type="button" aria-label="Close" className="close-btn" onClick={onClose}>
             <LineIcon name="close" size={18} strokeWidth={2.2} />
@@ -48,6 +64,12 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
         </header>
 
         <div className="result-modal-body">
+          {isConfirmationOnly ? (
+            <p style={{ margin: 0, lineHeight: 1.6 }}>
+              Your answers have been submitted successfully.
+            </p>
+          ) : (
+            <>
           <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
             <div style={{ width: 120, height: 120, borderRadius: '50%', background: surface, display: 'grid', placeItems: 'center' }}>
               <div style={{ textAlign: 'center' }}>
@@ -73,6 +95,40 @@ const ResultModal = ({ isOpen, onClose, result, onViewDetails, title = 'Reading 
               {result && result.submissionId && <li>Submission ID: <strong>{result.submissionId}</strong></li>}
             </ul>
           </div>
+          {displayMode === 'details' && Array.isArray(result.details) ? (
+            <div style={{ marginTop: 18, maxHeight: 260, overflowY: 'auto' }}>
+              <p style={{ color: isDarkMode ? '#7dd3fc' : '#06c' }}><strong>Answer details:</strong></p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {result.details.map((detail, index) => (
+                  <div
+                    key={`${detail.questionNumber ?? index}-${index}`}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: detail.isCorrect
+                        ? (isDarkMode ? 'rgba(22, 163, 74, 0.16)' : '#f0fdf4')
+                        : (isDarkMode ? 'rgba(220, 38, 38, 0.16)' : '#fef2f2'),
+                      border: `1px solid ${detail.isCorrect ? '#86efac' : '#fecaca'}`,
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <strong>Question {detail.questionNumber ?? index + 1}</strong>
+                    <div>
+                      Your answer: {formatAnswer(detail.studentLabel || detail.student || detail.studentAnswer)}
+                    </div>
+                    {!detail.isCorrect ? (
+                      <div>
+                        Correct answer: {formatAnswer(detail.expectedLabel || detail.expected || detail.correctAnswer)}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+            </>
+          )}
         </div>
 
         <footer className="result-modal-footer">

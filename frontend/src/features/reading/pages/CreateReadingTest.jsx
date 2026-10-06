@@ -39,7 +39,11 @@ const CreateReadingTest = () => {
   const [title, setTitle] = useState(savedData?.title || "");
   const [classCode, setClassCode] = useState(savedData?.classCode || "");
   const [teacherName, setTeacherName] = useState(currentTeacherName);
-  const [showResultModal, setShowResultModal] = useState(savedData?.showResultModal ?? true);
+  const [studentResultVisibility, setStudentResultVisibility] = useState(() => {
+    if (!savedData) return "confirmation";
+    if (savedData.showResultModal === false) return "confirmation";
+    return savedData.studentResultVisibility || "score";
+  });
 
   useEffect(() => {
     setTeacherName(currentTeacherName);
@@ -86,7 +90,7 @@ const CreateReadingTest = () => {
         passages,
         classCode,
         teacherName,
-        showResultModal,
+        studentResultVisibility,
       };
       localStorage.setItem("readingTestDraft-new", JSON.stringify(dataToSave));
       setLastSaved(new Date());
@@ -95,7 +99,7 @@ const CreateReadingTest = () => {
       console.error("Error saving draft:", error);
       setIsSaving(false);
     }
-  }, [title, passages, classCode, teacherName, showResultModal]);
+  }, [title, passages, classCode, teacherName, studentResultVisibility]);
 
   // Local state to track if re-login is required
   const [requiresLogin, setRequiresLogin] = useState(false);
@@ -267,7 +271,8 @@ const CreateReadingTest = () => {
           title: stripHtml(title),
           classCode: stripHtml(classCode),
           teacherName: stripHtml(teacherName),
-          showResultModal,
+          studentResultVisibility,
+          showResultModal: studentResultVisibility !== "confirmation",
           passages: cleanedPassages,
         }),
       });
@@ -329,8 +334,8 @@ const CreateReadingTest = () => {
         teacherName={teacherName}
         setTeacherName={setTeacherName}
         isTeacherNameLocked
-        showResultModal={showResultModal}
-        setShowResultModal={setShowResultModal}
+        studentResultVisibility={studentResultVisibility}
+        setStudentResultVisibility={setStudentResultVisibility}
         // Passages state
         passages={passages}
         selectedPassageIndex={selectedPassageIndex}

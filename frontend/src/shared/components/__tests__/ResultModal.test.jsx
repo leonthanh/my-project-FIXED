@@ -38,4 +38,45 @@ describe('ResultModal', () => {
     fireEvent.click(closeBtn);
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
+
+  test('confirmation mode only confirms submission without showing any score', () => {
+    renderWithTheme(
+      <ResultModal
+        {...defaultProps}
+        displayMode="confirmation"
+        result={{ submissionId: 123, correct: 8, total: 10, scorePercentage: 80, band: 6 }}
+      />
+    );
+
+    expect(screen.getByText('Submission received')).toBeInTheDocument();
+    expect(screen.getByText('Your answers have been submitted successfully.')).toBeInTheDocument();
+    expect(screen.queryByText('8/10')).not.toBeInTheDocument();
+    expect(screen.queryByText('80%')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Answer details/i)).not.toBeInTheDocument();
+  });
+
+  test('details mode shows per-question answers while score mode keeps aggregate results', () => {
+    const result = {
+      correct: 1,
+      total: 2,
+      scorePercentage: 50,
+      details: [
+        { questionNumber: 1, student: 'A', expected: 'A', isCorrect: true },
+        { questionNumber: 2, student: 'B', expected: 'C', isCorrect: false },
+      ],
+    };
+
+    const { rerender } = renderWithTheme(
+      <ResultModal {...defaultProps} result={result} displayMode="score" />
+    );
+    expect(screen.queryByText('Answer details:')).not.toBeInTheDocument();
+
+    rerender(
+      <ThemeProvider>
+        <ResultModal {...defaultProps} result={result} displayMode="details" />
+      </ThemeProvider>
+    );
+    expect(screen.getByText('Answer details:')).toBeInTheDocument();
+    expect(screen.getByText('Correct answer: C')).toBeInTheDocument();
+  });
 });
