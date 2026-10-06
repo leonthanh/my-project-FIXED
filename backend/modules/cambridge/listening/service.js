@@ -1,4 +1,5 @@
 const { CambridgeListening } = require('../../../models');
+const { normalizeStudentResultVisibility } = require('../../../utils/studentResultVisibility');
 const {
   buildVisibleCambridgeWhere,
   normalizeCambridgeStatus,
@@ -102,6 +103,8 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     parts,
     status,
     totalQuestions,
+    showResultModal,
+    studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType, forcedTestType);
 
@@ -109,6 +112,10 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     throw createServiceError(400, 'Thiếu thông tin bắt buộc: title, classCode, testType');
   }
 
+  const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
+    studentResultVisibility,
+    showResultModal
+  );
   const normalizedListeningPayload = normalizeListeningAudioPayload({
     mainAudioUrl,
     parts,
@@ -123,6 +130,8 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     parts: normalizedListeningPayload.parts,
     totalQuestions: totalQuestions || 0,
     status: normalizeCambridgeStatus(status, 'published'),
+    showResultModal: resolvedStudentResultVisibility !== 'confirmation',
+    studentResultVisibility: resolvedStudentResultVisibility,
   });
 };
 
@@ -136,6 +145,8 @@ const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     parts,
     totalQuestions,
     status,
+    showResultModal,
+    studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType || test.testType, forcedTestType);
   const normalizedListeningPayload = normalizeListeningAudioPayload({
@@ -143,6 +154,12 @@ const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     parts,
     fallbackParts: test.parts,
   });
+
+  const visibilityWasUpdated =
+    studentResultVisibility !== undefined || showResultModal !== undefined;
+  const resolvedStudentResultVisibility = visibilityWasUpdated
+    ? normalizeStudentResultVisibility(studentResultVisibility, showResultModal)
+    : test.studentResultVisibility || 'score';
 
   await test.update({
     title: title || test.title,
@@ -153,6 +170,12 @@ const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     parts: normalizedListeningPayload.parts,
     totalQuestions: totalQuestions ?? test.totalQuestions,
     status: status || test.status,
+    ...(visibilityWasUpdated
+      ? {
+          showResultModal: resolvedStudentResultVisibility !== 'confirmation',
+          studentResultVisibility: resolvedStudentResultVisibility,
+        }
+      : {}),
   });
 
   return test;

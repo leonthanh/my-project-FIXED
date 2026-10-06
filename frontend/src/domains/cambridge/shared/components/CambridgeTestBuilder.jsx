@@ -261,6 +261,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
   const [teacherName, setTeacherName] = useState(
     isCreateMode ? currentTeacherName : savedData?.teacherName || ''
   );
+  const [studentResultVisibility, setStudentResultVisibility] = useState(() => {
+    if (!savedData) return 'confirmation';
+    if (savedData.showResultModal === false) return 'confirmation';
+    return savedData.studentResultVisibility || 'score';
+  });
   const [mainAudioUrl, setMainAudioUrl] = useState(normalizeAudioReference(savedData?.mainAudioUrl || ''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -306,6 +311,11 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
       setTitle(initialData.title || '');
       setClassCode(initialData.classCode || '');
       setTeacherName(initialData.teacherName || '');
+      setStudentResultVisibility(
+        initialData.showResultModal === false
+          ? 'confirmation'
+          : initialData.studentResultVisibility || 'score'
+      );
       setMainAudioUrl(normalizeAudioReference(initialData.mainAudioUrl || ''));
 
       // parts may be stored as string in older records -> parse safely
@@ -816,6 +826,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title,
         classCode,
         teacherName,
+        studentResultVisibility,
+        showResultModal: studentResultVisibility !== 'confirmation',
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
         parts: normalizedParts,
         testType,
@@ -845,7 +857,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction, normalizeShortMessageParts]);
+  }, [title, classCode, teacherName, studentResultVisibility, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction, normalizeShortMessageParts]);
 
   const handleManualDraftSave = useCallback(() => {
     saveToLocalStorage();
@@ -913,6 +925,8 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
         title,
         classCode,
         teacherName,
+        studentResultVisibility,
+        showResultModal: studentResultVisibility !== 'confirmation',
         testType,
         duration: testConfig.duration || 60,
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
@@ -1537,7 +1551,7 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: isMoversReading ? '14px' : '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: isMoversReading ? '14px' : '10px' }}>
             <div>
               <label style={{ 
                 display: 'block', 
@@ -1616,6 +1630,36 @@ const CambridgeTestBuilder = ({ testType = 'ket-listening', editId = null, initi
                   boxSizing: 'border-box',
                 }}
               />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontWeight: 600,
+                  color: '#6b7280',
+                  fontSize: '12px',
+                }}
+              >
+                Kết quả học sinh
+              </label>
+              <select
+                value={studentResultVisibility}
+                onChange={(event) => setStudentResultVisibility(event.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                  background: '#ffffff',
+                }}
+              >
+                <option value="confirmation">Chỉ xác nhận đã nộp</option>
+                <option value="score">Hiện tổng điểm</option>
+                <option value="details">Hiện chi tiết kết quả</option>
+              </select>
             </div>
           </div>
         </div>
@@ -2390,4 +2434,3 @@ if (typeof document !== 'undefined') {
 }
 
 export default CambridgeTestBuilder;
-

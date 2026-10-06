@@ -157,6 +157,8 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     total,
     percentage,
     detailedResults,
+    studentResultVisibility: test.studentResultVisibility,
+    showResultModal: test.showResultModal,
   };
 };
 

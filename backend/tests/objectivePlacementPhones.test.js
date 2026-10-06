@@ -5,6 +5,7 @@ jest.mock('../models/ReadingSubmission', () => ({ findAll: jest.fn(), findByPk: 
 jest.mock('../models/ListeningSubmission', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
 jest.mock('../middlewares/auth', () => ({
   requireAuth: (_req, _res, next) => next(),
+  optionalAuth: (_req, _res, next) => next(),
 }));
 jest.mock('../middlewares/testPermissions', () => ({
   requireTestPermission: () => (_req, _res, next) => next(),

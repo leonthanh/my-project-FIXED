@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 /* eslint-disable-next-line no-unused-vars */
-import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import { apiPath, authFetch, getStoredUser, hostPath } from "../../../../shared/utils/api";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
@@ -269,6 +269,15 @@ const DoCambridgeReadingTest = ({
       "Student"
     );
   }, []);
+  const isStudent = useMemo(() => {
+    const role = getStoredUser()?.role;
+    return !role || role === "student";
+  }, []);
+  const studentResultDisplayMode = useMemo(() => {
+    if (!isStudent) return "score";
+    if (test?.showResultModal === false) return "confirmation";
+    return test?.studentResultVisibility || "score";
+  }, [isStudent, test?.showResultModal, test?.studentResultVisibility]);
 
   const effectiveDuration = useMemo(() => {
     // Prefer the authoritative config duration for the test's type (avoids DB default of 60
@@ -799,7 +808,7 @@ const DoCambridgeReadingTest = ({
       const localResults = calculateLocalResults();
 
       // Submit to backend
-      const res = await fetch(apiPath(`${submitBasePath}/${id}/submit`), {
+      const res = await authFetch(apiPath(`${submitBasePath}/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -826,8 +835,13 @@ const DoCambridgeReadingTest = ({
 
       // Use backend scoring as source of truth
       const dr = data.detailedResults || {};
-      const backendCorrect = Object.values(dr).filter(r => r.isCorrect === true).length;
-      const backendIncorrect = Object.values(dr).filter(r => r.isCorrect === false).length;
+      const hasDetailedResults = Object.keys(dr).length > 0;
+      const backendCorrect = hasDetailedResults
+        ? Object.values(dr).filter(r => r.isCorrect === true).length
+        : Number(data.score) || 0;
+      const backendIncorrect = hasDetailedResults
+        ? Object.values(dr).filter(r => r.isCorrect === false).length
+        : Math.max((Number(data.total) || 0) - backendCorrect, 0);
 
       // Clear saved data from localStorage
       localStorage.removeItem(camReadTimeKey);
@@ -844,16 +858,22 @@ const DoCambridgeReadingTest = ({
           replace: true,
         });
       } else {
-        // Show results modal using backend score (more accurate than local calculation)
-        setResults({
-          score: data.score,
-          total: data.total,
-          percentage: data.percentage,
-          correct: backendCorrect,
-          incorrect: backendIncorrect,
-          writingQuestions: localResults.writingQuestions || [],
-          writingCount: localResults.writingCount || 0,
-        });
+        if (studentResultDisplayMode === "confirmation") {
+          setResults({ mode: "confirmation" });
+        } else {
+          // Show results modal using backend score (more accurate than local calculation)
+          setResults({
+            score: data.score,
+            total: data.total,
+            percentage: data.percentage,
+            correct: backendCorrect,
+            incorrect: backendIncorrect,
+            writingQuestions: localResults.writingQuestions || [],
+            writingCount: localResults.writingCount || 0,
+            answers: data.answers || data.detailedResults || {},
+            breakdown: data.breakdown || null,
+          });
+        }
         setSubmitted(true);
         setShowConfirm(false);
       }
@@ -865,7 +885,11 @@ const DoCambridgeReadingTest = ({
       } else {
         // Calculate locally and show results even if backend fails
         const localResults = calculateLocalResults();
-        setResults(localResults);
+        if (studentResultDisplayMode === "confirmation") {
+          setResults({ mode: "confirmation" });
+        } else {
+          setResults(localResults);
+        }
         setSubmitted(true);
         setShowConfirm(false);
         // Clear saved data on error too
@@ -4081,7 +4105,7 @@ const DoCambridgeReadingTest = ({
       </footer>
 
       {/* Results Modal */}
-      {submitted && results && (
+      {submitted && results && studentResultDisplayMode !== "confirmation" && false && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'white', padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
             <h2 style={{ margin: '0 0 20px', color: '#0052cc', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><InlineIcon name="overview" size={20} />Test Results</h2>
@@ -4135,6 +4159,7 @@ const DoCambridgeReadingTest = ({
           results={results}
           testTitle={test?.title}
           studentName={currentStudentName}
+          displayMode={studentResultDisplayMode}
           onClose={() => {
             setResults(null);
             setSubmitted(false);

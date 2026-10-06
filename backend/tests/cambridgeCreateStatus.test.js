@@ -12,6 +12,7 @@ jest.mock('../models', () => ({
 const { CambridgeListening, CambridgeReading } = require('../models');
 const readingService = require('../modules/cambridge/reading/service');
 const listeningService = require('../modules/cambridge/listening/service');
+const { normalizeStudentResultVisibility } = require('../utils/studentResultVisibility');
 
 describe('Cambridge create status defaults', () => {
   beforeEach(() => {
@@ -38,6 +39,7 @@ describe('Cambridge create status defaults', () => {
         classCode: 'AUTH-01',
         status: 'published',
         testType: 'ket-reading',
+        studentResultVisibility: 'score',
       })
     );
   });
@@ -62,7 +64,12 @@ describe('Cambridge create status defaults', () => {
       expect.objectContaining({
         status: 'draft',
         testType: 'movers-listening',
+        studentResultVisibility: 'score',
       })
     );
+  });
+
+  test('legacy hidden cambridge setting maps to confirmation mode', () => {
+    expect(normalizeStudentResultVisibility('details', false)).toBe('confirmation');
   });
 });

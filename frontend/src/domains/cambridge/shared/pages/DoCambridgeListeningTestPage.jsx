@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
-import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import { apiPath, authFetch, getStoredUser, hostPath } from "../../../../shared/utils/api";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
@@ -174,6 +174,15 @@ const DoCambridgeListeningTest = () => {
       "Student"
     );
   }, []);
+  const isStudent = useMemo(() => {
+    const role = getStoredUser()?.role;
+    return !role || role === 'student';
+  }, []);
+  const studentResultDisplayMode = useMemo(() => {
+    if (!isStudent) return 'score';
+    if (test?.showResultModal === false) return 'confirmation';
+    return test?.studentResultVisibility || 'score';
+  }, [isStudent, test?.showResultModal, test?.studentResultVisibility]);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -1832,7 +1841,7 @@ const DoCambridgeListeningTest = () => {
       const initialTime = (testConfig.duration || 30) * 60;
       const timeSpent = initialTime - timeRemaining;
 
-      const res = await fetch(apiPath(`cambridge/listening-tests/${id}/submit`), {
+      const res = await authFetch(apiPath(`cambridge/listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -1866,20 +1875,28 @@ const DoCambridgeListeningTest = () => {
           replace: true,
         });
       } else {
-        // Navigate to result page with submission data
-        navigate(`/cambridge/result/${data.submissionId}`, {
-          state: {
-            submission: {
-              ...data,
-              testTitle: test?.title,
-              testType: testType,
-              timeSpent,
-              classCode: test?.classCode,
-              submittedAt: new Date().toISOString()
-            },
-            test
-          }
-        });
+        if (studentResultDisplayMode === 'confirmation') {
+          setResults({ mode: 'confirmation' });
+        } else {
+          const detailedResults = data.answers || data.detailedResults || {};
+          const hasDetailedResults = Object.keys(detailedResults).length > 0;
+          const correct = hasDetailedResults
+            ? Object.values(detailedResults).filter((item) => item?.isCorrect === true).length
+            : Number(data.score) || 0;
+          const incorrect = hasDetailedResults
+            ? Object.values(detailedResults).filter((item) => item?.isCorrect === false).length
+            : Math.max((Number(data.total) || 0) - correct, 0);
+          setResults({
+            score: data.score,
+            total: data.total,
+            percentage: data.percentage,
+            correct,
+            incorrect,
+            answers: detailedResults,
+          });
+        }
+        setSubmitted(true);
+        setShowConfirm(false);
       }
     } catch (err) {
       console.error("Error submitting:", err);
@@ -1889,7 +1906,11 @@ const DoCambridgeListeningTest = () => {
       } else {
         // For now, calculate locally if backend not ready
         const localResults = calculateLocalResults();
-        setResults(localResults);
+        if (studentResultDisplayMode === 'confirmation') {
+          setResults({ mode: 'confirmation' });
+        } else {
+          setResults(localResults);
+        }
         setSubmitted(true);
         setShowConfirm(false);
         endTimeRef.current = null;
@@ -3471,6 +3492,7 @@ const DoCambridgeListeningTest = () => {
         results={submitted ? results : null}
         testTitle={test?.title || localizedTestConfigName || 'Cambridge Listening'}
         studentName={currentStudentName}
+        displayMode={studentResultDisplayMode}
         onClose={() => navigate('/cambridge')}
         actions={[
           {

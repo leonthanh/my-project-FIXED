@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../../../middlewares/auth');
+const { optionalAuth, requireAuth } = require('../../../middlewares/auth');
 const { requireTestPermission } = require('../../../middlewares/testPermissions');
 const {
   createCreateListeningTestHandler,
@@ -30,7 +30,7 @@ router.put(
   createUpdateListeningTestHandler()
 );
 router.delete('/listening-tests/:id', createDeleteListeningTestHandler());
-router.post('/listening-tests/:id/submit', createSubmitListeningTestHandler());
+router.post('/listening-tests/:id/submit', optionalAuth, createSubmitListeningTestHandler());
 router.get('/listening-tests/:id/submissions', createListListeningTestSubmissionsHandler());
 
 module.exports = router;

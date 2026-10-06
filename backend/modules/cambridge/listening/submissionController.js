@@ -1,5 +1,6 @@
 const { logError } = require('../../../logger');
 const submissionService = require('./submissionService');
+const { normalizeStudentResultVisibility } = require('../../../utils/studentResultVisibility');
 
 const handleSubmissionError = (err, res, { logLabel, serverMessage }) => {
   const statusCode = Number(err?.statusCode) || 500;
@@ -20,15 +21,31 @@ const createSubmitListeningTestHandler = ({ forcedTestType = null, logLabel = 'L
         body: req.body,
         forcedTestType,
       });
+      const visibility = normalizeStudentResultVisibility(
+        result.studentResultVisibility,
+        result.showResultModal
+      );
+      const isStudentRequest = !req.user || req.user.role === 'student';
 
-      res.status(201).json({
+      if (isStudentRequest && visibility === 'confirmation') {
+        return res.status(201).json({
+          message: 'Nộp bài thành công!',
+          submissionId: result.submission.id,
+        });
+      }
+
+      return res.status(201).json({
         message: 'Nộp bài thành công!',
         submissionId: result.submission.id,
         score: result.score,
         total: result.total,
         percentage: result.percentage,
-        detailedResults: result.detailedResults,
-        answers: result.detailedResults,
+        ...(isStudentRequest && visibility !== 'details'
+          ? {}
+          : {
+              detailedResults: result.detailedResults,
+              answers: result.detailedResults,
+            }),
       });
     } catch (err) {
       handleSubmissionError(err, res, {
