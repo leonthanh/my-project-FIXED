@@ -39,6 +39,12 @@ const ListeningTest = sequelize.define('ListeningTest', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  studentResultVisibility: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'score',
+    comment: 'Student result display mode: confirmation, score, or details'
+  },
   isArchived: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

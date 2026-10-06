@@ -159,6 +159,8 @@ const submitReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
     percentage,
     detailedResults,
     breakdown,
+    studentResultVisibility: test.studentResultVisibility,
+    showResultModal: test.showResultModal,
   };
 };
 

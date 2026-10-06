@@ -26,6 +26,7 @@ jest.mock('../utils/listeningTableQuestions', () => ({
 }));
 jest.mock('../middlewares/auth', () => ({
   requireAuth: (_req, _res, next) => next(),
+  optionalAuth: (_req, _res, next) => next(),
   requireRole: () => (_req, _res, next) => next(),
 }));
 jest.mock('../middlewares/testPermissions', () => ({

@@ -4,6 +4,7 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AttemptExtensionControls from "../components/AttemptExtensionControls";
 import AdminStickySidebarLayout, {
@@ -863,7 +864,10 @@ const AdminReadingSubmissions = () => {
                 submission.ReadingTest?.classCode || submission.classCode || "N/A";
               const teacherName =
                 submission.ReadingTest?.teacherName || submission.teacherName || "N/A";
-              const studentName = submission.userName || "N/A";
+              const studentName = formatStudentDisplayName(
+                submission.userName || submission.User?.name || "",
+                "N/A"
+              );
               const phone = submission.User?.phone || submission.userPhone || "N/A";
               const title =
                 submission.ReadingTest?.title || `Reading #${submission.testId || submission.id}`;
@@ -943,7 +947,10 @@ const AdminReadingSubmissions = () => {
                 submission.ReadingTest?.classCode || submission.classCode || "N/A";
               const teacherName =
                 submission.ReadingTest?.teacherName || submission.teacherName || "N/A";
-              const studentName = submission.userName || "N/A";
+              const studentName = formatStudentDisplayName(
+                submission.userName || submission.User?.name || "",
+                "N/A"
+              );
               const phone = submission.User?.phone || submission.userPhone || "N/A";
               const correctCount = Number(submission.correct) || 0;
               const totalCount = Number(submission.total) || 0;
@@ -1179,7 +1186,7 @@ const AdminReadingSubmissions = () => {
           <>
             <p style={confirmMetaHeadingStyle}>Submission summary</p>
             <p style={confirmMetaTextStyle}>
-              <strong>Student:</strong> {deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "Unknown student"}
+            <strong>Student:</strong> {formatStudentDisplayName(deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "", "Unknown student")}
             </p>
             <p style={confirmMetaTextStyle}>
               <strong>Test:</strong> {deleteConfirm?.submission?.ReadingTest?.title || `Reading #${deleteConfirm?.submission?.testId || deleteConfirm?.submission?.id || "--"}`}
@@ -1206,7 +1213,7 @@ const AdminReadingSubmissions = () => {
             </div>
 
             <div style={{ marginBottom: 15, padding: 15, background: isDarkMode ? "#0f172a" : "#f3f4f6", borderRadius: 8, border: isDarkMode ? "1px solid #2a3350" : "none" }}>
-              <p><strong>Student:</strong> {selectedSubmission.userName || "N/A"}</p>
+              <p><strong>Student:</strong> {formatStudentDisplayName(selectedSubmission.userName || selectedSubmission.User?.name || "", "N/A")}</p>
               <p><strong>Class Code:</strong> {selectedSubmission.ReadingTest?.classCode || "N/A"}</p>
               <p><strong>Score:</strong> {selectedSubmission.correct}/{selectedSubmission.total} ({selectedSubmission.scorePercentage}%) - Band {selectedSubmission.band}</p>
             </div>
@@ -1310,4 +1317,3 @@ const closeBtn = (isDarkMode) => ({
 });
 
 export default AdminReadingSubmissions;
-

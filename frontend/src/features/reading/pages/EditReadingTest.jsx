@@ -25,7 +25,7 @@ const EditReadingTest = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
-  const [showResultModal, setShowResultModal] = useState(true);
+  const [studentResultVisibility, setStudentResultVisibility] = useState("score");
 
   // Loading & Error state
   const [loading, setLoading] = useState(true);
@@ -110,7 +110,9 @@ const EditReadingTest = () => {
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || user?.name || "");
-        setShowResultModal(data.showResultModal ?? true);
+        setStudentResultVisibility(
+          data.showResultModal === false ? "confirmation" : data.studentResultVisibility || "score"
+        );
         setPassages(
           Array.isArray(data.passages)
             ? data.passages
@@ -193,7 +195,7 @@ const EditReadingTest = () => {
     try {
       setIsSaving(true);
       const draftKey = `readingTestDraft-edit-${testId}`;
-      const dataToSave = { title, passages, classCode, teacherName, showResultModal };
+      const dataToSave = { title, passages, classCode, teacherName, studentResultVisibility };
       localStorage.setItem(draftKey, JSON.stringify(dataToSave));
       setLastSaved(new Date());
       setIsSaving(false);
@@ -201,7 +203,7 @@ const EditReadingTest = () => {
       console.error('Error saving draft:', e);
       setIsSaving(false);
     }
-  }, [title, passages, classCode, teacherName, showResultModal, testId]);
+  }, [title, passages, classCode, teacherName, studentResultVisibility, testId]);
 
   // Auto-save every 30 seconds + on page unload (only after data is loaded)
   useEffect(() => {
@@ -328,7 +330,8 @@ const EditReadingTest = () => {
           title: cleanTitle,
           classCode: cleanClassCode,
           teacherName: cleanTeacherName,
-          showResultModal,
+          studentResultVisibility,
+          showResultModal: studentResultVisibility !== "confirmation",
           passages: cleanedPassages,
         }),
       });
@@ -468,8 +471,8 @@ const EditReadingTest = () => {
         teacherName={teacherName}
         setTeacherName={setTeacherName}
         isTeacherNameLocked
-        showResultModal={showResultModal}
-        setShowResultModal={setShowResultModal}
+        studentResultVisibility={studentResultVisibility}
+        setStudentResultVisibility={setStudentResultVisibility}
         // Passages state
         passages={passages}
         selectedPassageIndex={selectedPassageIndex}
@@ -513,4 +516,3 @@ const EditReadingTest = () => {
 };
 
 export default EditReadingTest;
-

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
@@ -1094,7 +1095,10 @@ const AdminListeningSubmissions = () => {
                 submission.ListeningTest?.classCode || submission.classCode || "N/A";
               const teacherName =
                 submission.ListeningTest?.teacherName || submission.teacherName || "N/A";
-              const studentName = submission.userName || submission.User?.name || "N/A";
+              const studentName = formatStudentDisplayName(
+                submission.userName || submission.User?.name || "",
+                "N/A"
+              );
               const phone = submission.User?.phone || submission.userPhone || "N/A";
               const title =
                 submission.ListeningTest?.title || `Listening #${submission.testId || submission.id}`;
@@ -1181,7 +1185,10 @@ const AdminListeningSubmissions = () => {
                 submission.ListeningTest?.classCode || submission.classCode || "N/A";
               const teacherName =
                 submission.ListeningTest?.teacherName || submission.teacherName || "N/A";
-              const studentName = submission.userName || submission.User?.name || "N/A";
+              const studentName = formatStudentDisplayName(
+                submission.userName || submission.User?.name || "",
+                "N/A"
+              );
               const phone = submission.User?.phone || submission.userPhone || "N/A";
               const displayCorrect = Number.isFinite(Number(submission.computedCorrect))
                 ? Number(submission.computedCorrect)
@@ -1431,7 +1438,7 @@ const AdminListeningSubmissions = () => {
               <>
                 <p style={confirmMetaHeadingStyle}>Submission summary</p>
                 <p style={confirmMetaTextStyle}>
-                  <strong>Student:</strong> {deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "Unknown student"}
+                  <strong>Student:</strong> {formatStudentDisplayName(deleteConfirm?.submission?.userName || deleteConfirm?.submission?.User?.name || "", "Unknown student")}
                 </p>
                 <p style={confirmMetaTextStyle}>
                   <strong>Test:</strong> {deleteConfirm?.submission?.ListeningTest?.title || `Listening #${deleteConfirm?.submission?.testId || deleteConfirm?.submission?.id || "--"}`}
@@ -1616,4 +1623,3 @@ const closeBtn = (isDarkMode) => ({
 });
 
 export default AdminListeningSubmissions;
-

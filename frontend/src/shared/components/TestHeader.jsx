@@ -1,5 +1,6 @@
 import React from "react";
 import LineIcon from "./LineIcon.jsx";
+import { formatStudentDisplayName } from "../utils/personName";
 import "./TestHeader.css";
 
 /**
@@ -56,6 +57,7 @@ const TestHeader = ({
 
   const isCambridge = detectedExamType !== 'IX';
   const displayTitle = title || testTitle;
+  const displayStudentName = formatStudentDisplayName(studentName, "");
 
   // Format time as mm:ss if it's a number
   const formatTime = (time) => {
@@ -90,12 +92,12 @@ const TestHeader = ({
       </div>
 
       <div className="header-right">
-        {studentName && (
-          <div className="header-student" title={studentName} aria-label={`Student ${studentName}`}>
+        {displayStudentName && (
+          <div className="header-student" title={displayStudentName} aria-label={`Student ${displayStudentName}`}>
             <span className="header-student-icon">
               <LineIcon name="student" size={14} strokeWidth={2.1} />
             </span>
-            <span className="header-student-text">{studentName}</span>
+            <span className="header-student-text">{displayStudentName}</span>
           </div>
         )}
 

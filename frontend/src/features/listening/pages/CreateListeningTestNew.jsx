@@ -24,7 +24,7 @@ const CreateListeningTestNew = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState(currentTeacherName);
-  const [showResultModal, setShowResultModal] = useState(true);
+  const [studentResultVisibility, setStudentResultVisibility] = useState("confirmation");
 
   // Global audio
   const [globalAudioFile, setGlobalAudioFile] = useState(null);
@@ -74,7 +74,9 @@ const CreateListeningTestNew = () => {
         const data = JSON.parse(savedDraft);
         if (data.title) setTitle(data.title);
         if (data.classCode) setClassCode(data.classCode);
-        if (data.showResultModal !== undefined) setShowResultModal(data.showResultModal);
+        setStudentResultVisibility(
+          data.showResultModal === false ? "confirmation" : data.studentResultVisibility || "score"
+        );
         if (data.parts && data.parts.length > 0) setParts(normalizeListeningParts(data.parts));
         console.log("Loaded draft from localStorage");
       }
@@ -91,7 +93,7 @@ const CreateListeningTestNew = () => {
         title,
         classCode,
         teacherName,
-        showResultModal,
+        studentResultVisibility,
         parts,
         savedAt: new Date().toISOString(),
       };
@@ -103,7 +105,7 @@ const CreateListeningTestNew = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, showResultModal, parts]);
+  }, [title, classCode, teacherName, studentResultVisibility, parts]);
 
   // Local state to show login banner when refresh fails
   const [requiresLogin, setRequiresLogin] = useState(false);
@@ -189,7 +191,8 @@ const CreateListeningTestNew = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
-      formData.append("showResultModal", showResultModal);
+      formData.append("studentResultVisibility", studentResultVisibility);
+      formData.append("showResultModal", studentResultVisibility !== "confirmation");
       // Backend expects 'passages' not 'parts'
       formData.append("passages", JSON.stringify(cleanedParts));
 
@@ -266,8 +269,8 @@ const CreateListeningTestNew = () => {
         teacherName={teacherName}
         setTeacherName={setTeacherName}
         isTeacherNameLocked
-        showResultModal={showResultModal}
-        setShowResultModal={setShowResultModal}
+        studentResultVisibility={studentResultVisibility}
+        setStudentResultVisibility={setStudentResultVisibility}
         // Parts state
         parts={parts}
         selectedPartIndex={selectedPartIndex}

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -1357,7 +1358,7 @@ const ListeningResults = () => {
           {submission?.userName && (
             <div style={styles.metaItem}>
               <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Student:</span>
-              <span style={styles.metaValue}>{submission.userName}</span>
+              <span style={styles.metaValue}>{formatStudentDisplayName(submission.userName)}</span>
             </div>
           )}
           {submittedAt && (

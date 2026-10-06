@@ -30,7 +30,7 @@ import {
   resolveQuestionStartNumber,
 } from "../utils/questionHelpers";
 import { getClozeTableCellLines, isClozeCommentsColumn } from "../../../shared/utils/clozeTable";
-import { apiPath, getStoredUser, hostPath } from "../../../shared/utils/api";
+import { apiPath, authFetch, getStoredUser, hostPath } from "../../../shared/utils/api";
 import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
@@ -43,6 +43,7 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -198,12 +199,21 @@ const DoReadingTest = () => {
       return false;
     }
   }, []);
+  const isStudent = useMemo(() => {
+    try {
+      const role = JSON.parse(localStorage.getItem('user') || 'null')?.role;
+      return !role || role === 'student';
+    } catch (e) {
+      return false;
+    }
+  }, []);
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
   }, []);
 
   const annotationStorageKey = useMemo(
@@ -1740,7 +1750,7 @@ const DoReadingTest = () => {
         }
       })();
 
-      const res = await fetch(apiPath(`reading-tests/${id}/submit`), {
+      const res = await authFetch(apiPath(`reading-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1749,7 +1759,7 @@ const DoReadingTest = () => {
           placementAttemptItemToken:
             placementContext.placementAttemptItemToken || undefined,
           user,
-          studentName: user?.name || undefined,
+          studentName: formatStudentDisplayName(user?.name, undefined),
           studentId: user?.id || undefined,
         }),
       });
@@ -1772,17 +1782,7 @@ const DoReadingTest = () => {
       // Instead of navigating, show result modal (do not flip started state immediately
       // because component returns early when !started and would prevent modal mounting)
       setResultData(data);
-      if (isPlacementRuntime && placementContext.placementAttemptToken) {
-        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
-          replace: true,
-        });
-      } else if (test?.showResultModal !== false) {
-        setResultModalOpen(true);
-      } else {
-        // If teacher disabled result modal, show success message and navigate back
-        alert("Submission successful. Your teacher can review your results.");
-        navigate("/select-test");
-      }
+      setResultModalOpen(true);
     } catch (err) {
       console.error("Error submitting reading test:", err);
       autoSubmittingRef.current = false;
@@ -3806,9 +3806,14 @@ const DoReadingTest = () => {
           setStarted(false);
           setTimeUp(false);
 
-          // Navigate student back to select-test page after closing modal
           try {
-            navigate("/select-test");
+            if (isPlacementRuntime && placementContext.placementAttemptToken) {
+              navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+                replace: true,
+              });
+            } else {
+              navigate("/select-test");
+            }
           } catch (e) {
             /* ignore */
           }
@@ -3816,6 +3821,13 @@ const DoReadingTest = () => {
         result={resultData}
         title="Reading Results"
         iconName="reading"
+        displayMode={
+          isStudent
+            ? (test?.showResultModal === false
+              ? "confirmation"
+              : test?.studentResultVisibility || "score")
+            : "score"
+        }
         onViewDetails={() => {
           setResultModalOpen(false);
           if (resultData && resultData.submissionId) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
 
 const formatScore = (value) => {
   const numeric = Number(value);
@@ -9,9 +10,24 @@ const formatScore = (value) => {
   return numeric.toFixed(1).replace(/\.0$/, '');
 };
 
-const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actions = [] }) => {
+const formatAnswerValue = (value) => {
+  if (value == null || value === '') return '—';
+  if (Array.isArray(value)) return value.map(formatAnswerValue).join(', ');
+  if (typeof value === 'object') return Object.values(value).map(formatAnswerValue).join(', ');
+  return String(value);
+};
+
+const CambridgeResultsModal = ({
+  results,
+  onClose,
+  testTitle,
+  studentName,
+  actions = [],
+  displayMode = 'score',
+}) => {
   const modalRef = useRef(null);
   const { isDarkMode } = useTheme();
+  const displayStudentName = formatStudentDisplayName(studentName, "");
   const colors = useMemo(() => (
     isDarkMode
       ? {
@@ -79,10 +95,14 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
       percentage,
       writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
       breakdownGroups: groups,
+      answers:
+        r.answers && typeof r.answers === 'object' && !Array.isArray(r.answers)
+          ? r.answers
+          : {},
     };
   }, [results]);
 
-  const { score, correct, incorrect, total, autoScoredTotal, manualScoredTotal, percentage, writingQuestions, breakdownGroups } = safe;
+  const { score, correct, incorrect, total, autoScoredTotal, manualScoredTotal, percentage, writingQuestions, breakdownGroups, answers } = safe;
   const writingQuestionNumbers = writingQuestions
     .map((q) => q?.questionNumber)
     .filter((questionNumber) => Number.isFinite(questionNumber));
@@ -100,6 +120,28 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
   }, [onClose, results]);
 
   if (!results) return null;
+  const isConfirmationOnly = displayMode === 'confirmation';
+  const showDetails = displayMode === 'details';
+  const detailRows = showDetails
+    ? Object.entries(answers)
+        .map(([questionKey, detail]) => {
+          const questionNumber = Number(detail?.questionNumber);
+          const displayOrder = Number.isFinite(questionNumber) ? questionNumber : Number.MAX_SAFE_INTEGER;
+          return {
+            questionKey,
+            displayOrder,
+            label: Number.isFinite(questionNumber) ? `Question ${questionNumber}` : String(detail?.label || questionKey),
+            isCorrect: detail?.isCorrect === true,
+            userAnswer: detail?.userAnswer,
+            correctAnswer: detail?.correctAnswer,
+          };
+        })
+        .sort((left, right) =>
+          left.displayOrder === right.displayOrder
+            ? left.label.localeCompare(right.label)
+            : left.displayOrder - right.displayOrder
+        )
+    : [];
 
   // Circular Progress
   const CircularProgress = ({ percentage, size = 100, strokeWidth = 8 }) => {
@@ -244,7 +286,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
             <LineIcon name="overview" size={24} strokeWidth={2.1} />
           </div>
           <h2 style={{ margin: "0 0 4px 0", fontSize: 22, fontWeight: 700, color: "#fff" }}>
-            Test Results
+            {isConfirmationOnly ? 'Submission received' : 'Test Results'}
           </h2>
           {testTitle && (
             <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.82)" }}>
@@ -255,6 +297,23 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
 
         {/* Body */}
         <div style={{ padding: "28px 28px 24px" }}>
+          {isConfirmationOnly ? (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: '16px 18px',
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceAlt,
+                color: colors.text,
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}
+            >
+              Your answers have been submitted successfully.
+            </div>
+          ) : (
+            <>
           {/* Score Circle */}
           <div
             style={{
@@ -429,7 +488,7 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
           )}
 
           {/* Student info */}
-          {studentName && (
+          {displayStudentName && (
             <div
               style={{
                 background: colors.surfaceAlt,
@@ -441,8 +500,51 @@ const CambridgeResultsModal = ({ results, onClose, testTitle, studentName, actio
                 marginBottom: 20,
               }}
             >
-                <strong style={{ color: colors.text }}>Student:</strong> {studentName}
+                <strong style={{ color: colors.text }}>Student:</strong> {displayStudentName}
             </div>
+          )}
+          {showDetails && detailRows.length > 0 && (
+            <div
+              style={{
+                marginBottom: 18,
+                borderRadius: 14,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceAlt,
+                padding: '12px',
+                maxHeight: 240,
+                overflowY: 'auto',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>
+                Answer details
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {detailRows.map((row) => (
+                  <div
+                    key={row.questionKey}
+                    style={{
+                      borderRadius: 10,
+                      border: `1px solid ${row.isCorrect ? '#86efac' : '#fecaca'}`,
+                      background: row.isCorrect
+                        ? (isDarkMode ? 'rgba(22, 163, 74, 0.14)' : '#f0fdf4')
+                        : (isDarkMode ? 'rgba(220, 38, 38, 0.14)' : '#fef2f2'),
+                      padding: '10px 12px',
+                      fontSize: 12,
+                      color: colors.text,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{row.label}</div>
+                    <div>Your answer: {formatAnswerValue(row.userAnswer)}</div>
+                    {!row.isCorrect && (
+                      <div>Correct answer: {formatAnswerValue(row.correctAnswer)}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+            </>
           )}
 
             {safeActions.length > 0 && (

@@ -76,12 +76,13 @@ const canonicalizeDraftValue = (value, currentKey = '') => {
   return value;
 };
 
-const buildEditDraftSnapshot = ({ title, classCode, teacherName, showResultModal, parts }) =>
+const buildEditDraftSnapshot = ({ title, classCode, teacherName, studentResultVisibility, showResultModal, parts }) =>
   canonicalizeDraftValue({
     title: title || '',
     classCode: classCode || '',
     teacherName: teacherName || '',
-    showResultModal: showResultModal ?? true,
+    studentResultVisibility:
+      showResultModal === false ? "confirmation" : studentResultVisibility || "score",
     parts: normalizeListeningParts(Array.isArray(parts) ? parts : []),
   });
 
@@ -105,7 +106,7 @@ const EditListeningTest = () => {
   const [title, setTitle] = useState("");
   const [classCode, setClassCode] = useState("");
   const [teacherName, setTeacherName] = useState("");
-  const [showResultModal, setShowResultModal] = useState(true);
+  const [studentResultVisibility, setStudentResultVisibility] = useState("score");
 
   // Global audio
   const [globalAudioFile, setGlobalAudioFile] = useState(null);
@@ -178,7 +179,9 @@ const EditListeningTest = () => {
         setTitle(data.title || "");
         setClassCode(data.classCode || "");
         setTeacherName(data.teacherName || "");
-        setShowResultModal(data.showResultModal ?? true);
+        const savedVisibility =
+          data.showResultModal === false ? "confirmation" : data.studentResultVisibility || "score";
+        setStudentResultVisibility(savedVisibility);
         setExistingAudioUrl(data.mainAudioUrl || sharedPartAudioUrl);
         
         // Reconstruct parts from partInstructions and questions
@@ -201,14 +204,17 @@ const EditListeningTest = () => {
                 title: data.title || '',
                 classCode: data.classCode || '',
                 teacherName: data.teacherName || '',
-                showResultModal: data.showResultModal ?? true,
+                studentResultVisibility: savedVisibility,
                 parts: normalizedReconstructedParts,
               },
               draftState: {
                 title: draft.title,
                 classCode: draft.classCode,
                 teacherName: draft.teacherName,
-                showResultModal: draft.showResultModal,
+                studentResultVisibility:
+                  draft.showResultModal === false
+                    ? "confirmation"
+                    : draft.studentResultVisibility || "score",
                 parts: draft.parts,
               },
             });
@@ -217,7 +223,12 @@ const EditListeningTest = () => {
               setTitle(draft.title || (data.title || ""));
               setClassCode(draft.classCode || (data.classCode || ""));
               setTeacherName(draft.teacherName || (data.teacherName || ""));
-              setShowResultModal(draft.showResultModal ?? (data.showResultModal ?? true));
+              setStudentResultVisibility(
+                draft.studentResultVisibility ||
+                  (draft.showResultModal === false
+                    ? "confirmation"
+                    : data.studentResultVisibility || "score")
+              );
               if (draft.parts) setParts(normalizeListeningParts(draft.parts));
             }
           }
@@ -373,7 +384,7 @@ const EditListeningTest = () => {
     try {
       setIsSaving(true);
       const draftKey = `listeningTestDraftEdit-${id}`;
-      const dataToSave = { title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString() };
+      const dataToSave = { title, classCode, teacherName, parts, studentResultVisibility, savedAt: new Date().toISOString() };
       localStorage.setItem(draftKey, JSON.stringify(dataToSave));
       setLastSaved(new Date());
     } catch (e) {
@@ -381,7 +392,7 @@ const EditListeningTest = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [id, title, classCode, teacherName, parts, showResultModal]);
+  }, [id, title, classCode, teacherName, parts, studentResultVisibility]);
 
   // Auto-save every 30 seconds + on page unload (only after data is loaded)
   useEffect(() => {
@@ -409,7 +420,7 @@ const EditListeningTest = () => {
       // Save a local draft now so user doesn't lose work if network/save fails
       try {
         localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
-          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+          title, classCode, teacherName, parts, studentResultVisibility, savedAt: new Date().toISOString()
         }));
       } catch (e) {
         console.error("Error saving edit draft", e);
@@ -436,7 +447,8 @@ const EditListeningTest = () => {
       formData.append("title", stripHtml(title));
       formData.append("classCode", classCode);
       formData.append("teacherName", teacherName);
-      formData.append("showResultModal", showResultModal);
+      formData.append("studentResultVisibility", studentResultVisibility);
+      formData.append("showResultModal", studentResultVisibility !== "confirmation");
       formData.append("passages", JSON.stringify(cleanedParts));
 
       // Add global audio if new file selected
@@ -473,7 +485,12 @@ const EditListeningTest = () => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          try { localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({ title, classCode, teacherName, parts, showResultModal })); } catch (e) {}
+          try {
+            localStorage.setItem(
+              `listeningTestDraftEdit-${id}`,
+              JSON.stringify({ title, classCode, teacherName, parts, studentResultVisibility })
+            );
+          } catch (e) {}
           setMessage('Error: Token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục. Bản nháp đã được lưu.');
           setRequiresLogin(true);
           return;
@@ -495,7 +512,7 @@ const EditListeningTest = () => {
       // Save current state as a draft to avoid data loss
       try {
         localStorage.setItem(`listeningTestDraftEdit-${id}`, JSON.stringify({
-          title, classCode, teacherName, parts, showResultModal, savedAt: new Date().toISOString()
+          title, classCode, teacherName, parts, studentResultVisibility, savedAt: new Date().toISOString()
         }));
       } catch (e) { console.error("Error saving edit draft after failure", e); }
       setMessage(`Error: ${error.message}`);
@@ -576,8 +593,8 @@ const EditListeningTest = () => {
       teacherName={teacherName}
       setTeacherName={setTeacherName}
       isTeacherNameLocked
-      showResultModal={showResultModal}
-      setShowResultModal={setShowResultModal}
+      studentResultVisibility={studentResultVisibility}
+      setStudentResultVisibility={setStudentResultVisibility}
       // Parts state
       parts={parts}
       selectedPartIndex={selectedPartIndex}

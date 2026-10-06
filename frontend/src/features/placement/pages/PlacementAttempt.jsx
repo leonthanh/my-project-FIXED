@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LineIcon from "../../../shared/components/LineIcon";
 import { apiPath } from "../../../shared/utils/api";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   buildPlacementAttemptItemRuntimePath,
   buildPlacementSharePath,
@@ -15,12 +16,6 @@ import {
   useDisplaySettings,
 } from "../../../shared/contexts/DisplaySettingsContext";
 import "./PlacementEntry.css";
-
-const formatPercentage = (value) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
-  return `${Math.round(numeric)}%`;
-};
 
 const getStatusLabel = (status) => {
   if (status === "submitted") return "Completed";
@@ -153,7 +148,7 @@ const PlacementAttempt = () => {
               <div className="placement-entry-pillRow placement-entry-pillRow--sidebar">
                 <span className="placement-entry-pill">
                   <LineIcon name="form" size={14} />
-                  <span>{attempt?.studentName || "Student"}</span>
+                  <span>{formatStudentDisplayName(attempt?.studentName, "Student")}</span>
                 </span>
                 <span className="placement-entry-pill">
                   <LineIcon name="phone" size={14} />
@@ -251,17 +246,6 @@ const PlacementAttempt = () => {
                         {group.items.map((item, index) => {
                           const runtimePath = buildPlacementAttemptItemRuntimePath(item, attemptToken);
                           const itemAccent = item.platform === "orange" ? "orange" : "ix";
-                          const scoreLine = item.status === "submitted"
-                            ? [
-                                Number.isFinite(Number(item.correct)) && Number.isFinite(Number(item.totalQuestions))
-                                  ? `${item.correct}/${item.totalQuestions}`
-                                  : null,
-                                formatPercentage(item.percentage),
-                              ]
-                                .filter(Boolean)
-                                .join(" • ")
-                            : "";
-
                           return (
                             <div
                               key={item.attemptItemToken || `${item.platform}-${item.testType || item.skill}-${item.testId}-${group.startIndex + index}`}
@@ -284,10 +268,6 @@ const PlacementAttempt = () => {
                                 {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                                 {item.durationLabel ? <span>{item.durationLabel}</span> : null}
                               </div>
-
-                              {scoreLine ? (
-                                <p className="placement-entry-note">Score summary: {scoreLine}</p>
-                              ) : null}
 
                               {item.status === "submitted" ? (
                                 <button type="button" className="placement-entry-primaryButton" disabled>

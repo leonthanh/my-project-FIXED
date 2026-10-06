@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../../../middlewares/auth');
+const { optionalAuth, requireAuth } = require('../../../middlewares/auth');
 const { requireTestPermission } = require('../../../middlewares/testPermissions');
 const {
   createCreateReadingTestHandler,
@@ -30,7 +30,7 @@ router.put(
   createUpdateReadingTestHandler()
 );
 router.delete('/reading-tests/:id', createDeleteReadingTestHandler());
-router.post('/reading-tests/:id/submit', createSubmitReadingTestHandler());
+router.post('/reading-tests/:id/submit', optionalAuth, createSubmitReadingTestHandler());
 router.get('/reading-tests/:id/submissions', createListReadingTestSubmissionsHandler());
 
 module.exports = router;

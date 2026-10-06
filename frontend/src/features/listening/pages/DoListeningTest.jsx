@@ -21,6 +21,7 @@ import {
   toTimestamp,
 } from "../../../shared/utils/testTiming";
 import { getRuntimeSyncRateLimitMessage } from "../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
@@ -210,9 +211,14 @@ const DoListeningTest = () => {
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
-    return String(
-      user?.name || user?.username || user?.fullName || user?.email || "Student"
-    ).trim();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
+  }, []);
+  const isStudent = useMemo(() => {
+    const role = getStoredUser()?.role;
+    return !role || role === "student";
   }, []);
 
   const annotationStorageKey = useMemo(
@@ -680,7 +686,10 @@ const DoListeningTest = () => {
       user = null;
     }
 
-    const studentName = user?.name || user?.username || user?.email || null;
+    const studentName = formatStudentDisplayName(
+      user?.name || user?.username || user?.email,
+      null
+    );
     const studentId = user?.id || null;
 
     try {
@@ -761,6 +770,8 @@ const DoListeningTest = () => {
                 // provide details for potential later use in modal
                 details: generated,
               };
+            } else if (!Array.isArray(result.details) || result.details.length < generated.length) {
+              result = { ...result, details: generated };
             }
           }
         }
@@ -826,16 +837,7 @@ const DoListeningTest = () => {
 
       setResultData(result);
 
-      if (isPlacementRuntime && placementContext.placementAttemptToken) {
-        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
-          replace: true,
-        });
-      } else if (test?.showResultModal !== false) {
-        setResultModalOpen(true);
-      } else {
-        alert("Submission successful. Your teacher can review your results.");
-        navigate("/select-test");
-      }
+      setResultModalOpen(true);
       setSubmitted(true);
       setShowConfirm(false);
 
@@ -3408,11 +3410,24 @@ const DoListeningTest = () => {
             // ignore
           }
 
-          navigate("/select-test");
+          if (isPlacementRuntime && placementContext.placementAttemptToken) {
+            navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+              replace: true,
+            });
+          } else {
+            navigate("/select-test");
+          }
         }}
         result={resultData}
         title="Listening Results"
         iconName="listening"
+        displayMode={
+          isStudent
+            ? (test?.showResultModal === false
+              ? "confirmation"
+              : test?.studentResultVisibility || "score")
+            : "score"
+        }
       />
     </div>
   );

@@ -4,6 +4,7 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import { apiPath, authFetch, hostPath } from "../../../shared/utils/api";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import {
@@ -905,7 +906,7 @@ const CambridgeSubmissionsPage = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentName: submission.studentName || 'N/A',
+          studentName: formatStudentDisplayName(submission.studentName, 'N/A'),
           testType: submission.testType || 'Orange',
           classCode: submission.classCode || '',
           responses: [
@@ -1839,7 +1840,7 @@ const CambridgeSubmissionsPage = ({
                         {typeBadge.label}
                       </span>
                       <span style={{ fontWeight: 600, fontSize: 14, minWidth: 120, color: tone.primaryText }}>
-                        {submission.studentName || '--'}
+                        {formatStudentDisplayName(submission.studentName, '--')}
                       </span>
                       <span style={{ fontSize: 13, color: tone.mutedText, minWidth: 110 }}>
                         {submission.studentPhone || '--'}
@@ -2028,7 +2029,7 @@ const CambridgeSubmissionsPage = ({
                         {[
                           { label: 'Test Title', value: submission.testTitle || '--' },
                           { label: 'Teacher', value: submission.teacherName || '--' },
-                          { label: 'Student', value: submission.studentName || '--' },
+                          { label: 'Student', value: formatStudentDisplayName(submission.studentName, '--') },
                           { label: 'Phone', value: submission.studentPhone || '--' },
                           { label: 'Class Code', value: submission.classCode || '--' },
                           {
@@ -2246,7 +2247,7 @@ const CambridgeSubmissionsPage = ({
             <>
               <p style={styles.confirmMetaHeading}>Submission summary</p>
               <p style={styles.confirmMetaText}>
-                <strong>Student:</strong> {deleteConfirm?.submission?.studentName || '--'}
+                <strong>Student:</strong> {formatStudentDisplayName(deleteConfirm?.submission?.studentName, '--')}
               </p>
               <p style={styles.confirmMetaText}>
                 <strong>Test:</strong> {deleteConfirm?.submission?.testTitle || '--'}
@@ -2266,7 +2267,7 @@ const CambridgeSubmissionsPage = ({
                   <div style={styles.drawerEyebrow}>{platformLabel} Essay Review</div>
                   <h2 style={styles.drawerTitle}>{activeReviewSubmission.testTitle || 'Reading Submission'}</h2>
                   <div style={styles.drawerMetaRow}>
-                    <span style={styles.drawerMetaChip}>{activeReviewSubmission.studentName || '--'}</span>
+                    <span style={styles.drawerMetaChip}>{formatStudentDisplayName(activeReviewSubmission.studentName, '--')}</span>
                     {activeReviewSubmission.classCode && (
                       <span style={styles.drawerMetaChip}>{activeReviewSubmission.classCode}</span>
                     )}

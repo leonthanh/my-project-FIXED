@@ -15,6 +15,7 @@ const {
   normalizeListeningPassages,
   LISTENING_CLOZE_TYPE,
 } = require('../utils/listeningTableQuestions');
+const { normalizeStudentResultVisibility } = require('../utils/studentResultVisibility');
 
 const normalizeUploadsInText = (text, req) => {
   if (!text || typeof text !== 'string') return text;
@@ -176,7 +177,7 @@ const shouldIncludeArchived = (req) =>
   ['1', 'true', 'yes'].includes(String(req.query.includeArchived || '').trim().toLowerCase());
 
 // API tạo đề thi listening mới
-const { requireAuth } = require('../middlewares/auth');
+const { optionalAuth, requireAuth } = require('../middlewares/auth');
 const { requireTestPermission } = require('../middlewares/testPermissions');
 
 // Simple runtime debug helper - enable with DEBUG_LISTENING=1 or DEBUG=1
@@ -187,7 +188,7 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, teacherName, passages, showResultModal, isArchived } = req.body;
+    const { classCode, teacherName, passages, showResultModal, studentResultVisibility, isArchived } = req.body;
     
     if (!classCode || !teacherName) {
       return res.status(400).json({ message: '❌ Vui lòng nhập mã lớp và tên giáo viên' });
@@ -349,6 +350,10 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
     mainAudioUrl = normalizeStoredUploadRef(mainAudioUrl) || inferredSharedAudioUrl || null;
 
     // Create the listening test
+    const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
+      studentResultVisibility,
+      showResultModal
+    );
     const listeningTest = await ListeningTest.create({
       classCode,
       teacherName,
@@ -357,7 +362,8 @@ router.post('/', requireAuth, requireTestPermission('listening'), upload.any(), 
       partTypes,
       partInstructions,
       questions,
-      showResultModal: showResultModal !== undefined ? showResultModal : true,
+      showResultModal: resolvedStudentResultVisibility !== "confirmation",
+      studentResultVisibility: resolvedStudentResultVisibility,
       isArchived: normalizeCreateArchivedFlag(isArchived),
     });
 
@@ -434,7 +440,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // API nộp bài thi listening - Calculate score and return results
-router.post('/:id/submit', async (req, res) => {
+router.post('/:id/submit', optionalAuth, async (req, res) => {
   try {
     debug(`POST /api/listening-tests/${req.params.id}/submit - body:`, JSON.stringify(req.body).slice(0,2000));
     const { id } = req.params;
@@ -1431,6 +1437,15 @@ router.post('/:id/submit', async (req, res) => {
 
     debug(`Responding to submit for test ${id}: submissionId=${submission.id}, correct=${correctCount}, total=${totalCount}`);
 
+    const visibility = normalizeStudentResultVisibility(
+      test.studentResultVisibility,
+      test.showResultModal
+    );
+    const isStudentRequest = !req.user || req.user.role === 'student';
+    if (isStudentRequest && visibility === 'confirmation') {
+      return res.json({ submissionId: submission.id, message: 'Submission received.' });
+    }
+
     res.json({
       submissionId: submission.id,
       total: totalCount,
@@ -1467,7 +1482,7 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     console.log('Update request body:', req.body);
     console.log('Update request files:', req.files ? Object.keys(req.files) : 'none');
 
-    const { classCode, passages, title, showResultModal } = req.body;
+    const { classCode, passages, title, showResultModal, studentResultVisibility } = req.body;
     
     let updates = {};
     const existingPartAudioUrls = normalizePartAudioUrls(test.partAudioUrls);
@@ -1478,6 +1493,10 @@ router.put('/:id', requireAuth, requireTestPermission('listening'), upload.any()
     updates.teacherName = test.teacherName;
     if (title) updates.title = title;
     if (showResultModal !== undefined) updates.showResultModal = showResultModal;
+    if (studentResultVisibility !== undefined || showResultModal !== undefined) {
+      updates.studentResultVisibility = normalizeStudentResultVisibility(studentResultVisibility, showResultModal);
+      updates.showResultModal = updates.studentResultVisibility !== "confirmation";
+    }
     
     // Process file updates if any
     if (globalAudioUpload) {

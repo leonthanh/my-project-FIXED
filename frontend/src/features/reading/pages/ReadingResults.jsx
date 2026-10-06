@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ReadingStudentStyleReview from "../components/ReadingStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -657,7 +658,7 @@ const ReadingResults = () => {
           <div style={styles.metaItem}>
             <span style={styles.metaLabel}><InlineIcon name="student" size={15} />Student:</span>
             <span style={styles.metaValue}>
-              {meta.userName || "N/A"} {meta.userPhone && `• ${meta.userPhone}`}
+              {formatStudentDisplayName(meta.userName, "N/A")} {meta.userPhone && `• ${meta.userPhone}`}
             </span>
           </div>
           {meta.submittedAt && (

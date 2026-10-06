@@ -47,6 +47,18 @@ const CambridgeReading = sequelize.define('CambridgeReading', {
     type: DataTypes.ENUM('draft', 'published', 'archived'),
     defaultValue: 'draft'
   },
+  showResultModal: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Legacy visibility flag for student result display'
+  },
+  studentResultVisibility: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'score',
+    comment: 'Student result display mode: confirmation, score, or details'
+  },
   createdBy: {
     type: DataTypes.STRING,
     allowNull: true

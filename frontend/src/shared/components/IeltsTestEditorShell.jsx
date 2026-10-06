@@ -50,8 +50,8 @@ const IeltsTestEditorShell = ({
   teacherName,
   setTeacherName,
   isTeacherNameLocked = false,
-  showResultModal,
-  setShowResultModal,
+  studentResultVisibility,
+  setStudentResultVisibility,
   lastSaved,
   isSaving,
   message,
@@ -140,13 +140,17 @@ const IeltsTestEditorShell = ({
                     cursor: isTeacherNameLocked ? "not-allowed" : teacherInputStyle?.cursor,
                   }}
                 />
-                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={showResultModal ?? true}
-                    onChange={(e) => setShowResultModal(e.target.checked)}
-                  />
-                  Hiển thị kết quả
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                  <span>Kết quả học sinh:</span>
+                  <select
+                    value={studentResultVisibility || "details"}
+                    onChange={(e) => setStudentResultVisibility(e.target.value)}
+                    style={{ maxWidth: 230, padding: "5px 7px", border: "1px solid #cbd5e1", borderRadius: 6 }}
+                  >
+                    <option value="confirmation">Chỉ xác nhận đã nộp</option>
+                    <option value="score">Hiện tổng điểm</option>
+                    <option value="details">Hiện chi tiết kết quả</option>
+                  </select>
                 </label>
               </div>
 

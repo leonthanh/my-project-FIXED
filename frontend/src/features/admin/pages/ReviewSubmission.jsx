@@ -7,6 +7,7 @@ import {
   AiFeedbackStatus,
 } from "../../../shared/components/AiFeedbackAssist";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
   clearAiDraftFromStorage,
   buildAiFeedbackStatus,
@@ -596,7 +597,10 @@ const ReviewSubmission = () => {
   const statusTone = submission?.feedback
     ? { background: "#dcfce7", color: "#166534" }
     : { background: "#fef3c7", color: "#92400e" };
-  const studentName = submission?.user?.name || submission?.userName || "N/A";
+  const studentName = formatStudentDisplayName(
+    submission?.user?.name || submission?.userName || "",
+    "N/A"
+  );
   const studentPhone = submission?.user?.phone || submission?.userPhone || "N/A";
   const testIndex = submission?.WritingTest?.index || "N/A";
   const testLabel = `Writing ${testIndex}`;

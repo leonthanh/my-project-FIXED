@@ -1,5 +1,6 @@
 const { CambridgeReading } = require('../../../models');
 const { processTestParts } = require('../../../utils/clozParser');
+const { normalizeStudentResultVisibility } = require('../../../utils/studentResultVisibility');
 const {
   buildVisibleCambridgeWhere,
   countTotalQuestionsFromParts,
@@ -92,6 +93,8 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     parts,
     status,
     totalQuestions,
+    showResultModal,
+    studentResultVisibility,
   } = body;
 
   const effectiveTestType = ensureForcedTypeMatch(testType, forcedTestType);
@@ -100,6 +103,10 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     throw createServiceError(400, 'Thiếu thông tin bắt buộc: title, classCode, testType');
   }
 
+  const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
+    studentResultVisibility,
+    showResultModal
+  );
   const processedParts = processTestParts(parts);
   return CambridgeReading.create({
     title,
@@ -109,6 +116,8 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     parts: processedParts,
     totalQuestions: totalQuestions || 0,
     status: normalizeCambridgeStatus(status, 'published'),
+    showResultModal: resolvedStudentResultVisibility !== 'confirmation',
+    studentResultVisibility: resolvedStudentResultVisibility,
   });
 };
 
@@ -121,9 +130,17 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
     parts,
     totalQuestions,
     status,
+    showResultModal,
+    studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType || test.testType, forcedTestType);
   const processedParts = parts ? processTestParts(parts) : test.parts;
+
+  const visibilityWasUpdated =
+    studentResultVisibility !== undefined || showResultModal !== undefined;
+  const resolvedStudentResultVisibility = visibilityWasUpdated
+    ? normalizeStudentResultVisibility(studentResultVisibility, showResultModal)
+    : test.studentResultVisibility || 'score';
 
   await test.update({
     title: title || test.title,
@@ -133,6 +150,12 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
     parts: processedParts,
     totalQuestions: totalQuestions ?? test.totalQuestions,
     status: status || test.status,
+    ...(visibilityWasUpdated
+      ? {
+          showResultModal: resolvedStudentResultVisibility !== 'confirmation',
+          studentResultVisibility: resolvedStudentResultVisibility,
+        }
+      : {}),
   });
 
   return test;

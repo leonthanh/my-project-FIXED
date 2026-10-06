@@ -290,3 +290,30 @@ test('uses section question numbering for gap-match editor after previous parts 
 
   expect(screen.getByLabelText('question-editor-starting-number')).toHaveTextContent('21');
 });
+
+test('submits selected student result visibility in create payload', async () => {
+  render(
+    <MemoryRouter>
+      <CambridgeTestBuilder testType="ket-listening" />
+    </MemoryRouter>
+  );
+
+  fireEvent.change(screen.getByPlaceholderText('VD: KET Test 1'), {
+    target: { value: 'KET Listening Test' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('VD: KET-631-A'), {
+    target: { value: 'KET-001' },
+  });
+
+  fireEvent.change(screen.getByDisplayValue('Chỉ xác nhận đã nộp'), {
+    target: { value: 'details' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /Lưu đề/i }));
+
+  await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+  const [, request] = global.fetch.mock.calls.at(-1);
+  const payload = JSON.parse(request.body);
+
+  expect(payload.studentResultVisibility).toBe('details');
+  expect(payload.showResultModal).toBe(true);
+});
