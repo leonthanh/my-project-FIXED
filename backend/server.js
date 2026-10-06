@@ -331,6 +331,14 @@ try {
       await addColumnIfMissing(sequelizeInstance, "writing_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
       await addColumnIfMissing(sequelizeInstance, "reading_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
       await addColumnIfMissing(sequelizeInstance, "listening_tests", "isArchived", "BOOLEAN NOT NULL DEFAULT FALSE");
+      await addColumnIfMissing(sequelizeInstance, "reading_tests", "showResultModal", "BOOLEAN NOT NULL DEFAULT TRUE");
+      await addColumnIfMissing(sequelizeInstance, "reading_tests", "studentResultVisibility", "VARCHAR(20) NOT NULL DEFAULT 'score'");
+      await addColumnIfMissing(sequelizeInstance, "listening_tests", "showResultModal", "BOOLEAN NOT NULL DEFAULT TRUE");
+      await addColumnIfMissing(sequelizeInstance, "listening_tests", "studentResultVisibility", "VARCHAR(20) NOT NULL DEFAULT 'score'");
+      await addColumnIfMissing(sequelizeInstance, "cambridge_reading_tests", "showResultModal", "BOOLEAN NOT NULL DEFAULT TRUE");
+      await addColumnIfMissing(sequelizeInstance, "cambridge_reading_tests", "studentResultVisibility", "VARCHAR(20) NOT NULL DEFAULT 'score'");
+      await addColumnIfMissing(sequelizeInstance, "cambridge_listening_tests", "showResultModal", "BOOLEAN NOT NULL DEFAULT TRUE");
+      await addColumnIfMissing(sequelizeInstance, "cambridge_listening_tests", "studentResultVisibility", "VARCHAR(20) NOT NULL DEFAULT 'score'");
       await addColumnIfMissing(
         sequelizeInstance,
         "users",

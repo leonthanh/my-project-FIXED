@@ -49,6 +49,14 @@ async function ensureDbColumns(sequelize) {
     await addColumnIfMissing(sequelize, 'writing_tests', 'isArchived', 'BOOLEAN NOT NULL DEFAULT FALSE');
     await addColumnIfMissing(sequelize, 'reading_tests', 'isArchived', 'BOOLEAN NOT NULL DEFAULT FALSE');
     await addColumnIfMissing(sequelize, 'listening_tests', 'isArchived', 'BOOLEAN NOT NULL DEFAULT FALSE');
+    await addColumnIfMissing(sequelize, 'reading_tests', 'showResultModal', 'BOOLEAN NOT NULL DEFAULT TRUE');
+    await addColumnIfMissing(sequelize, 'reading_tests', 'studentResultVisibility', "VARCHAR(20) NOT NULL DEFAULT 'score'");
+    await addColumnIfMissing(sequelize, 'listening_tests', 'showResultModal', 'BOOLEAN NOT NULL DEFAULT TRUE');
+    await addColumnIfMissing(sequelize, 'listening_tests', 'studentResultVisibility', "VARCHAR(20) NOT NULL DEFAULT 'score'");
+    await addColumnIfMissing(sequelize, 'cambridge_reading_tests', 'showResultModal', 'BOOLEAN NOT NULL DEFAULT TRUE');
+    await addColumnIfMissing(sequelize, 'cambridge_reading_tests', 'studentResultVisibility', "VARCHAR(20) NOT NULL DEFAULT 'score'");
+    await addColumnIfMissing(sequelize, 'cambridge_listening_tests', 'showResultModal', 'BOOLEAN NOT NULL DEFAULT TRUE');
+    await addColumnIfMissing(sequelize, 'cambridge_listening_tests', 'studentResultVisibility', "VARCHAR(20) NOT NULL DEFAULT 'score'");
 
     // --- users profile fields ---
     await addColumnIfMissing(sequelize, 'users', 'avatarUrl', 'VARCHAR(255) NULL');
