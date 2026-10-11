@@ -10,9 +10,12 @@ const normalizeItems = (items) => (
 );
 
 const ReadingOpenQuestionsEditor = ({ question = {}, onChange, startingNumber = 1 }) => {
+  const layoutMode = question.layoutMode || "comprehension";
+  const isRewriteMode = layoutMode === "rewrite-sentences";
   const passageTitle = question.passageTitle || "Part 6 Read the message.";
   const passage = question.passage || question.passageText || "";
   const instruction = question.instruction || "Answer the questions.";
+  const scoreNote = question.scoreNote || "____/5 (1 mark per answer)";
   const items = normalizeItems(question.items);
 
   const updateItem = (index, field, value) => {
@@ -35,6 +38,104 @@ const ReadingOpenQuestionsEditor = ({ question = {}, onChange, startingNumber = 
     onChange("passage", value);
     onChange("passageText", value);
   };
+
+  if (isRewriteMode) {
+    return (
+      <div>
+        <div style={styles.header}>
+          <div>
+            <div style={styles.headerTitle}>Rewrite Sentences</div>
+            <div style={styles.headerMeta}>Questions {startingNumber}-{startingNumber + items.length - 1}</div>
+          </div>
+          <span style={styles.countBadge}>{items.length} câu</span>
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Tiêu đề mục</label>
+          <input
+            type="text"
+            value={passageTitle}
+            onChange={(event) => onChange("passageTitle", event.target.value)}
+            placeholder="A. Rewrite these sentences using be used to, used to or would."
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Hướng dẫn ngắn</label>
+          <input
+            type="text"
+            value={instruction}
+            onChange={(event) => onChange("instruction", event.target.value)}
+            placeholder="Rewrite each sentence."
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Ghi chú điểm (footer)</label>
+          <input
+            type="text"
+            value={scoreNote}
+            onChange={(event) => onChange("scoreNote", event.target.value)}
+            placeholder="____/5 (1 mark per answer)"
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.itemsList}>
+          {items.map((item, index) => {
+            const questionNumber = startingNumber + index;
+            return (
+              <div key={index} style={styles.itemCard}>
+                <div style={styles.itemHeader}>
+                  <span style={styles.questionNumber}>{questionNumber}</span>
+                  <strong style={{ color: "#1f2937" }}>Sentence {index + 1}</strong>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length <= 1}
+                    style={{
+                      ...styles.removeButton,
+                      opacity: items.length <= 1 ? 0.45 : 1,
+                      cursor: items.length <= 1 ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Xóa
+                  </button>
+                </div>
+
+                <label style={styles.label}>Câu cần viết lại</label>
+                <textarea
+                  value={item.questionText || ""}
+                  onChange={(event) => updateItem(index, "questionText", event.target.value)}
+                  placeholder="VD: I remember this place being totally uncontaminated."
+                  rows={2}
+                  style={styles.textarea}
+                />
+
+                <label style={styles.label}>Đáp án đúng / answer key</label>
+                <textarea
+                  value={item.correctAnswer || ""}
+                  onChange={(event) => updateItem(index, "correctAnswer", event.target.value)}
+                  placeholder="VD: I remember this place used to be totally uncontaminated."
+                  rows={2}
+                  style={{ ...styles.textarea, backgroundColor: "#f0fdf4", borderColor: "#86efac" }}
+                />
+                <p style={styles.helpText}>
+                  Có thể nhập nhiều đáp án được chấp nhận bằng dấu <strong>|</strong> hoặc <strong>/</strong>.
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <button type="button" onClick={addItem} style={styles.addButton}>
+          + Thêm câu rewrite
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

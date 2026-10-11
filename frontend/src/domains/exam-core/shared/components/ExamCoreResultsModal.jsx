@@ -1,0 +1,617 @@
+import React, { useEffect, useMemo, useRef } from "react";
+import { useTheme } from "../../../../shared/contexts/ThemeContext";
+import LineIcon from "../../../../shared/components/LineIcon.jsx";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
+
+const formatScore = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0';
+  if (Number.isInteger(numeric)) return String(numeric);
+  return numeric.toFixed(1).replace(/\.0$/, '');
+};
+
+const formatAnswerValue = (value) => {
+  if (value == null || value === '') return '—';
+  if (Array.isArray(value)) return value.map(formatAnswerValue).join(', ');
+  if (typeof value === 'object') return Object.values(value).map(formatAnswerValue).join(', ');
+  return String(value);
+};
+
+const ExamCoreResultsModal = ({
+  results,
+  onClose,
+  testTitle,
+  studentName,
+  actions = [],
+  displayMode = 'score',
+}) => {
+  const modalRef = useRef(null);
+  const { isDarkMode } = useTheme();
+  const displayStudentName = formatStudentDisplayName(studentName, "");
+  const colors = useMemo(() => (
+    isDarkMode
+      ? {
+          overlay: 'rgba(2, 6, 23, 0.7)',
+          surface: '#111827',
+          surfaceAlt: '#1f2b47',
+          text: '#e5e7eb',
+          muted: '#94a3b8',
+          border: '#2a3350',
+          headerBg: 'linear-gradient(135deg, #0b1d2e 0%, #12213a 100%)',
+          stroke: '#2a3350',
+          correctBg: '#0f2a1a',
+          correctBorder: '#14532d',
+          correctText: '#a7f3d0',
+          wrongBg: '#2a1515',
+          wrongBorder: '#7f1d1d',
+          wrongText: '#fecaca',
+        }
+      : {
+          overlay: 'rgba(0, 0, 0, 0.6)',
+          surface: '#fff',
+          surfaceAlt: '#f8fafc',
+          text: '#1e293b',
+          muted: '#64748b',
+          border: '#e2e8f0',
+          headerBg: 'linear-gradient(135deg, #0052cc 0%, #0066ff 100%)',
+          stroke: '#e2e8f0',
+          correctBg: '#f0fdf4',
+          correctBorder: '#bbf7d0',
+          correctText: '#16a34a',
+          wrongBg: '#fef2f2',
+          wrongBorder: '#fecaca',
+          wrongText: '#dc2626',
+        }
+  ), [isDarkMode]);
+
+  const safe = useMemo(() => {
+    const r = results || {};
+    const score = Number(r.score) || 0;
+    const correct = Number(r.correct) || 0;
+    const incorrect = Number(r.incorrect) || 0;
+    const total = Number(r.total) || 0;
+    const autoScoredTotal = Number(r.autoScoredTotal);
+    const manualScoredTotal = Number(r.manualScoredTotal) || 0;
+    const rawPct = Number(r.percentage);
+    const percentage = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
+    const groups = Array.isArray(r?.breakdown?.groups)
+      ? r.breakdown.groups
+          .map((group) => ({
+            key: group?.key || '',
+            label: group?.label || '',
+            score: Number(group?.score) || 0,
+            total: Number(group?.total) || 0,
+          }))
+          .filter((group) => group.label && group.total > 0)
+      : [];
+
+    return {
+      score,
+      correct,
+      incorrect,
+      total,
+      autoScoredTotal: Number.isFinite(autoScoredTotal) ? autoScoredTotal : total,
+      manualScoredTotal,
+      percentage,
+      writingQuestions: Array.isArray(r.writingQuestions) ? r.writingQuestions : [],
+      breakdownGroups: groups,
+      answers:
+        r.answers && typeof r.answers === 'object' && !Array.isArray(r.answers)
+          ? r.answers
+          : {},
+    };
+  }, [results]);
+
+  const { score, correct, incorrect, total, autoScoredTotal, manualScoredTotal, percentage, writingQuestions, breakdownGroups, answers } = safe;
+  const writingQuestionNumbers = writingQuestions
+    .map((q) => q?.questionNumber)
+    .filter((questionNumber) => Number.isFinite(questionNumber));
+  const pendingManualCount = Math.max(total - autoScoredTotal, writingQuestions.length);
+  const safeActions = Array.isArray(actions) ? actions.filter(Boolean) : [];
+
+  useEffect(() => {
+    if (!results) return;
+    modalRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, results]);
+
+  if (!results) return null;
+  const isConfirmationOnly = displayMode === 'confirmation';
+  const showDetails = displayMode === 'details';
+  const detailRows = showDetails
+    ? Object.entries(answers)
+        .map(([questionKey, detail]) => {
+          const questionNumber = Number(detail?.questionNumber);
+          const displayOrder = Number.isFinite(questionNumber) ? questionNumber : Number.MAX_SAFE_INTEGER;
+          return {
+            questionKey,
+            displayOrder,
+            label: Number.isFinite(questionNumber) ? `Question ${questionNumber}` : String(detail?.label || questionKey),
+            isCorrect: detail?.isCorrect === true,
+            userAnswer: detail?.userAnswer,
+            correctAnswer: detail?.correctAnswer,
+          };
+        })
+        .sort((left, right) =>
+          left.displayOrder === right.displayOrder
+            ? left.label.localeCompare(right.label)
+            : left.displayOrder - right.displayOrder
+        )
+    : [];
+
+  // Circular Progress
+  const CircularProgress = ({ percentage, size = 100, strokeWidth = 8 }) => {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const offset = circumference - (percentage / 100) * circumference;
+    const color =
+      percentage >= 70
+        ? "#22c55e"
+        : percentage >= 50
+        ? "#f59e0b"
+        : "#ef4444";
+
+    return (
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={colors.stroke}
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.5s ease" }}
+        />
+      </svg>
+    );
+  };
+
+  const getStatus = () => {
+    if (percentage >= 70) {
+      return isDarkMode
+        ? { text: "Strong", bg: "#0f2a1a", color: "#a7f3d0", iconName: "correct" }
+        : { text: "Strong", bg: "#dcfce7", color: "#166534", iconName: "correct" };
+    }
+    if (percentage >= 50) {
+      return isDarkMode
+        ? { text: "Fair", bg: "#2a1f0f", color: "#fcd34d", iconName: "average" }
+        : { text: "Fair", bg: "#fef3c7", color: "#92400e", iconName: "average" };
+    }
+    return isDarkMode
+      ? { text: "Needs work", bg: "#2a1515", color: "#fecaca", iconName: "wrong" }
+      : { text: "Needs work", bg: "#fee2e2", color: "#991b1b", iconName: "wrong" };
+  };
+
+  const status = getStatus();
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,23,42,0.65)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1200,
+        padding: "20px",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: isDarkMode ? "#111827" : "#fff",
+          borderRadius: 20,
+          boxShadow: "0 24px 48px rgba(15,23,42,0.35)",
+          maxWidth: "520px",
+          width: "100%",
+          maxHeight: "90vh",
+          overflow: "auto",
+          animation: "slideUp 0.3s ease-out",
+        }}
+        ref={modalRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Test results"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Gradient Header */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)",
+            padding: "26px 28px 22px",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Decorative circles */}
+          <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: 20, right: 60, width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 16,
+              background: "rgba(255,255,255,0.18)",
+              border: "none",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              fontSize: 16,
+              color: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1,
+            }}
+          >
+            <LineIcon name="close" size={16} strokeWidth={2.2} />
+          </button>
+
+          {/* Icon badge */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.2)",
+              marginBottom: 12,
+              color: "#fff",
+            }}
+          >
+            <LineIcon name="overview" size={24} strokeWidth={2.1} />
+          </div>
+          <h2 style={{ margin: "0 0 4px 0", fontSize: 22, fontWeight: 700, color: "#fff" }}>
+            {isConfirmationOnly ? 'Submission received' : 'Test Results'}
+          </h2>
+          {testTitle && (
+            <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.82)" }}>
+              {testTitle}
+            </p>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "28px 28px 24px" }}>
+          {isConfirmationOnly ? (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: '16px 18px',
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceAlt,
+                color: colors.text,
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}
+            >
+              Your answers have been submitted successfully.
+            </div>
+          ) : (
+            <>
+          {/* Score Circle */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              marginBottom: 28,
+            }}
+          >
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <CircularProgress percentage={percentage} size={120} strokeWidth={10} />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                }}
+              >
+                <div style={{ fontSize: 28, fontWeight: 700, color: colors.text }}>
+                  {percentage}%
+                </div>
+                <div style={{ fontSize: 11, color: colors.muted }}>Score</div>
+              </div>
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, margin: "10px 0 8px 0", color: colors.text }}>
+              {formatScore(score)}/{formatScore(total)} points
+            </h3>
+            {(autoScoredTotal < total || manualScoredTotal > 0) && (
+              <p style={{ margin: "0 0 8px 0", fontSize: 12, color: colors.muted }}>
+                Objective score: {formatScore(score)}/{formatScore(autoScoredTotal)}.
+                {manualScoredTotal > 0
+                  ? ` Writing will be graded separately: ${formatScore(manualScoredTotal)} points.`
+                  : ` The remaining ${pendingManualCount} question${pendingManualCount === 1 ? "" : "s"} will be updated after teacher grading.`}
+              </p>
+            )}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 16px",
+                borderRadius: 20,
+                background: status.bg,
+                color: status.color,
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              <LineIcon name={status.iconName} size={15} strokeWidth={2.2} /> {status.text}
+            </span>
+          </div>
+
+          {breakdownGroups.length > 0 && (
+            <div
+              style={{
+                marginBottom: 20,
+                borderRadius: 16,
+                border: `1px solid ${colors.border}`,
+                overflow: 'hidden',
+                background: colors.surfaceAlt,
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                  padding: '12px 16px',
+                  background: isDarkMode ? '#162033' : '#eef4ff',
+                  color: colors.text,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                <span>Skill Area</span>
+                <span style={{ textAlign: 'right' }}>Score</span>
+              </div>
+              {breakdownGroups.map((group, index) => (
+                <div
+                  key={group.key || group.label}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) 120px',
+                    padding: '14px 16px',
+                    borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
+                    alignItems: 'center',
+                    gap: 12,
+                    background: index % 2 === 0 ? colors.surfaceAlt : colors.surface,
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{group.label}</span>
+                  <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: colors.text }}>
+                    {formatScore(group.score)}/{formatScore(group.total)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Stats Grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                background: colors.correctBg,
+                padding: "16px",
+                borderRadius: 14,
+                border: `1px solid ${colors.correctBorder}`,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Correct items
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
+                {correct}
+              </div>
+            </div>
+            <div
+              style={{
+                background: colors.wrongBg,
+                padding: "16px",
+                borderRadius: 14,
+                border: `1px solid ${colors.wrongBorder}`,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Incorrect items
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
+                {incorrect}
+              </div>
+            </div>
+          </div>
+
+          {/* Writing Questions Status */}
+          {writingQuestions && writingQuestions.length > 0 && (
+            <div
+              style={{
+                background: isDarkMode ? "#2a1f0f" : "#fef3c7",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: `1px solid ${isDarkMode ? '#92400e' : '#f59e0b'}`,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                <span style={{ color: isDarkMode ? '#fcd34d' : '#92400e', display: 'inline-flex', alignItems: 'center' }}>
+                  <LineIcon name="writing" size={16} strokeWidth={2.1} />
+                </span>
+                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: isDarkMode ? '#fcd34d' : '#92400e' }}>
+                  {writingQuestionNumbers.length > 0
+                    ? `Writing Task (Question ${writingQuestionNumbers.join(", ")})${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`
+                    : `Writing Task${manualScoredTotal > 0 ? ` - ${formatScore(manualScoredTotal)} points` : ''}`}
+                </h4>
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
+                Waiting for teacher grading. The score above covers Parts 1-8 only; writing will be added after manual grading.
+              </p>
+            </div>
+          )}
+
+          {/* Student info */}
+          {displayStudentName && (
+            <div
+              style={{
+                background: colors.surfaceAlt,
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`,
+                fontSize: 13,
+                color: colors.muted,
+                marginBottom: 20,
+              }}
+            >
+                <strong style={{ color: colors.text }}>Student:</strong> {displayStudentName}
+            </div>
+          )}
+          {showDetails && detailRows.length > 0 && (
+            <div
+              style={{
+                marginBottom: 18,
+                borderRadius: 14,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceAlt,
+                padding: '12px',
+                maxHeight: 240,
+                overflowY: 'auto',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>
+                Answer details
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {detailRows.map((row) => (
+                  <div
+                    key={row.questionKey}
+                    style={{
+                      borderRadius: 10,
+                      border: `1px solid ${row.isCorrect ? '#86efac' : '#fecaca'}`,
+                      background: row.isCorrect
+                        ? (isDarkMode ? 'rgba(22, 163, 74, 0.14)' : '#f0fdf4')
+                        : (isDarkMode ? 'rgba(220, 38, 38, 0.14)' : '#fef2f2'),
+                      padding: '10px 12px',
+                      fontSize: 12,
+                      color: colors.text,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{row.label}</div>
+                    <div>Your answer: {formatAnswerValue(row.userAnswer)}</div>
+                    {!row.isCorrect && (
+                      <div>Correct answer: {formatAnswerValue(row.correctAnswer)}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+            </>
+          )}
+
+            {safeActions.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                {safeActions.map((action, index) => {
+                  const isPrimary = action.variant === 'primary';
+                  return (
+                    <button
+                      key={`${action.label}-${index}`}
+                      onClick={action.onClick}
+                      style={{
+                        flex: '1 1 180px',
+                        minHeight: 44,
+                        padding: '11px 18px',
+                        borderRadius: 16,
+                        border: isPrimary ? 'none' : `1px solid ${colors.border}`,
+                        background: isPrimary ? 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)' : colors.surfaceAlt,
+                        color: isPrimary ? '#fff' : colors.text,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      {action.iconName ? <LineIcon name={action.iconName} size={16} strokeWidth={2.1} /> : null}
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            style={{
+              width: "100%",
+              padding: "13px 24px",
+              borderRadius: 20,
+              border: "none",
+              background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(29,78,216,0.4)",
+              transition: "opacity 0.15s",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.88")}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default ExamCoreResultsModal;

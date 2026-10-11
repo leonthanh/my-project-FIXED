@@ -11,6 +11,11 @@ import {
   SKILL_META,
 } from '../../../domains/ix/config/skills';
 import {
+  DEFAULT_GATEWAY_SKILL,
+  GATEWAY_SKILLS,
+  GATEWAY_SKILL_META,
+} from '../../../domains/gateway/config/skills';
+import {
   DEFAULT_ORANGE_SKILL,
   DEFAULT_ORANGE_TYPE,
   getOrangeAllowedSkills,
@@ -119,11 +124,13 @@ const SelectTest = () => {
     writing: [],
     reading: [],
     listening: [],
+    gateway: [],
     cambridge: [],
     fce: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
   const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
+  const [activeGatewayTab, setActiveGatewayTab] = useState(DEFAULT_GATEWAY_SKILL);
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
   const [activeFceTab, setActiveFceTab] = useState(DEFAULT_FCE_SKILL);
@@ -166,6 +173,8 @@ const SelectTest = () => {
     let nextTab;
     if (nextPlatform === "orange") {
       nextTab = next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL;
+    } else if (nextPlatform === "gateway") {
+      nextTab = next.tab || activeGatewayTab || DEFAULT_GATEWAY_SKILL;
     } else if (nextPlatform === "fce") {
       nextTab = next.tab || activeFceTab || DEFAULT_FCE_SKILL;
     } else {
@@ -206,13 +215,28 @@ const SelectTest = () => {
         const cambridgeWithWriting = cambridgeList.concat(
           petWriting.map((t) => ({ ...t, category: "writing", testType: "pet-writing" }))
         );
-        const orangeCambridge = cambridgeWithWriting.filter((t) => !matchesFceTestType(t?.testType));
+        const gatewayCambridge = cambridgeWithWriting
+          .filter((t) => String(t?.testType || "").toLowerCase().startsWith("gateway-"))
+          .map((t) => ({
+            ...t,
+            skill: String(t?.testType || "").toLowerCase().includes("listening")
+              ? "listening"
+              : "reading-writing",
+            category: "gateway",
+          }));
+        const orangeCambridge = cambridgeWithWriting.filter((t) => {
+          const rawTestType = String(t?.testType || "").toLowerCase();
+          if (matchesFceTestType(rawTestType)) return false;
+          if (rawTestType.startsWith("gateway-")) return false;
+          return true;
+        });
         const fceCambridge = cambridgeWithWriting.filter((t) => matchesFceTestType(t?.testType));
 
         setTests({
           writing: ieltsWriting,
           reading: Array.isArray(readingData) ? readingData : [],
           listening: Array.isArray(listeningData) ? listeningData : [],
+          gateway: gatewayCambridge,
           cambridge: orangeCambridge,
           fce: fceCambridge,
         });
@@ -222,6 +246,7 @@ const SelectTest = () => {
           writing: [],
           reading: [],
           listening: [],
+          gateway: [],
           cambridge: [],
           fce: [],
         });
@@ -409,6 +434,7 @@ const SelectTest = () => {
 
     setActivePlatform(nextState.platform);
     setActiveIxTab(nextState.ixTab);
+    setActiveGatewayTab(nextState.gatewayTab);
     setActiveOrangeType(nextState.orangeType);
     setActiveOrangeTab(nextState.orangeTab);
     setActiveFceTab(nextState.fceTab);
@@ -418,7 +444,7 @@ const SelectTest = () => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activePlatform, activeIxTab, activeOrangeType, activeOrangeTab, activeFceTab]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeType, activeOrangeTab, activeFceTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -495,6 +521,13 @@ const SelectTest = () => {
     navigate(`/listening/${testId}`);
   };
 
+  const handleSelectGateway = (test) => {
+    const rawType = String(test?.testType || '').toLowerCase();
+    if (!test?.id || !rawType) return;
+    const skill = rawType.includes('listening') ? 'listening' : 'reading-writing';
+    navigate(`/gateway/${skill}/${test.id}`);
+  };
+
   const handleSelectCambridge = (test) => {
     if (test?.testType === "pet-writing") {
       const numericId = parseInt(test.id, 10);
@@ -543,6 +576,8 @@ const SelectTest = () => {
       const rawTestType = String(test.testType || '').toLowerCase();
       const { tab } = getFceHubStateForTestType(rawTestType);
       navigate(getFceEditPath(tab, testId));
+    } else if (testType === "gateway" && test?.skill) {
+      navigate(`/admin/edit-gateway/${test.skill}/${testId}`);
     }
   };
 
@@ -654,6 +689,7 @@ const SelectTest = () => {
   const orangeConfig = useMemo(() => getOrangeTestConfig(activeOrangeType, activeOrangeTab), [activeOrangeTab, activeOrangeType]);
 
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
+  const gatewayTotalCount = tests.gateway?.length || 0;
   const orangeTotalCount = tests.cambridge?.length || 0;
   const fceTotalCount = tests.fce?.length || 0;
 
@@ -677,6 +713,19 @@ const SelectTest = () => {
         categoryForPermission: activeIxTab,
         isOrange: false,
         isFce: false,
+        isGateway: false,
+      };
+    }
+
+    if (activePlatform === "gateway") {
+      const selected = (tests.gateway || []).filter((test) => test.skill === activeGatewayTab);
+      return {
+        list: selected,
+        displayType: "gateway",
+        categoryForPermission: "gateway",
+        isOrange: false,
+        isFce: false,
+        isGateway: true,
       };
     }
 
@@ -689,6 +738,7 @@ const SelectTest = () => {
         categoryForPermission: activeFceTab,
         isOrange: false,
         isFce: true,
+        isGateway: false,
       };
     }
 
@@ -705,13 +755,16 @@ const SelectTest = () => {
       categoryForPermission: activeOrangeTab,
       isOrange: true,
       isFce: false,
+      isGateway: false,
     };
-  }, [activePlatform, activeIxTab, activeOrangeTab, activeFceTab, tests, orangeFilteredByType]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeTab, activeFceTab, tests, orangeFilteredByType]);
 
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
-  const canManageCurrentSelection = canManageCategory(user, currentContext.categoryForPermission);
+  const canManageCurrentSelection = currentContext.isGateway
+    ? isTeacher
+    : canManageCategory(user, currentContext.categoryForPermission);
   const placementSelectionKeys = useMemo(
     () => new Set((placementSelections || []).map((item) => item.key)),
     [placementSelections]
@@ -724,9 +777,12 @@ const SelectTest = () => {
   const currentSkillInfo =
     activePlatform === "fce"
       ? FCE_SKILL_META[activeFceTab] || FCE_SKILL_META.reading
-      : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
+      : activePlatform === "gateway"
+        ? GATEWAY_SKILL_META[activeGatewayTab] || GATEWAY_SKILL_META[DEFAULT_GATEWAY_SKILL]
+        : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = (() => {
     if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
+    if (activePlatform === "gateway") return `Gateway ${currentSkillInfo.label}`;
     if (activePlatform === "fce") return `${fceDisplayName} ${currentSkillInfo.label}`;
     return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   })();
@@ -738,12 +794,16 @@ const SelectTest = () => {
     {
       icon: activePlatform === "orange"
         ? activeOrangeLevel.iconName || "orange"
+        : activePlatform === "gateway"
+          ? "document"
         : activePlatform === "fce"
           ? FCE_LEVEL_META.iconName || "tests"
           : "tests",
       label:
         activePlatform === "orange"
           ? activeOrangeLevel.shortLabel
+          : activePlatform === "gateway"
+            ? "Gateway"
           : activePlatform === "fce"
             ? fceDisplayName
             : "IX",
@@ -920,6 +980,8 @@ const SelectTest = () => {
                         updateSelectRoute(
                           tab.key === "orange"
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
+                            : tab.key === "gateway"
+                              ? { platform: "gateway", tab: activeGatewayTab }
                             : tab.key === "fce"
                               ? { platform: "fce", type: DEFAULT_FCE_TYPE, tab: activeFceTab }
                               : { platform: "ix", tab: activeIxTab }
@@ -935,13 +997,21 @@ const SelectTest = () => {
                         <span className="select-test-sidePlatformHint">
                           {tab.key === "ix"
                             ? "Writing, reading, listening"
+                            : tab.key === "gateway"
+                              ? "Reading-writing, listening"
                             : tab.key === "fce"
                               ? "Placement-style combined skills"
                               : "KET, PET, Flyers, Movers, Starters"}
                         </span>
                       </span>
                       <span className="select-test-sidePlatformCount">
-                        {tab.key === "ix" ? ixTotalCount : tab.key === "fce" ? fceTotalCount : orangeTotalCount}
+                        {tab.key === "ix"
+                          ? ixTotalCount
+                          : tab.key === "gateway"
+                            ? gatewayTotalCount
+                            : tab.key === "fce"
+                              ? fceTotalCount
+                              : orangeTotalCount}
                       </span>
                     </button>
                   ))}
@@ -967,6 +1037,32 @@ const SelectTest = () => {
                           </span>
                           <span className="select-test-pillLabel">{tab.label}</span>
                           <span className="select-test-pillCount">{tests[tab.key]?.length ?? 0}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : activePlatform === "gateway" ? (
+                  <div className="select-test-sidebarPanel">
+                    <div className="select-test-sidebarPanelHeader">
+                      <span className="select-test-sidebarPanelTitle">Gateway skills</span>
+                      <span className="select-test-sidebarPanelMeta">{gatewayTotalCount} tests</span>
+                    </div>
+
+                    <div className="select-test-pillRow select-test-pillRow--sidebar">
+                      {GATEWAY_SKILLS.map((tab) => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => updateSelectRoute({ platform: "gateway", tab: tab.key })}
+                          className={`select-test-pillButton select-test-pillButton--${tab.key} ${activeGatewayTab === tab.key ? "active" : ""}`}
+                        >
+                          <span className="select-test-skillIcon" aria-hidden="true">
+                            <LineIcon name={tab.icon} size={16} />
+                          </span>
+                          <span className="select-test-pillLabel">{tab.label}</span>
+                          <span className="select-test-pillCount">
+                            {(tests.gateway || []).filter((test) => test.skill === tab.key).length}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1072,7 +1168,13 @@ const SelectTest = () => {
                 <div className="select-test-toolbarMain">
                   <div className="select-test-toolbarIdentity">
                     <span className="select-test-toolbarEyebrow">
-                      {activePlatform === "orange" ? "Orange library" : activePlatform === "fce" ? `${fceDisplayName} library` : "IX library"}
+                      {activePlatform === "orange"
+                        ? "Orange library"
+                        : activePlatform === "gateway"
+                          ? "Gateway library"
+                          : activePlatform === "fce"
+                            ? `${fceDisplayName} library`
+                            : "IX library"}
                     </span>
                     <h2 className="select-test-toolbarTitle">{currentShelfTitle}</h2>
                     <div className="select-test-toolbarPills">
@@ -1104,6 +1206,17 @@ const SelectTest = () => {
                     >
                       <LineIcon name="create" size={16} />
                       <span>{fceCreateLabel}</span>
+                    </button>
+                  ) : null}
+
+                  {currentContext.isGateway && canManageCurrentSelection ? (
+                    <button
+                      type="button"
+                      className="select-test-create select-test-create--toolbar"
+                      onClick={() => navigate(`/admin/create-gateway/${activeGatewayTab}`)}
+                    >
+                      <LineIcon name="create" size={16} />
+                      <span>Create Gateway Test</span>
                     </button>
                   ) : null}
                 </div>
@@ -1232,6 +1345,19 @@ const SelectTest = () => {
                         >
                           <LineIcon name="create" size={16} />
                           <span>{fceCreateLabel}</span>
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {currentContext.isGateway && canManageCurrentSelection ? (
+                      <div className="select-test-adminActions">
+                        <button
+                          type="button"
+                          className="select-test-create"
+                          onClick={() => navigate(`/admin/create-gateway/${activeGatewayTab}`)}
+                        >
+                          <LineIcon name="create" size={16} />
+                          <span>Create Gateway Test</span>
                         </button>
                       </div>
                     ) : null}
@@ -1445,6 +1571,60 @@ const SelectTest = () => {
                             </div>
                           );
                         })
+                      ) : currentContext.isGateway ? (
+                        visibleList.map((test, index) => {
+                          const classCode = test.classCode || "N/A";
+                          const teacherName = test.teacherName || "N/A";
+
+                          return (
+                            <div
+                              key={`gateway-${test.id}`}
+                              className={`select-test-card select-test-card--${activeGatewayTab}`}
+                            >
+                              <button
+                                type="button"
+                                className="select-test-cardMain"
+                                onClick={() => handleSelectGateway(test)}
+                              >
+                                <div className="select-test-cardHeader">
+                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeGatewayTab}`}>
+                                    <LineIcon name={currentSkillInfo.icon || "document"} size={16} />
+                                    <span>{currentSkillInfo.label}</span>
+                                  </span>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeGatewayTab}`}>
+                                    {index + 1}
+                                  </span>
+                                </div>
+
+                                <div className="select-test-cardMeta select-test-cardMeta--grid">
+                                  <span className="select-test-chip">{classCode}</span>
+                                  <span className="select-test-cardPill">
+                                    <LineIcon name="teacher" size={14} />
+                                    <span>Teacher: {teacherName}</span>
+                                  </span>
+                                </div>
+
+                                <div className="select-test-cardFooter select-test-cardFooter--noFootnote">
+                                  <div className="select-test-cardFooterMeta">
+                                    <span className="select-test-cardActionHint">Start</span>
+                                  </div>
+                                </div>
+                              </button>
+
+                              {canManageCurrentSelection ? (
+                                <div className="select-test-cardActions">
+                                  <button
+                                    type="button"
+                                    className="select-test-edit"
+                                    onClick={() => handleEdit(test.id, "gateway", test)}
+                                  >
+                                    <span>Edit Test</span>
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })
                       ) : (
                         visibleList.map((test, index) => {
                           const title = getTestTitle(test, currentContext.displayType, index + 1);
@@ -1580,4 +1760,3 @@ const SelectTest = () => {
 };
 
 export default SelectTest;
-

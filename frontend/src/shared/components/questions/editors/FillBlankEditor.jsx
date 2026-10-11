@@ -1,4 +1,5 @@
 import React from "react";
+import GatewayQuestionMetadataFields from "./GatewayQuestionMetadataFields";
 
 const THEME = {
   inputBg: "var(--builder-input-bg, #ffffff)",
@@ -19,8 +20,13 @@ const THEME = {
 const FillBlankEditor = ({
   question,
   onChange,
+  questionIndex = 0,
+  testType = "",
   styles = {},
 }) => {
+  const showGatewayMetadata = String(testType).trim().toLowerCase() === "gateway-reading-writing"
+    && questionIndex === 0;
+
   // Default styles
   const defaultStyles = {
     input: {
@@ -46,6 +52,9 @@ const FillBlankEditor = ({
 
   return (
     <div>
+      {showGatewayMetadata && (
+        <GatewayQuestionMetadataFields question={question} onChange={onChange} />
+      )}
       <label style={defaultStyles.label}>Câu hỏi / Nội dung</label>
       <input
         type="text"

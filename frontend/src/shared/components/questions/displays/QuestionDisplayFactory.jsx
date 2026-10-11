@@ -53,9 +53,20 @@ const QuestionDisplayFactory = ({
       const userAnswer = answers[baseKey] || '';
       const correctAnswer = singleQuestion?.correctAnswer;
       const isCorrect = submitted && acceptedAnswers(correctAnswer).some((ans) => normalize(ans) === normalize(userAnswer));
+      const isGatewayReadingWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing';
 
       return (
         <div style={{ marginTop: 8 }}>
+          {isGatewayReadingWriting && singleQuestion?.passageTitle && (
+            <h3 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#0c4a6e' }}>
+              {singleQuestion.passageTitle}
+            </h3>
+          )}
+          {isGatewayReadingWriting && singleQuestion?.instruction && (
+            <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.6, color: '#374151' }}>
+              {singleQuestion.instruction}
+            </p>
+          )}
           {singleQuestion?.questionText && (
             <div style={{ marginBottom: 10, fontSize: 15, lineHeight: 1.7, color: '#1f2937' }}>
               {singleQuestion.questionText}
@@ -84,6 +95,11 @@ const QuestionDisplayFactory = ({
           {submitted && !isCorrect && correctAnswer && (
             <div style={{ marginTop: 8, fontSize: 13, color: '#166534' }}>
               Correct: <strong>{String(correctAnswer).split(/[|/]/)[0]}</strong>
+            </div>
+          )}
+          {isGatewayReadingWriting && singleQuestion?.scoreNote && (
+            <div style={{ marginTop: 16, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#475569' }}>
+              {singleQuestion.scoreNote}
             </div>
           )}
         </div>

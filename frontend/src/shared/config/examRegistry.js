@@ -3,6 +3,10 @@ import {
   normalizeIxSkill,
 } from '../../domains/ix/config/skills';
 import {
+  DEFAULT_GATEWAY_SKILL,
+  normalizeGatewaySkill,
+} from '../../domains/gateway/config/skills';
+import {
   DEFAULT_ORANGE_SKILL,
   DEFAULT_ORANGE_TYPE,
   normalizeOrangeSkill,
@@ -16,6 +20,7 @@ import {
 
 export const PLATFORM_TABS = [
   { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
+  { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
   { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
   { key: 'fce', label: 'FCE', icon: 'tests', hint: 'Placement-style combined skills.' },
 ];
@@ -25,6 +30,7 @@ export function buildPlatformTabs(displayLabels = {}) {
 
   return [
     { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
+    { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
     { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
     { key: 'fce', label: fceDisplayName, icon: 'tests', hint: 'Placement-style combined skills.' },
   ];
@@ -37,6 +43,7 @@ export function normalizeSelectTestState({ platform, type, tab }) {
     return {
       platform: 'orange',
       ixTab: DEFAULT_IX_SKILL,
+      gatewayTab: DEFAULT_GATEWAY_SKILL,
       orangeType,
       orangeTab: normalizeOrangeSkill(orangeType, tab),
       fceTab: DEFAULT_FCE_SKILL,
@@ -47,15 +54,28 @@ export function normalizeSelectTestState({ platform, type, tab }) {
     return {
       platform: 'fce',
       ixTab: DEFAULT_IX_SKILL,
+      gatewayTab: DEFAULT_GATEWAY_SKILL,
       orangeType: normalizeOrangeType(type),
       orangeTab: normalizeOrangeSkill(type, tab),
       fceTab: normalizeFceSkill(tab),
     };
   }
 
+  if (platform === 'gateway') {
+    return {
+      platform: 'gateway',
+      ixTab: DEFAULT_IX_SKILL,
+      gatewayTab: normalizeGatewaySkill(tab),
+      orangeType: normalizeOrangeType(type),
+      orangeTab: normalizeOrangeSkill(type, tab),
+      fceTab: DEFAULT_FCE_SKILL,
+    };
+  }
+
   return {
     platform: 'ix',
     ixTab: normalizeIxSkill(tab),
+    gatewayTab: DEFAULT_GATEWAY_SKILL,
     orangeType: normalizeOrangeType(type),
     orangeTab: normalizeOrangeSkill(type, tab),
     fceTab: DEFAULT_FCE_SKILL,
@@ -80,6 +100,9 @@ export function buildSelectTestPath({ platform = 'ix', type = DEFAULT_ORANGE_TYP
     params.set('platform', 'orange');
     params.set('type', normalized.orangeType);
     params.set('tab', normalized.orangeTab);
+  } else if (normalized.platform === 'gateway') {
+    params.set('platform', 'gateway');
+    params.set('tab', normalized.gatewayTab);
   } else if (normalized.platform === 'fce') {
     params.set('platform', 'fce');
     params.set('type', DEFAULT_FCE_TYPE);

@@ -63,6 +63,7 @@ const QuestionEditorFactory = ({
   const commonProps = {
     question: actualQuestion,
     onChange: actualOnChange,
+    questionIndex,
     startingNumber,
     partIndex,
     testType,

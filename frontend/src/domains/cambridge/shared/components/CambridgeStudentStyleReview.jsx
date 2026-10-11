@@ -5,9 +5,9 @@ import {
   getQuestionCountForSection,
   parseClozeBlanksFromText,
   shouldIncludeSectionForPart,
-} from '../utils/questionNumbering';
+} from '../../../exam-core/shared/utils/examQuestionNumbering';
 import QuestionDisplayFactory from '../../../../shared/components/questions/displays/QuestionDisplayFactory';
-import createListeningStyles from '../pages/DoCambridgeListeningTest.styles';
+import createListeningStyles from '../../../exam-core/shared/pages/ExamCoreListeningRuntime.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
 import LongTextMCDisplay from '../../../../shared/components/questions/displays/LongTextMCDisplay';
 import ClozeMCDisplay from '../../../../shared/components/questions/displays/ClozeMCDisplay';
@@ -18,10 +18,10 @@ import ImageClozeDisplay from '../../../../shared/components/questions/displays/
 import WordDragClozeDisplay from '../../../../shared/components/questions/displays/WordDragClozeDisplay';
 import StoryCompletionDisplay from '../../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../../shared/components/questions/displays/LookReadWriteDisplay';
-import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
-import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from './CambridgeListeningRuntimeSections';
-import AnchoredImageStage from './AnchoredImageStage';
-import '../pages/DoCambridgeReadingTest.css';
+import { ExamCoreQuestionDisplay } from '../../../exam-core/shared/components/ExamCoreQuestionCards';
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from '../../../exam-core/shared/components/ExamCoreListeningRuntimeSections';
+import AnchoredImageStage from '../../../exam-core/shared/components/AnchoredImageStage';
+import '../../../exam-core/shared/pages/ExamCoreReadingRuntime.css';
 
 const noop = () => {};
 const EMPTY_FLAGGED_QUESTIONS = new Set();
@@ -1172,7 +1172,7 @@ function ListeningRuntimeQuestionReview({
       };
 
   return (
-    <CambridgeQuestionDisplay
+    <ExamCoreQuestionDisplay
       question={reviewQuestion}
       questionKey={answerKey}
       questionNum={questionNumber}

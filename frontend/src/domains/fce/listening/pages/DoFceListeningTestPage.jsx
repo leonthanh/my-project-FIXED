@@ -10,7 +10,7 @@ import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../../shared/components/ConfirmModal";
-import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
+import ExamCoreResultsModal from "../../../exam-core/shared/components/ExamCoreResultsModal";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import {
@@ -26,10 +26,10 @@ import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
 } from "../../../../shared/utils/runtimeSync";
-import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../../../cambridge/shared/utils/questionNumbering";
-import { CambridgeQuestionDisplay, CompactCambridgeQuestionDisplay } from "../../../cambridge/shared/components/CambridgeQuestionCards";
-import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../../../cambridge/shared/components/CambridgeListeningRuntimeSections";
-import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../cambridge/shared/components/CambridgeSectionDisplays";
+import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import { ExamCoreQuestionDisplay, CompactExamCoreQuestionDisplay } from "../../../exam-core/shared/components/ExamCoreQuestionCards";
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../../../exam-core/shared/components/ExamCoreListeningRuntimeSections";
+import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../exam-core/shared/components/ExamCoreSectionDisplays";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import createStyles from "./DoFceListeningTest.styles";
 import './DoFceListeningTest.css';
@@ -1990,7 +1990,7 @@ const DoCambridgeListeningTest = () => {
 
   // Render question based on type
   const renderQuestion = (question, questionKey, questionNum) => (
-    <CambridgeQuestionDisplay
+    <ExamCoreQuestionDisplay
       question={question}
       questionKey={questionKey}
       questionNum={questionNum}
@@ -2010,7 +2010,7 @@ const DoCambridgeListeningTest = () => {
     />
   );
   const renderCompactQuestion = (question, questionKey, questionNum) => (
-    <CompactCambridgeQuestionDisplay
+    <CompactExamCoreQuestionDisplay
       question={question}
       questionKey={questionKey}
       questionNum={questionNum}
@@ -3469,7 +3469,7 @@ const DoCambridgeListeningTest = () => {
         </div>
       </footer>
 
-      <CambridgeResultsModal
+      <ExamCoreResultsModal
         results={submitted ? results : null}
         testTitle={test?.title || localizedTestConfigName || 'Cambridge Listening'}
         studentName={currentStudentName}
