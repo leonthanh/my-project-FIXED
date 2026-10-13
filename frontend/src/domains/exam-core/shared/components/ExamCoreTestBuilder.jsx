@@ -107,6 +107,60 @@ const createGatewayGrammarAQuestionData = () => ({
   items: createGatewayRewriteItems(),
 });
 
+const createGatewayUseEnglishAQuestionData = () => ({
+  ...getDefaultQuestionData("reading-open-questions"),
+  layoutMode: "reorder-words",
+  passageTitle: "A. Reorder the given words to make sentences.",
+  instruction: "Write the words in the correct order.",
+  scoreNote: "_____/5 (1 mark per answer)",
+  items: [
+    {
+      questionText: "when / were / Sally and Dave / on / met / they / getting / a coach.",
+      correctAnswer: "Sally and Dave met when they were getting on a coach.",
+      explanation: "",
+    },
+    {
+      questionText: "left / on / last night. / She / her / luggage / the train /",
+      correctAnswer: "She left her luggage on the train last night.",
+      explanation: "",
+    },
+    {
+      questionText: "while / spoke / she / was / travelling / in / She / Italy. / Italian /",
+      correctAnswer: "She spoke Italian while she was travelling in Italy.",
+      explanation: "",
+    },
+    {
+      questionText: "got on / and / quickly / the tram / a seat / The child / the window. / found / near /",
+      correctAnswer: "The child quickly got on the tram and found a seat near the window.",
+      explanation: "",
+    },
+    {
+      questionText: "raining / when / he / the / bike ride. / started / It / was /",
+      correctAnswer: "It was raining when he started the bike ride.",
+      explanation: "",
+    },
+  ],
+});
+
+const createGatewayUseEnglishBQuestionData = () => ({
+  ...getDefaultQuestionData("cloze-test"),
+  passageTitle: "B. For each question, write the correct answer.",
+  instruction: "Write one word for each gap.",
+  scoreNote: "_____/5 (1 mark per answer)",
+  passageText: `<p style="text-align:center;"><strong>WORKING AS A CLOWN</strong></p>
+<p style="text-align:center;"><em>by Richard Kerr</em></p>
+<p>I started my career as a clown when I was in my twenties. I (0) used to work as a magician before a colleague of mine introduced me to his best friend, who was a circus clown and needed a partner for his shows. That's (36) how my career started.</p>
+<p>I spent 10 years working in several circuses. Although I had an agent at the time, I wanted to work (37) on my own, so I decided to try and get a job with the Starry Sky Circus. When I met the circus owner, he advised me to spend a term at the Clown School since he (38) only wanted professional performers. After 6 months' training, I joined the Starry Sky Circus and worked on the road for 5 years.</p>
+<p>When others ask me how to become a great clown, I always tell (39) them that it depends on how much you enjoy the work: you won't be successful (40) unless you really love what you do and commit to it.</p>`,
+  answers: {
+    36: "how",
+    37: "on",
+    38: "only",
+    39: "them",
+    40: "unless",
+  },
+});
+
 const createGatewayGrammarBQuestionData = () => ({
   ...getDefaultQuestionData("cloze-test"),
   passageTitle: "",
@@ -145,6 +199,84 @@ const createGatewayGrammarCQuestionData = () => ({
   },
 });
 
+const createGatewayVocabularyAQuestionData = () => ({
+  ...getDefaultQuestionData("cloze-test"),
+  passageTitle: "A. Complete the dialogue with the words in the box. There are two words that you do not need to use.",
+  instruction: "",
+  scoreNote: "_____/5 (1 mark per answer)",
+  wordBank: ["arrivals", "delay", "information", "luggage", "platform", "service", "station", "taxi rank"],
+  passageText: `<p><strong>Janet:</strong>&nbsp; What time does Lisa's train arrive?</p>
+<p><strong>Steve:</strong>&nbsp; I think it's about 10.30. Can you see it on the (1) screen?</p>
+<p><strong>Janet:</strong>&nbsp; Yes, there it is. 10.34. But there's a (2) of ten minutes, so that means 10.44.</p>
+<p><strong>Steve:</strong>&nbsp; OK, so we still have 15 minutes. Which (3) does the train come into?</p>
+<p><strong>Janet:</strong>&nbsp; Number eight. It's over there.</p>
+<p><strong>Steve:</strong>&nbsp; Lisa says she's bringing a lot of (4), so I don't think we should take the bus home. It's not easy carrying bags on the bus.</p>
+<p><strong>Janet:</strong>&nbsp; You're right. There's a (5) just outside the station, so we can go there when she arrives.</p>
+<p><strong>Steve:</strong>&nbsp; Great! Look, here comes the train!</p>`,
+  answers: {
+    1: "information",
+    2: "delay",
+    3: "platform",
+    4: "luggage",
+    5: "taxi rank",
+  },
+});
+
+const createGatewayVocabularyBQuestions = () => {
+  const questionDefaults = {
+    passageTitle: "B. Choose the best answers to complete the mini-dialogues.",
+    instruction: "",
+    scoreNote: "_____/5 (1 mark per answer)",
+  };
+
+  return [
+    {
+      questionText: "Ana: Shall we get a ______ or a return ticket?\nBen: Get a return. It's cheaper.",
+      options: ["A. fare", "B. single", "C. luggage"],
+      correctAnswer: "B",
+      ...questionDefaults,
+    },
+    {
+      questionText: "Amy: Will you check the timetable on your phone? We need to ______ a train at around 7am.\nDan: Sure. I'll see what times they leave.",
+      options: ["A. return", "B. catch", "C. miss"],
+      correctAnswer: "B",
+    },
+    {
+      questionText: "Eve: Let's get a coffee.\nSam: No, we don't have time. We'll ______ the plane.",
+      options: ["A. lose", "B. cancel", "C. miss"],
+      correctAnswer: "C",
+    },
+    {
+      questionText: "Tom: I left my umbrella on the train last week.\nJon: Why don't you go to the ______ and see if they have it there?",
+      options: ["A. lost property office", "B. waiting room", "C. service station"],
+      correctAnswer: "A",
+    },
+    {
+      questionText: "Zoe: What platform does the train leave from?\nSue: Check the ______ on the information screens.",
+      options: ["A. arrivals", "B. departures", "C. train station"],
+      correctAnswer: "B",
+    },
+  ];
+};
+
+const createGatewayVocabularyCQuestionData = () => ({
+  ...getDefaultQuestionData("cloze-test"),
+  passageTitle: "C. Complete the email with synonyms of the words given.",
+  instruction: "",
+  scoreNote: "_____/5 (1 mark per answer)",
+  passageText: `<p>Hi Sophie,</p>
+<p>When weren't you at Lee's party on Friday? I missed you. It was <strong><em>Ex 1. difficult (hard)</em></strong> to find Lee's house at first, so I was late. Everyone was already there, and they were all talking to each other. Lee's friends are more (2) (sociable) than me and I felt a bit shy. I was so (3) (happy) to see Jason. He came over and talked to me as he could see I was nervous. He told me he's going to study engineering. He's so (4) (intelligent). Sometimes I don't understand what he's talking about! Jason introduced me to a friend of his, called Duncan, who's very (5) (handsome)! Hannah was there, too, being silly as usual. She's so (6) (immature) sometimes. She's a year older than us, but she doesn't seem it.</p>
+<p>Let's get together soon.</p>
+<p>Love Thea</p>`,
+  answers: {
+    2: "outgoing",
+    3: "glad | pleased",
+    4: "clever | smart",
+    5: "good-looking | attractive | gorgeous",
+    6: "childish",
+  },
+});
+
 const normalizeGatewaySectionKey = (value) => String(value || "").trim().toLowerCase();
 
 const GATEWAY_READING_WRITING_SECTION_BLUEPRINTS = [
@@ -163,11 +295,31 @@ const GATEWAY_READING_WRITING_SECTION_BLUEPRINTS = [
     questionType: "cloze-test",
     buildDefaultQuestionData: createGatewayGrammarCQuestionData,
   },
-  { sectionTitle: "Vocabulary - A", questionType: "fill" },
-  { sectionTitle: "Vocabulary - B", questionType: "abc" },
-  { sectionTitle: "Vocabulary - C", questionType: "fill" },
-  { sectionTitle: "Use of English - A", questionType: "sentence-transformation" },
-  { sectionTitle: "Use of English - B", questionType: "cloze-test" },
+  {
+    sectionTitle: "Vocabulary - A",
+    questionType: "cloze-test",
+    buildDefaultQuestionData: createGatewayVocabularyAQuestionData,
+  },
+  {
+    sectionTitle: "Vocabulary - B",
+    questionType: "abc",
+    buildDefaultQuestions: createGatewayVocabularyBQuestions,
+  },
+  {
+    sectionTitle: "Vocabulary - C",
+    questionType: "cloze-test",
+    buildDefaultQuestionData: createGatewayVocabularyCQuestionData,
+  },
+  {
+    sectionTitle: "Use of English - A",
+    questionType: "reading-open-questions",
+    buildDefaultQuestionData: createGatewayUseEnglishAQuestionData,
+  },
+  {
+    sectionTitle: "Use of English - B",
+    questionType: "cloze-test",
+    buildDefaultQuestionData: createGatewayUseEnglishBQuestionData,
+  },
   { sectionTitle: "Reading - A", questionType: "long-text-mc" },
   { sectionTitle: "Reading - B", questionType: "true-false-not-given" },
   { sectionTitle: "Writing", questionType: "short-message" },
@@ -215,7 +367,46 @@ const buildGatewayQuestionDataFromBlueprint = (blueprint) => {
   return getDefaultQuestionData(blueprint.questionType);
 };
 
-const migrateGatewayGrammarCFillSection = (section, sectionBlueprint) => {
+const buildGatewayQuestionsFromBlueprint = (blueprint) => {
+  if (typeof blueprint?.buildDefaultQuestions === "function") {
+    return blueprint.buildDefaultQuestions();
+  }
+  return [buildGatewayQuestionDataFromBlueprint(blueprint)];
+};
+
+const ensureGatewayVocabularyBQuestions = (section, sectionBlueprint) => {
+  const questions = Array.isArray(section?.questions) ? section.questions : [];
+  if (questions.length !== 1) return section;
+
+  const existingQuestion = questions[0] || {};
+  const hasExistingContent = Boolean(
+    String(existingQuestion.questionText || "").trim()
+    || String(existingQuestion.correctAnswer || "").trim()
+    || (Array.isArray(existingQuestion.options)
+      && existingQuestion.options.some((option) => String(option || "").replace(/^[A-C]\.\s*/i, "").trim()))
+  );
+  const templateQuestions = buildGatewayQuestionsFromBlueprint(sectionBlueprint);
+
+  if (!hasExistingContent) {
+    return { ...section, questions: templateQuestions };
+  }
+
+  return {
+    ...section,
+    questions: [
+      {
+        ...templateQuestions[0],
+        ...existingQuestion,
+        passageTitle: existingQuestion.passageTitle || templateQuestions[0].passageTitle,
+        instruction: existingQuestion.instruction || templateQuestions[0].instruction,
+        scoreNote: existingQuestion.scoreNote || templateQuestions[0].scoreNote,
+      },
+      ...templateQuestions.slice(1),
+    ],
+  };
+};
+
+const migrateGatewayFillSectionToCloze = (section, sectionBlueprint) => {
   const template = buildGatewayQuestionDataFromBlueprint(sectionBlueprint);
   const oldQuestions = Array.isArray(section?.questions) ? section.questions : [];
   const legacyQuestions = oldQuestions
@@ -266,6 +457,51 @@ const migrateGatewayGrammarCFillSection = (section, sectionBlueprint) => {
   };
 };
 
+const migrateGatewaySentenceTransformationSection = (section, sectionBlueprint) => {
+  const template = buildGatewayQuestionDataFromBlueprint(sectionBlueprint);
+  const oldQuestions = Array.isArray(section?.questions) ? section.questions : [];
+  const legacyItems = oldQuestions
+    .map((question) => {
+      const originalSentence = String(question?.originalSentence || "").trim();
+      const keyword = String(question?.keyword || question?.promptWord || "").trim();
+      const targetSentence = String(question?.targetSentence || "").trim();
+      const correctAnswer = String(question?.correctAnswer || "").trim();
+      const prompt = [
+        originalSentence && `Original: ${originalSentence}`,
+        keyword && `Keyword: ${keyword}`,
+        targetSentence && `Target: ${targetSentence}`,
+      ].filter(Boolean).join(" / ");
+      return {
+        questionText: prompt,
+        correctAnswer,
+      };
+    })
+    .filter((item) => item.questionText || item.correctAnswer);
+
+  if (legacyItems.length === 0) {
+    return {
+      ...section,
+      questionType: "reading-open-questions",
+      questions: [template],
+    };
+  }
+
+  const items = template.items.map((item, index) => (
+    legacyItems[index]
+      ? { ...item, ...legacyItems[index] }
+      : item
+  ));
+  if (legacyItems.length > items.length) {
+    items.push(...legacyItems.slice(items.length));
+  }
+
+  return {
+    ...section,
+    questionType: "reading-open-questions",
+    questions: [{ ...template, items }],
+  };
+};
+
 const buildGatewayReadingWritingTemplateParts = () => ([
   {
     partNumber: 1,
@@ -276,7 +512,7 @@ const buildGatewayReadingWritingTemplateParts = () => ([
     sections: GATEWAY_READING_WRITING_SECTION_BLUEPRINTS.map((item) => ({
       sectionTitle: item.sectionTitle,
       questionType: item.questionType,
-      questions: [buildGatewayQuestionDataFromBlueprint(item)],
+      questions: buildGatewayQuestionsFromBlueprint(item),
     })),
   },
 ]);
@@ -295,16 +531,26 @@ const ensureGatewayReadingWritingSections = (partsData = []) => {
 
       if (currentType !== expectedType) {
         if (
-          normalizeGatewaySectionKey(section?.sectionTitle) === "grammar - c"
+          ["grammar - c", "vocabulary - a", "vocabulary - c"].includes(normalizeGatewaySectionKey(section?.sectionTitle))
           && currentType === "fill"
         ) {
-          return migrateGatewayGrammarCFillSection(section, sectionBlueprint);
+          return migrateGatewayFillSectionToCloze(section, sectionBlueprint);
+        }
+        if (
+          normalizeGatewaySectionKey(section?.sectionTitle) === "use of english - a"
+          && currentType === "sentence-transformation"
+        ) {
+          return migrateGatewaySentenceTransformationSection(section, sectionBlueprint);
         }
         return {
           ...section,
           questionType: sectionBlueprint.questionType,
-          questions: [buildGatewayQuestionDataFromBlueprint(sectionBlueprint)],
+          questions: buildGatewayQuestionsFromBlueprint(sectionBlueprint),
         };
+      }
+
+      if (normalizeGatewaySectionKey(section?.sectionTitle) === "vocabulary - b") {
+        section = ensureGatewayVocabularyBQuestions(section, sectionBlueprint);
       }
 
       const firstQuestion = section?.questions?.[0] || {};
@@ -973,7 +1219,7 @@ const ExamCoreTestBuilder = ({
           ...section,
           sectionTitle: currentGatewaySectionBlueprint.sectionTitle,
           questionType: currentGatewaySectionBlueprint.questionType,
-          questions: [buildGatewayQuestionDataFromBlueprint(currentGatewaySectionBlueprint)],
+          questions: buildGatewayQuestionsFromBlueprint(currentGatewaySectionBlueprint),
         };
       });
       return { ...part, sections: nextSections };
@@ -2726,6 +2972,8 @@ const ExamCoreTestBuilder = ({
                               questionType={currentSection.questionType}
                               question={question}
                               testType={testType}
+                              sectionTitle={currentSection.sectionTitle}
+                              sectionQuestionCount={currentSection.questions.length}
                               onChange={(field, value) => {
                                 updateParts(prevParts => prevParts.map((part, pIdx) => {
                                   if (pIdx !== selectedPartIndex) return part;

@@ -35,6 +35,8 @@ const QuestionDisplayFactory = ({
   testType,
   examType,
   questionIndex = 0,
+  gatewayMetadata = null,
+  sectionQuestionCount = 1,
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
   const baseKey = `${section?.id || 'section'}-${questionIndex}`;
@@ -110,6 +112,30 @@ const QuestionDisplayFactory = ({
       const userAnswer = answers[baseKey] || '';
       const options = Array.isArray(singleQuestion?.options) ? singleQuestion.options : [];
       const correct = String(singleQuestion?.correctAnswer || '').trim().toUpperCase();
+      const isGatewayVocabularyB = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
+        && normalize(section?.sectionTitle) === 'vocabulary - b';
+      const metadata = gatewayMetadata || singleQuestion;
+      const showGatewayMetadata = isGatewayVocabularyB && questionIndex === 0;
+      const showGatewayScoreNote = isGatewayVocabularyB && questionIndex === sectionQuestionCount - 1;
+      const gatewayMetadataHeader = showGatewayMetadata && (
+        <>
+          {metadata?.passageTitle && (
+            <h3 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#0c4a6e' }}>
+              {metadata.passageTitle}
+            </h3>
+          )}
+          {metadata?.instruction && (
+            <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.6, color: '#374151' }}>
+              {metadata.instruction}
+            </p>
+          )}
+        </>
+      );
+      const gatewayScoreNote = showGatewayScoreNote && metadata?.scoreNote && (
+        <div style={{ marginTop: 16, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#475569' }}>
+          {metadata.scoreNote}
+        </div>
+      );
 
       // Kid-friendly game-style layout for young learners (MOVERS/STARTERS/FLYERS)
       if (examType === 'MOVERS' || examType === 'STARTERS' || examType === 'FLYERS') {
@@ -133,6 +159,7 @@ const QuestionDisplayFactory = ({
               .abc-kid-btn.abc-correct-reveal { animation: abcWiggle 0.5s ease; }
             `}</style>
 
+            {gatewayMetadataHeader}
             {singleQuestion?.questionText && (
               <div style={{ marginBottom: 14, fontSize: 15, lineHeight: 1.8, color: '#1f2937', whiteSpace: 'pre-line', fontWeight: 500 }}>
                 {singleQuestion.questionText}
@@ -215,6 +242,7 @@ const QuestionDisplayFactory = ({
                 );
               })}
             </div>
+            {gatewayScoreNote}
           </div>
         );
       }
@@ -222,6 +250,7 @@ const QuestionDisplayFactory = ({
       // Default style for KET/PET/IELTS
       return (
         <div style={{ marginTop: 8 }}>
+          {gatewayMetadataHeader}
           {singleQuestion?.questionText && (
             <div style={{ marginBottom: 12, fontSize: 15, lineHeight: 1.7, color: '#1f2937', whiteSpace: 'pre-line' }}>
               {singleQuestion.questionText}
@@ -264,6 +293,7 @@ const QuestionDisplayFactory = ({
               );
             })}
           </div>
+          {gatewayScoreNote}
         </div>
       );
     }

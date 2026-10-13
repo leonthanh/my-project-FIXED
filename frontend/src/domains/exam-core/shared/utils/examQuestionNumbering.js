@@ -69,7 +69,8 @@ const countClozeBlanksFromText = (passageText) => {
     plainText = String(passageText).replace(/<[^>]*>/g, ' ');
   }
 
-  const numbered = plainText.match(/\((\d+)\)|\[(\d+)\]/g);
+  const numbered = [...plainText.matchAll(/\((\d+)\)|\[(\d+)\]/g)]
+    .filter((match) => parseInt(match[1] || match[2], 10) > 0);
   if (numbered && numbered.length) return numbered.length;
 
   const underscores = plainText.match(/[_\u2026]{3,}/g);
@@ -211,8 +212,10 @@ const parseClozeBlanksFromText = (passageText, startingNum = 1) => {
   let match;
 
   while ((match = regex.exec(plainText)) !== null) {
+    const questionNum = parseInt(match[1] || match[2], 10);
+    if (questionNum === 0) continue;
     blanks.push({
-      questionNum: parseInt(match[1] || match[2], 10),
+      questionNum,
       fullMatch: match[0],
       index: match.index,
     });

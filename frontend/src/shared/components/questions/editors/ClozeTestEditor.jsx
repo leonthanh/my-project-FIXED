@@ -51,6 +51,7 @@ const ClozeTestEditor = ({
     const numberedPattern = /\((\d+)\)|\[(\d+)\]/g;
     while ((match = numberedPattern.exec(text)) !== null) {
       const num = parseInt(match[1] || match[2]);
+      if (num === 0) continue;
       const blankIndex = foundBlanks.length;
       foundBlanks.push({
         questionNum: isGatewayReadingWriting ? startingNumber + blankIndex : num,
@@ -432,6 +433,11 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
               {passageTitle}
             </h3>
           )}
+          {isGatewayReadingWriting && question.instruction && (
+            <p style={{ margin: "0 0 12px", fontSize: "13px", lineHeight: 1.6, color: "#374151" }}>
+              {question.instruction}
+            </p>
+          )}
           {hasGatewayWordBank && wordBank.some((word) => String(word || "").trim()) && (
             <div
               aria-label="Xem trước khung từ"
@@ -469,6 +475,11 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
             }}
             dangerouslySetInnerHTML={{ __html: generatePreview() }}
           />
+          {isGatewayReadingWriting && question.scoreNote && (
+            <div style={{ marginTop: "12px", textAlign: "right", fontSize: "13px", fontWeight: 600, color: "#475569" }}>
+              {question.scoreNote}
+            </div>
+          )}
         </div>
       )}
     </div>

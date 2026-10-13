@@ -2363,6 +2363,14 @@ const ExamCoreReadingRuntimePage = ({
 
                     while ((match = regex.exec(text)) !== null) {
                       const questionNumber = parseInt(match[1] || match[2], 10);
+                      if (questionNumber === 0) {
+                        if (match.index > lastIndex) {
+                          parts.push(text.slice(lastIndex, match.index));
+                        }
+                        parts.push(match[0]);
+                        lastIndex = match.index + match[0].length;
+                        continue;
+                      }
                       const blankIndex = isGatewayReadingWriting
                         ? gatewayBlankIndex++
                         : questionNumber - firstQuestionNum;
@@ -4078,6 +4086,9 @@ const ExamCoreReadingRuntimePage = ({
                       singleQuestionMode={true}
                       questionIndex={currentQuestion.questionIndex}
                       examType={examType}
+                      testType={routeTestType}
+                      gatewayMetadata={currentQuestion.section.questions?.[0] || {}}
+                      sectionQuestionCount={currentQuestion.section.questions?.length || 1}
                     />
                   </div>
                 </div>

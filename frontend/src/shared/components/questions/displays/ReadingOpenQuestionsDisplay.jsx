@@ -20,7 +20,8 @@ const ReadingOpenQuestionsDisplay = ({
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
   const layoutMode = singleQuestion?.layoutMode || 'comprehension';
-  const isRewriteMode = layoutMode === 'rewrite-sentences';
+  const isReorderMode = layoutMode === 'reorder-words';
+  const isRewriteMode = layoutMode === 'rewrite-sentences' || isReorderMode;
   const title = singleQuestion?.passageTitle || singleQuestion?.title || 'Read the message.';
   const passage = singleQuestion?.passage || singleQuestion?.passageText || '';
   const instruction = singleQuestion?.instruction || 'Answer the questions.';
@@ -117,7 +118,7 @@ const ReadingOpenQuestionsDisplay = ({
                   value={userAnswer}
                   onChange={(event) => onAnswerChange(answerKey, event.target.value)}
                   disabled={submitted}
-                  placeholder="Write your rewritten sentence..."
+                  placeholder={isReorderMode ? "Write the words in the correct order..." : "Write your rewritten sentence..."}
                   rows={2}
                   style={{
                     ...styles.rewriteTextarea,
