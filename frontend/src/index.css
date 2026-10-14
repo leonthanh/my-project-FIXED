@@ -320,6 +320,24 @@ code {
   display: none;
 }
 
+.gateway-reading-preview .ql-align-center,
+.gateway-reading-preview [style*="text-align:center"],
+.gateway-reading-preview [style*="text-align: center"] {
+  text-align: center !important;
+}
+
+.gateway-reading-preview .ql-align-right,
+.gateway-reading-preview [style*="text-align:right"],
+.gateway-reading-preview [style*="text-align: right"] {
+  text-align: right !important;
+}
+
+.gateway-reading-preview .ql-align-justify,
+.gateway-reading-preview [style*="text-align:justify"],
+.gateway-reading-preview [style*="text-align: justify"] {
+  text-align: justify !important;
+}
+
 .long-text-mc-passage h1,
 .long-text-mc-passage h2,
 .long-text-mc-passage h3,

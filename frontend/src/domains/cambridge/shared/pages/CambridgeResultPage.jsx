@@ -1042,7 +1042,7 @@ const CambridgeResultPage = () => {
             </span>
           </div>
 
-          {question?.sampleAnswer ? (
+          {question?.sampleAnswer && !question?.gatewayWritingMode ? (
             <div style={styles.answerRow}>
               <span style={styles.answerLabel}>Sample answer:</span>
               <div
@@ -1872,4 +1872,3 @@ const createStyles = (isDarkMode = false, isCompactLayout = false) => {
 };
 
 export default CambridgeResultPage;
-

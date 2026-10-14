@@ -44,9 +44,9 @@ function sanitizePassageHtml(html) {
  */
 const LongTextMCDisplay = ({ 
   section, 
-  startingNumber, 
-  onAnswerChange, 
-  answers, 
+  startingNumber,
+  onAnswerChange,
+  answers,
   submitted 
 }) => {
   const { passage, questions = [] } = section;

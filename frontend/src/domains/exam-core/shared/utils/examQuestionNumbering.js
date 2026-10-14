@@ -77,6 +77,20 @@ const countClozeBlanksFromText = (passageText) => {
   return underscores ? underscores.length : 0;
 };
 
+const isZeroNumberedClozeExample = (blank) => {
+  if (!blank || typeof blank !== 'object') return false;
+  if (blank.isExample === true || blank.example === true) return true;
+
+  const sourceQuestionNumber = [
+    blank.sourceQuestionNum,
+    blank.questionNum,
+    blank.number,
+    blank.answerKey,
+  ].find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+
+  return sourceQuestionNumber !== undefined && Number(sourceQuestionNumber) === 0;
+};
+
 const getExplicitQuestionNumbersFromText = (text) => {
   if (!text) return [];
   let plainText = text;
@@ -130,13 +144,19 @@ const getQuestionCountForSection = (section) => {
   }
   if (section.questionType === 'cloze-test') {
     const q0 = section.questions?.[0] || {};
-    const blanksCount = Array.isArray(q0?.blanks) && q0.blanks.length
-      ? q0.blanks.length
-      : (q0?.answers && typeof q0.answers === 'object'
-        ? Object.keys(q0.answers).length
-        : 0);
+    const passageText = q0?.passageText || q0?.passage || q0?.clozeText || '';
+    const passageBlankCount = countClozeBlanksFromText(passageText);
+    if (passageBlankCount > 0) return passageBlankCount;
+
+    const storedBlanks = Array.isArray(q0?.blanks) ? q0.blanks : [];
+    const blanksCount = storedBlanks.filter((blank) => !isZeroNumberedClozeExample(blank)).length;
     if (blanksCount > 0) return blanksCount;
-    return countClozeBlanksFromText(q0?.passageText || q0?.passage || q0?.clozeText || '');
+
+    if (q0?.answers && typeof q0.answers === 'object') {
+      return Object.keys(q0.answers).filter((answerKey) => Number(answerKey) !== 0).length;
+    }
+
+    return 0;
   }
   if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
     return 0; // Writing tasks are not numbered questions
@@ -311,6 +331,7 @@ const computeQuestionStarts = (passages, testType = '') => {
 
 export {
   countClozeBlanksFromText,
+  isZeroNumberedClozeExample,
   getQuestionCountForSection,
   parseClozeBlanksFromText,
   computeQuestionStarts,

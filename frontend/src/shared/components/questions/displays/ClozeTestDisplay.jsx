@@ -9,7 +9,8 @@ const ClozeTestDisplay = ({
   startingNumber, 
   onAnswerChange, 
   answers, 
-  submitted 
+  submitted,
+  gatewayQuestionNumbers = false,
 }) => {
   const { passage, answers: correctAnswers = [] } = section;
 
@@ -35,7 +36,12 @@ const ClozeTestDisplay = ({
 
           return (
             <div key={idx} style={styles.answerRow}>
-              <div style={styles.questionNumber}>{questionNumber}</div>
+              <div
+                className={gatewayQuestionNumbers ? 'gateway-question-number' : undefined}
+                style={styles.questionNumber}
+              >
+                {questionNumber}
+              </div>
               <input
                 type="text"
                 value={userAnswer}

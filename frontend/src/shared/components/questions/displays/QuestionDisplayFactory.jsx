@@ -37,9 +37,11 @@ const QuestionDisplayFactory = ({
   questionIndex = 0,
   gatewayMetadata = null,
   sectionQuestionCount = 1,
+  gatewayQuestionNumbers = false,
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
   const baseKey = `${section?.id || 'section'}-${questionIndex}`;
+  const isGatewayReadingWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing';
 
   const normalize = (value) => String(value || '').trim().toLowerCase();
   const acceptedAnswers = (raw) => {
@@ -55,8 +57,6 @@ const QuestionDisplayFactory = ({
       const userAnswer = answers[baseKey] || '';
       const correctAnswer = singleQuestion?.correctAnswer;
       const isCorrect = submitted && acceptedAnswers(correctAnswer).some((ans) => normalize(ans) === normalize(userAnswer));
-      const isGatewayReadingWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing';
-
       return (
         <div style={{ marginTop: 8 }}>
           {isGatewayReadingWriting && singleQuestion?.passageTitle && (
@@ -391,6 +391,7 @@ const QuestionDisplayFactory = ({
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}
+          gatewayQuestionNumbers={gatewayQuestionNumbers}
         />
       );
 
@@ -526,6 +527,7 @@ const QuestionDisplayFactory = ({
           onAnswerChange={onAnswerChange}
           answers={answers}
           submitted={submitted}
+          gatewayQuestionNumbers={gatewayQuestionNumbers}
         />
       );
 

@@ -7,6 +7,7 @@ import {
   readPlacementRuntimeContext,
 } from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
+import GATEWAY_WRITING_RUBRIC from "../../../../shared/config/gatewayWritingRubric";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
@@ -29,6 +30,7 @@ import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
 import {
   computeQuestionStarts,
   getQuestionCountForSection,
+  isZeroNumberedClozeExample,
   parseClozeBlanksFromText,
   shouldIncludeSectionForPart,
 } from "../utils/examQuestionNumbering";
@@ -194,8 +196,11 @@ const ExamCoreReadingRuntimePage = ({
   /* eslint-disable-next-line no-unused-vars */
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
+  const [gatewayFocusedQuestionNumber, setGatewayFocusedQuestionNumber] = useState(null);
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  const gatewaySectionTabsRef = useRef(null);
+  const gatewaySectionTabRefs = useRef(new Map());
 
   // Shared state for matching-pictures split view (questions left | picture bank right)
   const [mpSelectedChoiceId, setMpSelectedChoiceId] = useState('');
@@ -865,11 +870,19 @@ const ExamCoreReadingRuntimePage = ({
         if (studentResultDisplayMode === "confirmation") {
           setResults({ mode: "confirmation" });
         } else {
+          const manualScoredTotal = isGatewayReadingWriting
+            ? Number(testConfig?.manualScoredTotal) || 0
+            : 0;
+          const totalScore = localResults.total + manualScoredTotal;
           // Show results modal using backend score (more accurate than local calculation)
           setResults({
             score: data.score,
-            total: data.total,
-            percentage: data.percentage,
+            total: totalScore,
+            autoScoredTotal: localResults.total,
+            manualScoredTotal,
+            percentage: totalScore > 0
+              ? Math.round(((Number(data.score) || 0) / totalScore) * 100)
+              : 0,
             correct: backendCorrect,
             incorrect: backendIncorrect,
             writingQuestions: localResults.writingQuestions || [],
@@ -1177,6 +1190,10 @@ const ExamCoreReadingRuntimePage = ({
 
     const scorableQuestions = scorableCount; // Only count questions with an answer key
     const score = correct;
+    const manualScoredTotal = isGatewayReadingWriting
+      ? Number(testConfig?.manualScoredTotal) || 0
+      : 0;
+    const totalScore = scorableQuestions + manualScoredTotal;
 
     // Log debug info if there are issues
     if (debugInfo.length > 0) {
@@ -1187,8 +1204,12 @@ const ExamCoreReadingRuntimePage = ({
       score,
       correct,
       incorrect,
-    total: scorableQuestions,
-    percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
+      autoScoredTotal: scorableQuestions,
+      manualScoredTotal,
+      total: totalScore,
+      percentage: totalScore > 0
+        ? Math.round((correct / totalScore) * 100)
+        : 0,
       writingQuestions,
       writingCount: writingQuestions.length,
     };
@@ -1439,7 +1460,13 @@ const ExamCoreReadingRuntimePage = ({
           } else if (section.questionType === 'cloze-test') {
             // For cloze-test (Open Cloze): parse blanks from passage
             const passageText = q.passageText || q.passage || '';
-            const blanks = (q.blanks && q.blanks.length > 0) ? q.blanks : parseClozeBlanksFromText(passageText, qNum);
+            const storedBlanks = Array.isArray(q.blanks) ? q.blanks : [];
+            const parsedBlanks = parseClozeBlanksFromText(passageText, qNum);
+            const blanks = isGatewayReadingWriting
+              ? (parsedBlanks.length > 0
+                ? parsedBlanks
+                : storedBlanks.filter((blank) => !isZeroNumberedClozeExample(blank)))
+              : (storedBlanks.length > 0 ? storedBlanks : parsedBlanks);
             
             if (blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
@@ -1788,6 +1815,57 @@ const ExamCoreReadingRuntimePage = ({
   const currentQuestion = useMemo(() => {
     return allQuestions[currentQuestionIndex] || null;
   }, [allQuestions, currentQuestionIndex]);
+  const currentQuestionPartIndex = currentQuestion?.partIndex;
+  const currentQuestionSectionIndex = currentQuestion?.sectionIndex;
+  const isGatewayOpenQuestionSection = isGatewayReadingWriting
+    && currentQuestion?.section?.questionType === 'reading-open-questions';
+  const isGatewaySinglePanelSection = isGatewayReadingWriting
+    && ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
+      String(currentQuestion?.section?.sectionTitle || '').trim().toLowerCase().replace(/\s+/g, '')
+    );
+  useEffect(() => {
+    if (
+      !isGatewayReadingWriting
+      || currentQuestionPartIndex == null
+      || currentQuestionSectionIndex == null
+    ) return;
+
+    const sectionKey = `${currentQuestionPartIndex}-${currentQuestionSectionIndex}`;
+    const container = gatewaySectionTabsRef.current;
+    const activeTab = gatewaySectionTabRefs.current.get(sectionKey);
+    if (!container || !activeTab) return;
+
+    const centerActiveTab = () => {
+      container.style.paddingLeft = '';
+      container.style.paddingRight = '';
+      if (container.scrollWidth <= container.clientWidth + 1) {
+        container.scrollLeft = 0;
+        return;
+      }
+
+      const sidePadding = Math.max(
+        (container.clientWidth - activeTab.getBoundingClientRect().width) / 2,
+        0
+      );
+      container.style.paddingLeft = `${sidePadding}px`;
+      container.style.paddingRight = `${sidePadding}px`;
+
+      const containerRect = container.getBoundingClientRect();
+      const activeTabRect = activeTab.getBoundingClientRect();
+      const targetScrollLeft = container.scrollLeft + activeTabRect.left - containerRect.left
+        - (container.clientWidth - activeTabRect.width) / 2;
+      const maxScrollLeft = Math.max(container.scrollWidth - container.clientWidth, 0);
+      const nextScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScrollLeft));
+
+      if (Math.abs(container.scrollLeft - nextScrollLeft) > 1) {
+        container.scrollTo({ left: nextScrollLeft, behavior: 'smooth' });
+      }
+    };
+
+    centerActiveTab();
+    window.addEventListener('resize', centerActiveTab);
+    return () => window.removeEventListener('resize', centerActiveTab);
+  }, [currentQuestionPartIndex, currentQuestionSectionIndex, isGatewayReadingWriting]);
 
   useEffect(() => {
     if (!allQuestions.length) return;
@@ -1802,16 +1880,25 @@ const ExamCoreReadingRuntimePage = ({
     }
   }, [allQuestions, currentQuestionIndex]);
 
-  const currentCounterLabel = currentQuestion?.questionNumber ?? (currentQuestion ? 'W' : 0);
+  const currentGroupedQuestionCount = isGatewayReadingWriting
+    && ['reading-open-questions', 'true-false-not-given'].includes(currentQuestion?.section?.questionType)
+    ? getQuestionCountForSection(currentQuestion.section)
+    : 0;
+  const currentCounterLabel = gatewayFocusedQuestionNumber != null
+    ? gatewayFocusedQuestionNumber
+    : currentGroupedQuestionCount > 1
+      ? `${currentQuestion.questionNumber}-${currentQuestion.questionNumber + currentGroupedQuestionCount - 1}`
+      : currentQuestion?.questionNumber ?? (currentQuestion ? 'W' : 0);
 
   // Navigate to question
-  const goToQuestion = (index) => {
+  const goToQuestion = (index, targetQuestionNumber = null) => {
     if (index >= 0 && index < allQuestions.length) {
       const q = allQuestions[index];
       
       setCurrentQuestionIndex(index);
       setCurrentPartIndex(q.partIndex);
       setActiveQuestion(q.key);
+      setGatewayFocusedQuestionNumber(Number.isFinite(targetQuestionNumber) ? targetQuestionNumber : null);
       
       // For word-drag-cloze: set focused blank so passage + wordbank both highlight
       if (q.section?.questionType === 'word-drag-cloze' && q.blank?.number != null) {
@@ -1820,8 +1907,9 @@ const ExamCoreReadingRuntimePage = ({
 
       // Scroll to question element and focus/open
       setTimeout(() => {
-        if (!Number.isFinite(q.questionNumber)) return;
-        const questionElement = document.getElementById(`question-${q.questionNumber}`);
+        const targetNumber = Number.isFinite(targetQuestionNumber) ? targetQuestionNumber : q.questionNumber;
+        if (!Number.isFinite(targetNumber)) return;
+        const questionElement = document.getElementById(`question-${targetNumber}`);
         
         if (questionElement) {
           // Ưu tiên scroll container scroll riêng (cambridge-passage-column / overflow-y: auto)
@@ -1985,7 +2073,11 @@ const ExamCoreReadingRuntimePage = ({
   }
 
   return (
-    <div ref={annotationContentRef} className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`} data-student-annotation-layout="true">
+    <div
+      ref={annotationContentRef}
+      className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}${isGatewayReadingWriting ? ' cambridge-test-container--gateway' : ''}`}
+      data-student-annotation-layout="true"
+    >
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Start Modal (only starts timer after click) */}
@@ -2036,6 +2128,7 @@ const ExamCoreReadingRuntimePage = ({
                 setFlaggedQuestions(new Set());
                 setCurrentPartIndex(0);
                 setCurrentQuestionIndex(0);
+                setGatewayFocusedQuestionNumber(null);
                 setActiveQuestion(null);
                 setTimeRemaining(effectiveDuration * 60);
                 setGraceRemaining(0);
@@ -2279,6 +2372,12 @@ const ExamCoreReadingRuntimePage = ({
       ) : currentQuestion && currentQuestion.section.questionType === 'cloze-test' ? (
         /* Part 5 (Open Cloze): Single column with inline text inputs */
         <>
+          {isGatewayReadingWriting && currentQuestion.section.sectionTitle && (
+            <h3 className="cambridge-section-title">
+              {currentQuestion.section.sectionTitle}
+            </h3>
+          )}
+
           {/* Part Instruction - Fixed, doesn't scroll */}
           {currentQuestion.part.instruction && (
             <div 
@@ -2908,6 +3007,7 @@ const ExamCoreReadingRuntimePage = ({
                 <div className="cambridge-passage-container">
                   {(() => {
                     const q = currentQuestion.question || {};
+                    const isGatewayWriting = isGatewayReadingWriting && q.gatewayWritingMode;
                     const situation = q.situation || '';
                     const mediaUrls = Array.isArray(q.mediaUrls)
                       ? q.mediaUrls.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
@@ -2930,7 +3030,7 @@ const ExamCoreReadingRuntimePage = ({
                               fontWeight: 700, 
                               color: '#1f2937' 
                             }}>
-                              Situation:
+                              {isGatewayWriting ? 'Writing task:' : 'Situation:'}
                             </h4>
                             <div 
                               style={{
@@ -2941,6 +3041,27 @@ const ExamCoreReadingRuntimePage = ({
                               dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
                               className="situation-content"
                             />
+                            {isGatewayWriting && (
+                              <div style={{ marginTop: '18px', padding: '14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#1f2937' }}>
+                                <strong>Writing assessment: 10 points</strong>
+                                <table style={{ width: '100%', marginTop: '8px', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                  <tbody>
+                                    {(Array.isArray(q.writingRubric) && q.writingRubric.length
+                                      ? q.writingRubric
+                                      : GATEWAY_WRITING_RUBRIC
+                                    ).map((criterion) => (
+                                      <tr key={criterion.criterion}>
+                                        <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0' }}>{criterion.criterion}</td>
+                                        <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{criterion.points}/2.5</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                                <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#475569' }}>
+                                  Writing is graded separately by your teacher and contributes to the total test score of 60 points.
+                                </p>
+                              </div>
+                            )}
                             {resolvedMediaUrls.length > 0 && (
                               <div style={{
                                 display: 'grid',
@@ -2986,6 +3107,7 @@ const ExamCoreReadingRuntimePage = ({
                     const q = currentQuestion.question || {};
                     const messageType = q.messageType || 'email';
                     const wordLimit = q.wordLimit || { min: 25, max: 35 };
+                    const isGatewayWriting = isGatewayReadingWriting && q.gatewayWritingMode;
                     const questionKey = currentQuestion.key;
                     const userAnswer = answers[questionKey] || '';
                     const wordCount = userAnswer.trim().split(/\s+/).filter(w => w).length;
@@ -3017,7 +3139,9 @@ const ExamCoreReadingRuntimePage = ({
                             fontSize: '13px', 
                             color: '#6b7280' 
                           }}>
-                            {wordLimit.min} words or more
+                            {isGatewayWriting
+                              ? `Write ${wordLimit.min}–${wordLimit.max} words`
+                              : `${wordLimit.min} words or more`}
                           </p>
                         </div>
 
@@ -3504,6 +3628,18 @@ const ExamCoreReadingRuntimePage = ({
         </>
       ) : (
         <>
+          {isGatewaySinglePanelSection
+            && (currentQuestion?.section?.sectionTitle || currentQuestion?.section?.title) && (
+              <h3 className="cambridge-section-title">
+                {currentQuestion.section.sectionTitle || currentQuestion.section.title}
+              </h3>
+          )}
+          {isGatewayReadingWriting && currentQuestion?.section?.questionType === 'long-text-mc' && (
+            <h3 className="cambridge-section-title">
+              {currentQuestion.section.sectionTitle || currentQuestion.section.title || 'Reading'}
+            </h3>
+          )}
+
           {/* Part Instruction - Above split view */}
           {currentQuestion && currentQuestion.part.instruction && (
             <div 
@@ -3513,8 +3649,10 @@ const ExamCoreReadingRuntimePage = ({
           )}
 
           <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
-            {/* Left Column - Passage */}
-            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+            {!isGatewaySinglePanelSection && (
+              <>
+                {/* Left Column - Passage */}
+                <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
               {currentQuestion && (
                 <>
 
@@ -3733,15 +3871,22 @@ const ExamCoreReadingRuntimePage = ({
                 <i className="fa fa-arrows-h"></i>
               </div>
             </div>
+              </>
+            )}
 
             {/* Right Column - Questions */}
-            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+            <div
+              className={`cambridge-questions-column${isGatewaySinglePanelSection ? ' cambridge-questions-column--gateway-single-panel' : ''}`}
+              style={{ width: isGatewaySinglePanelSection ? '100%' : `${100 - leftWidth}%` }}
+            >
               {currentQuestion && (
                 <div className="cambridge-content-wrapper">
                   {/* Section Title */}
-                  {currentQuestion.section.sectionTitle && (
+                  {!(isGatewaySinglePanelSection
+                    || (isGatewayReadingWriting && currentQuestion.section.questionType === 'long-text-mc'))
+                    && (currentQuestion.section.sectionTitle || currentQuestion.section.title) && (
                     <h3 className="cambridge-section-title">
-                      {currentQuestion.section.sectionTitle}
+                      {currentQuestion.section.sectionTitle || currentQuestion.section.title}
                     </h3>
                   )}
 
@@ -3755,13 +3900,38 @@ const ExamCoreReadingRuntimePage = ({
                       q.sectionIndex === currentQuestion.sectionIndex &&
                       q.section.questionType === 'long-text-mc'
                     )
-                    .map((q) => (
-                      <div 
-                        key={q.key}
-                        id={`question-${q.questionNumber}`}
-                        className={`cambridge-question-wrapper ${answers[q.key] ? 'answered' : ''} ${q.key === currentQuestion.key ? 'active-question' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
-                        style={{ marginBottom: '24px', scrollMarginTop: '20px' }}
-                      >
+                    .map((q) => {
+                      const nestedQuestions = Array.isArray(q.question?.questions) ? q.question.questions : [];
+                      const nestedQuestion = q.nestedQuestion || {};
+                      const isGatewayReading = isGatewayReadingWriting && q.question?.gatewayReadingMode;
+                      const isTrueFalse = nestedQuestion.answerType === 'true-false';
+                      const previousNestedQuestion = nestedQuestions[q.nestedIndex - 1];
+                      const nextNestedQuestion = nestedQuestions[q.nestedIndex + 1];
+                      const startsQuestionGroup = q.nestedIndex === 0
+                        || (isTrueFalse && previousNestedQuestion?.answerType !== 'true-false');
+                      const endsQuestionGroup = q.nestedIndex === nestedQuestions.length - 1
+                        || (!isTrueFalse && nextNestedQuestion?.answerType === 'true-false');
+                      const answerOptions = isTrueFalse
+                        ? [{ label: 'T', text: 'True' }, { label: 'F', text: 'False' }]
+                        : (Array.isArray(nestedQuestion.options) ? nestedQuestion.options : []).map((option, index) => ({
+                          label: String.fromCharCode(65 + index),
+                          text: stripOptionLabel(option),
+                        }));
+
+                      return (
+                        <React.Fragment key={q.key}>
+                          {isGatewayReading && startsQuestionGroup && (
+                            <div style={{ margin: '0 0 12px', fontWeight: 600, color: '#1f2937' }}>
+                              {isTrueFalse
+                                ? q.question.readingBInstruction
+                                : q.question.readingAInstruction}
+                            </div>
+                          )}
+                          <div 
+                            id={`question-${q.questionNumber}`}
+                            className={`cambridge-question-wrapper ${answers[q.key] ? 'answered' : ''} ${q.key === currentQuestion.key ? 'active-question' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
+                            style={{ marginBottom: '24px', scrollMarginTop: '20px' }}
+                          >
                         {/* Flag Button */}
                         <button
                           className={`cambridge-flag-button ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
@@ -3778,25 +3948,24 @@ const ExamCoreReadingRuntimePage = ({
                             <span className="cambridge-question-number">
                               {q.questionNumber}
                             </span>
-                            {q.nestedQuestion?.questionText && (
+                            {nestedQuestion.questionText && (
                               <span style={{ 
                                 marginLeft: '12px', 
                                 fontSize: '15px', 
                                 fontWeight: '600',
                                 color: '#1a1a1a' 
                               }}>
-                                {q.nestedQuestion.questionText}
+                                {nestedQuestion.questionText}
                               </span>
                             )}
                           </div>
 
                           {/* Options */}
-                          {q.nestedQuestion?.options && (
+                          {answerOptions.length > 0 && (
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                              {q.nestedQuestion.options.map((option, optIdx) => {
-                                const optionLetter = String.fromCharCode(65 + optIdx);
+                              {answerOptions.map((option, optIdx) => {
+                                const optionLetter = option.label;
                                 const isSelected = answers[q.key] === optionLetter;
-                                const cleanOption = stripOptionLabel(option);
 
                                 return (
                                   <li key={optIdx} className="mb-1.5 sm:mb-2">
@@ -3814,11 +3983,11 @@ const ExamCoreReadingRuntimePage = ({
                                         disabled={submitted}
                                         className="mt-1 h-5 w-5 cursor-pointer"
                                       />
-                                      <span style={{
+                                      {!isTrueFalse && <span style={{
                                         minWidth: '22px',
                                         height: '22px',
                                         borderRadius: '4px',
-                                        backgroundColor: '#0e276f',
+                                        backgroundColor: isGatewayReading ? '#2f7d46' : '#0e276f',
                                         color: '#fff',
                                         display: 'inline-flex',
                                         alignItems: 'center',
@@ -3829,9 +3998,9 @@ const ExamCoreReadingRuntimePage = ({
                                         marginTop: '2px'
                                       }}>
                                         {optionLetter}
-                                      </span>
+                                      </span>}
                                       <span className="text-sm leading-6 sm:text-[15px]">
-                                        {cleanOption}
+                                        {isTrueFalse ? `${option.label} (${option.text})` : option.text}
                                       </span>
                                     </label>
                                   </li>
@@ -3840,8 +4009,15 @@ const ExamCoreReadingRuntimePage = ({
                             </ul>
                           )}
                         </div>
-                      </div>
-                    ))
+                          </div>
+                          {isGatewayReading && endsQuestionGroup && (
+                            <div style={{ margin: '-12px 0 20px', textAlign: 'right', fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+                              {isTrueFalse ? q.question.readingBScoreNote : q.question.readingAScoreNote}
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   }
                 </div>
               ) : (currentQuestion.section.questionType === 'matching-pictures' || Array.isArray(currentQuestion.question?.prompts)) ? (
@@ -4054,6 +4230,56 @@ const ExamCoreReadingRuntimePage = ({
                     })()}
                   </div>
                 </div>
+              ) : isGatewayReadingWriting
+                && currentQuestion.section.questionType === 'abc'
+                && String(currentQuestion.section.sectionTitle || '').trim().toLowerCase() === 'vocabulary - b' ? (
+                <div>
+                  {allQuestions
+                    .filter((q) => (
+                      q.partIndex === currentQuestion.partIndex
+                      && q.sectionIndex === currentQuestion.sectionIndex
+                      && q.section.questionType === 'abc'
+                    ))
+                    .map((q) => {
+                      return (
+                        <div
+                          key={q.key}
+                          id={`question-${q.questionNumber}`}
+                          className={`cambridge-question-wrapper ${isQuestionAnswered(q) ? 'answered' : ''} ${q.key === currentQuestion.key ? 'active-question' : ''} !w-full p-3 sm:p-4`}
+                          style={{ marginBottom: '16px', scrollMarginTop: '20px' }}
+                        >
+                          <button
+                            className={`cambridge-flag-button ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                            onClick={() => toggleFlag(q.key)}
+                            aria-label={`Flag question ${q.questionNumber}`}
+                          >
+                            <InlineIcon name="flag" size={14} />
+                          </button>
+                          <div className="pr-4 sm:pr-12">
+                            <span className="cambridge-question-number">{q.questionNumber}</span>
+                            <QuestionDisplayFactory
+                              section={{
+                                ...q.section,
+                                id: `${q.partIndex}-${q.sectionIndex}`,
+                                questions: [q.question],
+                              }}
+                              questionType="abc"
+                              startingNumber={q.questionNumber}
+                              onAnswerChange={handleAnswerChange}
+                              answers={answers}
+                              submitted={submitted}
+                              singleQuestionMode={true}
+                              questionIndex={q.questionIndex}
+                              examType={examType}
+                              testType={routeTestType}
+                              gatewayMetadata={q.section.questions?.[0] || {}}
+                              sectionQuestionCount={q.section.questions?.length || 1}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
               ) : (
                 /* Other question types: Show single question */
                 <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
@@ -4068,9 +4294,11 @@ const ExamCoreReadingRuntimePage = ({
 
                   {/* Question Content */}
                   <div className="pr-4 sm:pr-12">
-                    <span className="cambridge-question-number">
-                      {currentQuestion.questionNumber}
-                    </span>
+                    {!isGatewayOpenQuestionSection && (
+                      <span className="cambridge-question-number">
+                        {currentQuestion.questionNumber}
+                      </span>
+                    )}
 
                     <QuestionDisplayFactory
                       section={{ 
@@ -4087,6 +4315,7 @@ const ExamCoreReadingRuntimePage = ({
                       questionIndex={currentQuestion.questionIndex}
                       examType={examType}
                       testType={routeTestType}
+                      gatewayQuestionNumbers={isGatewayReadingWriting}
                       gatewayMetadata={currentQuestion.section.questions?.[0] || {}}
                       sectionQuestionCount={currentQuestion.section.questions?.length || 1}
                     />
@@ -4102,7 +4331,7 @@ const ExamCoreReadingRuntimePage = ({
       </div>
 
       {/* Footer Navigation */}
-      <footer className="cambridge-footer">
+      <footer className={`cambridge-footer${isGatewayReadingWriting ? ' cambridge-footer--gateway' : ''}`}>
         {/* Floating arrows – positioned absolute above footer */}
         <div className="cambridge-footer-arrows">
           <button
@@ -4126,8 +4355,127 @@ const ExamCoreReadingRuntimePage = ({
         </div>
 
         {/* Parts strip – horizontally scrollable */}
-        <div className="cambridge-parts-container">
-          {test?.parts?.map((part, idx) => {
+        <div className={`cambridge-parts-container${isGatewayReadingWriting ? ' cambridge-parts-container--gateway' : ''}`}>
+          {isGatewayReadingWriting ? (
+            <div className="gateway-footer-navigation">
+              {(() => {
+                const sectionGroups = (test?.parts || []).flatMap((part, partIndex) => (
+                  (part.sections || []).map((section, sectionIndex) => ({
+                    partIndex,
+                    sectionIndex,
+                    section,
+                    entries: allQuestions.filter((q) => q.partIndex === partIndex && q.sectionIndex === sectionIndex),
+                  }))
+                )).filter((group) => group.entries.length > 0);
+                const activeGroup = sectionGroups.find((group) => (
+                  group.partIndex === currentQuestion?.partIndex
+                  && group.sectionIndex === currentQuestion?.sectionIndex
+                ));
+                const getGroupAnsweredCount = (group) => {
+                  const questionType = group.section.questionType;
+                  const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
+                  if (groupedType) {
+                    const itemCount = getQuestionCountForSection(group.section);
+                    return Array.from({ length: itemCount }, (_, index) => (
+                      String(answers[`${group.partIndex}-${group.sectionIndex}-${index}`] || '').trim()
+                    )).filter(Boolean).length;
+                  }
+                  return group.entries.reduce((count, entry) => count + Number(isQuestionAnswered(entry)), 0);
+                };
+
+                return (
+                  <>
+                    <div className="cambridge-parts-container gateway-section-tabs" ref={gatewaySectionTabsRef}>
+                      {sectionGroups.map((group) => {
+                        const isActive = group === activeGroup;
+                        const firstEntry = group.entries[0];
+                        const firstIndex = questionIndexByKey.get(firstEntry.key) ?? -1;
+                        const total = getQuestionCountForSection(group.section);
+                        const answered = getGroupAnsweredCount(group);
+                        const title = group.section.sectionTitle || group.section.title || `Section ${group.sectionIndex + 1}`;
+                        const compactTitle = title
+                          .replace(/^Grammar\s*-\s*/i, 'Grammar ')
+                          .replace(/^Vocabulary\s*-\s*/i, 'Vocab ')
+                          .replace(/^Use of English\s*-\s*/i, 'Use Eng. ');
+                        const sectionGroupKey = `${group.partIndex}-${group.sectionIndex}`;
+
+                        return (
+                          <div key={sectionGroupKey} className="cambridge-part-wrapper">
+                            <button
+                              ref={(element) => {
+                                if (element) gatewaySectionTabRefs.current.set(sectionGroupKey, element);
+                                else gatewaySectionTabRefs.current.delete(sectionGroupKey);
+                              }}
+                              className={`cambridge-part-tab gateway-section-tab ${isActive ? 'active' : ''}`}
+                              onClick={() => {
+                                if (firstIndex >= 0) goToQuestion(firstIndex);
+                              }}
+                              title={`${title}${total > 0 ? ` (${answered}/${total})` : ''}`}
+                              aria-current={isActive ? 'step' : undefined}
+                            >
+                              {compactTitle}
+                              {total > 0 && <span className="cambridge-part-badge">{answered}/{total}</span>}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {activeGroup && (
+                      <div className="cambridge-questions-inline gateway-section-questions">
+                        {(() => {
+                          const questionType = activeGroup.section.questionType;
+                          const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
+                          const groupedCount = groupedType ? getQuestionCountForSection(activeGroup.section) : 0;
+                          const hasIndividualGroupedItems = groupedCount > 1 && activeGroup.entries.length === 1;
+                          const questionButtons = hasIndividualGroupedItems
+                            ? Array.from({ length: groupedCount }, (_, itemIndex) => {
+                              const entry = activeGroup.entries[0];
+                              const questionNumber = entry.questionNumber + itemIndex;
+                              const questionIndex = questionIndexByKey.get(entry.key) ?? -1;
+                              const answerKey = `${activeGroup.partIndex}-${activeGroup.sectionIndex}-${itemIndex}`;
+                              return {
+                                key: `${entry.key}-item-${itemIndex}`,
+                                entry,
+                                questionIndex,
+                                questionNumber,
+                                targetQuestionNumber: questionNumber,
+                                isAnswered: Boolean(String(answers[answerKey] || '').trim()),
+                                isActive: currentQuestionIndex === questionIndex
+                                  && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
+                              };
+                            })
+                            : activeGroup.entries.map((entry) => ({
+                              key: entry.key,
+                              entry,
+                              questionIndex: questionIndexByKey.get(entry.key) ?? -1,
+                              questionNumber: isNumberedQuestion(entry) ? entry.questionNumber : 'W',
+                              targetQuestionNumber: null,
+                              isAnswered: isQuestionAnswered(entry),
+                              isActive: currentQuestionIndex === (questionIndexByKey.get(entry.key) ?? -1),
+                            }));
+
+                          return questionButtons.map((item) => (
+                            <button
+                              key={item.key}
+                              className={`cambridge-question-num-btn ${item.isAnswered ? 'answered' : ''} ${item.isActive ? 'active' : ''} ${flaggedQuestions.has(item.entry.key) ? 'flagged' : ''}`}
+                              onClick={() => goToQuestion(item.questionIndex, item.targetQuestionNumber)}
+                              title={`Question ${item.questionNumber}${item.isAnswered ? ' answered' : ''}`}
+                              aria-current={item.isActive ? 'step' : undefined}
+                            >
+                              {item.questionNumber}
+                              {flaggedQuestions.has(item.entry.key) && (
+                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
+                              )}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          ) : test?.parts?.map((part, idx) => {
             /* eslint-disable-next-line no-unused-vars */
             const range = getPartQuestionRange(idx);
             const isActive = currentPartIndex === idx;

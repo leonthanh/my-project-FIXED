@@ -16,6 +16,7 @@ const ReadingOpenQuestionsDisplay = ({
   onAnswerChange,
   answers,
   submitted,
+  gatewayQuestionNumbers = false,
   renderMode = 'full',
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
@@ -59,7 +60,11 @@ const ReadingOpenQuestionsDisplay = ({
                 style={styles.itemCard}
               >
                 <div style={styles.questionHeader}>
-                  <span style={styles.questionNumber}>{questionNumber}</span>
+                  {gatewayQuestionNumbers ? (
+                    <span className="gateway-question-number">{questionNumber}</span>
+                  ) : (
+                    <span style={styles.questionNumber}>{questionNumber}</span>
+                  )}
                   <div style={styles.questionText}>{item.questionText || 'Question text...'}</div>
                 </div>
 
@@ -111,7 +116,11 @@ const ReadingOpenQuestionsDisplay = ({
             return (
               <div key={index} id={`question-${questionNumber}`} tabIndex={-1} style={styles.rewriteItemCard}>
                 <div style={styles.rewriteQuestionText}>
-                <strong style={{ marginRight: 8 }}>{questionNumber}.</strong>
+                {gatewayQuestionNumbers ? (
+                  <span className="gateway-question-number">{questionNumber}</span>
+                ) : (
+                  <strong style={{ marginRight: 8 }}>{questionNumber}.</strong>
+                )}
                   {item.questionText || 'Rewrite sentence here...'}
                 </div>
                 <textarea

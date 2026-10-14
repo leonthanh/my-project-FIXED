@@ -468,6 +468,7 @@ Last summer, I ___ to the beach with my family. We ___ there for two weeks.`}
             </div>
           )}
           <div
+            className={isGatewayReadingWriting ? "gateway-cloze-preview" : undefined}
             style={{
               fontSize: "14px",
               lineHeight: 1.8,
@@ -508,6 +509,16 @@ const styles = {
 
 // Custom styles for ReactQuill in this editor
 const quillStyles = `
+  .gateway-cloze-preview .ql-align-center {
+    text-align: center;
+  }
+  .gateway-cloze-preview .ql-align-right {
+    text-align: right;
+  }
+  .gateway-cloze-preview .ql-align-justify {
+    text-align: justify;
+  }
+
   .cloze-test-editor .ql-container {
     min-height: 200px;
     font-size: 14px;

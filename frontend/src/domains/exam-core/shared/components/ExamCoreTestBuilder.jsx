@@ -30,6 +30,7 @@ import { computeQuestionStarts, getQuestionCountForSection } from "../utils/exam
 import { normalizeQuillPromptHtml } from "../utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
+import GATEWAY_WRITING_RUBRIC from "../../../../shared/config/gatewayWritingRubric";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -159,6 +160,105 @@ const createGatewayUseEnglishBQuestionData = () => ({
     39: "them",
     40: "unless",
   },
+});
+
+const createGatewayReadingQuestionData = () => ({
+  ...getDefaultQuestionData("long-text-mc"),
+  gatewayReadingMode: true,
+  passageTitle: "",
+  passage: `<p style="text-align:center;"><strong>SUBWAY IN THE SKY</strong></p>
+<p style="text-align:center;"><strong>THE MOST SPECTACULAR TRANSPORT SYSTEM IN THE WORLD.</strong></p>
+<p>Visiting La Paz, Bolivia, was very challenging for tourists in the past. They either used to have to walk everywhere or risk their lives using small minibuses, which looked like they were going to break down at any moment. The city is surrounded by hills and mountains so transport along the ground took a long time. As one of the highest cities in the world, its districts range from 3,170 metres to 3,600 metres above sea level. Because of this, most tourists used to stay in the city centre.</p>
+<p>But now tourists can get around the city on its amazing cable car system, the teleférico, which opened in 2014. It’s the highest cable car system in the world, operating 4,000 metres above sea level. Instead of a subway or underground, the neighbourhoods in La Paz are now linked by cable car lines. The system consists of eight lines: red, yellow, green, blue, orange, white, sky blue and purple. It runs on electricity and it is silent and quick.</p>
+<p>A single ticket costs just three bolivianos – around 30 cents, and it can get you to most of the main tourist sites, with the most spectacular views of the city on the way. For example, you can get on the red line in the city centre where it starts, and in 20 minutes it will take you all the way to El Alto, the end of the line. There, you can get off and enjoy amazing views of the snowy mountains or experience local Bolivian life at the largest open-air market in the world. From the end of the line, a short ten-minute taxi ride will get you to La Paz’s international airport.</p>
+<p>The operators are proud that the cable car is the most popular tourist attraction in the city. And it doesn’t just transport tourists, it gets children to school and people to work in half or a third of the time it used to take them. It’s also cheaper than other types of transport. Local people are delighted. ‘I used to travel for three or four hours to go shopping’, says Mónica Pérez, a secondary school teacher. Now, the journey is much quicker.</p>
+<p>Mercedes Blanco, a student, is equally happy and says her stress levels are much lower. ‘Before, I had to take three buses to get to college. The road was noisy and polluted. It’s much better now’, she says. The journey is actually relaxing, floating above the city looking down on small office buildings, football fields and rivers. It’s a quiet and calm start to the day.</p>`,
+  readingAInstruction: "A. Read the magazine article and choose the best answers.",
+  readingAScoreNote: "_____/5 (1 mark per answer)",
+  readingBInstruction: "B. Read the text again and decide whether the statements are True (T) or False (F).",
+  readingBScoreNote: "_____/5 (1 mark per answer)",
+  questions: [
+    {
+      questionText: "Why did getting around La Paz used to be difficult?",
+      options: ["A. Because there weren’t many minibuses.", "B. Because the different parts of the city are at different heights.", "C. Because walking was dangerous."],
+      correctAnswer: "B",
+      answerType: "multiple-choice",
+    },
+    {
+      questionText: "How did tourists used to get around La Paz?",
+      options: ["A. by subway", "B. by car", "C. on foot"],
+      correctAnswer: "C",
+      answerType: "multiple-choice",
+    },
+    {
+      questionText: "What can you do at the end of the red line?",
+      options: ["A. visit an indoor market", "B. climb the mountain", "C. see spectacular scenery"],
+      correctAnswer: "C",
+      answerType: "multiple-choice",
+    },
+    {
+      questionText: "Why do the local people like the teleférico?",
+      options: ["A. It’s cleaner than the buses.", "B. It saves time and money.", "C. They can meet the tourists."],
+      correctAnswer: "B",
+      answerType: "multiple-choice",
+    },
+    {
+      questionText: "Which of these facts about the teleférico is true?",
+      options: ["A. It’s also a tourist attraction.", "B. It has created more pollution.", "C. It’s quite loud."],
+      correctAnswer: "A",
+      answerType: "multiple-choice",
+    },
+    {
+      questionText: "In the past, travelling around La Paz was difficult because the city has a large number of hills.",
+      correctAnswer: "F",
+      answerType: "true-false",
+    },
+    {
+      questionText: "The cable car system consists of eight lines connecting different parts of La Paz.",
+      correctAnswer: "T",
+      answerType: "true-false",
+    },
+    {
+      questionText: "Passengers can enjoy views of the city while travelling on the cable car.",
+      correctAnswer: "T",
+      answerType: "true-false",
+    },
+    {
+      questionText: "Local teacher Mónica Pérez believes that the cable car has made her daily journeys longer.",
+      correctAnswer: "F",
+      answerType: "true-false",
+    },
+    {
+      questionText: "Mercedes Blanco enjoys travelling by cable car because she can see parts of the city from above.",
+      correctAnswer: "T",
+      answerType: "true-false",
+    },
+  ],
+});
+
+const createGatewayWritingQuestionData = () => ({
+  ...getDefaultQuestionData("short-message"),
+  gatewayWritingMode: true,
+  messageType: "blog post",
+  wordLimit: { min: 100, max: 120 },
+  writingRubric: GATEWAY_WRITING_RUBRIC,
+  situation: `<p><strong>Write a blog post about an experience you had while travelling somewhere, e.g. by train, plane or boat. Use a variety of past tenses. Write 100–120 words. Think about the following:</strong></p>
+<ul>
+<li>Was it a good/bad experience?</li>
+<li>Where were you travelling to?</li>
+<li>Why had you decided to take that type of transport?</li>
+<li>How long was the journey?</li>
+<li>What happened on the journey?</li>
+<li>Were you late/early?</li>
+</ul>
+<p><strong><em><u>Use words and expressions for giving emphasis:</u></em></strong></p>
+<ul>
+<li><em>What a + (adjective) + noun!</em></li>
+<li><em>so + adjective</em></li>
+<li><em>such + (adjective) + noun</em></li>
+<li><em>do and did in affirmative sentences, e.g. I really do love …</em></li>
+</ul>`,
+  sampleAnswer: "",
 });
 
 const createGatewayGrammarBQuestionData = () => ({
@@ -320,9 +420,16 @@ const GATEWAY_READING_WRITING_SECTION_BLUEPRINTS = [
     questionType: "cloze-test",
     buildDefaultQuestionData: createGatewayUseEnglishBQuestionData,
   },
-  { sectionTitle: "Reading - A", questionType: "long-text-mc" },
-  { sectionTitle: "Reading - B", questionType: "true-false-not-given" },
-  { sectionTitle: "Writing", questionType: "short-message" },
+  {
+    sectionTitle: "Reading",
+    questionType: "long-text-mc",
+    buildDefaultQuestionData: createGatewayReadingQuestionData,
+  },
+  {
+    sectionTitle: "Writing",
+    questionType: "short-message",
+    buildDefaultQuestionData: createGatewayWritingQuestionData,
+  },
 ];
 
 const getGatewayReadingWritingSectionBlueprint = (sectionTitle = "") => (
@@ -372,6 +479,132 @@ const buildGatewayQuestionsFromBlueprint = (blueprint) => {
     return blueprint.buildDefaultQuestions();
   }
   return [buildGatewayQuestionDataFromBlueprint(blueprint)];
+};
+
+const normalizeGatewayTrueFalseAnswer = (answer) => {
+  const normalized = String(answer || "").trim().toUpperCase();
+  if (normalized === "TRUE") return "T";
+  if (normalized === "FALSE") return "F";
+  return normalized;
+};
+
+const hasGatewayReadingContent = (questions, answerType) => (
+  Array.isArray(questions) && questions.some((question) => {
+    if (String(question?.questionText || "").trim() || String(question?.correctAnswer || "").trim()) return true;
+    if (answerType === "true-false") return false;
+    return Array.isArray(question?.options)
+      && question.options.some((option) => String(option || "").replace(/^[A-D]\.\s*/i, "").trim());
+  })
+);
+
+const hasGatewayReadingPassage = (passage) => {
+  const value = String(passage || "");
+  return Boolean(value.replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, " ").trim() || /<img\b/i.test(value));
+};
+
+const migrateGatewayReadingSections = (sections) => {
+  const legacyAIndex = sections.findIndex(
+    (section) => normalizeGatewaySectionKey(section?.sectionTitle) === "reading - a"
+  );
+  const legacyBIndex = sections.findIndex(
+    (section) => normalizeGatewaySectionKey(section?.sectionTitle) === "reading - b"
+  );
+  if (legacyAIndex < 0 && legacyBIndex < 0) return sections;
+
+  const existingReadingIndex = sections.findIndex(
+    (section) => normalizeGatewaySectionKey(section?.sectionTitle) === "reading"
+  );
+  const legacyA = legacyAIndex >= 0 ? sections[legacyAIndex] : null;
+  const legacyB = legacyBIndex >= 0 ? sections[legacyBIndex] : null;
+  const existingReading = existingReadingIndex >= 0 ? sections[existingReadingIndex] : null;
+  const blueprint = getGatewayReadingWritingSectionBlueprint("Reading");
+  const template = buildGatewayQuestionDataFromBlueprint(blueprint);
+  const existingQuestion = existingReading?.questions?.[0] || {};
+  const legacyAQuestion = legacyA?.questions?.[0] || {};
+  const legacyBQuestion = legacyB?.questions?.[0] || {};
+  const sourceMultipleChoiceQuestions = existingQuestion.questions?.filter(
+    (question) => question?.answerType !== "true-false"
+  );
+  const legacyMultipleChoiceQuestions = Array.isArray(legacyAQuestion.questions)
+    ? legacyAQuestion.questions
+    : [];
+  const sourceStatements = Array.isArray(existingQuestion.questions)
+    ? existingQuestion.questions.filter((question) => question?.answerType === "true-false")
+    : [];
+  const legacyStatements = Array.isArray(legacyBQuestion.statements)
+    ? legacyBQuestion.statements
+    : [];
+  const templateMultipleChoiceQuestions = template.questions.filter(
+    (question) => question.answerType !== "true-false"
+  );
+  const templateTrueFalseQuestions = template.questions.filter(
+    (question) => question.answerType === "true-false"
+  );
+  const multipleChoiceCandidates = sourceMultipleChoiceQuestions?.length
+    ? sourceMultipleChoiceQuestions
+    : legacyMultipleChoiceQuestions;
+  const trueFalseCandidates = sourceStatements.length
+    ? sourceStatements
+    : legacyStatements.map((statement) => ({
+        questionText: statement?.text || "",
+        correctAnswer: normalizeGatewayTrueFalseAnswer(statement?.correctAnswer),
+        answerType: "true-false",
+      }));
+  const multipleChoiceQuestions = hasGatewayReadingContent(multipleChoiceCandidates, "multiple-choice")
+    ? multipleChoiceCandidates
+    : templateMultipleChoiceQuestions;
+  const trueFalseQuestions = hasGatewayReadingContent(trueFalseCandidates, "true-false")
+    ? trueFalseCandidates
+    : templateTrueFalseQuestions;
+  const passageCandidates = [
+    existingQuestion.passage,
+    legacyAQuestion.passage,
+    legacyBQuestion.passage,
+  ];
+  const mergedQuestion = {
+    ...template,
+    ...legacyAQuestion,
+    ...existingQuestion,
+    passageTitle: existingQuestion.passageTitle || legacyAQuestion.passageTitle || "",
+    passage: passageCandidates.find(hasGatewayReadingPassage) || template.passage,
+    readingAInstruction: existingQuestion.readingAInstruction
+      || legacyAQuestion.instruction
+      || template.readingAInstruction,
+    readingAScoreNote: existingQuestion.readingAScoreNote
+      || legacyAQuestion.scoreNote
+      || template.readingAScoreNote,
+    readingBInstruction: existingQuestion.readingBInstruction
+      || legacyBQuestion.instruction
+      || template.readingBInstruction,
+    readingBScoreNote: existingQuestion.readingBScoreNote
+      || legacyBQuestion.scoreNote
+      || template.readingBScoreNote,
+    questions: [
+      ...multipleChoiceQuestions.map((question) => ({ ...question, answerType: "multiple-choice" })),
+      ...trueFalseQuestions.map((question) => ({
+        ...question,
+        correctAnswer: normalizeGatewayTrueFalseAnswer(question?.correctAnswer),
+        answerType: "true-false",
+      })),
+    ],
+  };
+  const mergedSection = {
+    ...(existingReading || legacyA || {}),
+    sectionTitle: "Reading",
+    questionType: "long-text-mc",
+    questions: [mergedQuestion],
+  };
+  const insertAt = Math.min(
+    ...[legacyAIndex, legacyBIndex, existingReadingIndex].filter((index) => index >= 0)
+  );
+
+  return sections
+    .filter((_, index) => index !== legacyAIndex && index !== legacyBIndex && index !== existingReadingIndex)
+    .reduce((nextSections, section, index) => {
+      if (index === insertAt) nextSections.push(mergedSection);
+      nextSections.push(section);
+      return nextSections;
+    }, insertAt >= sections.length ? [mergedSection] : []);
 };
 
 const ensureGatewayVocabularyBQuestions = (section, sectionBlueprint) => {
@@ -520,7 +753,8 @@ const buildGatewayReadingWritingTemplateParts = () => ([
 const ensureGatewayReadingWritingSections = (partsData = []) => {
   if (!Array.isArray(partsData)) return partsData;
   return partsData.map((part) => {
-    const sections = Array.isArray(part?.sections) ? part.sections : [];
+    const sourceSections = Array.isArray(part?.sections) ? part.sections : [];
+    const sections = migrateGatewayReadingSections(sourceSections);
     const nextSections = sections.map((sourceSection) => {
       let section = sourceSection;
       const sectionBlueprint = getGatewayReadingWritingSectionBlueprint(section?.sectionTitle);
@@ -554,6 +788,27 @@ const ensureGatewayReadingWritingSections = (partsData = []) => {
       }
 
       const firstQuestion = section?.questions?.[0] || {};
+      if (normalizeGatewaySectionKey(section?.sectionTitle) === "writing") {
+        const template = buildGatewayQuestionDataFromBlueprint(sectionBlueprint);
+        const wordLimit = firstQuestion.wordLimit || {};
+        const usesLegacyDefaultWordLimit = Number(wordLimit.min) === 25 && Number(wordLimit.max) === 35;
+        const hasPrompt = hasGatewayReadingPassage(firstQuestion.situation);
+        return {
+          ...section,
+          questions: [{
+            ...template,
+            ...firstQuestion,
+            gatewayWritingMode: true,
+            messageType: !firstQuestion.messageType || firstQuestion.messageType === "email"
+              ? template.messageType
+              : firstQuestion.messageType,
+            wordLimit: usesLegacyDefaultWordLimit || !wordLimit.min || !wordLimit.max
+              ? template.wordLimit
+              : wordLimit,
+            situation: hasPrompt ? firstQuestion.situation : template.situation,
+          }],
+        };
+      }
       if (normalizeGatewaySectionKey(section?.sectionTitle) === "grammar - b") {
         section = migrateGatewayGrammarBWordBank(section);
       }
@@ -2974,6 +3229,17 @@ const ExamCoreTestBuilder = ({
                               testType={testType}
                               sectionTitle={currentSection.sectionTitle}
                               sectionQuestionCount={currentSection.questions.length}
+                              onSectionTitleChange={(sectionTitle) => {
+                                updateParts(prevParts => prevParts.map((part, pIdx) => {
+                                  if (pIdx !== selectedPartIndex) return part;
+                                  return {
+                                    ...part,
+                                    sections: (part.sections || []).map((section, sIdx) => (
+                                      sIdx === selectedSectionIndex ? { ...section, sectionTitle } : section
+                                    )),
+                                  };
+                                }));
+                              }}
                               onChange={(field, value) => {
                                 updateParts(prevParts => prevParts.map((part, pIdx) => {
                                   if (pIdx !== selectedPartIndex) return part;
