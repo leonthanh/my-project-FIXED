@@ -201,7 +201,9 @@ const DoReadingTest = () => {
   }, []);
   const isStudent = useMemo(() => {
     try {
-      const role = JSON.parse(localStorage.getItem('user') || 'null')?.role;
+      const role = String(
+        JSON.parse(localStorage.getItem('user') || 'null')?.role || ''
+      ).trim().toLowerCase();
       return !role || role === 'student';
     } catch (e) {
       return false;
@@ -3825,7 +3827,11 @@ const DoReadingTest = () => {
           isStudent
             ? (test?.showResultModal === false
               ? "confirmation"
-              : test?.studentResultVisibility || "score")
+              : ["confirmation", "score", "details"].includes(
+                  String(test?.studentResultVisibility || "score").trim().toLowerCase()
+                )
+                ? String(test?.studentResultVisibility || "score").trim().toLowerCase()
+                : "score")
             : "score"
         }
         onViewDetails={() => {

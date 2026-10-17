@@ -39,7 +39,8 @@ const ResultModal = ({
   const btnSecondaryBg = isDarkMode ? '#0b1d2e' : '#eef2ff';
   const btnSecondaryColor = isDarkMode ? '#cbd5f5' : '#0c4a6e';
 
-  const isConfirmationOnly = displayMode === 'confirmation';
+  const isConfirmationOnly =
+    displayMode === 'confirmation' || result?.mode === 'confirmation';
   const { total, correct, scorePercentage, band } = result;
   const pct = scorePercentage || (total > 0 ? Math.round((correct / total) * 100) : 0);
 

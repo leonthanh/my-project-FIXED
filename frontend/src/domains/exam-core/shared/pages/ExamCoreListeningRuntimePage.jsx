@@ -183,13 +183,18 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
     );
   }, []);
   const isStudent = useMemo(() => {
-    const role = getStoredUser()?.role;
+    const role = String(getStoredUser()?.role || '').trim().toLowerCase();
     return !role || role === 'student';
   }, []);
   const studentResultDisplayMode = useMemo(() => {
     if (!isStudent) return 'score';
     if (test?.showResultModal === false) return 'confirmation';
-    return test?.studentResultVisibility || 'score';
+    const visibility = String(test?.studentResultVisibility || 'score')
+      .trim()
+      .toLowerCase();
+    return ['confirmation', 'score', 'details'].includes(visibility)
+      ? visibility
+      : 'score';
   }, [isStudent, test?.showResultModal, test?.studentResultVisibility]);
 
   const syncTimingState = useCallback(

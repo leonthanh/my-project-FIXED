@@ -279,13 +279,18 @@ const ExamCoreReadingRuntimePage = ({
     );
   }, []);
   const isStudent = useMemo(() => {
-    const role = getStoredUser()?.role;
+    const role = String(getStoredUser()?.role || '').trim().toLowerCase();
     return !role || role === "student";
   }, []);
   const studentResultDisplayMode = useMemo(() => {
     if (!isStudent) return "score";
     if (test?.showResultModal === false) return "confirmation";
-    return test?.studentResultVisibility || "score";
+    const visibility = String(test?.studentResultVisibility || "score")
+      .trim()
+      .toLowerCase();
+    return ["confirmation", "score", "details"].includes(visibility)
+      ? visibility
+      : "score";
   }, [isStudent, test?.showResultModal, test?.studentResultVisibility]);
 
   const effectiveDuration = useMemo(() => {
@@ -573,7 +578,7 @@ const ExamCoreReadingRuntimePage = ({
       submitted ||
       timeRemaining === null ||
       timeRemaining > 0 ||
-      graceRemaining > 0
+      (graceRemaining > 0 && !isGatewayReadingWriting)
     ) {
       return;
     }
@@ -583,7 +588,7 @@ const ExamCoreReadingRuntimePage = ({
 
     autoSubmittingRef.current = true;
     confirmSubmitRef.current();
-  }, [started, submitted, timeRemaining, graceRemaining]);
+  }, [started, submitted, timeRemaining, graceRemaining, isGatewayReadingWriting]);
 
   // Format time display
   const formatTime = (seconds) => {
@@ -1988,6 +1993,69 @@ const ExamCoreReadingRuntimePage = ({
       }
       return newSet;
     });
+  };
+
+  const getGatewayGroupedQuestionRange = (question) => {
+    if (
+      !isGatewayReadingWriting
+      || !['reading-open-questions', 'true-false-not-given'].includes(
+        question?.section?.questionType
+      )
+    ) {
+      return null;
+    }
+
+    const first = Number(question?.questionNumber);
+    const count = getQuestionCountForSection(question.section);
+    if (!Number.isFinite(first) || count < 2) return null;
+
+    return { first, last: first + count - 1 };
+  };
+  const currentGatewayQuestionRange = getGatewayGroupedQuestionRange(currentQuestion);
+  const currentGatewayQuestionNumber = Number.isFinite(gatewayFocusedQuestionNumber)
+    ? gatewayFocusedQuestionNumber
+    : currentGatewayQuestionRange?.first;
+  const canGoToPreviousQuestion =
+    currentQuestionIndex > 0
+    || Boolean(
+      currentGatewayQuestionRange
+      && currentGatewayQuestionNumber > currentGatewayQuestionRange.first
+    );
+  const canGoToNextQuestion =
+    currentQuestionIndex < allQuestions.length - 1
+    || Boolean(
+      currentGatewayQuestionRange
+      && currentGatewayQuestionNumber < currentGatewayQuestionRange.last
+    );
+
+  const navigateAdjacentQuestion = (direction) => {
+    if (direction !== -1 && direction !== 1) return;
+
+    if (currentGatewayQuestionRange) {
+      const nextQuestionNumber = currentGatewayQuestionNumber + direction;
+      if (
+        nextQuestionNumber >= currentGatewayQuestionRange.first
+        && nextQuestionNumber <= currentGatewayQuestionRange.last
+      ) {
+        goToQuestion(currentQuestionIndex, nextQuestionNumber);
+        return;
+      }
+    }
+
+    const adjacentIndex = currentQuestionIndex + direction;
+    const adjacentQuestion = allQuestions[adjacentIndex];
+    if (!adjacentQuestion) return;
+
+    const adjacentRange = getGatewayGroupedQuestionRange(adjacentQuestion);
+    if (adjacentRange) {
+      goToQuestion(
+        adjacentIndex,
+        direction > 0 ? adjacentRange.first : adjacentRange.last
+      );
+      return;
+    }
+
+    goToQuestion(adjacentIndex);
   };
 
   // Divider resize handlers
@@ -4274,6 +4342,7 @@ const ExamCoreReadingRuntimePage = ({
                               testType={routeTestType}
                               gatewayMetadata={q.section.questions?.[0] || {}}
                               sectionQuestionCount={q.section.questions?.length || 1}
+                              gatewayOptionBadges
                             />
                           </div>
                         </div>
@@ -4336,8 +4405,8 @@ const ExamCoreReadingRuntimePage = ({
         <div className="cambridge-footer-arrows">
           <button
             className="cambridge-nav-arrow-btn"
-            onClick={() => goToQuestion(currentQuestionIndex - 1)}
-            disabled={currentQuestionIndex === 0}
+            onClick={() => navigateAdjacentQuestion(-1)}
+            disabled={!canGoToPreviousQuestion}
             aria-label="Previous"
             title="Previous question"
           >
@@ -4345,8 +4414,8 @@ const ExamCoreReadingRuntimePage = ({
           </button>
           <button
             className="cambridge-nav-arrow-btn"
-            onClick={() => goToQuestion(currentQuestionIndex + 1)}
-            disabled={currentQuestionIndex === allQuestions.length - 1}
+            onClick={() => navigateAdjacentQuestion(1)}
+            disabled={!canGoToNextQuestion}
             aria-label="Next"
             title="Next question"
           >

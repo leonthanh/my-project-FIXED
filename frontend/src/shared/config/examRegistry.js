@@ -131,3 +131,8 @@ export const FCE_HUB_PATH = buildSelectTestPath({
   type: DEFAULT_FCE_TYPE,
   tab: DEFAULT_FCE_SKILL,
 });
+
+export const GATEWAY_HUB_PATH = buildSelectTestPath({
+  platform: 'gateway',
+  tab: DEFAULT_GATEWAY_SKILL,
+});

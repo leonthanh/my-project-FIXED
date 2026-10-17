@@ -120,7 +120,8 @@ const ExamCoreResultsModal = ({
   }, [onClose, results]);
 
   if (!results) return null;
-  const isConfirmationOnly = displayMode === 'confirmation';
+  const isConfirmationOnly =
+    displayMode === 'confirmation' || results?.mode === 'confirmation';
   const showDetails = displayMode === 'details';
   const detailRows = showDetails
     ? Object.entries(answers)

@@ -217,7 +217,7 @@ const DoListeningTest = () => {
     );
   }, []);
   const isStudent = useMemo(() => {
-    const role = getStoredUser()?.role;
+    const role = String(getStoredUser()?.role || '').trim().toLowerCase();
     return !role || role === "student";
   }, []);
 
@@ -3425,7 +3425,11 @@ const DoListeningTest = () => {
           isStudent
             ? (test?.showResultModal === false
               ? "confirmation"
-              : test?.studentResultVisibility || "score")
+              : ["confirmation", "score", "details"].includes(
+                  String(test?.studentResultVisibility || "score").trim().toLowerCase()
+                )
+                ? String(test?.studentResultVisibility || "score").trim().toLowerCase()
+                : "score")
             : "score"
         }
       />

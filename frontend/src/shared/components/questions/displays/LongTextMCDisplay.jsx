@@ -38,6 +38,13 @@ function sanitizePassageHtml(html) {
   }
 }
 
+function normalizeAnswer(value) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  if (normalized === 'TRUE') return 'T';
+  if (normalized === 'FALSE') return 'F';
+  return normalized;
+}
+
 /**
  * LongTextMCDisplay - Display component for long-text-mc questions (KET Part 3)
  * Shows passage with 5-7 multiple choice questions
@@ -71,27 +78,80 @@ const LongTextMCDisplay = ({
           const questionNumber = startingNumber + idx;
           const questionKey = `${section.id}-${idx}`;
           const userAnswer = answers[questionKey];
-          const { questionText, options = [], correctAnswer } = question;
+          const { questionText, options = [], correctAnswer, answerType } = question;
+          const isTrueFalse = answerType === 'true-false';
+          const normalizedUserAnswer = normalizeAnswer(userAnswer);
+          const normalizedCorrectAnswer = normalizeAnswer(correctAnswer);
+          const answerOptions = isTrueFalse
+            ? [
+              { label: 'T', text: 'True' },
+              { label: 'F', text: 'False' },
+            ]
+            : options.map((option, optionIndex) => ({
+              label: String.fromCharCode(65 + optionIndex),
+              text: option,
+            }));
+          const resultStatus = !submitted || !isTrueFalse
+            ? null
+            : !normalizedUserAnswer
+              ? 'Blank'
+              : normalizedUserAnswer === normalizedCorrectAnswer
+                ? 'Correct'
+                : 'Wrong';
+          const startsGatewayGroup =
+            section.gatewayReadingMode &&
+            (idx === 0 || question.answerType !== questions[idx - 1]?.answerType);
+          const endsGatewayGroup =
+            section.gatewayReadingMode &&
+            (idx === questions.length - 1 || question.answerType !== questions[idx + 1]?.answerType);
+          const instruction = isTrueFalse
+            ? section.readingBInstruction
+            : section.readingAInstruction;
+          const scoreNote = isTrueFalse
+            ? section.readingBScoreNote
+            : section.readingAScoreNote;
 
           return (
-            <div key={idx} style={styles.questionCard}>
+            <React.Fragment key={idx}>
+              {startsGatewayGroup && instruction && (
+                <div style={styles.gatewayInstruction}>{instruction}</div>
+              )}
+              <div
+                role="group"
+                aria-label={`Question ${questionNumber}`}
+                style={styles.questionCard}
+              >
               {/* Question Header */}
               <div style={styles.questionHeader}>
                 <div style={styles.questionNumber}>{questionNumber}</div>
                 <div style={styles.questionText}>{questionText}</div>
+                {resultStatus && (
+                  <span
+                    style={{
+                      ...styles.resultStatus,
+                      ...(resultStatus === 'Correct'
+                        ? styles.resultStatusCorrect
+                        : resultStatus === 'Wrong'
+                          ? styles.resultStatusWrong
+                          : styles.resultStatusBlank),
+                    }}
+                  >
+                    {resultStatus}
+                  </span>
+                )}
               </div>
 
               {/* Options */}
               <div style={styles.optionsContainer}>
-                {options.map((option, optIdx) => {
-                  const optionLabel = String.fromCharCode(65 + optIdx); // A, B, C
-                  const isSelected = userAnswer === optionLabel;
-                  const isCorrect = submitted && correctAnswer === optionLabel;
-                  const isWrong = submitted && isSelected && correctAnswer !== optionLabel;
+                {answerOptions.map((option) => {
+                  const optionLabel = option.label;
+                  const isSelected = normalizedUserAnswer === optionLabel;
+                  const isCorrect = submitted && normalizedCorrectAnswer === optionLabel;
+                  const isWrong = submitted && isSelected && normalizedUserAnswer !== normalizedCorrectAnswer;
 
                   return (
                     <label
-                      key={optIdx}
+                      key={optionLabel}
                       style={{
                         ...styles.optionLabel,
                         ...(isSelected && styles.optionSelected),
@@ -108,20 +168,37 @@ const LongTextMCDisplay = ({
                         disabled={submitted}
                         style={styles.radioInput}
                       />
-                      <span style={styles.optionLetter}>{optionLabel}</span>
-                      <span style={styles.optionText}>{option}</span>
+                      {!isTrueFalse && <span style={styles.optionLetter}>{optionLabel}</span>}
+                      <span style={styles.optionText}>
+                        {isTrueFalse ? `${optionLabel} (${option.text})` : option.text}
+                      </span>
                     </label>
                   );
                 })}
               </div>
 
+              {submitted && isTrueFalse && (
+                <div style={styles.trueFalseResult}>
+                  <div>
+                    Student answer: <strong>{normalizedUserAnswer || '(No answer)'}</strong>
+                  </div>
+                  <div>
+                    Correct answer: <strong>{normalizedCorrectAnswer || '(Not available)'}</strong>
+                  </div>
+                </div>
+              )}
+
               {/* Correct Answer Display (after submission) */}
-              {submitted && correctAnswer && userAnswer !== correctAnswer && (
+              {submitted && !isTrueFalse && correctAnswer && normalizedUserAnswer !== normalizedCorrectAnswer && (
                 <div style={styles.correctAnswerBox}>
                   Correct answer: <strong>{correctAnswer}</strong>
                 </div>
               )}
-            </div>
+              </div>
+              {endsGatewayGroup && scoreNote && (
+                <div style={styles.gatewayScoreNote}>{scoreNote}</div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>
@@ -152,6 +229,20 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '20px',
+  },
+  gatewayInstruction: {
+    marginBottom: '-8px',
+    color: '#1f2937',
+    fontSize: '15px',
+    fontWeight: 600,
+  },
+  gatewayScoreNote: {
+    marginTop: '-12px',
+    marginBottom: '4px',
+    color: '#475569',
+    fontSize: '13px',
+    fontWeight: 600,
+    textAlign: 'right',
   },
   questionCard: {
     backgroundColor: '#fff',
@@ -184,6 +275,35 @@ const styles = {
     fontWeight: 500,
     lineHeight: 1.6,
     color: '#1f2937',
+  },
+  resultStatus: {
+    flexShrink: 0,
+    padding: '4px 9px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 700,
+  },
+  resultStatusCorrect: {
+    backgroundColor: '#dcfce7',
+    color: '#166534',
+  },
+  resultStatusWrong: {
+    backgroundColor: '#fee2e2',
+    color: '#991b1b',
+  },
+  resultStatusBlank: {
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+  },
+  trueFalseResult: {
+    display: 'grid',
+    gap: '6px',
+    marginTop: '14px',
+    padding: '12px 14px',
+    borderRadius: '8px',
+    backgroundColor: '#f8fafc',
+    color: '#334155',
+    fontSize: '14px',
   },
   optionsContainer: {
     display: 'flex',

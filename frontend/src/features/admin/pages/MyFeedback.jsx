@@ -5,10 +5,14 @@ import {
   buildCambridgeResponseFeedbackEntries,
   hasAnyVisibleCambridgeFeedback,
 } from "../../../shared/utils/cambridgeFeedback";
+import { getSubmissionResultRoute } from "../utils/platformSubmissionRoutes";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 
 import "./MyFeedback.css";
+
+const isConfirmationOnly = (submission) =>
+  String(submission?.studentResultVisibility || "").trim().toLowerCase() === "confirmation";
 
 const MyFeedback = () => {
   const { isDarkMode } = useTheme();
@@ -744,55 +748,68 @@ const MyFeedback = () => {
             </article>
           ))}
 
-          {activeTab === "reading" && filteredReading.map((sub, idx) => (
-            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--reading">
-              <div className="myFeedbackCardHeader">
-                <div className="myFeedbackCardHeading">
-                  <span className="myFeedbackCardEyebrow">Reading submission</span>
-                  <h4 className="myFeedbackCardTitle">
-                    Reading #{sub.testId} - {sub.ReadingTest?.classCode || "(Not specified)"} - {sub.ReadingTest?.teacherName || "(Not specified)"}
-                  </h4>
+          {activeTab === "reading" && filteredReading.map((sub, idx) => {
+            const confirmationOnly = isConfirmationOnly(sub);
+
+            return (
+              <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--reading">
+                <div className="myFeedbackCardHeader">
+                  <div className="myFeedbackCardHeading">
+                    <span className="myFeedbackCardEyebrow">Reading submission</span>
+                    <h4 className="myFeedbackCardTitle">
+                      Reading #{sub.testId} - {sub.ReadingTest?.classCode || "(Not specified)"} - {sub.ReadingTest?.teacherName || "(Not specified)"}
+                    </h4>
+                  </div>
+                  <div className="myFeedbackScoreBadge">
+                    <strong>
+                      {confirmationOnly
+                        ? "Submitted"
+                        : sub.band
+                          ? Number(sub.band).toFixed(1)
+                          : "N/A"}
+                    </strong>
+                    <span>{confirmationOnly ? "status" : "band score"}</span>
+                  </div>
                 </div>
-                <div className="myFeedbackScoreBadge">
-                  <strong>{sub.band ? Number(sub.band).toFixed(1) : "N/A"}</strong>
-                  <span>band score</span>
-                </div>
-              </div>
 
-              {renderMetaGrid([
-                { label: "Title", value: sub.ReadingTest?.title || "N/A" },
-                { label: "Submitted", value: formatDateTime(sub.createdAt) },
-                { label: "Teacher", value: sub.ReadingTest?.teacherName || "(Not specified)" },
-              ])}
+                {renderMetaGrid([
+                  { label: "Title", value: sub.ReadingTest?.title || "N/A" },
+                  { label: "Submitted", value: formatDateTime(sub.createdAt) },
+                  { label: "Teacher", value: sub.ReadingTest?.teacherName || "(Not specified)" },
+                ])}
 
-              {renderStats([
-                { label: "Correct", value: sub.correct || 0, color: colors.primary },
-                { label: "Questions", value: sub.total || 0, color: colors.primary },
-                { label: "Accuracy", value: `${sub.scorePercentage || 0}%`, color: getAccuracyColor(Number(sub.scorePercentage) || 0) },
-              ])}
+                {!confirmationOnly && renderStats([
+                  { label: "Correct", value: sub.correct || 0, color: colors.primary },
+                  { label: "Questions", value: sub.total || 0, color: colors.primary },
+                  { label: "Accuracy", value: `${sub.scorePercentage || 0}%`, color: getAccuracyColor(Number(sub.scorePercentage) || 0) },
+                ])}
 
-              <div className="myFeedbackActionRow">
-                <button
-                  type="button"
-                  onClick={() => loadAnalysis(sub.id)}
-                  disabled={loadingAnalysis}
-                  className="myFeedbackActionButton"
-                >
-                  <LineIcon name="review" size={16} />
-                  <span>{loadingAnalysis ? "Loading analysis..." : "View Detailed Analysis"}</span>
-                </button>
+                {!confirmationOnly && (
+                  <div className="myFeedbackActionRow">
+                    <button
+                      type="button"
+                      onClick={() => loadAnalysis(sub.id)}
+                      disabled={loadingAnalysis}
+                      className="myFeedbackActionButton"
+                    >
+                      <LineIcon name="review" size={16} />
+                      <span>{loadingAnalysis ? "Loading analysis..." : "View Detailed Analysis"}</span>
+                    </button>
 
-                <a href={`/reading-results/${sub.id}`} className="myFeedbackActionLink">
-                  <LineIcon name="eye" size={16} />
-                  <span>View Answer Details</span>
-                </a>
-              </div>
+                    <a href={`/reading-results/${sub.id}`} className="myFeedbackActionLink">
+                      <LineIcon name="eye" size={16} />
+                      <span>View Answer Details</span>
+                    </a>
+                  </div>
+                )}
 
-              {renderFeedbackBlock(sub, "No teacher feedback yet.")}
-            </article>
-          ))}
+                {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+              </article>
+            );
+          })}
 
           {activeTab === "listening" && filteredListening.map((sub, idx) => {
+          const confirmationOnly = isConfirmationOnly(sub);
           const correctCount = Number.isFinite(Number(sub.computedCorrect))
             ? Number(sub.computedCorrect)
             : Number(sub.correct) || 0;
@@ -814,9 +831,13 @@ const MyFeedback = () => {
                 </div>
                 <div className="myFeedbackScoreBadge">
                   <strong>
-                    {sub.band != null && Number.isFinite(Number(sub.band)) ? Number(sub.band).toFixed(1) : "N/A"}
+                    {confirmationOnly
+                      ? "Submitted"
+                      : sub.band != null && Number.isFinite(Number(sub.band))
+                        ? Number(sub.band).toFixed(1)
+                        : "N/A"}
                   </strong>
-                  <span>band score</span>
+                  <span>{confirmationOnly ? "status" : "band score"}</span>
                 </div>
               </div>
 
@@ -826,58 +847,71 @@ const MyFeedback = () => {
                 { label: "Teacher", value: sub.ListeningTest?.teacherName || "(Not specified)" },
               ])}
 
-              {renderStats([
+              {!confirmationOnly && renderStats([
                 { label: "Correct", value: correctCount, color: colors.primary },
                 { label: "Questions", value: totalCount, color: colors.primary },
                 { label: "Accuracy", value: `${accuracy}%`, color: getAccuracyColor(accuracy) },
               ])}
 
-              <div className="myFeedbackActionRow">
-                <a href={`/listening-results/${sub.id}`} className="myFeedbackActionLink">
-                  <LineIcon name="eye" size={16} />
-                  <span>View Result Details</span>
-                </a>
-              </div>
+              {!confirmationOnly && (
+                <div className="myFeedbackActionRow">
+                  <a href={`/listening-results/${sub.id}`} className="myFeedbackActionLink">
+                    <LineIcon name="eye" size={16} />
+                    <span>View Result Details</span>
+                  </a>
+                </div>
+              )}
 
               {renderFeedbackBlock(sub, "No teacher feedback yet.")}
             </article>
           );
         })}
 
-        {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => (
-          <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--cambridge">
-            <div className="myFeedbackCardHeader">
-              <div className="myFeedbackCardHeading">
-                <span className="myFeedbackCardEyebrow">Orange submission</span>
-                <h4 className="myFeedbackCardTitle">{sub.testTitle || sub.title || "Orange result"}</h4>
+        {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => {
+          const confirmationOnly = isConfirmationOnly(sub);
+
+          return (
+            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--cambridge">
+              <div className="myFeedbackCardHeader">
+                <div className="myFeedbackCardHeading">
+                  <span className="myFeedbackCardEyebrow">Orange submission</span>
+                  <h4 className="myFeedbackCardTitle">{sub.testTitle || sub.title || "Orange result"}</h4>
+                </div>
+                <div className="myFeedbackScoreBadge">
+                  <strong>
+                    {confirmationOnly
+                      ? "Submitted"
+                      : typeof sub.score === "number" && typeof sub.totalQuestions === "number"
+                        ? `${sub.score}/${sub.totalQuestions}`
+                        : "--"}
+                  </strong>
+                  <span>{confirmationOnly ? "status" : "score"}</span>
+                </div>
               </div>
-              <div className="myFeedbackScoreBadge">
-                <strong>
-                  {typeof sub.score === "number" && typeof sub.totalQuestions === "number"
-                    ? `${sub.score}/${sub.totalQuestions}`
-                    : "--"}
-                </strong>
-                <span>score</span>
-              </div>
-            </div>
 
-            {renderMetaGrid([
-              { label: "Test type", value: sub.testType || "Orange" },
-              { label: "Class", value: sub.classCode || "(Not specified)" },
-              { label: "Teacher", value: sub.teacherName || "(Not specified)" },
-              { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
-            ])}
+              {renderMetaGrid([
+                { label: "Test type", value: sub.testType || "Orange" },
+                { label: "Class", value: sub.classCode || "(Not specified)" },
+                { label: "Teacher", value: sub.teacherName || "(Not specified)" },
+                { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
+              ])}
 
-            <div className="myFeedbackActionRow">
-              <a href={`/cambridge/result/${sub.id}`} className="myFeedbackActionLink">
-                <LineIcon name="eye" size={16} />
-                <span>View Full Result</span>
-              </a>
-            </div>
+              {!confirmationOnly && getSubmissionResultRoute(sub.testType, sub.id) && (
+                <div className="myFeedbackActionRow">
+                  <a
+                    href={getSubmissionResultRoute(sub.testType, sub.id)}
+                    className="myFeedbackActionLink"
+                  >
+                    <LineIcon name="eye" size={16} />
+                    <span>View Full Result</span>
+                  </a>
+                </div>
+              )}
 
-            {renderFeedbackBlock(sub, "No teacher feedback yet.")}
-          </article>
-        ))}
+              {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+            </article>
+          );
+        })}
                 </div>
               </section>
             </main>
@@ -1018,4 +1052,3 @@ const MyFeedback = () => {
 };
 
 export default MyFeedback;
-

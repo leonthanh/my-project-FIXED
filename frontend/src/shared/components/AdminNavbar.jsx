@@ -188,6 +188,9 @@ const adminRoutePreloaders = {
   "/admin/fce-submissions": () => import("../../domains/fce/pages/FceSubmissionsPage"),
   "/admin/create-fce-reading": () => import("../../domains/fce/reading/pages/CreateFceReadingTestPage"),
   "/admin/create-fce-listening": () => import("../../domains/fce/listening/pages/CreateFceListeningTestPage"),
+  "/admin/gateway-submissions": () => import("../../features/gateway/pages/GatewaySubmissionsPage"),
+  "/admin/create-gateway/reading-writing": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
+  "/admin/create-gateway/listening": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
   "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
@@ -355,12 +358,14 @@ const AdminNavbar = () => {
   const [mobileSubmissionSection, setMobileSubmissionSection] =
     useState("create");
   const [mobileFceSection, setMobileFceSection] = useState("create");
+  const [mobileGatewaySection, setMobileGatewaySection] = useState("create");
   const [desktopDrawerMode, setDesktopDrawerMode] = useState(null);
   const [desktopCambridgeSection, setDesktopCambridgeSection] = useState("ket");
   const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
   const [desktopSubmissionSection, setDesktopSubmissionSection] =
     useState("create");
   const [desktopFceSection, setDesktopFceSection] = useState("create");
+  const [desktopGatewaySection, setDesktopGatewaySection] = useState("create");
   const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const notificationDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
@@ -398,12 +403,19 @@ const AdminNavbar = () => {
     };
 
     const fetchPendingNotifications = async () => {
-      const [writingResult, readingResult, listeningResult, cambridgeResult] =
+      const [
+        writingResult,
+        readingResult,
+        listeningResult,
+        orangeResult,
+        gatewayResult,
+      ] =
         await Promise.allSettled([
           readJsonOrThrow("writing/list"),
           readJsonOrThrow("reading-submissions/admin/list"),
           readJsonOrThrow("listening-submissions/admin/list"),
-          readJsonOrThrow("cambridge/submissions?page=1&limit=100"),
+          readJsonOrThrow("cambridge/submissions?page=1&limit=100&platform=orange"),
+          readJsonOrThrow("cambridge/submissions?page=1&limit=100&platform=gateway"),
         ]);
 
       if (writingResult.status === "rejected") {
@@ -415,8 +427,11 @@ const AdminNavbar = () => {
       if (listeningResult.status === "rejected") {
         console.error("Failed to load listening notifications:", listeningResult.reason);
       }
-      if (cambridgeResult.status === "rejected") {
-        console.error("Failed to load Orange notifications:", cambridgeResult.reason);
+      if (orangeResult.status === "rejected") {
+        console.error("Failed to load Orange notifications:", orangeResult.reason);
+      }
+      if (gatewayResult.status === "rejected") {
+        console.error("Failed to load Gateway notifications:", gatewayResult.reason);
       }
 
       const writingSubmissions =
@@ -431,13 +446,16 @@ const AdminNavbar = () => {
         listeningResult.status === "fulfilled" && Array.isArray(listeningResult.value)
           ? listeningResult.value
           : [];
-      const cambridgePayload =
-        cambridgeResult.status === "fulfilled" ? cambridgeResult.value : null;
-      const cambridgeSubmissions = Array.isArray(cambridgePayload?.submissions)
-        ? cambridgePayload.submissions
-        : Array.isArray(cambridgePayload)
-        ? cambridgePayload
-        : [];
+      const getSubmissions = (result) => {
+        const payload = result.status === "fulfilled" ? result.value : null;
+        return Array.isArray(payload?.submissions)
+          ? payload.submissions
+          : Array.isArray(payload)
+          ? payload
+          : [];
+      };
+      const orangeSubmissions = getSubmissions(orangeResult);
+      const gatewaySubmissions = getSubmissions(gatewayResult);
 
       const nextNotifications = [
         ...writingSubmissions
@@ -467,13 +485,22 @@ const AdminNavbar = () => {
               `/admin/listening-submissions?submissionId=${submission.id}&action=feedback`
             )
           ),
-        ...cambridgeSubmissions
+        ...orangeSubmissions
           .filter(isPendingSubmission)
           .map((submission) =>
             buildPendingNotification(
               submission,
               "Orange",
               `/admin/cambridge-submissions?submissionId=${submission.id}&action=review`
+            )
+          ),
+        ...gatewaySubmissions
+          .filter(isPendingSubmission)
+          .map((submission) =>
+            buildPendingNotification(
+              submission,
+              "Gateway",
+              `/admin/gateway-submissions?submissionId=${submission.id}&action=review`
             )
           ),
       ].sort((left, right) => {
@@ -668,6 +695,11 @@ const AdminNavbar = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
     if (pathname.startsWith("/review")) return "review";
+    if (pathname.includes("gateway")) return "gateway";
+    if (pathname === "/select-test") {
+      const platform = new URLSearchParams(location?.search || "").get("platform");
+      if (platform === "gateway") return "gateway";
+    }
     if (pathname.includes("cambridge")) return "orange";
     if (pathname.includes("/fce") || pathname.includes("create-fce") || pathname.includes("fce-submissions")) {
       return "fce";
@@ -727,12 +759,30 @@ const AdminNavbar = () => {
     return "create";
   };
 
+  const getPreferredDesktopGatewaySection = () => {
+    const pathname = String(location?.pathname || "").toLowerCase();
+
+    if (pathname.includes("/admin/gateway-submissions")) {
+      return "submissions";
+    }
+    if (pathname === "/select-test") {
+      const platform = new URLSearchParams(location?.search || "").get("platform");
+      if (platform === "gateway") return "browse";
+    }
+
+    return "create";
+  };
+
   const closeDesktopDrawer = () => setDesktopDrawerMode(null);
 
   const closeMobileDrawer = () => setMobileDrawerOpen(false);
   const openMobileDrawer = () => {
     closeDesktopMenus();
-    setMobileDrawerTab(getPreferredMobileDrawerTab());
+    const preferredTab = getPreferredMobileDrawerTab();
+    setMobileDrawerTab(preferredTab);
+    if (preferredTab === "gateway") {
+      setMobileGatewaySection(getPreferredDesktopGatewaySection());
+    }
     setMobileDrawerOpen(true);
   };
   const toggleMobileDrawer = () => {
@@ -803,6 +853,10 @@ const AdminNavbar = () => {
 
     if (mode === "fce") {
       setDesktopFceSection(getPreferredDesktopFceSection());
+    }
+
+    if (mode === "gateway") {
+      setDesktopGatewaySection(getPreferredDesktopGatewaySection());
     }
 
     setDesktopDrawerMode(mode);
@@ -1078,6 +1132,64 @@ const AdminNavbar = () => {
     [canManageListening, canManageReading]
   );
 
+  const gatewaySections = useMemo(
+    () => [
+      {
+        key: "create",
+        label: "Create",
+        title: "Create Gateway tests",
+        iconName: "create",
+        items: [
+          buildAdminLinkItem(
+            "create-gateway-reading-writing",
+            "/admin/create-gateway/reading-writing",
+            "Reading-Writing",
+            canManageReading,
+            "reading"
+          ),
+          buildAdminLinkItem(
+            "create-gateway-listening",
+            "/admin/create-gateway/listening",
+            "Listening",
+            canManageListening,
+            "listening"
+          ),
+        ].filter(Boolean),
+      },
+      {
+        key: "browse",
+        label: "Test Library",
+        title: "Gateway test library",
+        iconName: "tests",
+        items: [
+          buildAdminLinkItem(
+            "gateway-test-library",
+            "/select-test?platform=gateway&tab=reading-writing",
+            "Browse Gateway tests",
+            true,
+            "tests"
+          ),
+        ],
+      },
+      {
+        key: "submissions",
+        label: "Submissions",
+        title: "Gateway submissions",
+        iconName: "submissions",
+        items: [
+          buildAdminLinkItem(
+            "gateway-submissions",
+            "/admin/gateway-submissions",
+            "View submissions",
+            true,
+            "submissions"
+          ),
+        ],
+      },
+    ],
+    [canManageListening, canManageReading]
+  );
+
   const adminItems = useMemo(
     () =>
       [
@@ -1137,6 +1249,12 @@ const AdminNavbar = () => {
         return;
       }
 
+      if (mobileDrawerTab === "gateway") {
+        preloadAdminItems(flattenAdminSections(gatewaySections));
+        preloadAdminRoute("/admin/gateway-submissions");
+        return;
+      }
+
       if (mobileDrawerTab === "admin") {
         preloadAdminItems(adminItems);
         return;
@@ -1159,7 +1277,15 @@ const AdminNavbar = () => {
       window.clearTimeout(timerId);
       window.clearTimeout(warmupTimerId);
     };
-  }, [mobileDrawerOpen, mobileDrawerTab, adminItems, fceSections, cambridgeSections, ieltsSections]);
+  }, [
+    mobileDrawerOpen,
+    mobileDrawerTab,
+    adminItems,
+    fceSections,
+    gatewaySections,
+    cambridgeSections,
+    ieltsSections,
+  ]);
 
   useEffect(() => {
     if (isCompactMenu || !desktopDrawerMode || typeof window === "undefined") {
@@ -1207,6 +1333,10 @@ const AdminNavbar = () => {
     fceSections.find((section) => section.key === mobileFceSection) ||
     fceSections[0] ||
     null;
+  const activeGatewaySection =
+    gatewaySections.find((section) => section.key === mobileGatewaySection) ||
+    gatewaySections[0] ||
+    null;
   const desktopDrawerVisible = Boolean(desktopDrawerMode);
   const activeDesktopCambridgeSection =
     cambridgeSections.find((section) => section.key === desktopCambridgeSection) ||
@@ -1223,6 +1353,10 @@ const AdminNavbar = () => {
   const activeDesktopFceSection =
     fceSections.find((section) => section.key === desktopFceSection) ||
     fceSections[0] ||
+    null;
+  const activeDesktopGatewaySection =
+    gatewaySections.find((section) => section.key === desktopGatewaySection) ||
+    gatewaySections[0] ||
     null;
 
   const notificationsWithSeenState = useMemo(
@@ -1329,17 +1463,24 @@ const AdminNavbar = () => {
 
   const pendingNotificationCount = pendingNotifications.length;
   const pathname = String(location.pathname || "").toLowerCase();
+  const platformParam = pathname === "/select-test"
+    ? new URLSearchParams(location.search || "").get("platform")
+    : null;
   const isOrangeCurrent = pathname.includes("cambridge") || pathname.includes("pet-writing");
   const isFceCurrent =
     pathname.includes("/fce") ||
     pathname.includes("create-fce") ||
     pathname.includes("fce-submissions");
+  const isGatewayCurrent =
+    pathname.includes("gateway") ||
+    (pathname === "/select-test" && platformParam === "gateway");
   const isIxCurrent =
-    (pathname.startsWith("/admin/create") && !isFceCurrent) ||
+    (pathname.startsWith("/admin/create") && !isFceCurrent && !isGatewayCurrent) ||
     pathname.includes("writing-submissions") ||
     pathname.includes("reading-submissions") ||
     pathname.includes("listening-submissions");
-  const isTestListCurrent = pathname === "/select-test";
+  const isTestListCurrent =
+    pathname === "/select-test" && platformParam !== "gateway";
   const isReviewCurrent = pathname.startsWith("/review");
   const isProfileCurrent = pathname.startsWith("/profile");
   const isAdminCurrent =
@@ -1354,6 +1495,7 @@ const AdminNavbar = () => {
       label: `Review${unseenNotificationCount > 0 ? ` (${unseenNotificationCount})` : ""}`,
     },
     { key: "ix", label: "IX" },
+    { key: "gateway", label: "Gateway" },
     { key: "orange", label: "Orange" },
     { key: "fce", label: fceDisplayName },
     { key: "overview", label: "Overview" },
@@ -1563,6 +1705,7 @@ const AdminNavbar = () => {
       <>
         {renderDesktopDrawerTabs(
           fceSections,
+          gatewaySections,
           activeDesktopFceSection.key,
           setDesktopFceSection
         )}
@@ -1573,6 +1716,32 @@ const AdminNavbar = () => {
           <div className="adminNavbar__desktopDrawerList">
             {renderMenuItems(
               activeDesktopFceSection.items,
+              closeDesktopDrawer,
+              "drawer"
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderDesktopGatewayDrawerContent = () => {
+    if (!activeDesktopGatewaySection) return null;
+
+    return (
+      <>
+        {renderDesktopDrawerTabs(
+          gatewaySections,
+          activeDesktopGatewaySection.key,
+          setDesktopGatewaySection
+        )}
+        <div className="adminNavbar__desktopDrawerBody">
+          <div className="adminNavbar__desktopDrawerSectionTitle">
+            {activeDesktopGatewaySection.title}
+          </div>
+          <div className="adminNavbar__desktopDrawerList">
+            {renderMenuItems(
+              activeDesktopGatewaySection.items,
               closeDesktopDrawer,
               "drawer"
             )}
@@ -1729,6 +1898,37 @@ const AdminNavbar = () => {
     );
   };
 
+  const renderMobileGatewayMenu = () => {
+    if (!activeGatewaySection) return null;
+
+    return (
+      <>
+        <div className="adminNavbar__mobileMenuTop">
+          <div className="adminNavbar__mobileMenuTitle">Gateway</div>
+          <div className="adminNavbar__mobileMenuHint">
+            Create Gateway tests, browse the library, and review submissions.
+          </div>
+        </div>
+        {renderMobileTabs(
+          gatewaySections,
+          activeGatewaySection.key,
+          setMobileGatewaySection
+        )}
+        <div
+          key={activeGatewaySection.key}
+          className="adminNavbar__mobileAnimatedStage"
+        >
+          <div className="adminNavbar__mobileMenuBody">
+            <div className="adminNavbar__mobileSectionTitle">
+              {activeGatewaySection.title}
+            </div>
+            {renderMenuItems(activeGatewaySection.items, closeMobileDrawer, "mobile")}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const renderMobileAdminMenu = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
@@ -1787,7 +1987,7 @@ const AdminNavbar = () => {
       <div className="adminNavbar__mobileMenuTop">
         <div className="adminNavbar__mobileMenuTitle">Review & Alerts</div>
         <div className="adminNavbar__mobileMenuHint">
-          Review queue first, then pending submissions across writing, reading, listening, and Orange.
+          Review queue first, then pending submissions across writing, reading, listening, Orange, and Gateway.
         </div>
       </div>
       <div className="adminNavbar__mobileMenuBody adminNavbar__mobileMenuBody--compact">
@@ -1837,6 +2037,10 @@ const AdminNavbar = () => {
 
     if (mobileDrawerTab === "fce") {
       return renderMobileFceMenu();
+    }
+
+    if (mobileDrawerTab === "gateway") {
+      return renderMobileGatewayMenu();
     }
 
     if (mobileDrawerTab === "admin") {
@@ -1911,6 +2115,8 @@ const AdminNavbar = () => {
               aria-label={
                 desktopDrawerMode === "orange"
                   ? "Orange menu"
+                  : desktopDrawerMode === "gateway"
+                  ? "Gateway menu"
                   : desktopDrawerMode === "fce"
                   ? `${fceDisplayName} menu`
                   : "IX menu"
@@ -1920,7 +2126,13 @@ const AdminNavbar = () => {
                 <div className="adminNavbar__desktopDrawerIntro">
                   <span className="adminNavbar__desktopDrawerIcon" aria-hidden="true">
                     <NavIcon
-                      name={desktopDrawerMode === "orange" ? "cambridge" : "tests"}
+                      name={
+                        desktopDrawerMode === "orange"
+                          ? "cambridge"
+                          : desktopDrawerMode === "gateway"
+                          ? "reading"
+                          : "tests"
+                      }
                     />
                   </span>
                   <div className="adminNavbar__desktopDrawerIntroText">
@@ -1930,6 +2142,8 @@ const AdminNavbar = () => {
                     <div className="adminNavbar__desktopDrawerTitle">
                       {desktopDrawerMode === "orange"
                         ? "Orange Drawer"
+                        : desktopDrawerMode === "gateway"
+                        ? "Gateway Drawer"
                         : desktopDrawerMode === "fce"
                         ? `${fceDisplayName} Drawer`
                         : "IX Drawer"}
@@ -1937,6 +2151,8 @@ const AdminNavbar = () => {
                     <div className="adminNavbar__desktopDrawerMeta">
                       {desktopDrawerMode === "orange"
                         ? "Cambridge creation and submissions collected into a cleaner side panel."
+                        : desktopDrawerMode === "gateway"
+                        ? "Gateway creation, test library, and submissions in a dedicated side panel."
                         : desktopDrawerMode === "fce"
                         ? `${fceDisplayName} creation and submissions in a dedicated side panel.`
                         : "Create and review IELTS tests without a crowded dropdown menu."}
@@ -1960,6 +2176,7 @@ const AdminNavbar = () => {
                 {desktopDrawerMode === "orange" && renderDesktopCambridgeDrawerContent()}
                 {desktopDrawerMode === "ix" && renderDesktopSubmissionDrawerContent()}
                 {desktopDrawerMode === "fce" && renderDesktopFceDrawerContent()}
+                {desktopDrawerMode === "gateway" && renderDesktopGatewayDrawerContent()}
               </div>
             </aside>
           </>,
@@ -2022,6 +2239,30 @@ const AdminNavbar = () => {
           />
         </Link>
 
+        <div className="adminNavbar__dropdown">
+          <span
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isIxCurrent || desktopDrawerMode === "ix" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("ix")}
+            title="IX"
+          >
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+            <span className="adminNavbar__label">IX</span>
+            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
+          </span>
+        </div>
+
+        <div className="adminNavbar__dropdown">
+          <span
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isGatewayCurrent || desktopDrawerMode === "gateway" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("gateway")}
+            title="Gateway"
+          >
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="reading" /></span>
+            <span className="adminNavbar__label">Gateway</span>
+            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
+          </span>
+        </div>
+
         {/* Cambridge Tests Dropdown */}
         <div className="adminNavbar__dropdown">
           <span
@@ -2031,20 +2272,6 @@ const AdminNavbar = () => {
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
             <span className="adminNavbar__label">Orange</span>
-            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
-          </span>
-        </div>
-
-        <div
-          className="adminNavbar__dropdown"
-        >
-          <span
-            className={`adminNavbar__link adminNavbar__dropdownToggle${isIxCurrent || desktopDrawerMode === "ix" ? " adminNavbar__link--active" : ""}`}
-            onClick={() => toggleDesktopDrawer("ix")}
-            title="IX"
-          >
-            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">IX</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
         </div>

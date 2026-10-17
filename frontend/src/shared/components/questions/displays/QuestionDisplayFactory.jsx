@@ -38,6 +38,7 @@ const QuestionDisplayFactory = ({
   gatewayMetadata = null,
   sectionQuestionCount = 1,
   gatewayQuestionNumbers = false,
+  gatewayOptionBadges = false,
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
   const baseKey = `${section?.id || 'section'}-${questionIndex}`;
@@ -286,8 +287,26 @@ const QuestionDisplayFactory = ({
                     onChange={() => onAnswerChange(baseKey, optionLetter)}
                     style={{ marginTop: 2 }}
                   />
+                  {gatewayOptionBadges && (
+                    <span style={{
+                      minWidth: '22px',
+                      height: '22px',
+                      borderRadius: '4px',
+                      backgroundColor: '#2f7d46',
+                      color: '#fff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      marginTop: '2px',
+                    }}>
+                      {optionLetter}
+                    </span>
+                  )}
                   <span style={{ fontSize: 14, color: '#111827' }}>
-                    <strong>{optionLetter}.</strong> {cleanText}
+                    {gatewayOptionBadges ? cleanText : <><strong>{optionLetter}.</strong> {cleanText}</>}
                   </span>
                 </label>
               );

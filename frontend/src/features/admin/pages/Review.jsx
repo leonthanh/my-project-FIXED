@@ -26,7 +26,10 @@ import {
 } from "../components/SubmissionCardList";
 import { getReviewTabTone } from "../components/reviewTabTones";
 import { getAttemptTimingMeta } from "../utils/attemptTiming";
-import { getPlatformSubmissionRoute } from "../utils/platformSubmissionRoutes";
+import {
+  getPlatformSubmissionRoute,
+  getSubmissionResultRoute,
+} from "../utils/platformSubmissionRoutes";
 
 const DEFAULT_REVIEW_FILTERS = {
   studentName: "",
@@ -471,9 +474,11 @@ const Review = () => {
     }));
 
     const cambridgeRows = cambridgeSubmissions.map((sub) => ({
-      source: "cambridge",
+      source: String(sub?.testType || "").trim().toLowerCase().startsWith("gateway-")
+        ? "gateway"
+        : "cambridge",
       sub,
-      submittedAt: sub.submittedAt || 0,
+      submittedAt: sub.submittedAt || sub.createdAt || 0,
     }));
 
     return [...petRows, ...cambridgeRows].sort(
@@ -533,7 +538,7 @@ const Review = () => {
     const submissionId = row?.sub?.id;
 
     if (
-      !["cambridge", "general"].includes(String(row?.source || "")) ||
+      !["cambridge", "gateway", "general"].includes(String(row?.source || "")) ||
       !submissionId
     ) {
       return;
@@ -1158,6 +1163,7 @@ const Review = () => {
     }
 
     const submission = row?.sub || {};
+    const submissionPlatform = row?.source === "gateway" ? "Gateway" : "Orange";
     const detail = cambridgeDetailsById[submission.id];
     const isLoadingDetail = !!cambridgeLoadingDetailById[submission.id];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
@@ -1183,7 +1189,7 @@ const Review = () => {
               color: tone.calloutText,
             }}
           >
-            This Orange attempt is still active. Last saved at {formatDateTime(
+            This {submissionPlatform} attempt is still active. Last saved at {formatDateTime(
               submission?.lastSavedAt || submission?.createdAt
             )}.
             <div style={{ marginTop: 6, fontWeight: 700, color: timingMeta.color }}>
@@ -1225,7 +1231,7 @@ const Review = () => {
 
         {renderInfoGrid(
           [
-            { label: "Type", value: submission?.testType || "Orange" },
+            { label: "Type", value: submission?.testType || submissionPlatform },
             { label: "Student", value: submission?.studentName },
             { label: "Phone", value: submission?.studentPhone },
             { label: "Class Code", value: submission?.classCode },
@@ -1247,13 +1253,11 @@ const Review = () => {
         <div style={expandedActionRowStyle}>
           <button
             onClick={() => {
-              const normalizedTestType = String(submission?.testType || '').trim().toLowerCase();
-              if (normalizedTestType === 'fce-reading-60') {
-                navigate(`/fce/result/${submission.id}`);
-                return;
-              }
-
-              navigate(`/cambridge/result/${submission.id}`);
+              const resultRoute = getSubmissionResultRoute(
+                submission?.testType,
+                submission?.id
+              );
+              if (resultRoute) navigate(resultRoute);
             }}
             style={secondaryButtonStyle}
           >
@@ -1507,7 +1511,7 @@ const Review = () => {
   const activeReviewedCount = Math.max(activeTotalCount - activePendingCount, 0);
   const activeQueueHint =
     activeTab === "review"
-      ? "Showing all submissions across IX, Orange, and General in one queue."
+      ? "Showing all submissions across IX, Orange, Gateway, and General in one queue."
       : activeTab === "ix"
       ? "Quick view for all IX writing, reading, and listening submissions."
       : activeTab === "writing"
@@ -1906,7 +1910,7 @@ const Review = () => {
           {loadingWriting && <p>Loading writing submissions...</p>}
           {loadingReading && <p>Loading reading submissions...</p>}
           {loadingListening && <p>Loading listening submissions...</p>}
-          {loadingCambridge && <p>Loading Orange submissions...</p>}
+          {loadingCambridge && <p>Loading Orange and Gateway submissions...</p>}
           {loadingGeneral && <p>Loading General submissions...</p>}
         </>
       );
@@ -1943,6 +1947,8 @@ const Review = () => {
               ? "Reading"
               : source === "listening"
               ? "Listening"
+              : source === "gateway"
+              ? "Gateway"
               : source === "general"
               ? "General"
               : source === "pet-writing"
@@ -1969,7 +1975,7 @@ const Review = () => {
           const scoreSummary =
             source === "reading" || source === "listening"
               ? getObjectiveScoreSummary(submission)
-              : source === "cambridge" || source === "general"
+              : source === "cambridge" || source === "gateway" || source === "general"
               ? getCambridgeScoreSummary(submission)
               : null;
 
@@ -2331,7 +2337,7 @@ const Review = () => {
         <AdminStickySidebarLayout
           eyebrow="Review hub"
           title="Teacher review hub"
-          description="Review across IX, Orange, and General submissions."
+          description="Review across IX, Orange, Gateway, and General submissions."
           sidebarContent={(
             <>
               <AdminSidebarPanel eyebrow="Workspace" title="Admin pages" meta="Quick jump">

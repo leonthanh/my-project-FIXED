@@ -5,6 +5,7 @@ import AdminNavbar from "../../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
+import { isZeroNumberedClozeExample } from "../../../exam-core/shared/utils/examQuestionNumbering";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
@@ -153,7 +154,7 @@ function buildWritingPromptHtml(sectionType, question, detailedResult) {
  * - Danh sách câu hỏi với đánh dấu đúng/sai
  * - Đáp án đúng cho từng câu
  */
-const CambridgeResultPage = () => {
+const CambridgeResultPage = ({ platform = 'orange' }) => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -280,6 +281,17 @@ const CambridgeResultPage = () => {
   const [expandedParts, setExpandedParts] = useState({});
   const [showLegacyDetails, setShowLegacyDetails] = useState(false);
   const lastFetchedTestKeyRef = useRef(null);
+  const isGatewaySubmission = String(submission?.testType || '').trim().toLowerCase().startsWith('gateway-');
+  const isGatewayResultPage =
+    platform === 'gateway' || location.pathname.startsWith('/gateway/result/');
+  const isGatewayResult = isGatewaySubmission || isGatewayResultPage;
+  const gatewayTab = String(submission?.testType || '').toLowerCase().includes('listening')
+    ? 'listening'
+    : 'reading-writing';
+  const resultHomePath = isGatewayResult
+    ? `/select-test?platform=gateway&tab=${gatewayTab}`
+    : '/cambridge';
+  const resultPageTitle = isGatewayResult ? 'Gateway Test Results' : 'Orange Test Results';
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -345,6 +357,21 @@ const CambridgeResultPage = () => {
     };
   }, [submissionId]);
 
+  useEffect(() => {
+    if (!submission?.testType) return;
+    if (!test || String(test.id) !== String(submission.testId)) return;
+
+    const isGatewayType = String(submission.testType).trim().toLowerCase().startsWith('gateway-');
+    const resultPath = isGatewayType ? '/gateway/result' : '/cambridge/result';
+    const targetPath = `${resultPath}/${submission.id || submissionId}`;
+    if (location.pathname !== targetPath) {
+      navigate(targetPath, {
+        replace: true,
+        state: { ...location.state, submission },
+      });
+    }
+  }, [location.pathname, location.state, navigate, submission, submissionId, test]);
+
   // Ensure we have test data for rendering Part 5 + mapping keys
   useEffect(() => {
     const sub = normalizeSubmission(location.state?.submission) || submission;
@@ -377,6 +404,9 @@ const CambridgeResultPage = () => {
     return () => {
       cancelled = true;
       controller.abort();
+      if (lastFetchedTestKeyRef.current === fetchKey) {
+        lastFetchedTestKeyRef.current = null;
+      }
     };
   }, [submission, location.state?.submission, test]);
 
@@ -491,9 +521,15 @@ const CambridgeResultPage = () => {
 
           if (sectionType === 'cloze-test') {
             const passageText = question?.passageText || question?.passage || '';
-            const blanks = Array.isArray(question?.blanks) && question.blanks.length > 0
+            const allBlanks = Array.isArray(question?.blanks) && question.blanks.length > 0
               ? question.blanks
               : parseClozeBlanks(passageText, questionNum + 1);
+            const blanks = String(submission?.testType || test?.testType || '')
+              .trim()
+              .toLowerCase()
+              .startsWith('gateway-')
+              ? allBlanks.filter((blank) => !isZeroNumberedClozeExample(blank))
+              : allBlanks;
 
             if (Array.isArray(blanks) && blanks.length > 0) {
               blanks.forEach((blank, blankIdx) => {
@@ -694,7 +730,7 @@ const CambridgeResultPage = () => {
     });
 
     return map;
-  }, [test?.parts]);
+  }, [submission?.testType, test?.parts, test?.testType]);
 
   const mappedQuestionResults = useMemo(() => {
     if (!submission?.detailedResults || typeof submission.detailedResults !== 'object') {
@@ -722,8 +758,18 @@ const CambridgeResultPage = () => {
     let correctCount = 0;
     let wrongCount = 0;
     let unansweredCount = 0;
+    const gatewayResults =
+      isGatewaySubmission &&
+      submission.detailedResults &&
+      typeof submission.detailedResults === 'object' &&
+      !Array.isArray(submission.detailedResults)
+        ? Object.values(submission.detailedResults)
+        : [];
+    const resultsForStats = gatewayResults.length
+      ? gatewayResults.map((result) => ({ result }))
+      : mappedQuestionResults;
 
-    mappedQuestionResults.forEach(({ result }) => {
+    resultsForStats.forEach(({ result }) => {
       const status = getResultStatus(result);
       if (status.label === 'Correct') {
         correctCount += 1;
@@ -734,8 +780,8 @@ const CambridgeResultPage = () => {
       }
     });
 
-    const total = isFceReading60
-      ? Number(submission.totalQuestions) || mappedQuestionResults.length || 0
+    const total = isFceReading60 || isGatewaySubmission
+      ? Number(submission.totalQuestions) || resultsForStats.length || 0
       : mappedQuestionResults.length || Number(submission.totalQuestions) || 0;
 
     return {
@@ -747,7 +793,7 @@ const CambridgeResultPage = () => {
       unanswered: unansweredCount,
       grade: getGrade(Number(percentage) || 0)
     };
-  }, [getResultStatus, isFceReading60, mappedQuestionResults, submission]);
+  }, [getResultStatus, isFceReading60, isGatewaySubmission, mappedQuestionResults, submission]);
 
   // Get grade based on percentage
   function getGrade(percentage) {
@@ -1082,7 +1128,7 @@ const CambridgeResultPage = () => {
         <ResultNavbar />
         <div style={styles.errorContainer}>
           <h2 style={{ margin: 0 }}>{error}</h2>
-          <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
+          <button onClick={() => navigate(resultHomePath)} style={styles.primaryButton}>
             Back
           </button>
         </div>
@@ -1097,7 +1143,7 @@ const CambridgeResultPage = () => {
         <ResultNavbar />
         <div style={styles.errorContainer}>
           <h2 style={{ margin: 0 }}>No result found</h2>
-          <button onClick={() => navigate('/cambridge')} style={styles.primaryButton}>
+          <button onClick={() => navigate(resultHomePath)} style={styles.primaryButton}>
             Back
           </button>
         </div>
@@ -1113,14 +1159,14 @@ const CambridgeResultPage = () => {
       <div style={styles.header}>
         <div style={styles.headerContent}>
           <button 
-            onClick={() => navigate('/cambridge')} 
+            onClick={() => navigate(resultHomePath)} 
             style={styles.backButton}
           >
             Back
           </button>
           <div>
-            <h1 style={styles.title}>Orange Test Results</h1>
-            <p style={styles.subtitle}>{submission.testTitle || 'Orange Test'}</p>
+            <h1 style={styles.title}>{resultPageTitle}</h1>
+            <p style={styles.subtitle}>{submission.testTitle || (isGatewayResult ? 'Gateway Test' : 'Orange Test')}</p>
           </div>
         </div>
       </div>
@@ -1228,7 +1274,7 @@ const CambridgeResultPage = () => {
                 </button>
               )}
               <button 
-                onClick={() => navigate('/cambridge')} 
+                onClick={() => navigate(resultHomePath)} 
                 style={canViewDetailedReview ? styles.secondaryButton : styles.primaryButton}
               >
                 Choose Another Test
@@ -1286,7 +1332,7 @@ const CambridgeResultPage = () => {
                 Back to Overview
               </button>
               <button 
-                onClick={() => navigate('/cambridge')} 
+                onClick={() => navigate(resultHomePath)} 
                 style={styles.primaryButton}
               >
                 Choose Another Test

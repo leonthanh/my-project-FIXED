@@ -189,6 +189,10 @@
   background: linear-gradient(135deg, #0f3f94 0%, #2563eb 100%);
 }
 
+.select-test-sidePlatform--gateway.is-active {
+  background: linear-gradient(135deg, #2f6f3e 0%, #417e4b 100%);
+}
+
 .select-test-sidePlatform--orange.is-active {
   background: linear-gradient(135deg, #d45512 0%, #ff8a34 100%);
 }
@@ -1092,7 +1096,8 @@
 }
 
 .select-test-pillButton--reading,
-.select-test-pillButton--ket {
+.select-test-pillButton--ket,
+.select-test-pillButton--reading-writing {
   --pill-accent: #2563eb;
 }
 
@@ -1118,7 +1123,8 @@
 }
 
 .select-test-pillButton--reading.active,
-.select-test-pillButton--ket.active {
+.select-test-pillButton--ket.active,
+.select-test-pillButton--reading-writing.active {
   background: linear-gradient(135deg, #2563eb 0%, #5f9bff 100%);
 }
 

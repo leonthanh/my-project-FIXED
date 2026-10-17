@@ -1,5 +1,6 @@
 import {
   getPlatformSubmissionRoute,
+  getSubmissionResultRoute,
   PLATFORM_SUBMISSION_PAGE_BY_GROUP,
 } from "../platformSubmissionRoutes";
 
@@ -13,6 +14,38 @@ describe("getPlatformSubmissionRoute", () => {
     );
     expect(getPlatformSubmissionRoute("orange", "reading")).toBe(
       PLATFORM_SUBMISSION_PAGE_BY_GROUP.orange.reading
+    );
+  });
+
+  describe("getSubmissionResultRoute", () => {
+    test("routes Gateway results to the dedicated Gateway page", () => {
+      expect(getSubmissionResultRoute("gateway-reading-writing", 1347)).toBe(
+        "/gateway/result/1347"
+      );
+      expect(getSubmissionResultRoute("gateway-listening", 12)).toBe(
+        "/gateway/result/12"
+      );
+    });
+
+    test("preserves existing Cambridge and FCE result destinations", () => {
+      expect(getSubmissionResultRoute("orange-reading", 7)).toBe(
+        "/cambridge/result/7"
+      );
+      expect(getSubmissionResultRoute("fce-reading-60", 9)).toBe(
+        "/fce/result/9"
+      );
+    });
+  });
+
+  test("maps Gateway views to the dedicated Gateway submissions route", () => {
+    expect(getPlatformSubmissionRoute("gateway", "all")).toBe(
+      PLATFORM_SUBMISSION_PAGE_BY_GROUP.gateway.all
+    );
+    expect(getPlatformSubmissionRoute("gateway", "listening")).toBe(
+      PLATFORM_SUBMISSION_PAGE_BY_GROUP.gateway.listening
+    );
+    expect(getPlatformSubmissionRoute("gateway", "reading")).toBe(
+      PLATFORM_SUBMISSION_PAGE_BY_GROUP.gateway.reading
     );
   });
 

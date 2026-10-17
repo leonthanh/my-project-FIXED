@@ -35,13 +35,19 @@ import {
   formatAttemptTimestamp,
   getAttemptTimingMeta,
 } from "../utils/attemptTiming";
+import { getSubmissionResultRoute } from "../utils/platformSubmissionRoutes";
 
 const getCambridgeSubmissionTabs = (platformFilter) => [
   {
     key: 'all',
     shortLabel: 'All',
     label: 'All Submissions',
-    tone: platformFilter === 'fce' ? 'cyan' : 'cambridge',
+    tone:
+      platformFilter === 'fce'
+        ? 'cyan'
+        : platformFilter === 'gateway'
+        ? 'green'
+        : 'cambridge',
   },
   {
     key: 'listening',
@@ -51,8 +57,18 @@ const getCambridgeSubmissionTabs = (platformFilter) => [
   },
   {
     key: 'reading',
-    shortLabel: platformFilter === 'fce' ? 'Reading + Writing' : 'Reading',
-    label: platformFilter === 'fce' ? 'Reading + Writing Submissions' : 'Reading Submissions',
+    shortLabel:
+      platformFilter === 'fce'
+        ? 'Reading + Writing'
+        : platformFilter === 'gateway'
+        ? 'Reading-Writing'
+        : 'Reading',
+    label:
+      platformFilter === 'fce'
+        ? 'Reading + Writing Submissions'
+        : platformFilter === 'gateway'
+        ? 'Reading-Writing Submissions'
+        : 'Reading Submissions',
     tone: 'reading',
   },
 ];
@@ -294,7 +310,9 @@ const CambridgeSubmissionsPage = ({
     : globalDisplayLabels;
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
-  const resolvedPlatformFilter = platformFilter === 'fce' ? 'fce' : 'orange';
+  const resolvedPlatformFilter = ['fce', 'gateway'].includes(platformFilter)
+    ? platformFilter
+    : 'orange';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   /* eslint-disable-next-line no-unused-vars */
@@ -335,7 +353,11 @@ const CambridgeSubmissionsPage = ({
     normalizeSubmissionView(searchParams.get('view'))
   ); // all, listening, reading
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState(
-    resolvedPlatformFilter === 'fce' ? 'general' : 'orange'
+    resolvedPlatformFilter === 'fce'
+      ? 'general'
+      : resolvedPlatformFilter === 'gateway'
+      ? 'gateway'
+      : 'orange'
   );
   const [reviewStatus, setReviewStatus] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -529,7 +551,13 @@ const CambridgeSubmissionsPage = ({
   ]);
 
   useEffect(() => {
-    setActiveWorkspaceGroup(resolvedPlatformFilter === 'fce' ? 'general' : 'orange');
+    setActiveWorkspaceGroup(
+      resolvedPlatformFilter === 'fce'
+        ? 'general'
+        : resolvedPlatformFilter === 'gateway'
+        ? 'gateway'
+        : 'orange'
+    );
   }, [resolvedPlatformFilter]);
 
   const resetFilters = () => {
@@ -1127,13 +1155,8 @@ const CambridgeSubmissionsPage = ({
     const submissionId = submission?.id;
     if (!submissionId) return;
 
-    const normalizedTestType = String(submission?.testType || '').trim().toLowerCase();
-    if (resolvedPlatformFilter === 'fce' && normalizedTestType === 'fce-reading-60') {
-      navigate(`/fce/result/${submissionId}`);
-      return;
-    }
-
-    navigate(`/cambridge/result/${submissionId}`);
+    const resultRoute = getSubmissionResultRoute(submission?.testType, submissionId);
+    if (resultRoute) navigate(resultRoute);
   };
 
   const handleExtendTime = async (sub, extraMinutes) => {
@@ -1334,9 +1357,18 @@ const CambridgeSubmissionsPage = ({
     ? submissions.find((item) => item.id === activeReviewSubmissionId) ||
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
-  const workspaceCurrentKey = resolvedPlatformFilter === 'fce' ? 'fce' : 'cambridge';
+  const workspaceCurrentKey =
+    resolvedPlatformFilter === 'fce'
+      ? 'fce'
+      : resolvedPlatformFilter === 'gateway'
+      ? 'gateway'
+      : 'cambridge';
   const activePlatformWorkspaceGroup =
-    resolvedPlatformFilter === 'fce' ? 'general' : 'orange';
+    resolvedPlatformFilter === 'fce'
+      ? 'general'
+      : resolvedPlatformFilter === 'gateway'
+      ? 'gateway'
+      : 'orange';
   const { ixDisplayName, ixWorkspaceLinks, workspaceGroupLinks } = useMemo(
     () =>
       buildSubmissionWorkspaceNav({
@@ -1363,6 +1395,11 @@ const CambridgeSubmissionsPage = ({
             generalWorkspaceLink?.onClick?.();
           }
         },
+        onGatewayGroupClick: ({ gatewayWorkspaceLink }) => {
+          if (activePlatformWorkspaceGroup !== 'gateway') {
+            gatewayWorkspaceLink?.onClick?.();
+          }
+        },
       }),
     [
       activePlatformWorkspaceGroup,
@@ -1372,7 +1409,12 @@ const CambridgeSubmissionsPage = ({
       workspaceCurrentKey,
     ]
   );
-  const platformTone = resolvedPlatformFilter === 'fce' ? 'cyan' : 'orange';
+  const platformTone =
+    resolvedPlatformFilter === 'fce'
+      ? 'cyan'
+      : resolvedPlatformFilter === 'gateway'
+      ? 'green'
+      : 'orange';
   const cambridgeSubmissionTabs = getCambridgeSubmissionTabs(resolvedPlatformFilter);
   const platformSubmissionViewLinks = cambridgeSubmissionTabs.map((tab) => ({
     key: tab.key,

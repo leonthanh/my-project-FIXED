@@ -50,6 +50,14 @@ const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
     onClick: () => navigate("/admin/listening-submissions"),
   },
   {
+    key: "gateway",
+    label: "Gateway",
+    hint: "Gateway submissions",
+    tone: "green",
+    active: currentKey === "gateway",
+    onClick: () => navigate("/admin/gateway-submissions"),
+  },
+  {
     key: "cambridge",
     label: "Orange",
     hint: "Cambridge submissions",
@@ -148,6 +156,8 @@ export const buildSubmissionWorkspaceContext = ({
   );
   const orangeWorkspaceLink =
     workspaceLinks.find((item) => item?.key === "cambridge") || null;
+  const gatewayWorkspaceLink =
+    workspaceLinks.find((item) => item?.key === "gateway") || null;
   const generalWorkspaceLink =
     workspaceLinks.find((item) => item?.key === "fce") || null;
 
@@ -157,6 +167,7 @@ export const buildSubmissionWorkspaceContext = ({
     reviewWorkspaceLink,
     ixWorkspaceLinks,
     orangeWorkspaceLink,
+    gatewayWorkspaceLink,
     generalWorkspaceLink,
   };
 };
@@ -170,6 +181,7 @@ export const buildSubmissionWorkspaceNav = ({
   activeIxKey = "writing",
   onIxGroupClick,
   onOrangeGroupClick,
+  onGatewayGroupClick,
   onGeneralGroupClick,
 } = {}) => {
   const {
@@ -178,6 +190,7 @@ export const buildSubmissionWorkspaceNav = ({
     reviewWorkspaceLink,
     ixWorkspaceLinks,
     orangeWorkspaceLink,
+    gatewayWorkspaceLink,
     generalWorkspaceLink,
   } = buildSubmissionWorkspaceContext({
     navigate,
@@ -210,6 +223,23 @@ export const buildSubmissionWorkspaceNav = ({
         onIxGroupClick?.({ ixWorkspaceLinks, workspaceLinks });
       },
     },
+    gatewayWorkspaceLink
+      ? {
+          key: "workspace-gateway",
+          label: gatewayWorkspaceLink.label,
+          hint: gatewayWorkspaceLink.hint,
+          tone: gatewayWorkspaceLink.tone,
+          active: activeWorkspaceGroup === "gateway",
+          onClick: () => {
+            setActiveWorkspaceGroup("gateway");
+            if (onGatewayGroupClick) {
+              onGatewayGroupClick({ gatewayWorkspaceLink, workspaceLinks });
+            } else {
+              gatewayWorkspaceLink.onClick?.();
+            }
+          },
+        }
+      : null,
     orangeWorkspaceLink
       ? {
           key: "workspace-orange",
@@ -288,6 +318,7 @@ export const buildReviewWorkspaceNav = ({
     ixDisplayName,
     reviewWorkspaceLink,
     orangeWorkspaceLink,
+    gatewayWorkspaceLink,
     generalWorkspaceLink,
   } = buildSubmissionWorkspaceContext({
     navigate,
@@ -324,6 +355,19 @@ export const buildReviewWorkspaceNav = ({
       navigateToIxSubmissionPage("writing");
     },
   });
+
+  if (gatewayWorkspaceLink) {
+    workspaceParentLinks.push({
+      key: "workspace-gateway",
+      label: gatewayWorkspaceLink.label,
+      hint: gatewayWorkspaceLink.hint,
+      tone: gatewayWorkspaceLink.tone,
+      active: activeTab !== "review" && activeWorkspaceGroup === "gateway",
+      onClick: () => {
+        navigateToPlatformSubmissionPage("gateway", "all");
+      },
+    });
+  }
 
   if (orangeWorkspaceLink) {
     workspaceParentLinks.push({
@@ -391,6 +435,21 @@ export const buildReviewWorkspaceNav = ({
           navigateToPlatformSubmissionPage("orange", tab.key);
         },
       }));
+    } else if (activeWorkspaceGroup === "gateway") {
+      workspaceChildLinks = [
+        { key: "all", shortLabel: "All", label: "All Submissions", tone: "green" },
+        { key: "listening", shortLabel: "Listening", label: "Listening Submissions", tone: "green" },
+        { key: "reading", shortLabel: "Reading-Writing", label: "Reading-Writing Submissions", tone: "violet" },
+      ].map((tab) => ({
+        key: `workspace-child-gateway-${tab.key}`,
+        label: tab.shortLabel,
+        hint: tab.label,
+        tone: tab.tone,
+        active: false,
+        onClick: () => {
+          navigateToPlatformSubmissionPage("gateway", tab.key);
+        },
+      }));
     } else if (activeWorkspaceGroup === "general") {
       workspaceChildLinks = (Array.isArray(generalSubmissionTypeTabs)
         ? generalSubmissionTypeTabs
@@ -413,6 +472,8 @@ export const buildReviewWorkspaceNav = ({
       ? ixDisplayName
       : activeWorkspaceGroup === "orange"
       ? "Open Cambridge submissions"
+      : activeWorkspaceGroup === "gateway"
+      ? "Open Gateway submissions"
       : activeWorkspaceGroup === "general"
       ? "Open General submissions"
       : activeReviewTabShortLabel;
@@ -422,6 +483,8 @@ export const buildReviewWorkspaceNav = ({
       ? "IX submission types"
       : activeWorkspaceGroup === "orange"
       ? "Orange submission types"
+      : activeWorkspaceGroup === "gateway"
+      ? "Gateway submission types"
       : activeWorkspaceGroup === "general"
       ? "General submission types"
       : "Submission types";
