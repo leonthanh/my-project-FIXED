@@ -1,6 +1,7 @@
 import {
   buildAdminWorkspaceLinks,
   buildReviewWorkspaceNav,
+  buildSubmissionWorkspaceNav,
 } from "../AdminStickySidebarLayout";
 
 describe("buildAdminWorkspaceLinks", () => {
@@ -14,6 +15,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "writing",
       "reading",
       "listening",
+      "gateway",
       "cambridge",
       "fce",
     ]);
@@ -29,6 +31,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "writing",
       "reading",
       "listening",
+      "gateway",
       "cambridge",
       "fce",
       "display-settings",
@@ -51,6 +54,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "writing",
       "reading",
       "listening",
+      "gateway",
       "cambridge",
       "fce",
     ]);
@@ -141,6 +145,7 @@ describe("buildReviewWorkspaceNav", () => {
     expect(nav.workspaceParentLinks.map((item) => item.key)).toEqual([
       "workspace-review",
       "workspace-ix",
+      "workspace-gateway",
       "workspace-orange",
       "workspace-general",
     ]);
@@ -156,6 +161,47 @@ describe("buildReviewWorkspaceNav", () => {
       "reading",
       "listening",
     ]);
+  });
+
+  describe("buildSubmissionWorkspaceNav", () => {
+    test("includes a dedicated Gateway workspace link", () => {
+      const navigate = jest.fn();
+      const setActiveWorkspaceGroup = jest.fn();
+      const onGatewayGroupClick = jest.fn();
+      const nav = buildSubmissionWorkspaceNav({
+        navigate,
+        currentKey: "gateway",
+        activeWorkspaceGroup: "gateway",
+        setActiveWorkspaceGroup,
+        onGatewayGroupClick,
+      });
+      expect(nav.workspaceGroupLinks.map((item) => item.key)).toEqual([
+        "workspace-review",
+        "workspace-ix",
+        "workspace-gateway",
+        "workspace-orange",
+        "workspace-general",
+      ]);
+      const gatewayLink = nav.workspaceGroupLinks.find(
+        (item) => item.key === "workspace-gateway"
+      );
+
+      expect(gatewayLink).toMatchObject({
+        label: "Gateway",
+        active: true,
+      });
+      gatewayLink.onClick();
+
+      expect(setActiveWorkspaceGroup).toHaveBeenCalledWith("gateway");
+      expect(onGatewayGroupClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayWorkspaceLink: expect.objectContaining({
+            key: "gateway",
+            label: "Gateway",
+          }),
+        })
+      );
+    });
   });
 
   test("hides child links and submission tabs in review mode", () => {
@@ -219,5 +265,35 @@ describe("buildReviewWorkspaceNav", () => {
 
     expect(fns.navigateToPlatformSubmissionPage).toHaveBeenCalledWith("orange", "all");
     expect(generalArgs.navigateToPlatformSubmissionPage).toHaveBeenCalledWith("general", "all");
+  });
+
+  test("Gateway parent and children route to the dedicated Gateway submissions page", () => {
+    const { args, fns } = createArgs({
+      activeWorkspaceGroup: "gateway",
+      activeTab: "reading",
+    });
+    const nav = buildReviewWorkspaceNav(args);
+    const gatewayParent = nav.workspaceParentLinks.find(
+      (item) => item.key === "workspace-gateway"
+    );
+
+    gatewayParent.onClick();
+    nav.workspaceChildLinks[2].onClick();
+
+    expect(fns.navigateToPlatformSubmissionPage).toHaveBeenNthCalledWith(
+      1,
+      "gateway",
+      "all"
+    );
+    expect(fns.navigateToPlatformSubmissionPage).toHaveBeenNthCalledWith(
+      2,
+      "gateway",
+      "reading"
+    );
+    expect(nav.workspaceChildLinks.map((item) => item.label)).toEqual([
+      "All",
+      "Listening",
+      "Reading-Writing",
+    ]);
   });
 });

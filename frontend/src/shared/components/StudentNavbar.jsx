@@ -3,7 +3,12 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
-import { IX_HUB_PATH, ORANGE_HUB_PATH, FCE_HUB_PATH } from "../config/examRegistry";
+import {
+  IX_HUB_PATH,
+  ORANGE_HUB_PATH,
+  FCE_HUB_PATH,
+  GATEWAY_HUB_PATH,
+} from "../config/examRegistry";
 import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
 import "./StudentNavbar.css";
 
@@ -411,15 +416,18 @@ const StudentNavbar = () => {
   const ixHubPath = IX_HUB_PATH;
   const orangeHubPath = ORANGE_HUB_PATH;
   const fceHubPath = FCE_HUB_PATH;
+  const gatewayHubPath = GATEWAY_HUB_PATH;
 
   const getPreferredMobileTab = () => {
     const pathname = String(location.pathname || "").toLowerCase();
     if (pathname.startsWith("/my-feedback")) return "feedback";
+    if (pathname.startsWith("/gateway/")) return "gateway";
     if (pathname.startsWith("/cambridge")) return "orange";
     if (pathname.startsWith("/fce")) return "fce";
     if (pathname.startsWith("/select-test")) {
       const params = new URLSearchParams(location.search || "");
       const platform = params.get("platform");
+      if (platform === "gateway") return "gateway";
       if (platform === "orange") return "orange";
       if (platform === "fce") return "fce";
       return "ielts";
@@ -452,7 +460,7 @@ const StudentNavbar = () => {
     ? new URLSearchParams(location.search || "").get("platform")
     : null;
   const isIxCurrent =
-    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "fce") ||
+    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "fce" && platformParam !== "gateway") ||
     pathname.startsWith("/reading/") ||
     pathname.startsWith("/listening/") ||
     pathname.startsWith("/writing-test");
@@ -463,12 +471,16 @@ const StudentNavbar = () => {
   const isFceCurrent =
     (pathname.startsWith("/select-test") && platformParam === "fce") ||
     pathname.startsWith("/fce/");
+  const isGatewayCurrent =
+    (pathname.startsWith("/select-test") && platformParam === "gateway") ||
+    pathname.startsWith("/gateway/");
   const isFeedbackCurrent = pathname.startsWith("/my-feedback");
   const isProfileCurrent = pathname.startsWith("/profile");
 
   const mobileDrawerTabs = [
     { key: "overview", label: "Overview" },
     { key: "ielts", label: "IX" },
+    { key: "gateway", label: "Gateway" },
     { key: "orange", label: "Orange" },
     { key: "fce", label: fceDisplayName },
     {
@@ -523,7 +535,14 @@ const StudentNavbar = () => {
         <div className="studentNavbar__mobileSectionTitle">Quick access</div>
         <div className="studentNavbar__mobileQuickGrid">
           {renderMobileQuickLink(ixHubPath, "IX", "Open the IX test list", "tests")}
+          {renderMobileQuickLink(gatewayHubPath, "Gateway", "Open Gateway to the World tests", "tests")}
           {renderMobileQuickLink(orangeHubPath, "Orange", "Open Orange practice tests", "cambridge")}
+          {renderMobileQuickLink(
+            fceHubPath,
+            fceDisplayName,
+            `Open ${fceDisplayName} practice tests`,
+            "tests"
+          )}
           {renderMobileQuickLink(
             "/my-feedback",
             "My Feedback",
@@ -613,6 +632,25 @@ const StudentNavbar = () => {
     </>
   );
 
+  const renderMobileGateway = () => (
+    <>
+      <div className="studentNavbar__mobileMenuTop">
+        <div className="studentNavbar__mobileMenuTitle">Gateway</div>
+        <div className="studentNavbar__mobileMenuHint">
+          Browse Gateway to the World Reading-Writing and Listening tests.
+        </div>
+      </div>
+      <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
+        {renderMobileQuickLink(
+          gatewayHubPath,
+          "Open Gateway tests",
+          "Go to the Gateway test hub",
+          "tests"
+        )}
+      </div>
+    </>
+  );
+
   const renderMobileFeedback = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
@@ -662,6 +700,7 @@ const StudentNavbar = () => {
     if (mobileDrawerTab === "ielts") return renderMobileIelts();
     if (mobileDrawerTab === "orange") return renderMobileOrange();
     if (mobileDrawerTab === "fce") return renderMobileFce();
+    if (mobileDrawerTab === "gateway") return renderMobileGateway();
     if (mobileDrawerTab === "feedback") return renderMobileFeedback();
     return renderMobileOverview();
   };
@@ -782,6 +821,10 @@ const StudentNavbar = () => {
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
           <span className="studentNavbar__label">IX</span>
         </Link>
+        <Link to={gatewayHubPath} className={`studentNavbar__link${isGatewayCurrent ? " studentNavbar__link--active" : ""}`} title="Gateway">
+          <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+          <span className="studentNavbar__label">Gateway</span>
+        </Link>
         <Link to={orangeHubPath} className={`studentNavbar__link${isOrangeCurrent ? " studentNavbar__link--active" : ""}`} title="Orange">
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
@@ -830,6 +873,14 @@ const StudentNavbar = () => {
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
                 <span>IX</span>
+              </Link>
+              <Link
+                to={gatewayHubPath}
+                className="studentNavbar__menuItem"
+                onClick={() => setMoreDropdownVisible(false)}
+              >
+                <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
+                <span>Gateway</span>
               </Link>
               <Link
                 to={orangeHubPath}

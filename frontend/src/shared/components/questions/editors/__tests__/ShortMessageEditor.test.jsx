@@ -30,7 +30,11 @@ const buildQuestion = (overrides = {}) => ({
   ...overrides,
 });
 
-function Harness({ initialQuestion = buildQuestion() }) {
+function Harness({
+  initialQuestion = buildQuestion(),
+  testType,
+  sectionTitle,
+}) {
   const [question, setQuestion] = React.useState(initialQuestion);
 
   return (
@@ -38,6 +42,8 @@ function Harness({ initialQuestion = buildQuestion() }) {
       question={question}
       partIndex={5}
       startingNumber={31}
+      testType={testType}
+      sectionTitle={sectionTitle}
       onChange={(field, value) => {
         setQuestion((prev) => ({
           ...prev,
@@ -98,5 +104,34 @@ describe('ShortMessageEditor', () => {
     expect(screen.getByLabelText('short-message-situation-editor')).toHaveValue(
       '<p><strong>In your email:</strong></p><ul><li>say which sport the competition was for</li></ul><p>Write <strong>25 words or more</strong>.</p>'
     );
+  });
+
+  test('hides sample answers and shows the teacher-scored Gateway rubric', () => {
+    render(
+      <Harness
+        testType="gateway-reading-writing"
+        sectionTitle="Writing"
+        initialQuestion={buildQuestion({
+          gatewayWritingMode: true,
+          messageType: 'blog post',
+          wordLimit: { min: 100, max: 120 },
+          sampleAnswer: 'A sample answer that must not be shown.',
+          writingRubric: [
+            { criterion: 'Task Achievement', points: 2.5 },
+            { criterion: 'Grammar', points: 2.5 },
+            { criterion: 'Vocabulary', points: 2.5 },
+            { criterion: 'Cohesion/Coherence', points: 2.5 },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.queryByText('Đáp án mẫu (Sample Answer)')).not.toBeInTheDocument();
+    expect(screen.queryByText('A sample answer that must not be shown.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/GIF\/ảnh minh hoạ/)).not.toBeInTheDocument();
+    expect(screen.getByText('Writing assessment: 10 points')).toBeInTheDocument();
+    expect(screen.getByText('Task Achievement')).toBeInTheDocument();
+    expect(screen.getByText('Cohesion/Coherence')).toBeInTheDocument();
+    expect(screen.getByText('Write 100–120 words')).toBeInTheDocument();
   });
 });

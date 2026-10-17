@@ -12,6 +12,7 @@ const {
   FINALIZED_CAMBRIDGE_WHERE,
   countPendingManualAnswers,
   findActiveCambridgeDraft,
+  getCambridgeModelByType,
   getCambridgeTestRecord,
 } = require('../shared/submissionUtils');
 const {
@@ -22,6 +23,10 @@ const {
 const { scoreTest } = require('../shared/scoring');
 const placementService = require('../../placement/service');
 const { enforceAttemptLimitForNewSubmission } = require('../../../utils/attemptLimit');
+const {
+  normalizeStudentResultVisibility,
+  redactStudentResultForConfirmation,
+} = require('../../../utils/studentResultVisibility');
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -67,6 +72,7 @@ const buildSubmissionTypeFilter = (testType) => {
         { testType: { [Op.in]: BASE_READING_CAMBRIDGE_TEST_TYPES } },
         { testType: 'fce-reading' },
         { testType: 'fce-reading-60' },
+        { testType: 'gateway-reading-writing' },
       ],
     };
   }
@@ -91,10 +97,23 @@ const buildSubmissionPlatformFilter = (platform) => {
     });
   }
 
-  if (normalized === 'orange') {
+  if (normalized === 'gateway') {
     return sequelizeWhere(fn('LOWER', col('testType')), {
-      [Op.notLike]: 'fce-%',
+      [Op.like]: 'gateway-%',
     });
+  }
+
+  if (normalized === 'orange') {
+    return {
+      [Op.and]: [
+        sequelizeWhere(fn('LOWER', col('testType')), {
+          [Op.notLike]: 'fce-%',
+        }),
+        sequelizeWhere(fn('LOWER', col('testType')), {
+          [Op.notLike]: 'gateway-%',
+        }),
+      ],
+    };
   }
 
   return null;
@@ -508,7 +527,7 @@ const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
     throw createServiceError(400, 'Thiếu số điện thoại');
   }
 
-  return CambridgeSubmission.findAll({
+  const submissions = await CambridgeSubmission.findAll({
     where: { studentPhone: phone, ...FINALIZED_CAMBRIDGE_WHERE },
     order: [['submittedAt', 'DESC']],
     attributes: [
@@ -532,6 +551,41 @@ const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
       'submittedAt',
     ],
   });
+
+  const visibilityByTest = new Map();
+  return Promise.all(submissions.map(async (submission) => {
+    const testType = String(submission.testType || '').trim();
+    const testId = submission.testId;
+    const cacheKey = `${testType}:${testId}`;
+
+    if (!visibilityByTest.has(cacheKey)) {
+      const TestModel = getCambridgeModelByType(testType);
+      visibilityByTest.set(
+        cacheKey,
+        TestModel.findByPk(testId, {
+          attributes: ['studentResultVisibility', 'showResultModal'],
+        }).then((test) =>
+          normalizeStudentResultVisibility(
+            test?.studentResultVisibility,
+            test?.showResultModal
+          )
+        )
+      );
+    }
+
+    const studentResultVisibility = await visibilityByTest.get(cacheKey);
+    const result =
+      typeof submission.toJSON === 'function'
+        ? submission.toJSON()
+        : { ...submission };
+
+    const visibleResult =
+      studentResultVisibility === 'confirmation'
+        ? redactStudentResultForConfirmation(result)
+        : result;
+
+    return { ...visibleResult, studentResultVisibility };
+  }));
 };
 
 const countUnseenCambridgeFeedbackByPhone = async ({ phone } = {}) => {

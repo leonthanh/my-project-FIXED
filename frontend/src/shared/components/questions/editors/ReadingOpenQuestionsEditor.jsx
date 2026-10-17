@@ -10,9 +10,13 @@ const normalizeItems = (items) => (
 );
 
 const ReadingOpenQuestionsEditor = ({ question = {}, onChange, startingNumber = 1 }) => {
+  const layoutMode = question.layoutMode || "comprehension";
+  const isReorderMode = layoutMode === "reorder-words";
+  const isRewriteMode = layoutMode === "rewrite-sentences" || isReorderMode;
   const passageTitle = question.passageTitle || "Part 6 Read the message.";
   const passage = question.passage || question.passageText || "";
   const instruction = question.instruction || "Answer the questions.";
+  const scoreNote = question.scoreNote || "____/5 (1 mark per answer)";
   const items = normalizeItems(question.items);
 
   const updateItem = (index, field, value) => {
@@ -35,6 +39,123 @@ const ReadingOpenQuestionsEditor = ({ question = {}, onChange, startingNumber = 
     onChange("passage", value);
     onChange("passageText", value);
   };
+
+  if (isRewriteMode) {
+    return (
+      <div>
+        <div style={styles.header}>
+          <div>
+            <div style={styles.headerTitle}>{isReorderMode ? "Reorder Words" : "Rewrite Sentences"}</div>
+            <div style={styles.headerMeta}>Questions {startingNumber}-{startingNumber + items.length - 1}</div>
+          </div>
+          <span style={styles.countBadge}>{items.length} câu</span>
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Tiêu đề mục</label>
+          <input
+            type="text"
+            value={passageTitle}
+            onChange={(event) => onChange("passageTitle", event.target.value)}
+            placeholder={isReorderMode ? "A. Reorder the given words to make sentences." : "A. Rewrite these sentences using be used to, used to or would."}
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Hướng dẫn ngắn</label>
+          <input
+            type="text"
+            value={instruction}
+            onChange={(event) => onChange("instruction", event.target.value)}
+            placeholder={isReorderMode ? "Write the words in the correct order." : "Rewrite each sentence."}
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Ghi chú điểm (footer)</label>
+          <input
+            type="text"
+            value={scoreNote}
+            onChange={(event) => onChange("scoreNote", event.target.value)}
+            placeholder="____/5 (1 mark per answer)"
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.itemsList}>
+          {items.map((item, index) => {
+            const questionNumber = startingNumber + index;
+            return (
+              <div key={index} style={styles.itemCard}>
+                <div style={styles.itemHeader}>
+                  <span style={styles.questionNumber}>{questionNumber}</span>
+                  <strong style={{ color: "#1f2937" }}>Sentence {index + 1}</strong>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length <= 1}
+                    style={{
+                      ...styles.removeButton,
+                      opacity: items.length <= 1 ? 0.45 : 1,
+                      cursor: items.length <= 1 ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Xóa
+                  </button>
+                </div>
+
+                <label style={styles.label}>{isReorderMode ? "Các từ đã cho" : "Câu cần viết lại"}</label>
+                <textarea
+                  value={item.questionText || ""}
+                  onChange={(event) => updateItem(index, "questionText", event.target.value)}
+                  placeholder={isReorderMode ? "VD: when / were / they / arriving / ... " : "VD: I remember this place being totally uncontaminated."}
+                  rows={2}
+                  style={styles.textarea}
+                />
+
+                <label style={styles.label}>{isReorderMode ? "Câu hoàn chỉnh / answer key" : "Đáp án đúng / answer key"}</label>
+                <textarea
+                  value={item.correctAnswer || ""}
+                  onChange={(event) => updateItem(index, "correctAnswer", event.target.value)}
+                  placeholder={isReorderMode ? "VD: They were arriving when ..." : "VD: I remember this place used to be totally uncontaminated."}
+                  rows={2}
+                  style={{ ...styles.textarea, backgroundColor: "#f0fdf4", borderColor: "#86efac" }}
+                />
+                <p style={styles.helpText}>
+                  Có thể nhập nhiều đáp án được chấp nhận bằng dấu <strong>|</strong> hoặc <strong>/</strong>.
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <button type="button" onClick={addItem} style={styles.addButton}>
+          {isReorderMode ? "+ Thêm câu" : "+ Thêm câu rewrite"}
+        </button>
+
+        <div style={styles.preview}>
+          <h4 style={styles.previewTitle}>Xem trước:</h4>
+          {passageTitle && <h3 style={styles.previewHeading}>{passageTitle}</h3>}
+          {instruction && <p style={styles.previewInstruction}>{instruction}</p>}
+          <div style={styles.previewItems}>
+            {items.map((item, index) => (
+              <div key={index} style={styles.previewItem}>
+                <div style={styles.previewPrompt}>
+                  <strong>{startingNumber + index}.</strong> {item.questionText || "Nội dung câu hỏi"}
+                </div>
+                <div style={styles.previewAnswer}>
+                  {item.correctAnswer || "Đáp án mẫu"}
+                </div>
+              </div>
+            ))}
+          </div>
+          {scoreNote && <div style={styles.previewScoreNote}>{scoreNote}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -286,6 +407,55 @@ const styles = {
     color: "white",
     fontWeight: 700,
     cursor: "pointer",
+  },
+  preview: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 8,
+    border: "1px solid #bbf7d0",
+    backgroundColor: "#f0fdf4",
+  },
+  previewTitle: {
+    margin: "0 0 12px",
+    fontSize: 14,
+    color: "#166534",
+  },
+  previewHeading: {
+    margin: "0 0 8px",
+    fontSize: 16,
+    color: "#1f2937",
+  },
+  previewInstruction: {
+    margin: "0 0 12px",
+    fontSize: 13,
+    color: "#374151",
+  },
+  previewItems: {
+    display: "grid",
+    gap: 8,
+  },
+  previewItem: {
+    padding: 10,
+    borderRadius: 6,
+    border: "1px solid #e5e7eb",
+    backgroundColor: "#fff",
+  },
+  previewPrompt: {
+    color: "#1f2937",
+    lineHeight: 1.6,
+    marginBottom: 6,
+  },
+  previewAnswer: {
+    color: "#166534",
+    fontWeight: 600,
+    lineHeight: 1.6,
+  },
+  previewScoreNote: {
+    marginTop: 12,
+    textAlign: "right",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#475569",
   },
 };
 

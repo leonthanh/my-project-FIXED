@@ -19,8 +19,8 @@ import PrepositionGapFillDisplay from "../../../../shared/components/questions/d
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
 import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
 import ReadingOpenQuestionsDisplay from "../../../../shared/components/questions/displays/ReadingOpenQuestionsDisplay";
-import CambridgeResultsModal from "../../../cambridge/shared/components/CambridgeResultsModal";
-import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../cambridge/shared/utils/questionNumbering";
+import ExamCoreResultsModal from "../../../exam-core/shared/components/ExamCoreResultsModal";
+import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../exam-core/shared/utils/examQuestionNumbering";
 import {
   formatClock,
   getExtensionToastMessage,
@@ -3414,7 +3414,7 @@ const DoFceReadingTest = ({
 
       {/* Results Modal */}
       {results && submitted && (
-        <CambridgeResultsModal
+        <ExamCoreResultsModal
           results={results}
           testTitle={test?.title}
           studentName={currentStudentName}

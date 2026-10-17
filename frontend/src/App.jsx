@@ -11,6 +11,7 @@ import {
 } from './shared/utils/api';
 import { buildCoreRoutes } from './app/routes/coreRoutes';
 import { buildIxRoutes } from './app/routes/ixRoutes';
+import { buildGatewayRoutes } from './app/routes/gatewayRoutes';
 import { buildCambridgeRoutes } from './app/routes/cambridgeRoutes';
 import { buildFceRoutes } from './domains/fce/fceRoutes';
 import { buildAdminRoutes } from './app/routes/adminRoutes';
@@ -195,6 +196,7 @@ function App() {
         <Routes>
           {buildCoreRoutes({ isAuthenticated })}
           {buildIxRoutes({ isAuthenticated })}
+          {buildGatewayRoutes({ isAuthenticated })}
           {buildCambridgeRoutes({ isAuthenticated })}
           {buildFceRoutes({ isAuthenticated })}
           {buildAdminRoutes()}
@@ -205,4 +207,3 @@ function App() {
 }
 
 export default App;
-

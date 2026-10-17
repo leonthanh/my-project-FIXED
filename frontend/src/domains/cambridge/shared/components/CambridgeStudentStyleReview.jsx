@@ -3,11 +3,12 @@ import { hostPath } from '../../../../shared/utils/api';
 import {
   computeQuestionStarts,
   getQuestionCountForSection,
+  isZeroNumberedClozeExample,
   parseClozeBlanksFromText,
   shouldIncludeSectionForPart,
-} from '../utils/questionNumbering';
+} from '../../../exam-core/shared/utils/examQuestionNumbering';
 import QuestionDisplayFactory from '../../../../shared/components/questions/displays/QuestionDisplayFactory';
-import createListeningStyles from '../pages/DoCambridgeListeningTest.styles';
+import createListeningStyles from '../../../exam-core/shared/pages/ExamCoreListeningRuntime.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
 import LongTextMCDisplay from '../../../../shared/components/questions/displays/LongTextMCDisplay';
 import ClozeMCDisplay from '../../../../shared/components/questions/displays/ClozeMCDisplay';
@@ -18,10 +19,10 @@ import ImageClozeDisplay from '../../../../shared/components/questions/displays/
 import WordDragClozeDisplay from '../../../../shared/components/questions/displays/WordDragClozeDisplay';
 import StoryCompletionDisplay from '../../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../../shared/components/questions/displays/LookReadWriteDisplay';
-import { CambridgeQuestionDisplay } from './CambridgeQuestionCards';
-import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from './CambridgeListeningRuntimeSections';
-import AnchoredImageStage from './AnchoredImageStage';
-import '../pages/DoCambridgeReadingTest.css';
+import { ExamCoreQuestionDisplay } from '../../../exam-core/shared/components/ExamCoreQuestionCards';
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from '../../../exam-core/shared/components/ExamCoreListeningRuntimeSections';
+import AnchoredImageStage from '../../../exam-core/shared/components/AnchoredImageStage';
+import '../../../exam-core/shared/pages/ExamCoreReadingRuntime.css';
 
 const noop = () => {};
 const EMPTY_FLAGGED_QUESTIONS = new Set();
@@ -753,16 +754,26 @@ function getSectionDisplayName(sectionType) {
   return labels[sectionType] || sectionType || 'Section';
 }
 
-function questionCountForQuestion(sectionType, question) {
+function questionCountForQuestion(sectionType, question, testType = '') {
   if (!question || typeof question !== 'object') return 0;
   const isLegacyDrawLines = sectionType === 'matching' && hasAnchors(question);
 
   if (sectionType === 'long-text-mc') return Array.isArray(question.questions) ? question.questions.length : 0;
   if (sectionType === 'cloze-mc' || sectionType === 'inline-choice') return Array.isArray(question.blanks) ? question.blanks.length : 0;
   if (sectionType === 'cloze-test') {
-    if (Array.isArray(question.blanks) && question.blanks.length > 0) return question.blanks.length;
+    const isGatewayTest = String(testType).trim().toLowerCase().startsWith('gateway-');
+    if (Array.isArray(question.blanks) && question.blanks.length > 0) {
+      return isGatewayTest
+        ? question.blanks.filter((blank) => !isZeroNumberedClozeExample(blank)).length
+        : question.blanks.length;
+    }
     if (Array.isArray(question.answers) && question.answers.length > 0) return question.answers.length;
-    if (question.answers && typeof question.answers === 'object') return Object.keys(question.answers).length;
+    if (question.answers && typeof question.answers === 'object') {
+      const answerNumbers = Object.keys(question.answers);
+      return isGatewayTest
+        ? answerNumbers.filter((answerNumber) => Number(answerNumber) !== 0).length
+        : answerNumbers.length;
+    }
     return parseClozeBlanksFromText(question.passageText || question.passage || question.clozeText || '', 1).length;
   }
   if (sectionType === 'people-matching') return Array.isArray(question.people) ? question.people.length : 0;
@@ -1034,7 +1045,10 @@ function getClozeQuestionNumbersFromText(text) {
   return numbers;
 }
 
-function normalizeClozeTestBlanks(question, fallbackStart) {
+function normalizeClozeTestBlanks(question, fallbackStart, testType = '') {
+  const isGatewayTest = String(testType).trim().toLowerCase().startsWith('gateway-');
+  const removeExampleBlanks = (blanks) =>
+    isGatewayTest ? blanks.filter((blank) => !isZeroNumberedClozeExample(blank)) : blanks;
   const passageText = question?.passageText || question?.passage || question?.clozeText || '';
   const passageNumbers = getClozeQuestionNumbersFromText(passageText);
   const rawBlanks = Array.isArray(question?.blanks) ? question.blanks : [];
@@ -1046,10 +1060,10 @@ function normalizeClozeTestBlanks(question, fallbackStart) {
   const rawBlanksMatchPassage = passageNumbers.some((questionNum) => rawBlankNumbers.has(questionNum));
 
   if (passageNumbers.length > 0 && (!rawBlanks.length || !rawBlanksMatchPassage)) {
-    return passageNumbers.map((questionNum) => ({ questionNum }));
+    return removeExampleBlanks(passageNumbers.map((questionNum) => ({ questionNum })));
   }
 
-  if (rawBlanks.length > 0) return rawBlanks;
+  if (rawBlanks.length > 0) return removeExampleBlanks(rawBlanks);
 
   if (question?.answers && !Array.isArray(question.answers)) {
     const answerNumbers = Object.keys(question.answers)
@@ -1058,11 +1072,11 @@ function normalizeClozeTestBlanks(question, fallbackStart) {
       .sort((left, right) => left - right);
 
     if (answerNumbers.length > 0) {
-      return answerNumbers.map((questionNum) => ({ questionNum }));
+      return removeExampleBlanks(answerNumbers.map((questionNum) => ({ questionNum })));
     }
   }
 
-  return parseClozeBlanksFromText(passageText, fallbackStart);
+  return removeExampleBlanks(parseClozeBlanksFromText(passageText, fallbackStart));
 }
 
 function getResultStatus(result) {
@@ -1172,7 +1186,7 @@ function ListeningRuntimeQuestionReview({
       };
 
   return (
-    <CambridgeQuestionDisplay
+    <ExamCoreQuestionDisplay
       question={reviewQuestion}
       questionKey={answerKey}
       questionNum={questionNumber}
@@ -1622,9 +1636,9 @@ function SentenceCorrectionReview({ question, partIdx, secIdx, qIdx, sectionStar
   );
 }
 
-function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults }) {
+function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults, testType }) {
   const passageText = question?.passageText || question?.passage || question?.clozeText || '';
-  const blanks = normalizeClozeTestBlanks(question, sectionStart);
+  const blanks = normalizeClozeTestBlanks(question, sectionStart, testType);
   const blankIndexByQuestionNum = new Map(
     blanks
       .map((blank, idx) => [Number(blank?.questionNum || blank?.number), idx])
@@ -2325,7 +2339,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
               let questionCursor = sectionStart;
               const content = (section.questions || []).map((question, qIdx) => {
                 const questionStart = questionCursor;
-                questionCursor += questionCountForQuestion(sectionType, question);
+                questionCursor += questionCountForQuestion(sectionType, question, testType);
 
                   const shouldRestrictToPrimaryStructuredQuestion =
                     sectionType === 'long-text-mc' ||
@@ -2395,6 +2409,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                       sectionStart={questionStart}
                       answers={answers}
                       detailedResults={detailedResults}
+                      testType={testType}
                     />
                   );
                 }

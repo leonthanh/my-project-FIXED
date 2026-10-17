@@ -1,4 +1,5 @@
 import React from "react";
+import GatewayQuestionMetadataFields from "./GatewayQuestionMetadataFields";
 
 const THEME = {
   inputBg: "var(--builder-input-bg, #ffffff)",
@@ -25,8 +26,17 @@ const MultipleChoiceEditor = ({
   onChange,
   questionIndex = 0,
   optionLabels = ['A', 'B', 'C'],
+  startingNumber = 1,
+  testType = "",
+  sectionTitle = "",
+  sectionQuestionCount = 1,
   styles = {},
 }) => {
+  const isGatewayVocabularyB = String(testType).trim().toLowerCase() === "gateway-reading-writing"
+    && String(sectionTitle).trim().toLowerCase() === "vocabulary - b";
+  const showGatewayMetadata = isGatewayVocabularyB && questionIndex === 0;
+  const showGatewayScoreNote = isGatewayVocabularyB && questionIndex === sectionQuestionCount - 1;
+
   // Default styles
   const defaultStyles = {
     input: {
@@ -79,6 +89,9 @@ const MultipleChoiceEditor = ({
 
   return (
     <div>
+      {showGatewayMetadata && (
+        <GatewayQuestionMetadataFields question={question} onChange={onChange} />
+      )}
       <label style={defaultStyles.label}>Câu hỏi</label>
       <textarea
         rows={3}
@@ -119,6 +132,57 @@ const MultipleChoiceEditor = ({
       <small style={{ color: THEME.subtext }}>
         Đáp án đúng: <strong>{question.correctAnswer || "(Chưa chọn)"}</strong>
       </small>
+      {isGatewayVocabularyB && (
+        <div style={{
+          marginTop: "16px",
+          padding: "16px",
+          border: "1px solid #bbf7d0",
+          borderRadius: "8px",
+          backgroundColor: "#f0fdf4",
+        }}>
+          <h4 style={{ margin: "0 0 12px", fontSize: "14px", color: "#166534" }}>
+            Xem trước{` câu ${startingNumber}`}:
+          </h4>
+          {showGatewayMetadata && question.passageTitle && (
+            <h3 style={{ margin: "0 0 10px", fontSize: "16px", color: "#1f2937" }}>
+              {question.passageTitle}
+            </h3>
+          )}
+          {showGatewayMetadata && question.instruction && (
+            <p style={{ margin: "0 0 10px", fontSize: "13px", lineHeight: 1.6, color: "#374151" }}>
+              {question.instruction}
+            </p>
+          )}
+          <div style={{ marginBottom: "10px", whiteSpace: "pre-line", lineHeight: 1.7, color: "#1f2937" }}>
+            <strong>{startingNumber}.</strong> {question.questionText || "Nội dung mini-dialogue"}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "8px" }}>
+            {optionLabels.map((optionLabel, index) => {
+              const optionText = (question.options?.[index] || "").replace(new RegExp(`^${optionLabel}\\.\\s?`), "");
+              return (
+                <div
+                  key={optionLabel}
+                  style={{
+                    padding: "8px 10px",
+                    border: `1px solid ${question.correctAnswer === optionLabel ? "#86efac" : "#d1d5db"}`,
+                    borderRadius: "6px",
+                    backgroundColor: question.correctAnswer === optionLabel ? "#dcfce7" : "#fff",
+                    color: "#1f2937",
+                    fontSize: "13px",
+                  }}
+                >
+                  <strong>{optionLabel}.</strong> {optionText}
+                </div>
+              );
+            })}
+          </div>
+          {showGatewayScoreNote && question.scoreNote && (
+            <div style={{ marginTop: "12px", textAlign: "right", fontSize: "13px", fontWeight: 600, color: "#475569" }}>
+              {question.scoreNote}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

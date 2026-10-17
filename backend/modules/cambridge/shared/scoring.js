@@ -115,7 +115,12 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
     return [value];
   };
 
-  const normalize = (value) => String(value).trim().toLowerCase();
+  const normalize = (value) =>
+    String(value)
+      .normalize('NFKC')
+      .replace(/[\u2018\u2019\u201B\u02BC]/g, "'")
+      .trim()
+      .toLowerCase();
   const normalizeMc = (value) => String(value).trim().toUpperCase();
   const acceptedAnswers = toArray(correctAnswer);
 
@@ -151,6 +156,20 @@ const scoreQuestion = (userAnswer, correctAnswer, questionType) => {
 
   const userNorm = normalize(userAnswer);
   return acceptedAnswers.some((answer) => normalize(answer) === userNorm);
+};
+
+const isZeroNumberedClozeExample = (blank) => {
+  if (!blank || typeof blank !== 'object') return false;
+  if (blank.isExample === true || blank.example === true) return true;
+
+  const questionNumber = [
+    blank.sourceQuestionNum,
+    blank.questionNum,
+    blank.number,
+    blank.answerKey,
+  ].find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+
+  return questionNumber !== undefined && Number(questionNumber) === 0;
 };
 
 const countClozeBlanksFromText = (passageText) => {
@@ -228,6 +247,8 @@ const scoreTest = (test, answers) => {
   let score = 0;
   let total = 0;
   const detailedResults = {};
+  const isGatewayReadingWriting =
+    String(test?.testType || '').trim().toLowerCase() === 'gateway-reading-writing';
 
   let parts = test?.parts;
   if (typeof parts === 'string') {
@@ -747,18 +768,55 @@ const scoreTest = (test, answers) => {
             };
           });
         } else if (sectionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
+          let gatewayAnswerIndex = 0;
           question.blanks.forEach((blank, blankIdx) => {
-            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
-            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            if (isGatewayReadingWriting && isZeroNumberedClozeExample(blank)) return;
+
+            const answerIndex = isGatewayReadingWriting ? gatewayAnswerIndex++ : blankIdx;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${answerIndex}`;
+            const legacyKey = `${partIdx}-${secIdx}-${answerIndex}`;
             const userAnswer = pickAnswer(key, [legacyKey]);
             let correctAnswer = blank.correctAnswer ?? blank.answers ?? blank.answer ?? blank.correct;
 
-            if (!correctAnswer && question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)) {
-              correctAnswer = question.answers[blank.questionNum || blank.number];
+            const answerMaps = [question.answers, question.correctAnswer].filter(
+              (value) => value && typeof value === 'object' && !Array.isArray(value)
+            );
+
+            if (correctAnswer === undefined || correctAnswer === null) {
+              const answerKeys = [
+                blank.questionNum,
+                blank.number,
+                blank.sourceQuestionNum,
+                blank.answerKey,
+                answerIndex,
+                answerIndex + 1,
+              ]
+                .filter((value) => value !== undefined && value !== null)
+                .map(String);
+
+              for (const answerMap of answerMaps) {
+                const answerKey = answerKeys.find((candidate) =>
+                  Object.prototype.hasOwnProperty.call(answerMap, candidate)
+                );
+                if (answerKey !== undefined) {
+                  correctAnswer = answerMap[answerKey];
+                  break;
+                }
+              }
             }
 
-            if (!correctAnswer) {
-              correctAnswer = question.correctAnswer ?? question.answers ?? question.answer ?? question.correct;
+            if (correctAnswer === undefined || correctAnswer === null) {
+              correctAnswer = [
+                question.correctAnswer,
+                question.answers,
+                question.answer,
+                question.correct,
+              ].find(
+                (value) =>
+                  value !== undefined &&
+                  value !== null &&
+                  !(typeof value === 'object' && !Array.isArray(value))
+              );
             }
 
             if (correctAnswer === undefined || correctAnswer === null) {

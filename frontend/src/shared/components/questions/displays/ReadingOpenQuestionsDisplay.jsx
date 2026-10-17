@@ -16,12 +16,17 @@ const ReadingOpenQuestionsDisplay = ({
   onAnswerChange,
   answers,
   submitted,
+  gatewayQuestionNumbers = false,
   renderMode = 'full',
 }) => {
   const singleQuestion = section?.questions?.[0] || {};
+  const layoutMode = singleQuestion?.layoutMode || 'comprehension';
+  const isReorderMode = layoutMode === 'reorder-words';
+  const isRewriteMode = layoutMode === 'rewrite-sentences' || isReorderMode;
   const title = singleQuestion?.passageTitle || singleQuestion?.title || 'Read the message.';
   const passage = singleQuestion?.passage || singleQuestion?.passageText || '';
   const instruction = singleQuestion?.instruction || 'Answer the questions.';
+  const scoreNote = singleQuestion?.scoreNote || '';
   const items = Array.isArray(singleQuestion?.items) ? singleQuestion.items : [];
   const sectionId = section?.id || 'section';
 
@@ -55,7 +60,11 @@ const ReadingOpenQuestionsDisplay = ({
                 style={styles.itemCard}
               >
                 <div style={styles.questionHeader}>
-                  <span style={styles.questionNumber}>{questionNumber}</span>
+                  {gatewayQuestionNumbers ? (
+                    <span className="gateway-question-number">{questionNumber}</span>
+                  ) : (
+                    <span style={styles.questionNumber}>{questionNumber}</span>
+                  )}
                   <div style={styles.questionText}>{item.questionText || 'Question text...'}</div>
                 </div>
 
@@ -89,6 +98,60 @@ const ReadingOpenQuestionsDisplay = ({
 
   if (renderMode === 'passage') return passagePanel;
   if (renderMode === 'questions') return questionsPanel;
+
+  if (isRewriteMode) {
+    return (
+      <div style={styles.rewriteContainer}>
+        {title && <h3 style={styles.rewriteTitle}>{title}</h3>}
+        {instruction && <p style={styles.rewriteInstruction}>{instruction}</p>}
+
+        <div style={styles.itemsList}>
+          {items.map((item, index) => {
+            const questionNumber = startingNumber + index;
+            const answerKey = `${sectionId}-${index}`;
+            const userAnswer = answers[answerKey] || '';
+            const correctAnswers = acceptedAnswers(item.correctAnswer);
+            const isCorrect = submitted && correctAnswers.includes(normalize(userAnswer));
+
+            return (
+              <div key={index} id={`question-${questionNumber}`} tabIndex={-1} style={styles.rewriteItemCard}>
+                <div style={styles.rewriteQuestionText}>
+                {gatewayQuestionNumbers ? (
+                  <span className="gateway-question-number">{questionNumber}</span>
+                ) : (
+                  <strong style={{ marginRight: 8 }}>{questionNumber}.</strong>
+                )}
+                  {item.questionText || 'Rewrite sentence here...'}
+                </div>
+                <textarea
+                  value={userAnswer}
+                  onChange={(event) => onAnswerChange(answerKey, event.target.value)}
+                  disabled={submitted}
+                  placeholder={isReorderMode ? "Write the words in the correct order..." : "Write your rewritten sentence..."}
+                  rows={2}
+                  style={{
+                    ...styles.rewriteTextarea,
+                    ...(submitted && {
+                      backgroundColor: isCorrect ? '#dcfce7' : '#fee2e2',
+                      borderColor: isCorrect ? '#22c55e' : '#ef4444',
+                    }),
+                  }}
+                />
+                {submitted && !isCorrect && item.correctAnswer && (
+                  <div style={styles.correctAnswerBox}>
+                    Answer: <strong>{String(item.correctAnswer).split(/[|/]/)[0].trim()}</strong>
+                    {item.explanation && <div style={styles.explanation}>{item.explanation}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {scoreNote && <div style={styles.rewriteScoreNote}>{scoreNote}</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="reading-open-questions-display" style={styles.container}>
@@ -209,6 +272,58 @@ const styles = {
     color: '#15803d',
     fontSize: '13px',
     fontStyle: 'italic',
+  },
+  rewriteContainer: {
+    marginBottom: '24px',
+    backgroundColor: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '18px',
+  },
+  rewriteTitle: {
+    margin: '0 0 8px',
+    color: '#0f172a',
+    fontSize: '18px',
+    fontWeight: 800,
+    lineHeight: 1.5,
+  },
+  rewriteInstruction: {
+    margin: '0 0 14px',
+    color: '#334155',
+    fontSize: '14px',
+    fontWeight: 600,
+  },
+  rewriteItemCard: {
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '14px',
+    scrollMarginTop: '120px',
+  },
+  rewriteQuestionText: {
+    fontSize: '15px',
+    lineHeight: 1.7,
+    color: '#111827',
+    marginBottom: '10px',
+  },
+  rewriteTextarea: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '11px 13px',
+    border: '2px solid #cbd5e1',
+    borderRadius: '8px',
+    fontSize: '15px',
+    lineHeight: 1.6,
+    resize: 'vertical',
+    outline: 'none',
+    minHeight: '72px',
+  },
+  rewriteScoreNote: {
+    marginTop: '12px',
+    fontSize: '15px',
+    color: '#0f172a',
+    fontWeight: 700,
+    textAlign: 'right',
   },
 };
 

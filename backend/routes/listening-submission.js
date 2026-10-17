@@ -14,6 +14,10 @@ const {
   LISTENING_CLOZE_TYPE,
 } = require('../utils/listeningTableQuestions');
 const {
+  normalizeStudentResultVisibility,
+  redactStudentResultForConfirmation,
+} = require('../utils/studentResultVisibility');
+const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
   extendDeadline,
@@ -648,8 +652,11 @@ router.get('/user/:phone', async (req, res) => {
     const result = submissions.map((submission) => {
       const obj = submission.toJSON();
       const test = testMap[String(submission.testId)];
-      const correct = Number(obj.correct) || 0;
-      const total = Number(obj.total) || 0;
+      const studentResultVisibility = normalizeStudentResultVisibility(
+        test?.studentResultVisibility,
+        test?.showResultModal
+      );
+      obj.studentResultVisibility = studentResultVisibility;
 
       obj.ListeningTest = test
         ? {
@@ -662,11 +669,17 @@ router.get('/user/:phone', async (req, res) => {
       obj.User = { id: user.id, phone: user.phone, name: user.name };
       obj.userName = obj.userName || user.name || null;
       obj.userPhone = obj.userPhone || user.phone || null;
-      obj.correct = correct;
-      obj.total = total;
-      obj.scorePercentage = Number.isFinite(Number(obj.scorePercentage))
-        ? Number(obj.scorePercentage)
-        : (total > 0 ? Math.round((correct / total) * 100) : 0);
+      if (studentResultVisibility === 'confirmation') {
+        return redactStudentResultForConfirmation(obj);
+      } else {
+        const correct = Number(obj.correct) || 0;
+        const total = Number(obj.total) || 0;
+        obj.correct = correct;
+        obj.total = total;
+        obj.scorePercentage = Number.isFinite(Number(obj.scorePercentage))
+          ? Number(obj.scorePercentage)
+          : (total > 0 ? Math.round((correct / total) * 100) : 0);
+      }
 
       return obj;
     });

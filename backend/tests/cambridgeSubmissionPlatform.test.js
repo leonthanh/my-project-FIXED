@@ -1,0 +1,99 @@
+jest.mock("../models", () => ({
+  CambridgeSubmission: {
+    findAndCountAll: jest.fn(),
+    findAll: jest.fn(),
+  },
+  CambridgeReading: { findByPk: jest.fn() },
+  CambridgeListening: { findByPk: jest.fn() },
+}));
+
+const { Op } = require("sequelize");
+const { CambridgeSubmission, CambridgeReading } = require("../models");
+const {
+  listCambridgeSubmissions,
+  listCambridgeSubmissionsByPhone,
+} = require("../modules/cambridge/submissions/service");
+
+describe("Cambridge submission platform filters", () => {
+  beforeEach(() => {
+    CambridgeSubmission.findAndCountAll.mockResolvedValue({
+      count: 0,
+      rows: [],
+    });
+    CambridgeSubmission.findAll.mockResolvedValue([]);
+    CambridgeReading.findByPk.mockReset();
+  });
+
+  test("filters Gateway Reading-Writing submissions without including them in Orange", async () => {
+    await listCambridgeSubmissions({
+      query: {
+        platform: "gateway",
+        testType: "reading",
+        includeActive: "1",
+      },
+    });
+
+    const gatewayWhere = CambridgeSubmission.findAndCountAll.mock.calls[0][0].where;
+    const gatewayConditions = gatewayWhere[Op.and];
+    const readingTypeFilter = gatewayConditions.find((condition) =>
+      Array.isArray(condition[Op.or])
+    );
+    expect(readingTypeFilter[Op.or]).toContainEqual({
+      testType: "gateway-reading-writing",
+    });
+    expect(
+      gatewayConditions.some((condition) => condition.logic?.[Op.like] === "gateway-%")
+    ).toBe(true);
+
+    await listCambridgeSubmissions({
+      query: {
+        platform: "orange",
+        includeActive: "1",
+      },
+    });
+
+    const orangeWhere = CambridgeSubmission.findAndCountAll.mock.calls[1][0].where;
+    const orangePlatformFilter = orangeWhere[Op.and].find(
+      (condition) => Array.isArray(condition[Op.and])
+    );
+    expect(
+      orangePlatformFilter[Op.and].map((condition) => condition.logic?.[Op.notLike])
+    ).toEqual(["fce-%", "gateway-%"]);
+  });
+
+  test("hides scores from the student submission list when the test is confirmation-only", async () => {
+    const submission = {
+      id: 10,
+      testId: 26,
+      testType: "gateway-reading-writing",
+      score: 43,
+      totalQuestions: 51,
+      percentage: 84,
+      toJSON() {
+        return {
+          id: this.id,
+          testId: this.testId,
+          testType: this.testType,
+          score: this.score,
+          totalQuestions: this.totalQuestions,
+          percentage: this.percentage,
+        };
+      },
+    };
+    CambridgeSubmission.findAll.mockResolvedValue([submission]);
+    CambridgeReading.findByPk.mockResolvedValue({
+      studentResultVisibility: "confirmation",
+      showResultModal: false,
+    });
+
+    const [result] = await listCambridgeSubmissionsByPhone({ phone: "123456789" });
+
+    expect(result).toMatchObject({
+      id: 10,
+      studentResultVisibility: "confirmation",
+    });
+    expect(result).not.toHaveProperty("score");
+    expect(result).not.toHaveProperty("totalQuestions");
+    expect(result).not.toHaveProperty("percentage");
+  });
+});

@@ -54,6 +54,9 @@ const QuestionEditorFactory = ({
   startingNumber = 1,
   partIndex = 0,
   testType,
+  sectionTitle = "",
+  sectionQuestionCount = 1,
+  onSectionTitleChange,
 }) => {
   // Support both prop naming conventions
   const actualQuestion = question || questionData || {};
@@ -63,9 +66,13 @@ const QuestionEditorFactory = ({
   const commonProps = {
     question: actualQuestion,
     onChange: actualOnChange,
+    questionIndex,
     startingNumber,
     partIndex,
     testType,
+    sectionTitle,
+    sectionQuestionCount,
+    onSectionTitleChange,
   };
 
   // Render appropriate editor based on question type

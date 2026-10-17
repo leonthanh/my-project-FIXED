@@ -95,6 +95,11 @@
   position: relative;
 }
 
+.cambridge-questions-column--gateway-single-panel .cambridge-content-wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
 /* Part Header */
 .cambridge-part-header {
   margin-bottom: 24px;
@@ -415,6 +420,24 @@
   margin-right: 12px;
 }
 
+.cambridge-test-container--gateway .cambridge-question-number,
+.cambridge-test-container--gateway .gateway-question-number {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px !important;
+  background-color: #2f7d46 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  margin-right: 8px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 .cambridge-question-text {
   font-size: 15px;
   color: #333;
@@ -544,6 +567,87 @@
   max-width: min(100%, calc(100vw - 32px));
   justify-content: center;
   margin: 0 auto;
+}
+
+.cambridge-parts-container--gateway {
+  overflow: visible;
+  padding: 0;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.cambridge-footer--gateway {
+  min-height: 86px;
+}
+
+.gateway-footer-navigation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.gateway-section-tabs {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  justify-content: flex-start;
+  margin: 0 auto;
+  padding: 0 2px;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+
+.gateway-section-tab {
+  padding: 3px 6px;
+  font-size: 10px;
+  gap: 4px;
+}
+
+.gateway-section-tabs .cambridge-part-wrapper {
+  gap: 0;
+}
+
+.gateway-section-tabs .cambridge-part-wrapper + .cambridge-part-wrapper::before {
+  display: none;
+}
+
+.gateway-section-tab .cambridge-part-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+}
+
+.gateway-section-questions {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  gap: 3px;
+  overflow-x: auto;
+  justify-content: flex-start;
+  margin: 0 auto;
+  padding: 0 2px;
+  scrollbar-width: none;
+}
+
+.gateway-section-questions::-webkit-scrollbar {
+  display: none;
+}
+
+.gateway-section-questions .cambridge-question-num-btn {
+  width: auto;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 15px;
 }
 
 /* ── Individual part group ── */
@@ -690,6 +794,43 @@
   border-color: #f97316;
   box-shadow: 0 0 0 2.5px rgba(249,115,22,0.45);
   z-index: 5;
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn {
+  background: #e8f5e9;
+  border-color: #82b889;
+  color: #256b3b;
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn:hover:not(.active) {
+  background: #d5ebd9;
+  border-color: #4f965e;
+  color: #1f5d32;
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn.answered {
+  background: #48a85b;
+  border-color: #2f7d46;
+  color: #fff;
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn.active {
+  background: #2f7d46;
+  border-color: #256b3b;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.28);
+  transform: scale(1.18);
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn.answered.active {
+  background: #1f5d32;
+  border-color: #184b28;
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.36);
+}
+
+.cambridge-footer--gateway .gateway-section-questions .cambridge-question-num-btn.flagged {
+  border-color: #f97316;
+  box-shadow: 0 0 0 2.5px rgba(249, 115, 22, 0.45);
 }
 
 /* Flag icon rendered as a real DOM element for reliable emoji + animation */
@@ -1359,6 +1500,16 @@
     padding: 3px 5px;
     gap: 3px;
     min-height: 46px;
+  }
+
+  .cambridge-footer--gateway {
+    min-height: 76px;
+    padding: 4px 5px;
+  }
+
+  .cambridge-footer--gateway .gateway-section-tab {
+    padding: 3px 6px;
+    font-size: 10px;
   }
 
   .cambridge-footer-arrows {

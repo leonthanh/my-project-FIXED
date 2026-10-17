@@ -774,6 +774,29 @@ const KET_UNIFIED_QUESTION_TYPES = [
 const KET_LISTENING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES;
 
 const PET_READING_QUESTION_TYPES = KET_UNIFIED_QUESTION_TYPES.concat('inline-choice');
+const GATEWAY_READING_WRITING_QUESTION_TYPES = [
+  'fill',
+  'abc',
+  'matching',
+  'cloze-test',
+  'cloze-mc',
+  'long-text-mc',
+  'word-form',
+  'sentence-transformation',
+  'sentence-correction',
+  'true-false-not-given',
+  'reading-open-questions',
+  'short-message',
+  'story-writing',
+];
+const GATEWAY_LISTENING_QUESTION_TYPES = [
+  'notes-completion',
+  'table-completion',
+  'fill',
+  'abc',
+  'abcd',
+  'matching',
+];
 
 export const TEST_CONFIGS = {
   // IELTS Tests
@@ -916,6 +939,38 @@ export const TEST_CONFIGS = {
     partStructure: [
       { part: 1, questions: '1', description: 'Email writing (about 100 words)' },
       { part: 2, questions: '2-3', description: 'Answer one of two questions (about 100 words)' },
+    ],
+  },
+
+  'gateway-reading-writing': {
+    id: 'gateway-reading-writing',
+    name: 'Gateway Reading-Writing',
+    nameVi: 'Gateway Reading-Writing',
+    totalQuestions: 50,
+    manualScoredTotal: 10,
+    parts: 5,
+    duration: 60,
+    questionTypes: GATEWAY_READING_WRITING_QUESTION_TYPES,
+    partStructure: [
+      { part: 1, questions: '1-15', description: 'Grammar' },
+      { part: 2, questions: '16-30', description: 'Vocabulary' },
+      { part: 3, questions: '31-40', description: 'Use of English' },
+      { part: 4, questions: '41-50', description: 'Reading' },
+      { part: 5, questions: 'Writing', description: 'Writing Task' },
+    ],
+  },
+
+  'gateway-listening': {
+    id: 'gateway-listening',
+    name: 'Gateway Listening',
+    nameVi: 'Gateway Listening',
+    totalQuestions: 10,
+    parts: 2,
+    duration: 25,
+    questionTypes: GATEWAY_LISTENING_QUESTION_TYPES,
+    partStructure: [
+      { part: 1, questions: '1-5', description: 'Notes Completion' },
+      { part: 2, questions: '6-10', description: 'Multiple Choice' },
     ],
   },
 
@@ -1202,4 +1257,3 @@ export const getQuestionTypesByCategory = () => {
 };
 
 // Default export removed in favor of named exports (QUESTION_TYPES, TEST_CONFIGS, and helpers).
-

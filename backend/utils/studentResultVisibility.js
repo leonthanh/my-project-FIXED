@@ -13,7 +13,29 @@ const normalizeStudentResultVisibility = (value, legacyShowResultModal) => {
   return "score";
 };
 
+const redactStudentResultForConfirmation = (submission) => {
+  const result = { ...submission };
+  [
+    "score",
+    "total",
+    "totalQuestions",
+    "correct",
+    "incorrect",
+    "percentage",
+    "scorePercentage",
+    "band",
+    "analysisBreakdown",
+    "answers",
+    "details",
+    "detailedResults",
+  ].forEach((field) => {
+    delete result[field];
+  });
+  return result;
+};
+
 module.exports = {
   normalizeStudentResultVisibility,
+  redactStudentResultForConfirmation,
   STUDENT_RESULT_VISIBILITY_MODES,
 };

@@ -6,6 +6,10 @@ const { requireAuth } = require("../middlewares/auth");
 const { requireTestPermission } = require("../middlewares/testPermissions");
 const { countClozeBlanks } = require("../utils/readingQuestionUtils");
 const {
+  normalizeStudentResultVisibility,
+  redactStudentResultForConfirmation,
+} = require("../utils/studentResultVisibility");
+const {
   DEFAULT_EXTENSION_MINUTES,
   buildTimingPayload,
   extendDeadline,
@@ -896,14 +900,23 @@ router.get("/user/:phone", async (req, res) => {
     const result = submissions.map(s => {
       const obj = s.toJSON();
       const t = testMap[String(s.testId)];
-      obj.ReadingTest = t ? {
+      const studentResultVisibility = normalizeStudentResultVisibility(
+        t?.studentResultVisibility,
+        t?.showResultModal
+      );
+      obj.studentResultVisibility = studentResultVisibility;
+      const visibleSubmission =
+        studentResultVisibility === "confirmation"
+          ? redactStudentResultForConfirmation(obj)
+          : obj;
+      visibleSubmission.ReadingTest = t ? {
         id: t.id,
         title: t.title,
         classCode: t.classCode || '',
         teacherName: t.teacherName || ''
       } : null;
-      obj.User = { phone: user.phone, name: user.name };
-      return obj;
+      visibleSubmission.User = { phone: user.phone, name: user.name };
+      return visibleSubmission;
     });
 
     res.json(result);

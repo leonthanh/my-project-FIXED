@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { GapMatchSectionDisplay } from "../../../../domains/cambridge/shared/components/CambridgeSectionDisplays";
+import { GapMatchSectionDisplay } from "../../../../domains/exam-core/shared/components/ExamCoreSectionDisplays";
 
 const EMPTY_FLAGGED_QUESTIONS = new Set();
 

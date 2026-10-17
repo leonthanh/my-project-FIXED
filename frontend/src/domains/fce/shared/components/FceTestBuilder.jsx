@@ -26,8 +26,8 @@ import { canManageCategory } from "../../../../shared/utils/permissions";
 import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import "./FceTestBuilder.css";
-import { computeQuestionStarts, getQuestionCountForSection } from "../../../cambridge/shared/utils/questionNumbering";
-import { normalizeQuillPromptHtml } from "../../../cambridge/shared/utils/normalizeQuillPromptHtml";
+import { computeQuestionStarts, getQuestionCountForSection } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import { normalizeQuillPromptHtml } from "../../../exam-core/shared/utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 import {

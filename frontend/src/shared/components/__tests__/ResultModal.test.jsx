@@ -55,6 +55,20 @@ describe('ResultModal', () => {
     expect(screen.queryByText(/Answer details/i)).not.toBeInTheDocument();
   });
 
+  test('honors a confirmation marker on results even if the display mode is stale', () => {
+    renderWithTheme(
+      <ResultModal
+        {...defaultProps}
+        displayMode="score"
+        result={{ mode: 'confirmation', submissionId: 123, correct: 43, total: 50, scorePercentage: 86 }}
+      />
+    );
+
+    expect(screen.getByText('Submission received')).toBeInTheDocument();
+    expect(screen.queryByText('43/50')).not.toBeInTheDocument();
+    expect(screen.queryByText('86%')).not.toBeInTheDocument();
+  });
+
   test('details mode shows per-question answers while score mode keeps aggregate results', () => {
     const result = {
       correct: 1,

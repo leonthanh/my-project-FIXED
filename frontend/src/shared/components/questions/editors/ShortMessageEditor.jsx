@@ -4,6 +4,7 @@ import "react-quill/dist/quill.snow.css";
 import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 import { hostPath } from "../../../utils/api";
 import InlineIcon from "../../InlineIcon.jsx";
+import GATEWAY_WRITING_RUBRIC from "../../../config/gatewayWritingRubric";
 
 const normalizeSituationHtml = (source = '') => {
   const html = String(source || '').trim();
@@ -91,6 +92,9 @@ const ShortMessageEditor = ({
   onChange,
   partIndex = 6, // Default to Part 7 (index 6)
   startingNumber = 31, // Default starting number
+  testType = "",
+  sectionTitle = "",
+  onSectionTitleChange = () => {},
 }) => {
   const situation = question.situation || '';
   const situationValue = typeof situation === 'string' ? situation : '';
@@ -105,6 +109,11 @@ const ShortMessageEditor = ({
     : 'email';
   const wordLimit = question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
+  const writingRubric = Array.isArray(question.writingRubric) && question.writingRubric.length
+    ? question.writingRubric
+    : GATEWAY_WRITING_RUBRIC;
+  const isGatewayWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
+    && (question.gatewayWritingMode || String(sectionTitle || '').trim().toLowerCase() === 'writing');
 
   const { quillRef, modules } = useQuillImageUpload();
 
@@ -151,30 +160,47 @@ const ShortMessageEditor = ({
           <InlineIcon name="mail" size={22} style={{ color: "white" }} />
           <div style={{ flex: 1 }}>
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              Part {partIndex + 1} - Writing Task
+              {isGatewayWriting ? "Gateway Writing Task" : `Part ${partIndex + 1} - Writing Task`}
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
-              Short Message / Email ({wordLimit.min}-{wordLimit.max} words)
+              {isGatewayWriting
+                ? `Blog post (${wordLimit.min}–${wordLimit.max} words)`
+                : `Short Message / Email (${wordLimit.min}-${wordLimit.max} words)`}
             </p>
           </div>
-          <span style={{
+          {!isGatewayWriting && <span style={{
             fontSize: "13px",
             opacity: 0.9,
             fontWeight: 600,
           }}>
             Question {startingNumber}
-          </span>
+          </span>}
         </div>
       </div>
 
+      {isGatewayWriting && (
+        <div style={{ marginBottom: "16px" }}>
+          <label style={styles.label}>Tiêu đề mục</label>
+          <input
+            type="text"
+            value={sectionTitle}
+            onChange={(event) => onSectionTitleChange(event.target.value)}
+            style={styles.input}
+          />
+        </div>
+      )}
+
       {/* Word Limit */}
       <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>Giới hạn số từ</label>
+        <label style={styles.label}>{isGatewayWriting ? "Giới hạn số từ bài viết" : "Giới hạn số từ"}</label>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <input
             type="number"
             value={wordLimit.min}
-            onChange={(e) => onChange('wordLimit', { ...wordLimit, min: parseInt(e.target.value) || 25 })}
+            onChange={(e) => onChange('wordLimit', {
+              ...wordLimit,
+              min: parseInt(e.target.value, 10) || (isGatewayWriting ? wordLimit.min : 25),
+            })}
             style={{ ...styles.input, width: "80px" }}
             min="10"
             max="200"
@@ -183,7 +209,10 @@ const ShortMessageEditor = ({
           <input
             type="number"
             value={wordLimit.max}
-            onChange={(e) => onChange('wordLimit', { ...wordLimit, max: parseInt(e.target.value) || 35 })}
+            onChange={(e) => onChange('wordLimit', {
+              ...wordLimit,
+              max: parseInt(e.target.value, 10) || (isGatewayWriting ? wordLimit.max : 35),
+            })}
             style={{ ...styles.input, width: "80px" }}
             min="15"
             max="250"
@@ -194,7 +223,7 @@ const ShortMessageEditor = ({
 
       {/* Situation */}
       <div style={{ marginBottom: "16px" }} className="short-message-editor">
-        <label style={styles.label}>Tình huống (Situation) *</label>
+        <label style={styles.label}>{isGatewayWriting ? "Đề bài và gợi ý viết *" : "Tình huống (Situation) *"}</label>
         <div style={{
           border: "1px solid #d1d5db",
           borderRadius: "6px",
@@ -205,7 +234,9 @@ const ShortMessageEditor = ({
             theme="snow"
             value={normalizedSituationValue}
             onChange={handleSituationChange}
-            placeholder="VD: You want to go to the cinema with your English friend Sam."
+            placeholder={isGatewayWriting
+              ? "Nhập đề bài blog post, các ý cần triển khai và cụm từ gợi ý."
+              : "VD: You want to go to the cinema with your English friend Sam."}
             modules={modules}
             formats={formats}
             style={{
@@ -215,11 +246,13 @@ const ShortMessageEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text...
+          {isGatewayWriting
+            ? "Có thể sửa đề bài, gợi ý nội dung, định dạng chữ và danh sách ngay trong trình soạn thảo."
+            : "Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text..."}
         </p>
       </div>
 
-      <div style={{ marginBottom: "16px" }}>
+      {!isGatewayWriting && <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>GIF/ảnh minh hoạ (3 URL)</label>
         {mediaUrls.map((mediaUrl, index) => (
           <input
@@ -266,10 +299,10 @@ const ShortMessageEditor = ({
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Sample Answer (for teacher reference) */}
-      <div style={{ marginBottom: "16px" }}>
+      {!isGatewayWriting && <div style={{ marginBottom: "16px" }}>
         <label style={styles.label}>
           Đáp án mẫu (Sample Answer) 
           <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: "8px" }}>
@@ -293,7 +326,7 @@ const ShortMessageEditor = ({
             Sample: {sampleAnswer.trim().split(/\s+/).length} words
           </p>
         )}
-      </div>
+      </div>}
 
       {/* Preview */}
       {(normalizedSituationValue || resolvedMediaUrls.length > 0) && (
@@ -305,7 +338,7 @@ const ShortMessageEditor = ({
           marginTop: "16px",
         }}>
           <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0369a1" }}>
-            Preview (Student View):
+            {isGatewayWriting ? "Xem trước đề học sinh:" : "Preview (Student View):"}
           </h4>
           
           <div style={{
@@ -322,7 +355,7 @@ const ShortMessageEditor = ({
               fontSize: "14px",
               fontWeight: 600,
             }}>
-              Part {partIndex + 1}
+              {isGatewayWriting ? sectionTitle : `Part ${partIndex + 1}`}
             </div>
 
             <div style={{
@@ -341,7 +374,7 @@ const ShortMessageEditor = ({
                     fontWeight: 700,
                     color: "#1f2937",
                   }}>
-                    Situation:
+                    {isGatewayWriting ? "Writing task:" : "Situation:"}
                   </h4>
                   <div
                     style={{
@@ -351,6 +384,24 @@ const ShortMessageEditor = ({
                     }}
                     dangerouslySetInnerHTML={{ __html: normalizedSituationValue || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
                   />
+                  {isGatewayWriting && (
+                    <div style={{ marginTop: "18px", padding: "14px", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", color: "#1f2937" }}>
+                      <strong>Writing assessment: 10 points</strong>
+                      <table style={{ width: "100%", marginTop: "8px", borderCollapse: "collapse", fontSize: "13px" }}>
+                        <tbody>
+                          {writingRubric.map((criterion) => (
+                            <tr key={criterion.criterion}>
+                              <td style={{ padding: "4px 6px", borderBottom: "1px solid #e2e8f0" }}>{criterion.criterion}</td>
+                              <td style={{ padding: "4px 6px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>{criterion.points}/2.5</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#475569" }}>
+                        Writing is graded separately by your teacher and contributes to the total test score of 60 points.
+                      </p>
+                    </div>
+                  )}
                   {resolvedMediaUrls.length > 0 && (
                     <div style={{
                       marginTop: "14px",
@@ -400,7 +451,9 @@ const ShortMessageEditor = ({
                     fontSize: "13px",
                     color: "#6b7280",
                   }}>
-                    {wordLimit.min} words or more
+                    {isGatewayWriting
+                      ? `Write ${wordLimit.min}–${wordLimit.max} words`
+                      : `${wordLimit.min} words or more`}
                   </p>
                 </div>
 

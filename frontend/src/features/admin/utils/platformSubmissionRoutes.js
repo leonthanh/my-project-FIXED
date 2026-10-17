@@ -1,4 +1,9 @@
 export const PLATFORM_SUBMISSION_PAGE_BY_GROUP = Object.freeze({
+  gateway: Object.freeze({
+    all: "/admin/gateway-submissions",
+    listening: "/admin/gateway-submissions?view=listening",
+    reading: "/admin/gateway-submissions?view=reading",
+  }),
   orange: Object.freeze({
     all: "/admin/cambridge-submissions",
     listening: "/admin/cambridge-submissions?view=listening",
@@ -13,6 +18,7 @@ export const PLATFORM_SUBMISSION_PAGE_BY_GROUP = Object.freeze({
 
 const normalizeWorkspaceGroup = (value) => {
   const normalized = String(value || "orange").trim().toLowerCase();
+  if (normalized === "gateway") return "gateway";
   return normalized === "general" ? "general" : "orange";
 };
 
@@ -28,4 +34,19 @@ export const getPlatformSubmissionRoute = (groupKey = "orange", tabKey = "all") 
   const normalizedView = normalizeSubmissionView(tabKey);
   const groupMap = PLATFORM_SUBMISSION_PAGE_BY_GROUP[normalizedGroup];
   return groupMap[normalizedView] || groupMap.all;
+};
+
+export const getSubmissionResultRoute = (testType, submissionId) => {
+  const id = String(submissionId ?? "").trim();
+  if (!id) return null;
+
+  const normalizedTestType = String(testType || "").trim().toLowerCase();
+  const encodedId = encodeURIComponent(id);
+  if (normalizedTestType.startsWith("gateway-")) {
+    return `/gateway/result/${encodedId}`;
+  }
+  if (normalizedTestType === "fce-reading-60") {
+    return `/fce/result/${encodedId}`;
+  }
+  return `/cambridge/result/${encodedId}`;
 };
