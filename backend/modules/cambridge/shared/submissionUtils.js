@@ -1,5 +1,12 @@
 const { Op } = require('sequelize');
-const { CambridgeListening, CambridgeReading, CambridgeSubmission } = require('../../../models');
+const {
+  CambridgeListening,
+  CambridgeReading,
+  CambridgeSubmission,
+  GatewayListening,
+  GatewayReading,
+  GatewaySubmission,
+} = require('../../../models');
 const {
   getCambridgeResponseFeedbackText,
   hasCambridgeResponseFeedback,
@@ -54,13 +61,16 @@ const countPendingManualAnswers = (submission) => {
   ).length;
 };
 
-const getCambridgeModelByType = (testType = '') => {
+const getCambridgeModelByType = (testType = '', platform = 'cambridge') => {
   const normalized = String(testType || '').trim().toLowerCase();
+  if (String(platform || '').trim().toLowerCase() === 'gateway') {
+    return normalized.includes('listening') ? GatewayListening : GatewayReading;
+  }
   return normalized.includes('listening') ? CambridgeListening : CambridgeReading;
 };
 
-const getCambridgeTestRecord = async (testId, testType) => {
-  const Model = getCambridgeModelByType(testType);
+const getCambridgeTestRecord = async (testId, testType, platform = 'cambridge') => {
+  const Model = getCambridgeModelByType(testType, platform);
   return Model.findByPk(testId);
 };
 
@@ -69,9 +79,10 @@ const findActiveCambridgeDraft = async ({
   testId,
   testType,
   userId,
+  submissionModel = CambridgeSubmission,
 }) => {
   if (submissionId) {
-    const submission = await CambridgeSubmission.findByPk(submissionId);
+    const submission = await submissionModel.findByPk(submissionId);
     if (submission && submission.finished === false) {
       return submission;
     }
@@ -81,7 +92,7 @@ const findActiveCambridgeDraft = async ({
     return null;
   }
 
-  return CambridgeSubmission.findOne({
+  return submissionModel.findOne({
     where: {
       testId: Number(testId),
       testType: String(testType || ''),

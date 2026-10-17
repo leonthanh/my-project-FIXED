@@ -5,6 +5,7 @@ import { apiPath } from '../../../shared/utils/api';
 import { useTheme } from '../../../shared/contexts/ThemeContext';
 import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsContext';
 import { formatStudentDisplayName } from '../../../shared/utils/personName';
+import { summarizeDetailedResults } from '../../../shared/utils/detailedResultSummary';
 import CambridgeStudentStyleReview from '../../cambridge/shared/components/CambridgeStudentStyleReview';
 import { parseClozeBlanksFromText } from '../../exam-core/shared/utils/examQuestionNumbering';
 
@@ -493,7 +494,7 @@ const FceReadingResultPage = () => {
   const questionResults = useMemo(() => {
     if (!isFceReading60) return [];
 
-    const detailedResults = submission?.detailedResults;
+    const detailedResults = parseJsonIfString(submission?.detailedResults);
     if (!detailedResults || typeof detailedResults !== 'object') {
       return questionEntries.map((entry) => ({
         questionNumber: entry.questionNumber,
@@ -519,6 +520,7 @@ const FceReadingResultPage = () => {
   const stats = useMemo(() => {
     if (!submission) return null;
 
+    const detailSummary = summarizeDetailedResults(submission.detailedResults);
     let correct = 0;
     let wrong = 0;
     let blank = 0;
@@ -537,16 +539,17 @@ const FceReadingResultPage = () => {
       questionResults.length
     );
     const storedTotal = Number(submission.totalQuestions) || 0;
-    const total = Math.max(derivedTotal, storedTotal);
+    const total = detailSummary?.total ?? Math.max(derivedTotal, storedTotal);
     const countedStatuses = correct + wrong + blank + pending;
 
-    if (total > countedStatuses) {
+    if (!detailSummary && total > countedStatuses) {
       blank += total - countedStatuses;
     }
 
-    const percentage = Number(submission.percentage) || 0;
+    const score = detailSummary?.correct ?? (Number(submission.score) || 0);
+    const percentage = detailSummary?.percentage ?? (Number(submission.percentage) || 0);
     return {
-      score: Number(submission.score) || 0,
+      score,
       total,
       percentage,
       correct,

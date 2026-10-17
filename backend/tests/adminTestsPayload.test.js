@@ -9,6 +9,9 @@ jest.mock('../models/ListeningSubmission', () => ({ findAll: jest.fn(), destroy:
 jest.mock('../models/CambridgeReading', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
 jest.mock('../models/CambridgeListening', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
 jest.mock('../models/CambridgeSubmission', () => ({ findAll: jest.fn(), destroy: jest.fn() }));
+jest.mock('../models/GatewayReading', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
+jest.mock('../models/GatewayListening', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
+jest.mock('../models/GatewaySubmission', () => ({ findAll: jest.fn(), destroy: jest.fn() }));
 jest.mock('../middlewares/auth', () => ({
   requireAuth: (_req, _res, next) => next(),
   optionalAuth: (_req, _res, next) => next(),
@@ -25,6 +28,9 @@ const ListeningSubmission = require('../models/ListeningSubmission');
 const CambridgeReading = require('../models/CambridgeReading');
 const CambridgeListening = require('../models/CambridgeListening');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
+const GatewayReading = require('../models/GatewayReading');
+const GatewayListening = require('../models/GatewayListening');
+const GatewaySubmission = require('../models/GatewaySubmission');
 const router = require('../routes/admin');
 
 const getRouteHandler = (path, method) => {
@@ -71,6 +77,8 @@ describe('GET /admin/tests payload', () => {
     ListeningTest.findAll.mockResolvedValue([]);
     CambridgeReading.findAll.mockResolvedValue([]);
     CambridgeListening.findAll.mockResolvedValue([]);
+    GatewayReading.findAll.mockResolvedValue([]);
+    GatewayListening.findAll.mockResolvedValue([]);
     Submission.findAll.mockResolvedValue([
       { testId: 7, count: 0 },
       { testId: 16, count: 1 },
@@ -78,6 +86,7 @@ describe('GET /admin/tests payload', () => {
     ReadingSubmission.findAll.mockResolvedValue([]);
     ListeningSubmission.findAll.mockResolvedValue([]);
     CambridgeSubmission.findAll.mockResolvedValue([]);
+    GatewaySubmission.findAll.mockResolvedValue([]);
 
     const res = {
       json: jest.fn(),
@@ -107,5 +116,50 @@ describe('GET /admin/tests payload', () => {
       }),
     ]);
     expect(payload.cambridge[0].title).not.toMatch(/^IX Writing/i);
+  });
+
+  test('returns Gateway tests in a separate bucket and uses Gateway submission counts', async () => {
+    WritingTest.findAll.mockResolvedValue([]);
+    ReadingTest.findAll.mockResolvedValue([]);
+    ListeningTest.findAll.mockResolvedValue([]);
+    CambridgeReading.findAll.mockResolvedValue([]);
+    CambridgeListening.findAll.mockResolvedValue([]);
+    GatewayReading.findAll.mockResolvedValue([
+      {
+        id: 55,
+        title: 'Gateway Reading-Writing',
+        testType: 'gateway-reading-writing',
+        classCode: 'GW-A',
+        teacherName: 'Gateway Teacher',
+        totalQuestions: 50,
+        status: 'published',
+        createdAt: '2026-05-17T00:00:00.000Z',
+      },
+    ]);
+    GatewayListening.findAll.mockResolvedValue([]);
+    Submission.findAll.mockResolvedValue([]);
+    ReadingSubmission.findAll.mockResolvedValue([]);
+    ListeningSubmission.findAll.mockResolvedValue([]);
+    CambridgeSubmission.findAll.mockResolvedValue([]);
+    GatewaySubmission.findAll.mockResolvedValue([
+      { testId: 55, testType: 'gateway-reading-writing', count: 3 },
+    ]);
+
+    const res = {
+      json: jest.fn(),
+      status: jest.fn(function status() { return this; }),
+    };
+    await getTestsHandler({}, res);
+
+    const payload = res.json.mock.calls[0][0];
+    expect(payload.cambridge).toEqual([]);
+    expect(payload.gateway).toEqual([
+      expect.objectContaining({
+        id: 55,
+        typeLabel: 'Gateway Reading-Writing',
+        submissionCount: 3,
+        deleteScope: 'gateway-reading',
+      }),
+    ]);
   });
 });

@@ -108,6 +108,7 @@ const StudentNavbar = () => {
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
   const [listeningFeedbackCount, setListeningFeedbackCount] = useState(0);
   const [cambridgeFeedbackCount, setCambridgeFeedbackCount] = useState(0);
+  const [gatewayFeedbackCount, setGatewayFeedbackCount] = useState(0);
   const [moreDropdownVisible, setMoreDropdownVisible] = useState(false);
   const [isCompactMenu, setIsCompactMenu] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 520 : false
@@ -188,6 +189,17 @@ const StudentNavbar = () => {
       } catch (err) {
         console.error("Failed to load Cambridge notifications:", err);
         setCambridgeFeedbackCount(0);
+      }
+
+      try {
+        const gatewayRes = await fetch(apiPath(`gateway/submissions/unseen-count/${user.phone}`));
+        if (gatewayRes.ok) {
+          const { count } = await gatewayRes.json();
+          setGatewayFeedbackCount(count || 0);
+        }
+      } catch (err) {
+        console.error("Failed to load Gateway notifications:", err);
+        setGatewayFeedbackCount(0);
       }
     } catch (err) {
       console.error("Failed to load notifications:", err);
@@ -389,10 +401,31 @@ const StudentNavbar = () => {
         console.error("Failed to mark Cambridge feedback as seen:", err);
       }
 
+      try {
+        const gatewayRes = await fetch(apiPath(`gateway/submissions/user/${user.phone}`));
+        if (gatewayRes.ok) {
+          const gatewaySubs = await gatewayRes.json();
+          const gatewayUnseenIds = (Array.isArray(gatewaySubs) ? gatewaySubs : [])
+            .filter((sub) => hasAnyVisibleCambridgeFeedback(sub) && !sub.feedbackSeen)
+            .map((sub) => sub.id);
+
+          if (gatewayUnseenIds.length > 0) {
+            await fetch(apiPath("gateway/submissions/mark-feedback-seen"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ phone: user.phone, ids: gatewayUnseenIds }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to mark Gateway feedback as seen:", err);
+      }
+
       setWritingFeedbackCount(0);
       setReadingFeedbackCount(0);
       setListeningFeedbackCount(0);
       setCambridgeFeedbackCount(0);
+      setGatewayFeedbackCount(0);
     } catch (err) {
       console.error("Failed to mark feedback as seen:", err);
     }
@@ -453,7 +486,12 @@ const StudentNavbar = () => {
 
   if (!user) return null;
 
-  const feedbackCount = writingFeedbackCount + readingFeedbackCount + listeningFeedbackCount + cambridgeFeedbackCount;
+  const feedbackCount =
+    writingFeedbackCount +
+    readingFeedbackCount +
+    listeningFeedbackCount +
+    cambridgeFeedbackCount +
+    gatewayFeedbackCount;
   const totalNotifications = feedbackCount;
   const pathname = String(location.pathname || "").toLowerCase();
   const platformParam = pathname.startsWith("/select-test")

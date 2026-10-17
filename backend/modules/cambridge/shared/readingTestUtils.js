@@ -27,17 +27,19 @@ const normalizeCambridgeStatus = (value, fallback = 'published') => {
 };
 
 const safeParseParts = (rawParts) => {
-  if (!rawParts) return [];
-  if (Array.isArray(rawParts)) return rawParts;
-  if (typeof rawParts === 'string') {
+  let parts = rawParts;
+  let parseDepth = 0;
+
+  while (typeof parts === 'string' && parseDepth < 2) {
     try {
-      const parsed = JSON.parse(rawParts);
-      return Array.isArray(parsed) ? parsed : [];
+      parts = JSON.parse(parts);
     } catch {
       return [];
     }
+    parseDepth += 1;
   }
-  return [];
+
+  return Array.isArray(parts) ? parts : [];
 };
 
 const countTotalQuestionsFromParts = (rawParts = []) => {

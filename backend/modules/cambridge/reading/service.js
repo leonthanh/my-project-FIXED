@@ -52,10 +52,14 @@ const ensureReadingRecord = (record, forcedTestType) => {
   return record;
 };
 
-const listReadingTests = async ({ query = {}, forcedTestType = null } = {}) => {
+const listReadingTests = async ({
+  query = {},
+  forcedTestType = null,
+  testModel = CambridgeReading,
+} = {}) => {
   const testType = normalizeForcedTestType(forcedTestType) || String(query.testType || '').trim().toLowerCase() || null;
   const where = buildVisibleCambridgeWhere({ query }, testType ? { testType } : {});
-  const tests = await CambridgeReading.findAll({
+  const tests = await testModel.findAll({
     where,
     order: [['createdAt', 'DESC']],
   });
@@ -71,8 +75,12 @@ const listReadingTests = async ({ query = {}, forcedTestType = null } = {}) => {
   });
 };
 
-const getReadingTestById = async ({ id, forcedTestType = null } = {}) => {
-  const test = ensureReadingRecord(await CambridgeReading.findByPk(id), forcedTestType);
+const getReadingTestById = async ({
+  id,
+  forcedTestType = null,
+  testModel = CambridgeReading,
+} = {}) => {
+  const test = ensureReadingRecord(await testModel.findByPk(id), forcedTestType);
   const json = test.toJSON();
   const computedTotal = countTotalQuestionsFromParts(json.parts);
   const processedParts = processTestParts(safeParseParts(json.parts));
@@ -84,7 +92,12 @@ const getReadingTestById = async ({ id, forcedTestType = null } = {}) => {
   };
 };
 
-const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
+const createReadingTest = async ({
+  body = {},
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  platform = 'cambridge',
+} = {}) => {
   const {
     title,
     classCode,
@@ -98,9 +111,13 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
   } = body;
 
   const effectiveTestType = ensureForcedTypeMatch(testType, forcedTestType);
+  const isGatewayTest = effectiveTestType.startsWith('gateway-');
 
   if (!title || !classCode || !effectiveTestType) {
     throw createServiceError(400, 'Thiếu thông tin bắt buộc: title, classCode, testType');
+  }
+  if ((platform === 'gateway') !== isGatewayTest) {
+    throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
   }
 
   const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
@@ -108,7 +125,7 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
     showResultModal
   );
   const processedParts = processTestParts(parts);
-  return CambridgeReading.create({
+  return testModel.create({
     title,
     classCode,
     teacherName: teacherName || '',
@@ -121,8 +138,14 @@ const createReadingTest = async ({ body = {}, forcedTestType = null } = {}) => {
   });
 };
 
-const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) => {
-  const test = ensureReadingRecord(await CambridgeReading.findByPk(id), forcedTestType);
+const updateReadingTest = async ({
+  id,
+  body = {},
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  platform = 'cambridge',
+} = {}) => {
+  const test = ensureReadingRecord(await testModel.findByPk(id), forcedTestType);
   const {
     title,
     classCode,
@@ -134,6 +157,9 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
     studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType || test.testType, forcedTestType);
+  if ((platform === 'gateway') !== effectiveTestType.startsWith('gateway-')) {
+    throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
+  }
   const processedParts = parts ? processTestParts(parts) : test.parts;
 
   const visibilityWasUpdated =
@@ -161,8 +187,12 @@ const updateReadingTest = async ({ id, body = {}, forcedTestType = null } = {}) 
   return test;
 };
 
-const deleteReadingTest = async ({ id, forcedTestType = null } = {}) => {
-  const test = ensureReadingRecord(await CambridgeReading.findByPk(id), forcedTestType);
+const deleteReadingTest = async ({
+  id,
+  forcedTestType = null,
+  testModel = CambridgeReading,
+} = {}) => {
+  const test = ensureReadingRecord(await testModel.findByPk(id), forcedTestType);
   await test.destroy();
 };
 

@@ -9,6 +9,7 @@ const WritingSubmission = require("../../models/Submission");
 const ReadingSubmission = require("../../models/ReadingSubmission");
 const ListeningSubmission = require("../../models/ListeningSubmission");
 const CambridgeSubmission = require("../../models/CambridgeSubmission");
+const GatewaySubmission = require("../../models/GatewaySubmission");
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -28,6 +29,7 @@ const RUNTIME_SUBMISSION_MODELS = {
   reading: ReadingSubmission,
   listening: ListeningSubmission,
   cambridge: CambridgeSubmission,
+  gateway: GatewaySubmission,
 };
 
 const sortByOrder = (rows) =>

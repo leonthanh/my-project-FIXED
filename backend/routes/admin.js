@@ -14,6 +14,9 @@ const ListeningSubmission = require('../models/ListeningSubmission');
 const CambridgeListening = require('../models/CambridgeListening');
 const CambridgeReading = require('../models/CambridgeReading');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
+const GatewayListening = require('../models/GatewayListening');
+const GatewayReading = require('../models/GatewayReading');
+const GatewaySubmission = require('../models/GatewaySubmission');
 const AnalyticsEvent = require('../models/AnalyticsEvent');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { logError } = require('../logger');
@@ -111,6 +114,12 @@ const buildCambridgeTestPayload = (test, submissionCount = 0, category = 'readin
   typeLabel: formatCambridgeTypeLabel(test.testType, category),
 });
 
+const buildGatewayTestPayload = (test, submissionCount = 0, category = 'reading') => ({
+  ...buildCambridgeTestPayload(test, submissionCount, category),
+  deleteScope: `gateway-${category}`,
+  typeLabel: `Gateway ${category === 'listening' ? 'Listening' : 'Reading-Writing'}`,
+});
+
 const resolveAdminTestScope = (scope) => {
   switch (String(scope || '').toLowerCase()) {
     case 'ix-writing':
@@ -149,6 +158,18 @@ const resolveAdminTestScope = (scope) => {
       return {
         Model: CambridgeListening,
         label: 'đề Cambridge Listening',
+        visibilityField: 'status',
+      };
+    case 'gateway-reading':
+      return {
+        Model: GatewayReading,
+        label: 'đề Gateway Reading-Writing',
+        visibilityField: 'status',
+      };
+    case 'gateway-listening':
+      return {
+        Model: GatewayListening,
+        label: 'đề Gateway Listening',
         visibilityField: 'status',
       };
     default:
@@ -467,6 +488,7 @@ router.delete('/users/bulk', requireAuth, requireRole('admin'), async (req, res)
     await ReadingSubmission.destroy({ where: { userId: safeIds } });
     await ListeningSubmission.destroy({ where: { userId: safeIds } });
     await CambridgeSubmission.destroy({ where: { userId: safeIds } });
+    await GatewaySubmission.destroy({ where: { userId: safeIds } });
     const deleted = await User.destroy({ where: { id: safeIds } });
 
     res.json({ message: `Đã xóa ${deleted} người dùng và toàn bộ dữ liệu liên quan.`, deleted });
@@ -482,7 +504,13 @@ router.delete('/submissions/bulk', requireAuth, requireRole('admin'), async (req
   try {
     const { items } = req.body;
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'Thiếu danh sách items.' });
-    const modelMap = { writing: Submission, reading: ReadingSubmission, listening: ListeningSubmission, cambridge: CambridgeSubmission };
+    const modelMap = {
+      writing: Submission,
+      reading: ReadingSubmission,
+      listening: ListeningSubmission,
+      cambridge: CambridgeSubmission,
+      gateway: GatewaySubmission,
+    };
     let deleted = 0;
     for (const { type, id } of items) {
       const Model = modelMap[type];
@@ -512,6 +540,7 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), async (req, res) 
     await ReadingSubmission.destroy({ where: { userId: targetId } });
     await ListeningSubmission.destroy({ where: { userId: targetId } });
     await CambridgeSubmission.destroy({ where: { userId: targetId } });
+    await GatewaySubmission.destroy({ where: { userId: targetId } });
 
     const userName = user.name;
     await user.destroy();
@@ -919,10 +948,13 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
       listeningTests,
       cambridgeReadingTests,
       cambridgeListeningTests,
+      gatewayReadingTests,
+      gatewayListeningTests,
       writingSubmissionCounts,
       readingSubmissionCounts,
       listeningSubmissionCounts,
       cambridgeSubmissionCounts,
+      gatewaySubmissionCounts,
     ] = await Promise.all([
       WritingTest.findAll({
         order: [['createdAt', 'DESC']],
@@ -941,6 +973,14 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
         attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
       }),
       CambridgeListening.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      GatewayReading.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      GatewayListening.findAll({
         order: [['createdAt', 'DESC']],
         attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
       }),
@@ -968,6 +1008,11 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
         group: ['testId', 'testType'],
         raw: true,
       }),
+      GatewaySubmission.findAll({
+        attributes: ['testId', 'testType', [fn('COUNT', col('id')), 'count']],
+        group: ['testId', 'testType'],
+        raw: true,
+      }),
     ]);
 
     const writingCountMap = buildCountMap(writingSubmissionCounts, (row) => row.testId);
@@ -975,6 +1020,10 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
     const listeningCountMap = buildCountMap(listeningSubmissionCounts, (row) => row.testId);
     const cambridgeCountMap = buildCountMap(
       cambridgeSubmissionCounts,
+      (row) => `${String(row.testType || '').toLowerCase()}:${row.testId}`
+    );
+    const gatewayCountMap = buildCountMap(
+      gatewaySubmissionCounts,
       (row) => `${String(row.testType || '').toLowerCase()}:${row.testId}`
     );
 
@@ -1019,7 +1068,24 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
       ),
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    res.json({ ixWriting, ixReading, ixListening, cambridge });
+    const gateway = [
+      ...gatewayReadingTests.map(toPlain).map((test) =>
+        buildGatewayTestPayload(
+          test,
+          gatewayCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'reading'
+        )
+      ),
+      ...gatewayListeningTests.map(toPlain).map((test) =>
+        buildGatewayTestPayload(
+          test,
+          gatewayCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'listening'
+        )
+      ),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ ixWriting, ixReading, ixListening, cambridge, gateway });
   } catch (err) {
     logError('Lỗi lấy danh sách đề thi admin', err);
     res.status(500).json({ message: 'Lỗi server.' });
@@ -1117,7 +1183,7 @@ router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) =
     if (!userId) return res.status(400).json({ message: 'Thiếu userId.' });
     const uid = parseInt(userId, 10);
 
-    const [writing, reading, listening, cambridge] = await Promise.all([
+    const [writing, reading, listening, cambridge, gateway] = await Promise.all([
       Submission.findAll({
         where: {
           userId: uid,
@@ -1145,9 +1211,15 @@ router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) =
         limit: 100,
         attributes: ['id', 'studentName', 'testId', 'testType', 'score', 'totalQuestions', 'percentage', 'createdAt'],
       }),
+      GatewaySubmission.findAll({
+        where: { userId: uid },
+        order: [['createdAt', 'DESC']],
+        limit: 100,
+        attributes: ['id', 'studentName', 'testId', 'testType', 'score', 'totalQuestions', 'percentage', 'createdAt'],
+      }),
     ]);
 
-    res.json({ writing, reading, listening, cambridge });
+    res.json({ writing, reading, listening, cambridge, gateway });
   } catch (err) {
     logError('Lỗi lấy submissions', err);
     res.status(500).json({ message: 'Lỗi server.' });
@@ -1198,6 +1270,17 @@ router.delete('/submissions/cambridge/:id', requireAuth, requireRole('admin'), a
     res.json({ message: 'Đã xóa bài làm Cambridge.' });
   } catch (err) {
     logError('Lỗi xóa cambridge submission', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+router.delete('/submissions/gateway/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const n = await GatewaySubmission.destroy({ where: { id: req.params.id } });
+    if (!n) return res.status(404).json({ message: 'Không tìm thấy bài làm.' });
+    res.json({ message: 'Đã xóa bài làm Gateway.' });
+  } catch (err) {
+    logError('Lỗi xóa Gateway submission', err);
     res.status(500).json({ message: 'Lỗi server.' });
   }
 });

@@ -42,6 +42,19 @@ describe("MyFeedback", () => {
         return response([
           {
             id: 1,
+            testTitle: "Orange mid-course test",
+            testType: "pet-reading",
+            classCode: "284-GW-5A",
+            score: 43,
+            totalQuestions: 51,
+            studentResultVisibility: "confirmation",
+          },
+        ]);
+      }
+      if (String(url).includes("gateway/submissions/user/")) {
+        return response([
+          {
+            id: 4,
             testTitle: "Gateway mid-course test",
             testType: "gateway-reading-writing",
             classCode: "284-GW-5A",
@@ -95,6 +108,17 @@ describe("MyFeedback", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("tab", { name: /Orange/ }));
+    expect(
+      await screen.findByText("Submitted", {
+        selector: ".myFeedbackScoreBadge strong",
+      })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("43/51")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /View Full Result/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Gateway/ }));
     expect(
       await screen.findByText("Submitted", {
         selector: ".myFeedbackScoreBadge strong",

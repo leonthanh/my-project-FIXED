@@ -301,6 +301,7 @@ const CambridgeSubmissionsPage = ({
   platformFilter = null,
   platformLabel = 'Orange',
   platformLabelLower = 'orange',
+  submissionsApiBase = 'cambridge/submissions',
   displayLabels: displayLabelsProp = {},
 } = {}) => {
   const { isDarkMode } = useTheme();
@@ -459,7 +460,7 @@ const CambridgeSubmissionsPage = ({
         setLoading(true);
         setError(null);
 
-        let url = `cambridge/submissions?page=${pagination.page}&limit=${pagination.limit}&includeActive=1&platform=${encodeURIComponent(resolvedPlatformFilter)}`;
+        let url = `${submissionsApiBase}?page=${pagination.page}&limit=${pagination.limit}&includeActive=1&platform=${encodeURIComponent(resolvedPlatformFilter)}`;
         
         // Apply test type filter based on tab
         if (activeTab === 'listening') {
@@ -529,6 +530,7 @@ const CambridgeSubmissionsPage = ({
     pagination.page,
     refreshTick,
     resolvedPlatformFilter,
+    submissionsApiBase,
     reviewStatus,
     sortOrder,
   ]);
@@ -761,7 +763,7 @@ const CambridgeSubmissionsPage = ({
 
     try {
       setDetailLoadingById((prev) => ({ ...prev, [submissionId]: true }));
-      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`));
+      const res = await fetch(apiPath(`${submissionsApiBase}/${submissionId}`));
       if (!res.ok) {
         throw new Error('Could not load submission details.');
       }
@@ -1003,7 +1005,7 @@ const CambridgeSubmissionsPage = ({
 
     try {
       setSavingById((prev) => ({ ...prev, [stateKey]: true }));
-      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
+      const res = await fetch(apiPath(`${submissionsApiBase}/${submissionId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1162,7 +1164,7 @@ const CambridgeSubmissionsPage = ({
   const handleExtendTime = async (sub, extraMinutes) => {
     setExtendingId(sub.id);
     try {
-      const res = await authFetch(apiPath(`cambridge/submissions/${sub.id}/extend-time`), {
+      const res = await authFetch(apiPath(`${submissionsApiBase}/${sub.id}/extend-time`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extraMinutes }),
@@ -1201,7 +1203,8 @@ const CambridgeSubmissionsPage = ({
 
     setDeletingId(submission.id);
     try {
-      const res = await authFetch(apiPath(`admin/submissions/cambridge/${submission.id}`), {
+      const submissionType = resolvedPlatformFilter === 'gateway' ? 'gateway' : 'cambridge';
+      const res = await authFetch(apiPath(`admin/submissions/${submissionType}/${submission.id}`), {
         method: 'DELETE',
       });
       const data = await res.json().catch(() => ({}));
@@ -1270,7 +1273,7 @@ const CambridgeSubmissionsPage = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: submissionIds.map((submissionId) => ({
-            type: 'cambridge',
+            type: resolvedPlatformFilter === 'gateway' ? 'gateway' : 'cambridge',
             id: submissionId,
           })),
         }),
@@ -1696,7 +1699,7 @@ const CambridgeSubmissionsPage = ({
               title={null}
               allowMobileWrap
               showZeroBadge
-              countMode="cambridge"
+              countMode={resolvedPlatformFilter === 'gateway' ? 'gateway' : 'cambridge'}
               onSelect={handleSelectSubmissionView}
             />
           )}

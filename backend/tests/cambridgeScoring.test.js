@@ -55,4 +55,34 @@ describe("Cambridge fill-answer scoring", () => {
     );
     expect(Object.values(result.detailedResults).every(({ isCorrect }) => isCorrect)).toBe(true);
   });
+
+  test("scores Gateway parts that were double-encoded in a SQL backup", () => {
+    const parts = [
+      {
+        sections: [
+          {
+            questionType: "cloze-test",
+            questions: [
+              {
+                passageText: "The answer is (1).",
+                answers: { 1: "correct" },
+                blanks: [{ questionNum: 1, fullMatch: "(1)" }],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = scoreTest(
+      {
+        testType: "gateway-reading-writing",
+        parts: JSON.stringify(JSON.stringify(parts)),
+      },
+      { "0-0-0-0": "correct" }
+    );
+
+    expect(result).toMatchObject({ score: 1, total: 1 });
+    expect(Object.values(result.detailedResults)[0].isCorrect).toBe(true);
+  });
 });

@@ -1,4 +1,5 @@
 const { logError } = require('../../../logger');
+const { CambridgeListening } = require('../../../models');
 const listeningService = require('./service');
 
 const handleListeningError = (err, res, { logLabel, serverMessage }) => {
@@ -12,12 +13,17 @@ const handleListeningError = (err, res, { logLabel, serverMessage }) => {
   return res.status(statusCode).json({ message: err?.message || serverMessage });
 };
 
-const createListListeningTestsHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi lấy danh sách Cambridge Listening' } = {}) =>
+const createListListeningTestsHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  logLabel = 'Lỗi khi lấy danh sách Cambridge Listening',
+} = {}) =>
   async (req, res) => {
     try {
       const tests = await listeningService.listListeningTests({
         query: req.query,
         forcedTestType,
+        testModel,
       });
       res.json(tests);
     } catch (err) {
@@ -28,12 +34,17 @@ const createListListeningTestsHandler = ({ forcedTestType = null, logLabel = 'L�
     }
   };
 
-const createGetListeningTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi lấy chi tiết Cambridge Listening' } = {}) =>
+const createGetListeningTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  logLabel = 'Lỗi khi lấy chi tiết Cambridge Listening',
+} = {}) =>
   async (req, res) => {
     try {
       const test = await listeningService.getListeningTestById({
         id: req.params.id,
         forcedTestType,
+        testModel,
       });
       res.json(test);
     } catch (err) {
@@ -44,12 +55,19 @@ const createGetListeningTestHandler = ({ forcedTestType = null, logLabel = 'Lỗ
     }
   };
 
-const createCreateListeningTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi tạo Cambridge Listening' } = {}) =>
+const createCreateListeningTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  platform = 'cambridge',
+  logLabel = 'Lỗi khi tạo Cambridge Listening',
+} = {}) =>
   async (req, res) => {
     try {
       const test = await listeningService.createListeningTest({
         body: req.body,
         forcedTestType,
+        testModel,
+        platform,
       });
       console.log(`✅ Tạo đề Cambridge Listening thành công: ${test.id}`);
       res.status(201).json({
@@ -64,13 +82,20 @@ const createCreateListeningTestHandler = ({ forcedTestType = null, logLabel = 'L
     }
   };
 
-const createUpdateListeningTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi cập nhật Cambridge Listening' } = {}) =>
+const createUpdateListeningTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  platform = 'cambridge',
+  logLabel = 'Lỗi khi cập nhật Cambridge Listening',
+} = {}) =>
   async (req, res) => {
     try {
       const test = await listeningService.updateListeningTest({
         id: req.params.id,
         body: req.body,
         forcedTestType,
+        testModel,
+        platform,
       });
       res.json({
         message: 'Cập nhật đề thành công!',
@@ -84,12 +109,17 @@ const createUpdateListeningTestHandler = ({ forcedTestType = null, logLabel = 'L
     }
   };
 
-const createDeleteListeningTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi xóa Cambridge Listening' } = {}) =>
+const createDeleteListeningTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  logLabel = 'Lỗi khi xóa Cambridge Listening',
+} = {}) =>
   async (req, res) => {
     try {
       await listeningService.deleteListeningTest({
         id: req.params.id,
         forcedTestType,
+        testModel,
       });
       res.json({ message: 'Xóa đề thành công!' });
     } catch (err) {

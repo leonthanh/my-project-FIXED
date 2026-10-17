@@ -60,7 +60,12 @@ const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
  * Shared listening test runtime for Cambridge, Gateway, and compatible exams.
  * Support: KET, PET, FLYERS, MOVERS, STARTERS
  */
-const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
+const ExamCoreListeningRuntimePage = ({
+  defaultTestType = null,
+  fetchBasePath = 'cambridge/listening-tests',
+  submitBasePath = fetchBasePath,
+  submissionBasePath = 'cambridge/submissions',
+}) => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const routeTestType = useMemo(
     () => String(testType || defaultTestType || 'ket-listening').trim().toLowerCase(),
@@ -249,7 +254,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
       try {
         setLoading(true);
         const localUser = getStoredUser();
-        const res = await fetch(apiPath(`cambridge/listening-tests/${id}`));
+        const res = await fetch(apiPath(`${fetchBasePath}/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
 
@@ -318,7 +323,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
           try {
             const activeRes = await fetch(
               apiPath(
-                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
+                `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
               )
             );
             if (activeRes.ok) {
@@ -425,7 +430,14 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
       }
     };
     fetchTest();
-  }, [id, testConfig.duration, storageKey, syncTimingState]);
+  }, [
+    fetchBasePath,
+    id,
+    submissionBasePath,
+    syncTimingState,
+    storageKey,
+    testConfig.duration,
+  ]);
 
   const hasAnyAudio = useMemo(() => {
     return Boolean(test?.mainAudioUrl || test?.parts?.some((p) => p?.audioUrl));
@@ -737,7 +749,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
             hasResumeAudio,
           },
         };
-        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+        const res = await fetch(apiPath(`${submissionBasePath}/autosave`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -825,6 +837,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
     test?.testType,
     routeTestType,
     announceExtension,
+    submissionBasePath,
     syncTimingState,
   ]);
 
@@ -848,7 +861,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
     try {
       timingSyncInFlightRef.current = true;
       const res = await fetch(
-        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
       recordRuntimeSyncRequestMetric({
         scope: "orange-listening",
@@ -884,7 +897,15 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
     } finally {
       timingSyncInFlightRef.current = false;
     }
-  }, [announceExtension, id, submitted, syncTimingState, test?.testType, testStarted]);
+  }, [
+    announceExtension,
+    id,
+    submitted,
+    submissionBasePath,
+    syncTimingState,
+    test?.testType,
+    testStarted,
+  ]);
 
   useEffect(() => {
     if (!testStarted || submitted || !test?.testType) return;
@@ -1854,7 +1875,7 @@ const ExamCoreListeningRuntimePage = ({ defaultTestType = null }) => {
       const initialTime = (testConfig.duration || 30) * 60;
       const timeSpent = initialTime - timeRemaining;
 
-      const res = await authFetch(apiPath(`cambridge/listening-tests/${id}/submit`), {
+      const res = await authFetch(apiPath(`${submitBasePath}/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

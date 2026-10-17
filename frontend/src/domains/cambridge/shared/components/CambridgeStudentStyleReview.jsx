@@ -283,6 +283,15 @@ const styles = {
     margin: '0 auto',
     alignItems: 'start',
   },
+  stackedReview: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: '16px',
+    width: '100%',
+    maxWidth: '1120px',
+    margin: '0 auto',
+    alignItems: 'start',
+  },
   asideCard: {
     background: '#ffffff',
     border: '1px solid #dbe4f0',
@@ -1814,9 +1823,10 @@ function ReadingOpenQuestionsReview({ question, partIdx, secIdx, qIdx, sectionSt
   const instruction = question?.instruction || 'Answer the questions.';
   const passageHtml = sanitizePromptHtml(question?.passage || question?.passageText || '');
   const items = Array.isArray(question?.items) ? question.items : [];
+  const isRewriteLayout = ['rewrite-sentences', 'reorder-words'].includes(question?.layoutMode);
 
   return (
-    <div style={styles.twoColumn}>
+    <div style={isRewriteLayout ? styles.stackedReview : styles.twoColumn}>
       <div style={styles.asideCard}>
         <h5 style={styles.asideTitle}>{title}</h5>
         {passageHtml ? <div style={styles.richPromptHtml} dangerouslySetInnerHTML={{ __html: passageHtml }} /> : null}

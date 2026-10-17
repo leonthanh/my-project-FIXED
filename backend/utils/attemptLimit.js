@@ -5,6 +5,7 @@ const Submission = require('../models/Submission');
 const ReadingSubmission = require('../models/ReadingSubmission');
 const ListeningSubmission = require('../models/ListeningSubmission');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
+const GatewaySubmission = require('../models/GatewaySubmission');
 
 const DEFAULT_MAX_ATTEMPTS_PER_TEST = 1;
 
@@ -122,10 +123,14 @@ const countFinalizedAttempts = async ({ scope, userId, testId, testType } = {}) 
   }
 
   if (normalizedScope === 'cambridge') {
-    return CambridgeSubmission.count({
+    const normalizedTestType = String(testType || '').trim().toLowerCase();
+    const SubmissionModel = normalizedTestType.startsWith('gateway-')
+      ? GatewaySubmission
+      : CambridgeSubmission;
+    return SubmissionModel.count({
       where: {
         testId: Number(testId),
-        testType: String(testType || '').trim(),
+        testType: normalizedTestType,
         userId: numericUserId,
         ...FINALIZED_CAMBRIDGE_WHERE,
       },
@@ -191,8 +196,13 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
     };
   }
 
-  const [writingSubmissions, readingSubmissions, listeningSubmissions, cambridgeSubmissions] =
-    await Promise.all([
+  const [
+    writingSubmissions,
+    readingSubmissions,
+    listeningSubmissions,
+    cambridgeSubmissions,
+    gatewaySubmissions,
+  ] = await Promise.all([
       Submission.findAll({
         where: {
           userId: numericUserId,
@@ -215,6 +225,13 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
         attributes: ['testId'],
       }),
       CambridgeSubmission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_CAMBRIDGE_WHERE,
+        },
+        attributes: ['testId', 'testType'],
+      }),
+      GatewaySubmission.findAll({
         where: {
           userId: numericUserId,
           ...FINALIZED_CAMBRIDGE_WHERE,
@@ -255,7 +272,7 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
     );
   });
 
-  cambridgeSubmissions.forEach((submission) => {
+  [...cambridgeSubmissions, ...gatewaySubmissions].forEach((submission) => {
     incrementAttemptStatusCount(
       countsByKey,
       buildAttemptStatusKey({

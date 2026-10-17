@@ -6,6 +6,7 @@ const GatewaySubmissionsPage = () => (
     platformFilter="gateway"
     platformLabel="Gateway"
     platformLabelLower="Gateway"
+    submissionsApiBase="gateway/submissions"
   />
 );
 
