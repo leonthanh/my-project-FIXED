@@ -118,6 +118,7 @@ const ExamCoreReadingRuntimePage = ({
   defaultTestType = null,
   fetchBasePath = 'cambridge/reading-tests',
   submitBasePath = 'cambridge/reading-tests',
+  submissionBasePath = 'cambridge/submissions',
 }) => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
   const location = useLocation();
@@ -440,7 +441,7 @@ const ExamCoreReadingRuntimePage = ({
           try {
             const activeRes = await fetch(
               apiPath(
-                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
+                `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
               )
             );
             if (activeRes.ok) {
@@ -541,6 +542,7 @@ const ExamCoreReadingRuntimePage = ({
     camReadSubmissionKey,
     camReadTimeKey,
     fetchBasePath,
+    submissionBasePath,
     id,
     syncTimingState,
     testConfig.duration,
@@ -646,7 +648,7 @@ const ExamCoreReadingRuntimePage = ({
             currentQuestionIndex,
           },
         };
-        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+        const res = await fetch(apiPath(`${submissionBasePath}/autosave`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -716,6 +718,7 @@ const ExamCoreReadingRuntimePage = ({
     currentPartIndex,
     currentQuestionIndex,
     id,
+    submissionBasePath,
     started,
     submitted,
     test?.testType,
@@ -745,7 +748,7 @@ const ExamCoreReadingRuntimePage = ({
     try {
       timingSyncInFlightRef.current = true;
       const res = await fetch(
-        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
       recordRuntimeSyncRequestMetric({
         scope: "orange-reading",
@@ -781,7 +784,15 @@ const ExamCoreReadingRuntimePage = ({
     } finally {
       timingSyncInFlightRef.current = false;
     }
-  }, [announceExtension, id, started, submitted, syncTimingState, test?.testType]);
+  }, [
+    announceExtension,
+    id,
+    started,
+    submitted,
+    submissionBasePath,
+    syncTimingState,
+    test?.testType,
+  ]);
 
   useEffect(() => {
     if (!started || submitted || !test?.testType) return;

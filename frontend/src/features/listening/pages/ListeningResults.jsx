@@ -3,6 +3,7 @@ import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import { formatStudentDisplayName } from "../../../shared/utils/personName";
+import { summarizeDetailedResults } from "../../../shared/utils/detailedResultSummary";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ListeningStudentStyleReview from "../components/ListeningStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
@@ -1257,8 +1258,9 @@ const ListeningResults = () => {
   }
 
   // Prefer computed values from `details` when available to avoid showing stale stored fields
-  const computedCorrect = details.filter((d) => d.isCorrect).length;
-  const computedTotal = details.length > 0 ? details.length : (submission?.total ?? 40);
+  const detailSummary = summarizeDetailedResults(details);
+  const computedCorrect = detailSummary?.correct ?? details.filter((d) => d.isCorrect).length;
+  const computedTotal = detailSummary?.total ?? (details.length > 0 ? details.length : (submission?.total ?? 40));
 
   // Use computed values when we have details, otherwise fall back to stored submission fields
   const correct = details.length > 0
@@ -1268,8 +1270,10 @@ const ListeningResults = () => {
   const total = computedTotal;
 
   // Score percentage: prefer computed when details exist
-  const scorePercentage = details.length > 0
-    ? (total > 0 ? Math.round((computedCorrect / total) * 100) : 0)
+  const scorePercentage = detailSummary
+    ? detailSummary.percentage
+    : details.length > 0
+      ? (total > 0 ? Math.round((computedCorrect / total) * 100) : 0)
     : (submission?.scorePercentage != null ? Number(submission.scorePercentage) : 0);
 
   // Band: prefer stored band only when we don't have detailed computed results

@@ -362,6 +362,9 @@ require("./models/ReadingSubmission");
 require("./models/ListeningSubmission");
 require("./models/CambridgeListening");
 require("./models/CambridgeReading");
+require("./models/GatewayListening");
+require("./models/GatewayReading");
+require("./models/GatewaySubmission");
 const AnalyticsEvent = require("./models/AnalyticsEvent");
 require("./models/PlacementPackage");
 require("./models/PlacementPackageItem");
@@ -377,6 +380,7 @@ require('./models');
 const authRoutes = require("./routes/auth");
 const aiRoutes = require("./routes/ai");
 const cambridgeRouter = require("./modules/cambridge/router"); // ✅ Cambridge tests
+const gatewayRouter = require("./modules/gateway/router");
 const listeningRouter = require("./modules/listening/router");
 const readingRouter = require("./modules/reading/router");
 const writingRouter = require("./modules/writing/router");
@@ -490,6 +494,7 @@ app.use('/api', writingRouter);
 app.use('/api', listeningRouter);
 app.use('/api', readingRouter);
 app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
+app.use('/api/gateway', gatewayRouter);
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/placement', placementRoutes);
@@ -670,6 +675,12 @@ sequelize
     });
   })
   .then(() => syncSequelizeModels())
+  .then(async () => {
+    const migrated = await require('./scripts/migrate-gateway-data')();
+    if (migrated.readingTests || migrated.listeningTests || migrated.submissions) {
+      logger.info(migrated, 'Gateway records moved to dedicated tables');
+    }
+  })
   .then(() => cleanupOldAnalyticsEvents())
   .then(() => {
     logger.info('Sequelize models synced (or sync-alter skipped)');

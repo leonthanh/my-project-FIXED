@@ -1,4 +1,5 @@
 const { processTestParts } = require('../../../utils/clozParser');
+const { safeParseParts } = require('./readingTestUtils');
 
 const FCE_READING_60_BREAKDOWN_GROUPS = [
   { key: 'vocabulary', label: 'Vocabulary', parts: [0, 1] },
@@ -250,15 +251,7 @@ const scoreTest = (test, answers) => {
   const isGatewayReadingWriting =
     String(test?.testType || '').trim().toLowerCase() === 'gateway-reading-writing';
 
-  let parts = test?.parts;
-  if (typeof parts === 'string') {
-    try {
-      parts = JSON.parse(parts);
-    } catch (_err) {
-      parts = [];
-    }
-  }
-  parts = processTestParts(parts);
+  const parts = processTestParts(safeParseParts(test?.parts));
 
   const questionStartNumbers = computeQuestionStartNumbers(parts);
 

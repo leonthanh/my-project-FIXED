@@ -1,5 +1,9 @@
 const { Op } = require('sequelize');
-const { CambridgeListening, CambridgeSubmission, User } = require('../../../models');
+const {
+  CambridgeListening,
+  CambridgeSubmission,
+  User,
+} = require('../../../models');
 const {
   FINALIZED_CAMBRIDGE_WHERE,
   findActiveCambridgeDraft,
@@ -36,7 +40,14 @@ const ensureListeningRecord = (record, forcedTestType) => {
   return record;
 };
 
-const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}) => {
+const submitListeningTest = async ({
+  id,
+  body = {},
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  submissionModel = CambridgeSubmission,
+  platform = 'orange',
+} = {}) => {
   const {
     answers,
     studentName,
@@ -54,7 +65,7 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     throw createServiceError(400, 'Thiếu câu trả lời');
   }
 
-  const test = ensureListeningRecord(await CambridgeListening.findByPk(id), forcedTestType);
+  const test = ensureListeningRecord(await testModel.findByPk(id), forcedTestType);
   const { score, total, percentage, detailedResults } = scoreTest(test, answers);
 
   let placementContext = null;
@@ -91,6 +102,7 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
       testId: parseInt(id, 10),
       testType: test.testType,
       userId: userId || null,
+      submissionModel,
     });
   }
 
@@ -131,7 +143,7 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
       });
     }
 
-    submission = await CambridgeSubmission.create(finalizedPayload);
+    submission = await submissionModel.create(finalizedPayload);
   }
 
   if (placementAttemptItemToken) {
@@ -141,7 +153,7 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
       skill: 'listening',
       testId: String(parseInt(id, 10)),
       testType: test.testType,
-      runtimeSubmissionModel: 'cambridge',
+      runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
       runtimeSubmissionId: submission.id,
       status: 'submitted',
       correct: score,
@@ -162,7 +174,12 @@ const submitListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
   };
 };
 
-const listListeningTestSubmissions = async ({ id, forcedTestType = null } = {}) => {
+const listListeningTestSubmissions = async ({
+  id,
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  submissionModel = CambridgeSubmission,
+} = {}) => {
   const numericId = parseInt(id, 10);
   const normalizedForced = normalizeForcedTestType(forcedTestType);
   const where = {
@@ -173,12 +190,12 @@ const listListeningTestSubmissions = async ({ id, forcedTestType = null } = {}) 
   if (normalizedForced) {
     where.testType = normalizedForced;
   } else {
-    const test = await CambridgeListening.findByPk(numericId);
+    const test = await testModel.findByPk(numericId);
     const resolvedTestType = String(test?.testType || '').trim().toLowerCase();
     where.testType = resolvedTestType || { [Op.like]: '%-listening' };
   }
 
-  return CambridgeSubmission.findAll({
+  return submissionModel.findAll({
     where,
     order: [['submittedAt', 'DESC']],
     attributes: [

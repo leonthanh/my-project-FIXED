@@ -18,6 +18,7 @@ const {
 } = require("../utils/testTiming");
 const placementService = require("../modules/placement/service");
 const { enforceAttemptLimitForNewSubmission } = require("../utils/attemptLimit");
+const { summarizeDetailedResults } = require("../utils/detailedResultSummary");
 
 const FINALIZED_READING_WHERE = {
   [Op.or]: [{ finished: true }, { finished: null }],
@@ -946,6 +947,7 @@ router.get("/admin/list", async (req, res) => {
       runtimeSubmissionModel: "reading",
       runtimeSubmissionIds: submissions.map((submission) => submission.id),
     });
+    const scorerModule = loadReadingScorer();
 
     const result = submissions.map(s => {
       const obj = s.toJSON();
@@ -963,6 +965,44 @@ router.get("/admin/list", async (req, res) => {
         placementContact?.studentName ||
         null;
       obj.userPhone = obj.userPhone || obj.User?.phone || placementContact?.studentPhone || null;
+
+      if (t && scorerModule?.getDetailedScoring) {
+        try {
+          const testData = t.toJSON();
+          const parseJsonValue = (value) => {
+            let parsed = value;
+            let parseDepth = 0;
+            while (typeof parsed === "string" && parseDepth < 2) {
+              try {
+                parsed = JSON.parse(parsed);
+              } catch {
+                return value;
+              }
+              parseDepth += 1;
+            }
+            return parsed;
+          };
+          const passages = parseJsonValue(testData.passages) || [];
+          const answers = parseJsonValue(obj.answers) || {};
+          const detailedResults = scorerModule.getDetailedScoring({ passages }, answers);
+          const summary = summarizeDetailedResults(detailedResults);
+
+          if (summary) {
+            obj.correct = summary.correct;
+            obj.total = summary.total;
+            obj.scorePercentage = summary.percentage;
+            obj.computedCorrect = summary.correct;
+            obj.computedTotal = summary.total;
+            obj.computedPercentage = summary.percentage;
+            if (typeof scorerModule.bandFromCorrect === "function") {
+              obj.band = scorerModule.bandFromCorrect(summary.correct);
+            }
+          }
+        } catch (error) {
+          console.error(`[WARN] Failed to regenerate reading details for submission ${obj.id}:`, error);
+        }
+      }
+
       return obj;
     });
 

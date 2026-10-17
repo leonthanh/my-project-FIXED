@@ -5,7 +5,13 @@ const { Op } = require('sequelize');
 const ListeningSubmission = require('../models/ListeningSubmission');
 const ListeningTest = require('../models/ListeningTest');
 const User = require('../models/User');
-const { scoreListening } = require('../utils/listeningScorer');
+const { scoreListening, bandFromCorrect } = require('../utils/listeningScorer');
+const {
+  formatChoiceList,
+  isAnswerMatch,
+  normalizeChoiceIndices,
+} = require('../utils/listeningAnswerMatching');
+const { summarizeDetailedResults } = require('../utils/detailedResultSummary');
 const { countFlowchartQuestionSlots, getFlowchartBlankEntries } = require('../utils/flowchartHelpers');
 const {
   countListeningTableBlanks,
@@ -316,6 +322,21 @@ router.get('/admin/list', async (req, res) => {
       }
     };
 
+    const parseQuestionsDeep = (rawQuestions) => {
+      const questions = safeParseJson(rawQuestions);
+      if (!Array.isArray(questions)) return questions;
+      return questions.map((question) => ({
+        ...question,
+        formRows: safeParseJson(question?.formRows),
+        leftItems: safeParseJson(question?.leftItems),
+        rightItems: safeParseJson(question?.rightItems),
+        options: safeParseJson(question?.options),
+        answers: safeParseJson(question?.answers),
+        steps: safeParseJson(question?.steps),
+        clozeTable: safeParseJson(question?.clozeTable),
+      }));
+    };
+
     // Generate details from test structure and answers (port of front-end helper)
     const generateDetailsFromSections = (test, answers) => {
       const questions = Array.isArray(test?.questions) ? test.questions : [];
@@ -390,13 +411,26 @@ router.get('/admin/list', async (req, res) => {
           if (sectionType === 'form-completion' || sectionType === 'notes-completion') {
             const map = firstQ?.answers && typeof firstQ.answers === 'object' && !Array.isArray(firstQ.answers) ? firstQ.answers : null;
             if (map) {
-              const keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
+              let keys = Object.keys(map).map((k) => parseInt(k, 10)).filter((n) => Number.isFinite(n)).sort((a,b)=>a-b);
+              if (sectionType === 'notes-completion') {
+                const matches = String(firstQ?.notesText || '').match(/(\d+)\s*[_…]+|[_…]{2,}/g) || [];
+                if (matches.length) {
+                  let autoNum = sectionStart;
+                  keys = matches
+                    .map((token) => {
+                      const match = String(token).match(/^(\d+)/);
+                      const num = match ? parseInt(match[1], 10) : autoNum++;
+                      return Number.isFinite(num) ? num : null;
+                    })
+                    .filter((num) => num != null);
+                }
+              }
               for (const num of keys) {
                 const expected = map[String(num)];
                 const student = normalizedAnswers[`q${num}`];
                 const studentVal = student ?? '';
                 const expectedVal = expected ?? '';
-                const isCorrect = String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase();
+                const isCorrect = isAnswerMatch(studentVal, expectedVal);
                 details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
               }
               runningStart = Math.max(runningStart, sectionStart + keys.length);
@@ -426,7 +460,7 @@ router.get('/admin/list', async (req, res) => {
               const student = normalizedAnswers[`q${num}`];
               const studentVal = student ?? '';
               const expectedVal = expected ?? '';
-              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
+              const isCorrect = expectedVal ? isAnswerMatch(studentVal, expectedVal) : false;
               details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
             });
             runningStart = Math.max(runningStart, sectionStart + entries.length);
@@ -439,7 +473,7 @@ router.get('/admin/list', async (req, res) => {
               const student = normalizedAnswers[`q${num}`];
               const studentVal = student ?? '';
               const expectedVal = expected ?? '';
-              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
+              const isCorrect = expectedVal ? isAnswerMatch(studentVal, expectedVal) : false;
               details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
             });
             runningStart = Math.max(runningStart, sectionStart + entries.length);
@@ -454,7 +488,7 @@ router.get('/admin/list', async (req, res) => {
               const student = normalizedAnswers[`q${num}`];
               const studentVal = student ?? '';
               const expectedVal = expected ?? '';
-              const isCorrect = expectedVal ? String(studentVal).trim().toLowerCase() === String(expectedVal).trim().toLowerCase() : false;
+              const isCorrect = expectedVal ? isAnswerMatch(studentVal, expectedVal) : false;
               details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentVal, correctAnswer: expectedVal, isCorrect });
             });
             runningStart = Math.max(runningStart, sectionStart + items.length);
@@ -468,7 +502,7 @@ router.get('/admin/list', async (req, res) => {
               for (const num of keys) {
                 const expected = map[String(num)];
                 const student = normalizedAnswers[`q${num}`];
-                const isCorrect = expected ? String(student).trim().toLowerCase() === String(expected).trim().toLowerCase() : false;
+                const isCorrect = expected ? isAnswerMatch(student, expected) : false;
                 details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect });
               }
               runningStart = Math.max(runningStart, sectionStart + keys.length);
@@ -490,17 +524,33 @@ router.get('/admin/list', async (req, res) => {
             let groupStart = sectionStart;
             let totalCount = 0;
             for (const q of sectionQuestions) {
-              const required = Number(q?.requiredAnswers) || 2;
+              const required = Math.max(1, Number(q?.requiredAnswers) || 2);
               const studentRaw = normalizedAnswers[`q${groupStart}`];
               const expectedRaw = q?.correctAnswer ?? q?.answers;
 
-              const studentDisplay = Array.isArray(studentRaw) ? studentRaw.join(',') : String(studentRaw ?? '');
-              const expectedDisplay = Array.isArray(expectedRaw) ? expectedRaw.join(',') : String(expectedRaw ?? '');
-
-              const ok = studentDisplay && expectedDisplay ? String(studentDisplay).trim().toLowerCase() === String(expectedDisplay).trim().toLowerCase() : false;
+              const studentIndices = Array.from(new Set(normalizeChoiceIndices(studentRaw))).slice(0, required);
+              const expectedIndices = Array.from(new Set(normalizeChoiceIndices(expectedRaw))).slice(0, required);
+              const studentDisplay = formatChoiceList(studentIndices);
+              const expectedDisplay = formatChoiceList(expectedIndices) || String(expectedRaw ?? '');
 
               for (let i = 0; i < required; i++) {
-                details.push({ questionNumber: groupStart + i, partIndex: pIdx, sectionIndex: sIdx, questionType: sectionType, studentAnswer: studentDisplay, correctAnswer: expectedDisplay, isCorrect: ok });
+                const studentIndex = studentIndices[i];
+                const expectedIndex = expectedIndices[i];
+                details.push({
+                  questionNumber: groupStart + i,
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionType: sectionType,
+                  studentAnswer: studentIndex != null
+                    ? String.fromCharCode(65 + studentIndex)
+                    : studentDisplay || (Array.isArray(studentRaw) ? '' : String(studentRaw ?? '')),
+                  correctAnswer: expectedIndex != null
+                    ? String.fromCharCode(65 + expectedIndex)
+                    : expectedDisplay,
+                  groupStudentAnswer: studentDisplay,
+                  groupCorrectAnswer: expectedDisplay,
+                  isCorrect: expectedIndex != null && studentIndices.includes(expectedIndex),
+                });
               }
 
               groupStart += required;
@@ -519,20 +569,7 @@ router.get('/admin/list', async (req, res) => {
             const num = finalStart + idx;
             const expected = q?.correctAnswer;
             const student = normalizedAnswers[`q${num}`];
-            // Hỗ trợ nhiều đáp án chấp nhận (phân cách bằng |)
-            const accepted = (() => {
-              if (expected == null) return [];
-              if (Array.isArray(expected)) return expected;
-              const s = String(expected);
-              if (s.includes('|')) {
-                return s.split('|').map((x) => x.trim()).filter(Boolean);
-              }
-              return [s];
-            })();
-            const norm = (v) => (v == null ? '' : String(v)).trim().toLowerCase();
-            const ok = accepted.length
-              ? accepted.map(norm).includes(norm(student))
-              : norm(student) === norm(expected);
+            const ok = isAnswerMatch(student, expected);
             details.push({ questionNumber: num, partIndex: pIdx, sectionIndex: sIdx, questionType: String(sectionType || q?.questionType || 'fill').toLowerCase(), studentAnswer: student ?? '', correctAnswer: expected ?? '', isCorrect: ok });
           });
 
@@ -560,38 +597,37 @@ router.get('/admin/list', async (req, res) => {
         }
       }
 
-      // compute a displayable total from test structure when possible
-      const computedTotal =
-        authoritativeScore && Number.isFinite(authoritativeScore.totalCount)
-          ? Number(authoritativeScore.totalCount)
-          : computeTestTotal(testFull);
-
-      // compute a 'correct' count using details when available, otherwise attempt to generate
+      // Regenerate detail from the test and answers so list scores use the same scoring source
+      // as the detailed result page.
       let parsedDetails = obj.details && typeof obj.details === 'string' ? safeParseJson(obj.details) : obj.details;
       parsedDetails = Array.isArray(parsedDetails) ? parsedDetails : [];
-      let computedCorrect =
-        authoritativeScore && Number.isFinite(authoritativeScore.correctCount)
-          ? Number(authoritativeScore.correctCount)
-          : (parsedDetails.length ? parsedDetails.filter((d) => d.isCorrect).length : null);
-
-      // If we don't have parsedDetails but have test structure and answers, try generating
-      if (computedCorrect == null && testFull && parsedAnswers && typeof parsedAnswers === 'object') {
+      if (testFull && parsedAnswers && typeof parsedAnswers === 'object') {
         try {
           const generated = generateDetailsFromSections({
             ...testFull,
             partInstructions: safeParseJson(testFull.partInstructions),
-            questions: Array.isArray(testFull.questions) ? testFull.questions : (safeParseJson(testFull.questions) || [])
+            questions: parseQuestionsDeep(testFull.questions) || []
           }, parsedAnswers);
           if (generated && generated.length) {
-            computedCorrect = generated.filter(d => d.isCorrect).length;
+            parsedDetails = generated;
           }
         } catch (e) {
-          // ignore
+          console.error(`[WARN] Failed to regenerate listening details for submission ${obj.id}:`, e);
         }
       }
 
-      const correct = computedCorrect != null ? computedCorrect : (Number(obj.correct) || 0);
-      const computedPercentage = computedTotal ? Math.round((correct / computedTotal) * 100) : 0;
+      const detailSummary = summarizeDetailedResults(parsedDetails);
+      const computedTotal = detailSummary?.total ??
+        (authoritativeScore && Number.isFinite(authoritativeScore.totalCount)
+          ? Number(authoritativeScore.totalCount)
+          : computeTestTotal(testFull));
+      const correct = detailSummary?.correct ??
+        (authoritativeScore && Number.isFinite(authoritativeScore.correctCount)
+          ? Number(authoritativeScore.correctCount)
+          : Number(obj.correct) || 0);
+      const computedPercentage = detailSummary?.percentage ??
+        (computedTotal ? Math.round((correct / computedTotal) * 100) : 0);
+      if (detailSummary) obj.band = bandFromCorrect(correct);
 
       obj.ListeningTest = t
         ? {

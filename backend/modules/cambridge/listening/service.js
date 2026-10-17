@@ -67,14 +67,18 @@ const normalizeListeningAudioPayload = ({ mainAudioUrl, parts, fallbackParts = [
   };
 };
 
-const listListeningTests = async ({ query = {}, forcedTestType = null } = {}) => {
+const listListeningTests = async ({
+  query = {},
+  forcedTestType = null,
+  testModel = CambridgeListening,
+} = {}) => {
   const testType =
     normalizeForcedTestType(forcedTestType) ||
     String(query.testType || '').trim().toLowerCase() ||
     null;
   const where = buildVisibleCambridgeWhere({ query }, testType ? { testType } : {});
 
-  return CambridgeListening.findAll({
+  return testModel.findAll({
     where,
     order: [['createdAt', 'DESC']],
     attributes: [
@@ -90,10 +94,19 @@ const listListeningTests = async ({ query = {}, forcedTestType = null } = {}) =>
   });
 };
 
-const getListeningTestById = async ({ id, forcedTestType = null } = {}) =>
-  ensureListeningRecord(await CambridgeListening.findByPk(id), forcedTestType);
+const getListeningTestById = async ({
+  id,
+  forcedTestType = null,
+  testModel = CambridgeListening,
+} = {}) =>
+  ensureListeningRecord(await testModel.findByPk(id), forcedTestType);
 
-const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) => {
+const createListeningTest = async ({
+  body = {},
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  platform = 'cambridge',
+} = {}) => {
   const {
     title,
     classCode,
@@ -107,9 +120,13 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType, forcedTestType);
+  const isGatewayTest = effectiveTestType.startsWith('gateway-');
 
   if (!title || !classCode || !effectiveTestType) {
     throw createServiceError(400, 'Thiếu thông tin bắt buộc: title, classCode, testType');
+  }
+  if ((platform === 'gateway') !== isGatewayTest) {
+    throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
   }
 
   const resolvedStudentResultVisibility = normalizeStudentResultVisibility(
@@ -121,7 +138,7 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
     parts,
   });
 
-  return CambridgeListening.create({
+  return testModel.create({
     title,
     classCode,
     teacherName: teacherName || '',
@@ -135,8 +152,14 @@ const createListeningTest = async ({ body = {}, forcedTestType = null } = {}) =>
   });
 };
 
-const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}) => {
-  const test = ensureListeningRecord(await CambridgeListening.findByPk(id), forcedTestType);
+const updateListeningTest = async ({
+  id,
+  body = {},
+  forcedTestType = null,
+  testModel = CambridgeListening,
+  platform = 'cambridge',
+} = {}) => {
+  const test = ensureListeningRecord(await testModel.findByPk(id), forcedTestType);
   const {
     title,
     classCode,
@@ -149,6 +172,9 @@ const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
     studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType || test.testType, forcedTestType);
+  if ((platform === 'gateway') !== effectiveTestType.startsWith('gateway-')) {
+    throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
+  }
   const normalizedListeningPayload = normalizeListeningAudioPayload({
     mainAudioUrl: mainAudioUrl !== undefined ? mainAudioUrl : test.mainAudioUrl,
     parts,
@@ -181,8 +207,12 @@ const updateListeningTest = async ({ id, body = {}, forcedTestType = null } = {}
   return test;
 };
 
-const deleteListeningTest = async ({ id, forcedTestType = null } = {}) => {
-  const test = ensureListeningRecord(await CambridgeListening.findByPk(id), forcedTestType);
+const deleteListeningTest = async ({
+  id,
+  forcedTestType = null,
+  testModel = CambridgeListening,
+} = {}) => {
+  const test = ensureListeningRecord(await testModel.findByPk(id), forcedTestType);
   await test.destroy();
 };
 

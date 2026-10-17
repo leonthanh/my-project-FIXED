@@ -25,7 +25,7 @@ const GatewayEditTestPage = () => {
   const { skill: rawSkill, id } = useParams();
   const skill = normalizeGatewaySkill(rawSkill);
   const isListening = skill === "listening";
-  const apiBasePath = isListening ? "cambridge/listening-tests" : "cambridge/reading-tests";
+  const apiBasePath = isListening ? "gateway/listening-tests" : "gateway/reading-tests";
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [fetchedData, setFetchedData] = useState(null);

@@ -196,17 +196,34 @@ const SelectTest = () => {
         const readingPath = isTeacher ? 'reading-tests?includeArchived=1' : 'reading-tests';
         const listeningPath = isTeacher ? 'listening-tests?includeArchived=1' : 'listening-tests';
         const cambridgePath = isTeacher ? 'cambridge?visibility=all' : 'cambridge';
-        const [writingRes, readingRes, listeningRes, cambridgeRes] = await Promise.all([
+        const gatewayReadingPath = isTeacher
+          ? 'gateway/reading-tests?includeArchived=1'
+          : 'gateway/reading-tests';
+        const gatewayListeningPath = isTeacher
+          ? 'gateway/listening-tests?includeArchived=1'
+          : 'gateway/listening-tests';
+        const [
+          writingRes,
+          readingRes,
+          listeningRes,
+          cambridgeRes,
+          gatewayReadingRes,
+          gatewayListeningRes,
+        ] = await Promise.all([
           fetch(apiPath(writingPath)),
           fetch(apiPath(readingPath)),
           fetch(apiPath(listeningPath)),
           fetch(apiPath(cambridgePath)),
+          fetch(apiPath(gatewayReadingPath)),
+          fetch(apiPath(gatewayListeningPath)),
         ]);
 
         const writingData = await writingRes.json();
         const readingData = await readingRes.json();
         const listeningData = await listeningRes.json();
         const cambridgeData = cambridgeRes.ok ? await cambridgeRes.json() : [];
+        const gatewayReadingData = gatewayReadingRes.ok ? await gatewayReadingRes.json() : [];
+        const gatewayListeningData = gatewayListeningRes.ok ? await gatewayListeningRes.json() : [];
 
         const writingList = Array.isArray(writingData) ? writingData : [];
         const petWriting = writingList.filter((t) => t?.testType === "pet-writing");
@@ -215,19 +232,19 @@ const SelectTest = () => {
         const cambridgeWithWriting = cambridgeList.concat(
           petWriting.map((t) => ({ ...t, category: "writing", testType: "pet-writing" }))
         );
-        const gatewayCambridge = cambridgeWithWriting
-          .filter((t) => String(t?.testType || "").toLowerCase().startsWith("gateway-"))
-          .map((t) => ({
-            ...t,
-            skill: String(t?.testType || "").toLowerCase().includes("listening")
-              ? "listening"
-              : "reading-writing",
-            category: "gateway",
-          }));
+        const gatewayCambridge = [
+          ...(Array.isArray(gatewayReadingData) ? gatewayReadingData : []),
+          ...(Array.isArray(gatewayListeningData) ? gatewayListeningData : []),
+        ].map((test) => ({
+          ...test,
+          skill: String(test?.testType || "").toLowerCase().includes("listening")
+            ? "listening"
+            : "reading-writing",
+          category: "gateway",
+        }));
         const orangeCambridge = cambridgeWithWriting.filter((t) => {
           const rawTestType = String(t?.testType || "").toLowerCase();
           if (matchesFceTestType(rawTestType)) return false;
-          if (rawTestType.startsWith("gateway-")) return false;
           return true;
         });
         const fceCambridge = cambridgeWithWriting.filter((t) => matchesFceTestType(t?.testType));
@@ -358,12 +375,19 @@ const SelectTest = () => {
       }
 
       const encodedPhone = encodeURIComponent(resolvedPhone);
-      const [writingSubmissions, readingSubmissions, listeningSubmissions, cambridgeSubmissions] =
+      const [
+        writingSubmissions,
+        readingSubmissions,
+        listeningSubmissions,
+        cambridgeSubmissions,
+        gatewaySubmissions,
+      ] =
         await Promise.all([
           fetchArray(apiPath(`writing/user/${encodedPhone}`)),
           fetchArray(apiPath(`reading-submissions/user/${encodedPhone}`)),
           fetchArray(apiPath(`listening-submissions/user/${encodedPhone}`)),
           fetchArray(apiPath(`cambridge/submissions/user/${encodedPhone}`)),
+          fetchArray(apiPath(`gateway/submissions/user/${encodedPhone}`)),
         ]);
 
       const countsByKey = {};
@@ -396,6 +420,19 @@ const SelectTest = () => {
         });
 
       cambridgeSubmissions
+        .filter(FINALIZED_CAMBRIDGE_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({
+              scope: "cambridge",
+              testId: submission?.testId,
+              testType: submission?.testType,
+            })
+          );
+        });
+
+      gatewaySubmissions
         .filter(FINALIZED_CAMBRIDGE_SUBMISSION)
         .forEach((submission) => {
           incrementAttemptKeyCount(

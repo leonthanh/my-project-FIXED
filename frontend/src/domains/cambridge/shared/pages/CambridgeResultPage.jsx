@@ -6,6 +6,7 @@ import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
 import { isZeroNumberedClozeExample } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import { summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
@@ -285,6 +286,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
   const isGatewayResultPage =
     platform === 'gateway' || location.pathname.startsWith('/gateway/result/');
   const isGatewayResult = isGatewaySubmission || isGatewayResultPage;
+  const submissionsApiBase = isGatewayResultPage ? 'gateway/submissions' : 'cambridge/submissions';
   const gatewayTab = String(submission?.testType || '').toLowerCase().includes('listening')
     ? 'listening'
     : 'reading-writing';
@@ -337,7 +339,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         // Don't show loading spinner if we already have nav state data (avoid flicker)
         if (!location.state?.submission) setLoading(true);
         setError(null);
-        const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), { signal: controller.signal });
+        const res = await fetch(apiPath(`${submissionsApiBase}/${submissionId}`), { signal: controller.signal });
         if (!res.ok) throw new Error("Result not found");
         const data = await res.json();
         if (!cancelled) setSubmission(normalizeSubmission(data));
@@ -355,7 +357,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       cancelled = true;
       controller.abort();
     };
-  }, [submissionId]);
+  }, [submissionId, submissionsApiBase]);
 
   useEffect(() => {
     if (!submission?.testType) return;
@@ -389,7 +391,8 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
 
     (async () => {
       try {
-        const testRes = await fetch(apiPath(`cambridge/${category}-tests/${sub.testId}`), { signal: controller.signal });
+        const testPlatformBase = isGatewayResult ? 'gateway' : 'cambridge';
+        const testRes = await fetch(apiPath(`${testPlatformBase}/${category}-tests/${sub.testId}`), { signal: controller.signal });
         if (!testRes.ok) return;
         const testData = await testRes.json();
         testData.parts = typeof testData.parts === 'string' ? JSON.parse(testData.parts) : testData.parts;
@@ -408,9 +411,10 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         lastFetchedTestKeyRef.current = null;
       }
     };
-  }, [submission, location.state?.submission, test]);
+  }, [submission, location.state?.submission, test, isGatewayResult]);
 
-  const formatQuestionLabel = (questionNum) => {
+  const formatQuestionLabel = (questionNum, questionType = '') => {
+    if (questionType === 'short-message' || questionType === 'story-writing') return 'W';
     if (!questionNum || questionNum <= 0) return '';
     return String(questionNum);
   };
@@ -532,11 +536,20 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
               : allBlanks;
 
             if (Array.isArray(blanks) && blanks.length > 0) {
+              const isGatewayTest = String(submission?.testType || test?.testType || '')
+                .trim()
+                .toLowerCase()
+                .startsWith('gateway-');
               blanks.forEach((blank, blankIdx) => {
                 const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
                 const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
                 const explicitNum = Number(blank?.questionNum);
-                const assignedNum = Number.isFinite(explicitNum) ? explicitNum : questionNum + 1;
+                const nextQuestionNum = questionNum + 1;
+                const hasSequentialExplicitNum =
+                  Number.isFinite(explicitNum) && explicitNum >= nextQuestionNum;
+                const assignedNum = isGatewayTest
+                  ? hasSequentialExplicitNum ? explicitNum : nextQuestionNum
+                  : Number.isFinite(explicitNum) ? explicitNum : nextQuestionNum;
                 map[key] = assignedNum;
                 map[legacyKey] = assignedNum;
                 questionNum = Math.max(questionNum + 1, assignedNum);
@@ -755,21 +768,21 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     if (!submission) return null;
 
     const { score, percentage } = submission;
+    const rawDetailedResults = Array.isArray(submission.detailedResults)
+      ? submission.detailedResults
+      : submission.detailedResults && typeof submission.detailedResults === 'object'
+        ? Object.values(submission.detailedResults)
+        : [];
+    const detailSummary = summarizeDetailedResults(rawDetailedResults);
     let correctCount = 0;
     let wrongCount = 0;
     let unansweredCount = 0;
-    const gatewayResults =
-      isGatewaySubmission &&
-      submission.detailedResults &&
-      typeof submission.detailedResults === 'object' &&
-      !Array.isArray(submission.detailedResults)
-        ? Object.values(submission.detailedResults)
-        : [];
-    const resultsForStats = gatewayResults.length
-      ? gatewayResults.map((result) => ({ result }))
+    const resultsForStats = rawDetailedResults.length
+      ? rawDetailedResults.map((result) => ({ result }))
       : mappedQuestionResults;
 
     resultsForStats.forEach(({ result }) => {
+      if (detailSummary && typeof result?.isCorrect !== 'boolean') return;
       const status = getResultStatus(result);
       if (status.label === 'Correct') {
         correctCount += 1;
@@ -780,18 +793,22 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       }
     });
 
-    const total = isFceReading60 || isGatewaySubmission
-      ? Number(submission.totalQuestions) || resultsForStats.length || 0
+    const total = detailSummary
+      ? detailSummary.total
+      : isFceReading60 || isGatewaySubmission
+        ? Number(submission.totalQuestions) || resultsForStats.length || 0
       : mappedQuestionResults.length || Number(submission.totalQuestions) || 0;
+    const displayedScore = detailSummary?.correct ?? (Number(score) || 0);
+    const displayedPercentage = detailSummary?.percentage ?? (Number(percentage) || 0);
 
     return {
-      score: Number(score) || 0,
+      score: displayedScore,
       total,
-      percentage: Number(percentage) || 0,
+      percentage: displayedPercentage,
       correct: correctCount,
       wrong: wrongCount,
       unanswered: unansweredCount,
-      grade: getGrade(Number(percentage) || 0)
+      grade: getGrade(displayedPercentage)
     };
   }, [getResultStatus, isFceReading60, isGatewaySubmission, mappedQuestionResults, submission]);
 
@@ -1023,7 +1040,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     const legacyKey = `${partIdx}-${secIdx}-0`;
     const result = getDetailedResult(key, legacyKey) || {};
     const questionNum = questionNumberMap[key] || questionNumberMap[legacyKey];
-    const label = questionNum ? formatQuestionLabel(questionNum) : '?';
+    const label = questionNum ? formatQuestionLabel(questionNum, sectionType) : '?';
     const status = getResultStatus(result);
     const promptHtml = buildWritingPromptHtml(sectionType, question, result);
     const userAnswer =
@@ -1292,7 +1309,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
               <h3 style={styles.summaryTitle}>Question Summary</h3>
               <div style={styles.questionGrid}>
                 {mappedQuestionResults.map(({ key, questionNum, result }) => {
-                  const label = formatQuestionLabel(questionNum);
+                  const label = formatQuestionLabel(questionNum, result?.questionType);
                   const status = getResultStatus(result);
 
                   return (

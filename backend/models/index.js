@@ -10,6 +10,9 @@ const ListeningSubmission = require("./ListeningSubmission");
 const CambridgeListening = require("./CambridgeListening");
 const CambridgeReading = require("./CambridgeReading");
 const CambridgeSubmission = require("./CambridgeSubmission");
+const GatewayListening = require("./GatewayListening");
+const GatewayReading = require("./GatewayReading");
+const GatewaySubmission = require("./GatewaySubmission");
 const AnalyticsEvent = require("./AnalyticsEvent");
 const PlacementPackage = require("./PlacementPackage");
 const PlacementPackageItem = require("./PlacementPackageItem");
@@ -48,9 +51,23 @@ CambridgeReading.hasMany(CambridgeSubmission, {
   scope: { testType: 'reading' }
 });
 
+GatewayListening.hasMany(GatewaySubmission, {
+  foreignKey: "testId",
+  constraints: false,
+  scope: { testType: 'gateway-listening' }
+});
+
+GatewayReading.hasMany(GatewaySubmission, {
+  foreignKey: "testId",
+  constraints: false,
+  scope: { testType: 'gateway-reading-writing' }
+});
+
 // Quan hệ User ↔ CambridgeSubmission
 User.hasMany(CambridgeSubmission, { foreignKey: "userId" });
 CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(GatewaySubmission, { foreignKey: "userId", constraints: false });
+GatewaySubmission.belongsTo(User, { foreignKey: "userId", constraints: false });
 
 // Refresh tokens
 User.hasMany(RefreshToken, { foreignKey: "userId" });
@@ -72,6 +89,9 @@ module.exports = {
   CambridgeListening,
   CambridgeReading,
   CambridgeSubmission,
+  GatewayListening,
+  GatewayReading,
+  GatewaySubmission,
   AnalyticsEvent,
   PlacementPackage,
   PlacementPackageItem,

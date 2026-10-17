@@ -415,7 +415,7 @@ const AdminNavbar = () => {
           readJsonOrThrow("reading-submissions/admin/list"),
           readJsonOrThrow("listening-submissions/admin/list"),
           readJsonOrThrow("cambridge/submissions?page=1&limit=100&platform=orange"),
-          readJsonOrThrow("cambridge/submissions?page=1&limit=100&platform=gateway"),
+          readJsonOrThrow("gateway/submissions?page=1&limit=100"),
         ]);
 
       if (writingResult.status === "rejected") {

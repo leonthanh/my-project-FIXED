@@ -1,4 +1,5 @@
 const { logError } = require('../../../logger');
+const { CambridgeReading } = require('../../../models');
 const readingService = require('./service');
 
 const handleReadingError = (err, res, { logLabel, serverMessage }) => {
@@ -12,10 +13,18 @@ const handleReadingError = (err, res, { logLabel, serverMessage }) => {
   return res.status(statusCode).json({ message: err?.message || serverMessage });
 };
 
-const createListReadingTestsHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi lấy danh sách Cambridge Reading' } = {}) =>
+const createListReadingTestsHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  logLabel = 'Lỗi khi lấy danh sách Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
-      const tests = await readingService.listReadingTests({ query: req.query, forcedTestType });
+      const tests = await readingService.listReadingTests({
+        query: req.query,
+        forcedTestType,
+        testModel,
+      });
       res.json(tests);
     } catch (err) {
       handleReadingError(err, res, {
@@ -25,10 +34,18 @@ const createListReadingTestsHandler = ({ forcedTestType = null, logLabel = 'Lỗ
     }
   };
 
-const createGetReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi lấy chi tiết Cambridge Reading' } = {}) =>
+const createGetReadingTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  logLabel = 'Lỗi khi lấy chi tiết Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
-      const test = await readingService.getReadingTestById({ id: req.params.id, forcedTestType });
+      const test = await readingService.getReadingTestById({
+        id: req.params.id,
+        forcedTestType,
+        testModel,
+      });
       res.json(test);
     } catch (err) {
       handleReadingError(err, res, {
@@ -38,10 +55,20 @@ const createGetReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi 
     }
   };
 
-const createCreateReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi tạo Cambridge Reading' } = {}) =>
+const createCreateReadingTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  platform = 'cambridge',
+  logLabel = 'Lỗi khi tạo Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
-      const test = await readingService.createReadingTest({ body: req.body, forcedTestType });
+      const test = await readingService.createReadingTest({
+        body: req.body,
+        forcedTestType,
+        testModel,
+        platform,
+      });
       res.status(201).json({
         message: 'Tạo đề thành công!',
         test,
@@ -54,13 +81,20 @@ const createCreateReadingTestHandler = ({ forcedTestType = null, logLabel = 'L�
     }
   };
 
-const createUpdateReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi cập nhật Cambridge Reading' } = {}) =>
+const createUpdateReadingTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  platform = 'cambridge',
+  logLabel = 'Lỗi khi cập nhật Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
       const test = await readingService.updateReadingTest({
         id: req.params.id,
         body: req.body,
         forcedTestType,
+        testModel,
+        platform,
       });
       res.json({
         message: 'Cập nhật đề thành công!',
@@ -74,10 +108,18 @@ const createUpdateReadingTestHandler = ({ forcedTestType = null, logLabel = 'L�
     }
   };
 
-const createDeleteReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi xóa Cambridge Reading' } = {}) =>
+const createDeleteReadingTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  logLabel = 'Lỗi khi xóa Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
-      await readingService.deleteReadingTest({ id: req.params.id, forcedTestType });
+      await readingService.deleteReadingTest({
+        id: req.params.id,
+        forcedTestType,
+        testModel,
+      });
       res.json({ message: 'Xóa đề thành công!' });
     } catch (err) {
       handleReadingError(err, res, {

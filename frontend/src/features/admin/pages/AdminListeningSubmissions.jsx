@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import LineIcon from "../../../shared/components/LineIcon";
 import { formatStudentDisplayName } from "../../../shared/utils/personName";
+import { summarizeDetailedResults } from "../../../shared/utils/detailedResultSummary";
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
@@ -158,42 +159,39 @@ const AdminListeningSubmissions = () => {
         const data = await res.json();
         if (!isActive) return;
 
-        // Prefer server-provided counters, then stored details, then a safe fallback.
+        // Prefer server-provided counters, then details, then stored fields.
         const mapped = (Array.isArray(data) ? data : []).map((s) => {
           const parsedDetails = Array.isArray(s.details)
             ? s.details
             : safeParseJson(s.details) || [];
-          const computedTotal =
-            Number(s.computedTotal) ||
-            Number(s.total) ||
-            (parsedDetails.length ? parsedDetails.length : 40);
-          const parsedCorrectFromDetails =
-            Array.isArray(parsedDetails) && parsedDetails.length
-              ? parsedDetails.filter((d) => d.isCorrect).length
-              : null;
-          const storedCorrect = Number.isFinite(Number(s.correct))
+          const detailSummary = summarizeDetailedResults(parsedDetails);
+          const serverComputedTotal = Number.isFinite(Number(s.computedTotal)) && Number(s.computedTotal) > 0
+            ? Number(s.computedTotal)
+            : null;
+          const serverComputedCorrect = s.computedCorrect != null && Number.isFinite(Number(s.computedCorrect))
+            ? Number(s.computedCorrect)
+            : null;
+          const serverComputedPercentage = s.computedPercentage != null && Number.isFinite(Number(s.computedPercentage))
+            ? Number(s.computedPercentage)
+            : null;
+          const computedTotal = serverComputedTotal ??
+            detailSummary?.total ??
+            (Number(s.total) || (parsedDetails.length ? parsedDetails.length : 40));
+          const parsedCorrectFromDetails = detailSummary?.correct ?? null;
+          const storedCorrect = s.correct != null && Number.isFinite(Number(s.correct))
             ? Number(s.correct)
             : null;
 
-          let computedCorrect;
-          if (parsedCorrectFromDetails != null) {
-            computedCorrect = parsedCorrectFromDetails;
-          } else if (storedCorrect != null) {
-            computedCorrect = storedCorrect;
-          } else if (s.computedPercentage != null) {
-            computedCorrect = Math.round(
-              (Number(s.computedPercentage) / 100) * computedTotal
-            );
-          } else {
-            computedCorrect = Number(s.correct) || 0;
-          }
+          const computedCorrect = serverComputedCorrect ??
+            parsedCorrectFromDetails ??
+            storedCorrect ??
+            (serverComputedPercentage != null
+              ? Math.round((serverComputedPercentage / 100) * computedTotal)
+              : Number(s.correct) || 0);
 
-          const percentage =
-            s.computedPercentage != null
-              ? Number(s.computedPercentage)
-              : computedTotal
-              ? Math.round((computedCorrect / computedTotal) * 100)
-              : 0;
+          const percentage = serverComputedPercentage ??
+            detailSummary?.percentage ??
+            (computedTotal ? Math.round((computedCorrect / computedTotal) * 100) : 0);
 
           return {
             ...s,

@@ -198,6 +198,10 @@
   background: linear-gradient(135deg, #d45512 0%, #fb923c 100%);
 }
 
+.myFeedbackSideTab--gateway.is-active {
+  background: linear-gradient(135deg, #15803d 0%, #4ade80 100%);
+}
+
 .myFeedbackSideTabCopy {
   display: grid;
   gap: 3px;
@@ -425,6 +429,10 @@
 
 .myFeedbackCard--cambridge {
   --mf-accent: #ea580c;
+}
+
+.myFeedbackCard--gateway {
+  --mf-accent: #16a34a;
 }
 
 .myFeedbackCardHeader {

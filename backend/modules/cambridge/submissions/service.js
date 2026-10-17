@@ -21,6 +21,7 @@ const {
   upsertCambridgeResponseFeedback,
 } = require('../shared/feedbackUtils');
 const { scoreTest } = require('../shared/scoring');
+const { summarizeDetailedResults } = require('../../../utils/detailedResultSummary');
 const placementService = require('../../placement/service');
 const { enforceAttemptLimitForNewSubmission } = require('../../../utils/attemptLimit');
 const {
@@ -34,8 +35,11 @@ const createServiceError = (statusCode, message) => {
   return error;
 };
 
-const getCambridgeSubmissionById = async ({ id } = {}) => {
-  const submission = await CambridgeSubmission.findByPk(id);
+const getCambridgeSubmissionById = async ({
+  id,
+  submissionModel = CambridgeSubmission,
+} = {}) => {
+  const submission = await submissionModel.findByPk(id);
   if (!submission) {
     throw createServiceError(404, 'Không tìm thấy bài nộp.');
   }
@@ -135,7 +139,11 @@ const parseDateBoundary = (value, endOfDay = false) => {
   return parsed;
 };
 
-const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
+const autosaveCambridgeSubmission = async ({
+  body = {},
+  submissionModel = CambridgeSubmission,
+  platform = 'cambridge',
+} = {}) => {
   const {
     testId,
     testType,
@@ -157,9 +165,12 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
   if (!numericTestId || !normalizedTestType) {
     throw createServiceError(400, 'Missing testId or testType.');
   }
+  if ((platform === 'gateway') !== normalizedTestType.toLowerCase().startsWith('gateway-')) {
+    throw createServiceError(400, 'Test type does not match the selected platform.');
+  }
 
   const resolvedUserId = Number(user?.id) || null;
-  const test = await getCambridgeTestRecord(numericTestId, normalizedTestType);
+  const test = await getCambridgeTestRecord(numericTestId, normalizedTestType, platform);
   const parsedExpiresAt = Number.isFinite(Number(expiresAt))
     ? new Date(Number(expiresAt))
     : null;
@@ -215,7 +226,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
         skill,
         testId: String(numericTestId),
         testType: normalizedTestType,
-        runtimeSubmissionModel: 'cambridge',
+        runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
         runtimeSubmissionId: submission.id,
         status: 'started',
       });
@@ -226,7 +237,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
       };
     }
 
-    const created = await CambridgeSubmission.create({
+    const created = await submissionModel.create({
       testId: numericTestId,
       testType: normalizedTestType,
       testTitle: test?.title || null,
@@ -262,7 +273,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
       skill,
       testId: String(numericTestId),
       testType: normalizedTestType,
-      runtimeSubmissionModel: 'cambridge',
+      runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
       runtimeSubmissionId: created.id,
       status: 'started',
     });
@@ -278,6 +289,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
     testId: numericTestId,
     testType: normalizedTestType,
     userId: resolvedUserId,
+    submissionModel,
   });
 
   if (submission) {
@@ -311,7 +323,7 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
       });
     }
 
-    submission = await CambridgeSubmission.create({
+    submission = await submissionModel.create({
       testId: numericTestId,
       testType: normalizedTestType,
       testTitle: test?.title || null,
@@ -348,12 +360,19 @@ const autosaveCambridgeSubmission = async ({ body = {} } = {}) => {
   };
 };
 
-const getActiveCambridgeDraft = async ({ query = {} } = {}) => {
+const getActiveCambridgeDraft = async ({
+  query = {},
+  submissionModel = CambridgeSubmission,
+  platform = 'cambridge',
+} = {}) => {
   const numericTestId = Number(query.testId);
   const normalizedTestType = String(query.testType || '').trim();
 
   if (!numericTestId || !normalizedTestType) {
     throw createServiceError(400, 'Missing testId or testType.');
+  }
+  if ((platform === 'gateway') !== normalizedTestType.toLowerCase().startsWith('gateway-')) {
+    throw createServiceError(400, 'Test type does not match the selected platform.');
   }
 
   if (query.placementAttemptItemToken) {
@@ -379,6 +398,7 @@ const getActiveCambridgeDraft = async ({ query = {} } = {}) => {
     testId: numericTestId,
     testType: normalizedTestType,
     userId: Number(query.userId) || null,
+    submissionModel,
   });
 
   return {
@@ -387,9 +407,13 @@ const getActiveCambridgeDraft = async ({ query = {} } = {}) => {
   };
 };
 
-const listCambridgeSubmissions = async ({ query = {} } = {}) => {
+const listCambridgeSubmissions = async ({
+  query = {},
+  submissionModel = CambridgeSubmission,
+  platform = null,
+} = {}) => {
   const {
-    platform,
+    platform: queryPlatform,
     testType,
     classCode,
     studentName,
@@ -425,7 +449,7 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
     andConditions.push(testTypeFilter);
   }
 
-  const platformFilter = buildSubmissionPlatformFilter(platform);
+  const platformFilter = buildSubmissionPlatformFilter(platform || queryPlatform);
   if (platformFilter) {
     andConditions.push(platformFilter);
   }
@@ -485,7 +509,7 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   const offset = (pageNumber - 1) * limitNumber;
   const direction = String(sortOrder).toLowerCase() === 'oldest' ? 'ASC' : 'DESC';
 
-  const { count, rows: submissions } = await CambridgeSubmission.findAndCountAll({
+  const { count, rows: submissions } = await submissionModel.findAndCountAll({
     where,
     order: [[submissionTimestampExpr, direction]],
     limit: limitNumber,
@@ -503,6 +527,14 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   const normalizedSubmissions = submissions.map((submission) => {
     const json = submission.toJSON();
     const pendingManualCount = countPendingManualAnswers(json);
+    const detailSummary = summarizeDetailedResults(json.detailedResults);
+
+    if (detailSummary) {
+      json.score = detailSummary.correct;
+      json.totalQuestions = detailSummary.total;
+      json.percentage = detailSummary.percentage;
+    }
+
     delete json.detailedResults;
 
     return {
@@ -522,12 +554,16 @@ const listCambridgeSubmissions = async ({ query = {} } = {}) => {
   };
 };
 
-const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
+const listCambridgeSubmissionsByPhone = async ({
+  phone,
+  submissionModel = CambridgeSubmission,
+  platform = 'cambridge',
+} = {}) => {
   if (!phone) {
     throw createServiceError(400, 'Thiếu số điện thoại');
   }
 
-  const submissions = await CambridgeSubmission.findAll({
+  const submissions = await submissionModel.findAll({
     where: { studentPhone: phone, ...FINALIZED_CAMBRIDGE_WHERE },
     order: [['submittedAt', 'DESC']],
     attributes: [
@@ -559,7 +595,7 @@ const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
     const cacheKey = `${testType}:${testId}`;
 
     if (!visibilityByTest.has(cacheKey)) {
-      const TestModel = getCambridgeModelByType(testType);
+      const TestModel = getCambridgeModelByType(testType, platform);
       visibilityByTest.set(
         cacheKey,
         TestModel.findByPk(testId, {
@@ -588,12 +624,15 @@ const listCambridgeSubmissionsByPhone = async ({ phone } = {}) => {
   }));
 };
 
-const countUnseenCambridgeFeedbackByPhone = async ({ phone } = {}) => {
+const countUnseenCambridgeFeedbackByPhone = async ({
+  phone,
+  submissionModel = CambridgeSubmission,
+} = {}) => {
   if (!phone) {
     return { count: 0 };
   }
 
-  const count = await CambridgeSubmission.count({
+  const count = await submissionModel.count({
     where: {
       studentPhone: phone,
       [Op.or]: [
@@ -608,7 +647,10 @@ const countUnseenCambridgeFeedbackByPhone = async ({ phone } = {}) => {
   return { count };
 };
 
-const markCambridgeFeedbackSeen = async ({ body = {} } = {}) => {
+const markCambridgeFeedbackSeen = async ({
+  body = {},
+  submissionModel = CambridgeSubmission,
+} = {}) => {
   const { phone, ids } = body;
 
   if (!phone) {
@@ -619,7 +661,7 @@ const markCambridgeFeedbackSeen = async ({ body = {} } = {}) => {
     throw createServiceError(400, '❌ Thiếu danh sách IDs');
   }
 
-  const [updatedCount] = await CambridgeSubmission.update(
+  const [updatedCount] = await submissionModel.update(
     { feedbackSeen: true },
     { where: { studentPhone: phone, id: { [Op.in]: ids } } }
   );
@@ -627,8 +669,12 @@ const markCambridgeFeedbackSeen = async ({ body = {} } = {}) => {
   return { updatedCount };
 };
 
-const extendCambridgeSubmissionTime = async ({ submissionId, extraMinutes } = {}) => {
-  const submission = await CambridgeSubmission.findByPk(submissionId);
+const extendCambridgeSubmissionTime = async ({
+  submissionId,
+  extraMinutes,
+  submissionModel = CambridgeSubmission,
+} = {}) => {
+  const submission = await submissionModel.findByPk(submissionId);
   if (!submission) {
     throw createServiceError(404, 'Không tìm thấy attempt');
   }
@@ -652,8 +698,12 @@ const extendCambridgeSubmissionTime = async ({ submissionId, extraMinutes } = {}
   };
 };
 
-const updateCambridgeSubmission = async ({ id, body = {} } = {}) => {
-  const submission = await getCambridgeSubmissionById({ id });
+const updateCambridgeSubmission = async ({
+  id,
+  body = {},
+  submissionModel = CambridgeSubmission,
+} = {}) => {
+  const submission = await getCambridgeSubmissionById({ id, submissionModel });
   const { feedback, feedbackBy, status, responseFeedback, responseFeedbackPatch } = body;
   const reviewerName = String(feedbackBy || '').trim();
   const nextLegacyFeedback =
@@ -722,21 +772,28 @@ const updateCambridgeSubmission = async ({ id, body = {} } = {}) => {
   return submission;
 };
 
-const markCambridgeSubmissionSeen = async ({ id } = {}) => {
-  const submission = await getCambridgeSubmissionById({ id });
+const markCambridgeSubmissionSeen = async ({
+  id,
+  submissionModel = CambridgeSubmission,
+} = {}) => {
+  const submission = await getCambridgeSubmissionById({ id, submissionModel });
   await submission.update({ feedbackSeen: true });
   return submission;
 };
 
-const rescoreCambridgeSubmission = async ({ id } = {}) => {
-  const submission = await getCambridgeSubmissionById({ id });
+const rescoreCambridgeSubmission = async ({
+  id,
+  submissionModel = CambridgeSubmission,
+  platform = 'cambridge',
+} = {}) => {
+  const submission = await getCambridgeSubmissionById({ id, submissionModel });
   const answers = parseJsonIfString(submission.answers);
 
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
     throw createServiceError(400, 'Submission không có answers hợp lệ để chấm lại.');
   }
 
-  const test = await getCambridgeTestRecord(submission.testId, submission.testType);
+  const test = await getCambridgeTestRecord(submission.testId, submission.testType, platform);
   if (!test) {
     throw createServiceError(404, 'Không tìm thấy đề thi tương ứng với submission này.');
   }

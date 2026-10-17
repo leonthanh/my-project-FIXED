@@ -3,9 +3,25 @@ import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { apiPath, getStoredUser } from "../../../shared/utils/api";
 import { isAdmin, isTeacher } from "../../../shared/utils/permissions";
 import { formatStudentDisplayName } from "../../../shared/utils/personName";
+import { summarizeDetailedResults } from "../../../shared/utils/detailedResultSummary";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import ReadingStudentStyleReview from "../components/ReadingStudentStyleReview";
 import LineIcon from "../../../shared/components/LineIcon";
+
+const readingBandFromCorrect = (correct) => {
+  if (correct >= 39) return 9;
+  if (correct >= 37) return 8.5;
+  if (correct >= 35) return 8;
+  if (correct >= 33) return 7.5;
+  if (correct >= 30) return 7;
+  if (correct >= 27) return 6.5;
+  if (correct >= 24) return 6;
+  if (correct >= 20) return 5.5;
+  if (correct >= 15) return 5;
+  if (correct >= 13) return 4.5;
+  if (correct >= 10) return 4;
+  return 3.5;
+};
 
 // ===== STYLES =====
 const styles = {
@@ -582,8 +598,20 @@ const ReadingResults = () => {
     );
   }
 
-  const scorePercentage = meta?.scorePercentage || (meta?.total ? Math.round((meta.correct / meta.total) * 100) : 0);
-  const band = meta?.band != null && Number.isFinite(Number(meta.band)) ? Number(meta.band).toFixed(1) : null;
+  const detailSummary = summarizeDetailedResults(details);
+  const displayedCorrect = detailSummary?.correct ?? (Number(meta?.correct) || 0);
+  const displayedTotal = detailSummary?.total ?? (Number(meta?.total) || 0);
+  const scorePercentage = detailSummary?.percentage ??
+    (meta?.scorePercentage != null
+      ? Number(meta.scorePercentage)
+      : displayedTotal
+        ? Math.round((displayedCorrect / displayedTotal) * 100)
+        : 0);
+  const band = detailSummary
+    ? readingBandFromCorrect(detailSummary.correct).toFixed(1)
+    : meta?.band != null && Number.isFinite(Number(meta.band))
+      ? Number(meta.band).toFixed(1)
+      : null;
   const wrongCount = details.filter((d) => !d.isCorrect).length;
   const legendColors = {
     correct: "#dcfce7",
@@ -717,8 +745,8 @@ const ReadingResults = () => {
         {/* Correct Count */}
         <div style={styles.summaryCard}>
           <div style={{ ...styles.cardValue, color: "#22c55e" }}>
-            {meta?.correct || 0}
-            <span style={{ fontSize: "1rem", color: "#64748b" }}>/{meta?.total || 0}</span>
+            {displayedCorrect}
+            <span style={{ fontSize: "1rem", color: "#64748b" }}>/{displayedTotal}</span>
           </div>
           <div style={styles.cardLabel}>Correct Answers</div>
         </div>

@@ -87,6 +87,8 @@ const MyFeedback = () => {
   // Cambridge state
   const [cambridgeSubmissions, setCambridgeSubmissions] = useState([]);
   const [filteredCambridge, setFilteredCambridge] = useState([]);
+  const [gatewaySubmissions, setGatewaySubmissions] = useState([]);
+  const [filteredGateway, setFilteredGateway] = useState([]);
   
   const [loading, setLoading] = useState(true);
 
@@ -233,6 +235,37 @@ const MyFeedback = () => {
     }
   }, []);
 
+  const fetchGatewayData = useCallback(async (userPhone) => {
+    if (!userPhone) return;
+    try {
+      const res = await fetch(apiPath(`gateway/submissions/user/${userPhone}`));
+      if (!res.ok) throw new Error("Could not load Gateway submissions.");
+      const subs = await res.json();
+      const userSubs = Array.isArray(subs) ? subs : [];
+
+      const unseenIds = userSubs
+        .filter((sub) => hasAnyVisibleCambridgeFeedback(sub) && !sub.feedbackSeen)
+        .map((sub) => sub.id);
+
+      if (unseenIds.length > 0) {
+        await fetch(apiPath("gateway/submissions/mark-feedback-seen"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: userPhone, ids: unseenIds }),
+        });
+        window.dispatchEvent(new Event("feedbackSeen"));
+      }
+
+      const updatedSubs = userSubs.map((sub) =>
+        unseenIds.includes(sub.id) ? { ...sub, feedbackSeen: true } : sub
+      );
+      setGatewaySubmissions(updatedSubs);
+    } catch (err) {
+      console.error("Failed to load Gateway submissions:", err);
+      setGatewaySubmissions([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user?.phone || hasFetched.current) return;
     hasFetched.current = true;
@@ -244,12 +277,13 @@ const MyFeedback = () => {
         fetchReadingData(user.phone),
         fetchListeningData(user.phone),
         fetchCambridgeData(user.phone),
+        fetchGatewayData(user.phone),
       ]);
       setLoading(false);
     };
     
     fetchAll();
-  }, [fetchWritingData, fetchReadingData, fetchListeningData, fetchCambridgeData, user]);
+  }, [fetchWritingData, fetchReadingData, fetchListeningData, fetchCambridgeData, fetchGatewayData, user]);
 
   // Filter Writing submissions
   useEffect(() => {
@@ -349,6 +383,28 @@ const MyFeedback = () => {
     setFilteredCambridge(filtered);
   }, [searchClassCode, searchTeacher, searchFeedbackBy, cambridgeSubmissions]);
 
+  useEffect(() => {
+    let filtered = gatewaySubmissions;
+
+    if (searchClassCode.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.classCode || "").toLowerCase().includes(searchClassCode.toLowerCase())
+      );
+    }
+    if (searchTeacher.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.teacherName || "").toLowerCase().includes(searchTeacher.toLowerCase())
+      );
+    }
+    if (searchFeedbackBy.trim()) {
+      filtered = filtered.filter((item) =>
+        String(item.feedbackBy || "").toLowerCase().includes(searchFeedbackBy.toLowerCase())
+      );
+    }
+
+    setFilteredGateway(filtered);
+  }, [searchClassCode, searchTeacher, searchFeedbackBy, gatewaySubmissions]);
+
   // Load analysis for a Reading submission
   const loadAnalysis = async (submissionId) => {
     setLoadingAnalysis(true);
@@ -396,7 +452,9 @@ const MyFeedback = () => {
         ? filteredReading
         : activeTab === "listening"
           ? filteredListening
-          : filteredCambridge;
+          : activeTab === "gateway"
+            ? filteredGateway
+            : filteredCambridge;
   const totalSubmissionsForActiveTab =
     activeTab === "writing"
       ? writingSubmissions.length
@@ -404,7 +462,9 @@ const MyFeedback = () => {
         ? readingSubmissions.length
         : activeTab === "listening"
           ? listeningSubmissions.length
-          : cambridgeSubmissions.length;
+          : activeTab === "gateway"
+            ? gatewaySubmissions.length
+            : cambridgeSubmissions.length;
   const activeTabLabel =
     activeTab === "writing"
       ? "writing submissions"
@@ -412,7 +472,9 @@ const MyFeedback = () => {
         ? "reading submissions"
         : activeTab === "listening"
           ? "listening submissions"
-          : "Orange submissions";
+          : activeTab === "gateway"
+            ? "Gateway submissions"
+            : "Orange submissions";
   const activeTabEmptyLabel =
     activeTab === "writing"
       ? "writing tests"
@@ -420,7 +482,9 @@ const MyFeedback = () => {
         ? "reading tests"
         : activeTab === "listening"
           ? "listening tests"
-          : "Orange tests";
+          : activeTab === "gateway"
+            ? "Gateway tests"
+            : "Orange tests";
   const feedbackTabs = [
     {
       key: "writing",
@@ -445,6 +509,12 @@ const MyFeedback = () => {
       shortLabel: "Orange",
       label: "Orange feedback",
       badge: cambridgeSubmissions.length,
+    },
+    {
+      key: "gateway",
+      shortLabel: "Gateway",
+      label: "Gateway feedback",
+      badge: gatewaySubmissions.length,
     },
   ];
   const activeFeedbackTab = feedbackTabs.find((tab) => tab.key === activeTab) || feedbackTabs[0];
@@ -543,6 +613,55 @@ const MyFeedback = () => {
     );
   };
 
+  const renderPlatformSubmissionCards = (items, platformLabel, modifier) =>
+    items.map((sub, idx) => {
+      const confirmationOnly = isConfirmationOnly(sub);
+
+      return (
+        <article key={sub.id || idx} className={`myFeedbackCard myFeedbackCard--${modifier}`}>
+          <div className="myFeedbackCardHeader">
+            <div className="myFeedbackCardHeading">
+              <span className="myFeedbackCardEyebrow">{platformLabel} submission</span>
+              <h4 className="myFeedbackCardTitle">
+                {sub.testTitle || sub.title || `${platformLabel} result`}
+              </h4>
+            </div>
+            <div className="myFeedbackScoreBadge">
+              <strong>
+                {confirmationOnly
+                  ? "Submitted"
+                  : typeof sub.score === "number" && typeof sub.totalQuestions === "number"
+                    ? `${sub.score}/${sub.totalQuestions}`
+                    : "--"}
+              </strong>
+              <span>{confirmationOnly ? "status" : "score"}</span>
+            </div>
+          </div>
+
+          {renderMetaGrid([
+            { label: "Test type", value: sub.testType || platformLabel },
+            { label: "Class", value: sub.classCode || "(Not specified)" },
+            { label: "Teacher", value: sub.teacherName || "(Not specified)" },
+            { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
+          ])}
+
+          {!confirmationOnly && getSubmissionResultRoute(sub.testType, sub.id) && (
+            <div className="myFeedbackActionRow">
+              <a
+                href={getSubmissionResultRoute(sub.testType, sub.id)}
+                className="myFeedbackActionLink"
+              >
+                <LineIcon name="eye" size={16} />
+                <span>View Full Result</span>
+              </a>
+            </div>
+          )}
+
+          {renderFeedbackBlock(sub, "No teacher feedback yet.")}
+        </article>
+      );
+    });
+
   const renderEssayPanel = (label, text) => {
     const cleanText = String(text || "").trim();
     const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
@@ -576,7 +695,7 @@ const MyFeedback = () => {
                   <span className="myFeedbackSidebarEyebrow">Feedback</span>
                   <h3 className="myFeedbackSidebarTitle">My feedback</h3>
                   <p className="myFeedbackSidebarText">
-                    Jump between Writing, Reading, Listening, and Orange results from one sticky panel.
+                    Jump between Writing, Reading, Listening, Orange, and Gateway results from one sticky panel.
                   </p>
                 </div>
 
@@ -867,51 +986,10 @@ const MyFeedback = () => {
           );
         })}
 
-        {activeTab === "cambridge" && filteredCambridge.map((sub, idx) => {
-          const confirmationOnly = isConfirmationOnly(sub);
-
-          return (
-            <article key={sub.id || idx} className="myFeedbackCard myFeedbackCard--cambridge">
-              <div className="myFeedbackCardHeader">
-                <div className="myFeedbackCardHeading">
-                  <span className="myFeedbackCardEyebrow">Orange submission</span>
-                  <h4 className="myFeedbackCardTitle">{sub.testTitle || sub.title || "Orange result"}</h4>
-                </div>
-                <div className="myFeedbackScoreBadge">
-                  <strong>
-                    {confirmationOnly
-                      ? "Submitted"
-                      : typeof sub.score === "number" && typeof sub.totalQuestions === "number"
-                        ? `${sub.score}/${sub.totalQuestions}`
-                        : "--"}
-                  </strong>
-                  <span>{confirmationOnly ? "status" : "score"}</span>
-                </div>
-              </div>
-
-              {renderMetaGrid([
-                { label: "Test type", value: sub.testType || "Orange" },
-                { label: "Class", value: sub.classCode || "(Not specified)" },
-                { label: "Teacher", value: sub.teacherName || "(Not specified)" },
-                { label: "Submitted", value: formatDateTime(sub.submittedAt || sub.createdAt) },
-              ])}
-
-              {!confirmationOnly && getSubmissionResultRoute(sub.testType, sub.id) && (
-                <div className="myFeedbackActionRow">
-                  <a
-                    href={getSubmissionResultRoute(sub.testType, sub.id)}
-                    className="myFeedbackActionLink"
-                  >
-                    <LineIcon name="eye" size={16} />
-                    <span>View Full Result</span>
-                  </a>
-                </div>
-              )}
-
-              {renderFeedbackBlock(sub, "No teacher feedback yet.")}
-            </article>
-          );
-        })}
+        {activeTab === "cambridge" &&
+          renderPlatformSubmissionCards(filteredCambridge, "Orange", "cambridge")}
+        {activeTab === "gateway" &&
+          renderPlatformSubmissionCards(filteredGateway, "Gateway", "gateway")}
                 </div>
               </section>
             </main>

@@ -9,14 +9,22 @@ const GatewayDoTestPage = () => {
   const skill = normalizeGatewaySkill(rawSkill);
 
   if (skill === "listening") {
-    return <GatewayListeningRuntimePage defaultTestType="gateway-listening" />;
+    return (
+      <GatewayListeningRuntimePage
+        defaultTestType="gateway-listening"
+        fetchBasePath="gateway/listening-tests"
+        submitBasePath="gateway/listening-tests"
+        submissionBasePath="gateway/submissions"
+      />
+    );
   }
 
   return (
     <GatewayReadingRuntimePage
       defaultTestType="gateway-reading-writing"
-      fetchBasePath="cambridge/reading-tests"
-      submitBasePath="cambridge/reading-tests"
+      fetchBasePath="gateway/reading-tests"
+      submitBasePath="gateway/reading-tests"
+      submissionBasePath="gateway/submissions"
     />
   );
 };

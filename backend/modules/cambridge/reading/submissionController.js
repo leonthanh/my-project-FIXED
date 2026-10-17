@@ -1,4 +1,5 @@
 const { logError } = require('../../../logger');
+const { CambridgeReading, CambridgeSubmission } = require('../../../models');
 const submissionService = require('./submissionService');
 const { normalizeStudentResultVisibility } = require('../../../utils/studentResultVisibility');
 
@@ -13,13 +14,22 @@ const handleSubmissionError = (err, res, { logLabel, serverMessage }) => {
   return res.status(statusCode).json({ message: err?.message || serverMessage });
 };
 
-const createSubmitReadingTestHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi nộp bài Cambridge Reading' } = {}) =>
+const createSubmitReadingTestHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  submissionModel = CambridgeSubmission,
+  platform = 'orange',
+  logLabel = 'Lỗi khi nộp bài Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
       const result = await submissionService.submitReadingTest({
         id: req.params.id,
         body: req.body,
         forcedTestType,
+        testModel,
+        submissionModel,
+        platform,
       });
       const visibility = normalizeStudentResultVisibility(
         result.studentResultVisibility,
@@ -56,12 +66,19 @@ const createSubmitReadingTestHandler = ({ forcedTestType = null, logLabel = 'L�
     }
   };
 
-const createListReadingTestSubmissionsHandler = ({ forcedTestType = null, logLabel = 'Lỗi khi lấy danh sách submissions Cambridge Reading' } = {}) =>
+const createListReadingTestSubmissionsHandler = ({
+  forcedTestType = null,
+  testModel = CambridgeReading,
+  submissionModel = CambridgeSubmission,
+  logLabel = 'Lỗi khi lấy danh sách submissions Cambridge Reading',
+} = {}) =>
   async (req, res) => {
     try {
       const submissions = await submissionService.listReadingTestSubmissions({
         id: req.params.id,
         forcedTestType,
+        testModel,
+        submissionModel,
       });
       res.json(submissions);
     } catch (err) {

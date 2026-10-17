@@ -66,7 +66,8 @@ const TEST_BUCKETS = [
   { id: 'ixWriting', label: 'IX Writing' },
   { id: 'ixReading', label: 'IX Reading' },
   { id: 'ixListening', label: 'IX Listening' },
-  { id: 'cambridge', label: 'Cambridge' },
+  { id: 'cambridge', label: 'Orange' },
+  { id: 'gateway', label: 'Gateway' },
 ];
 
 const getAdminTestBucketFromScope = (scope) => {
@@ -77,6 +78,9 @@ const getAdminTestBucketFromScope = (scope) => {
       return 'ixReading';
     case 'ix-listening':
       return 'ixListening';
+    case 'gateway-reading':
+    case 'gateway-listening':
+      return 'gateway';
     default:
       return 'cambridge';
   }
@@ -92,6 +96,8 @@ const getAdminTestTypeLabel = (test = {}) => {
   if (test.deleteScope === 'cambridge-writing') return 'PET Writing';
   if (test.deleteScope === 'cambridge-reading') return 'Cambridge Reading';
   if (test.deleteScope === 'cambridge-listening') return 'Cambridge Listening';
+  if (test.deleteScope === 'gateway-reading') return 'Gateway Reading-Writing';
+  if (test.deleteScope === 'gateway-listening') return 'Gateway Listening';
   return 'Test';
 };
 
@@ -109,6 +115,10 @@ const getAdminTestEditPath = (test = {}) => {
       return `/cambridge/reading/${test.id}/edit`;
     case 'cambridge-listening':
       return `/cambridge/listening/${test.id}/edit`;
+    case 'gateway-reading':
+      return `/admin/edit-gateway/reading-writing/${test.id}`;
+    case 'gateway-listening':
+      return `/admin/edit-gateway/listening/${test.id}`;
     default:
       return null;
   }
@@ -581,7 +591,7 @@ const UsersTab = ({ onViewSubmissions }) => {
           <div style={s.modal}>
             <h3 style={{ marginTop: 0, color: '#dc2626' }}>Confirm Deletion</h3>
             <p>You are about to delete <strong>"{delConfirm.name}"</strong> ({delConfirm.phone}).</p>
-            <p style={{ fontSize: 13, color: '#6b7280' }}>This permanently deletes the user and all Reading, Listening, and Orange submissions. Writing submissions are preserved anonymously.</p>
+            <p style={{ fontSize: 13, color: '#6b7280' }}>This permanently deletes the user and all Reading, Listening, Orange, and Gateway submissions. Writing submissions are preserved anonymously.</p>
             <div style={s.modalBtns}>
               <button style={s.btnGray} onClick={() => setDelConfirm(null)}>Cancel</button>
               <button style={s.btnRed} onClick={() => deleteUser(delConfirm)}>Delete Permanently</button>
@@ -594,8 +604,14 @@ const UsersTab = ({ onViewSubmissions }) => {
 };
 
 // ─── Tab: Submissions ─────────────────────────────────────────────────────────
-const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge'];
-const SUB_LABELS = { writing: 'Writing', reading: 'Reading', listening: 'Listening', cambridge: 'Orange' };
+const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge', 'gateway'];
+const SUB_LABELS = {
+  writing: 'Writing',
+  reading: 'Reading',
+  listening: 'Listening',
+  cambridge: 'Orange',
+  gateway: 'Gateway',
+};
 
 const SubmissionsTab = ({ initialUser }) => {
   const navigate = useNavigate();
@@ -860,7 +876,7 @@ const SubmissionsTab = ({ initialUser }) => {
                     leading={<span style={s.idPill}>#{u.id}</span>}
                     title={u.name}
                     badges={[roleBadge(u.role, isDarkMode)]}
-                    subtitle="Open this user to manage writing, reading, listening, and Orange submissions."
+                    subtitle="Open this user to manage writing, reading, listening, Orange, and Gateway submissions."
                     actions={(
                       <>
                         <button style={s.btnSmBlue} onClick={() => navigate(`/admin/users/${u.id}/profile`)}>Open profile</button>
@@ -1214,7 +1230,13 @@ const TestsTab = () => {
   const { isDarkMode } = useTheme();
   const s = useMemo(() => getAdminUserManagementStyles(isDarkMode), [isDarkMode]);
   const navigate = useNavigate();
-  const [tests, setTests] = useState({ ixWriting: [], ixReading: [], ixListening: [], cambridge: [] });
+  const [tests, setTests] = useState({
+    ixWriting: [],
+    ixReading: [],
+    ixListening: [],
+    cambridge: [],
+    gateway: [],
+  });
   const [activeBucket, setActiveBucket] = useState('ixWriting');
   const [search, setSearch] = useState('');
   const [teacherFilter, setTeacherFilter] = useState('');
@@ -1242,6 +1264,7 @@ const TestsTab = () => {
         ixReading: Array.isArray(payload.ixReading) ? payload.ixReading : [],
         ixListening: Array.isArray(payload.ixListening) ? payload.ixListening : [],
         cambridge: Array.isArray(payload.cambridge) ? payload.cambridge : [],
+        gateway: Array.isArray(payload.gateway) ? payload.gateway : [],
       });
     } catch (_err) {
       showToast('Could not load tests.');
@@ -1940,4 +1963,3 @@ const getAdminUserManagementStyles = (isDarkMode) => ({
 });
 
 export default AdminUserManagement;
-
