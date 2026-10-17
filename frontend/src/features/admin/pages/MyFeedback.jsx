@@ -405,6 +405,13 @@ const MyFeedback = () => {
     setFilteredGateway(filtered);
   }, [searchClassCode, searchTeacher, searchFeedbackBy, gatewaySubmissions]);
 
+  const isGeneralSubmission = (submission) =>
+    String(submission?.testType || "").trim().toLowerCase().startsWith("fce-");
+  const generalSubmissions = cambridgeSubmissions.filter(isGeneralSubmission);
+  const orangeSubmissions = cambridgeSubmissions.filter((submission) => !isGeneralSubmission(submission));
+  const filteredGeneral = filteredCambridge.filter(isGeneralSubmission);
+  const filteredOrange = filteredCambridge.filter((submission) => !isGeneralSubmission(submission));
+
   // Load analysis for a Reading submission
   const loadAnalysis = async (submissionId) => {
     setLoadingAnalysis(true);
@@ -454,7 +461,9 @@ const MyFeedback = () => {
           ? filteredListening
           : activeTab === "gateway"
             ? filteredGateway
-            : filteredCambridge;
+            : activeTab === "general"
+              ? filteredGeneral
+              : filteredOrange;
   const totalSubmissionsForActiveTab =
     activeTab === "writing"
       ? writingSubmissions.length
@@ -464,7 +473,9 @@ const MyFeedback = () => {
           ? listeningSubmissions.length
           : activeTab === "gateway"
             ? gatewaySubmissions.length
-            : cambridgeSubmissions.length;
+            : activeTab === "general"
+              ? generalSubmissions.length
+              : orangeSubmissions.length;
   const activeTabLabel =
     activeTab === "writing"
       ? "writing submissions"
@@ -474,7 +485,9 @@ const MyFeedback = () => {
           ? "listening submissions"
           : activeTab === "gateway"
             ? "Gateway submissions"
-            : "Orange submissions";
+            : activeTab === "general"
+              ? "General submissions"
+              : "Orange submissions";
   const activeTabEmptyLabel =
     activeTab === "writing"
       ? "writing tests"
@@ -484,37 +497,45 @@ const MyFeedback = () => {
           ? "listening tests"
           : activeTab === "gateway"
             ? "Gateway tests"
-            : "Orange tests";
+            : activeTab === "general"
+              ? "General tests"
+              : "Orange tests";
   const feedbackTabs = [
     {
       key: "writing",
-      shortLabel: "Writing",
-      label: "Writing feedback",
+      shortLabel: "IX-Writing",
+      label: "IX-Writing feedback",
       badge: writingSubmissions.length,
     },
     {
       key: "reading",
-      shortLabel: "Reading",
-      label: "Reading feedback",
+      shortLabel: "IX-Reading",
+      label: "IX-Reading feedback",
       badge: readingSubmissions.length,
     },
     {
       key: "listening",
-      shortLabel: "Listening",
-      label: "Listening feedback",
+      shortLabel: "IX-Listening",
+      label: "IX-Listening feedback",
       badge: listeningSubmissions.length,
-    },
-    {
-      key: "cambridge",
-      shortLabel: "Orange",
-      label: "Orange feedback",
-      badge: cambridgeSubmissions.length,
     },
     {
       key: "gateway",
       shortLabel: "Gateway",
       label: "Gateway feedback",
       badge: gatewaySubmissions.length,
+    },
+    {
+      key: "cambridge",
+      shortLabel: "Orange",
+      label: "Orange feedback",
+      badge: orangeSubmissions.length,
+    },
+    {
+      key: "general",
+      shortLabel: "General",
+      label: "General feedback",
+      badge: generalSubmissions.length,
     },
   ];
   const activeFeedbackTab = feedbackTabs.find((tab) => tab.key === activeTab) || feedbackTabs[0];
@@ -695,7 +716,7 @@ const MyFeedback = () => {
                   <span className="myFeedbackSidebarEyebrow">Feedback</span>
                   <h3 className="myFeedbackSidebarTitle">My feedback</h3>
                   <p className="myFeedbackSidebarText">
-                    Jump between Writing, Reading, Listening, Orange, and Gateway results from one sticky panel.
+                    Jump between IX, Gateway, Orange, and General feedback from one sticky panel.
                   </p>
                 </div>
 
@@ -986,10 +1007,12 @@ const MyFeedback = () => {
           );
         })}
 
-        {activeTab === "cambridge" &&
-          renderPlatformSubmissionCards(filteredCambridge, "Orange", "cambridge")}
         {activeTab === "gateway" &&
           renderPlatformSubmissionCards(filteredGateway, "Gateway", "gateway")}
+        {activeTab === "cambridge" &&
+          renderPlatformSubmissionCards(filteredOrange, "Orange", "cambridge")}
+        {activeTab === "general" &&
+          renderPlatformSubmissionCards(filteredGeneral, "General", "general")}
                 </div>
               </section>
             </main>
