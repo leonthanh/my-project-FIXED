@@ -8,7 +8,7 @@ import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
 import { isZeroNumberedClozeExample } from "../../../exam-core/shared/utils/examQuestionNumbering";
 import { summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
-import { shouldIncludeSectionForPart } from "../utils/questionNumbering";
+import { countNotesCompletionBlanks, shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
 function resolveAsset(url) {
   if (!url) return '';
@@ -294,6 +294,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     ? `/select-test?platform=gateway&tab=${gatewayTab}`
     : '/cambridge';
   const resultPageTitle = isGatewayResult ? 'Gateway Test Results' : 'Orange Test Results';
+  const isGatewayListeningResult = String(submission?.testType || '').trim().toLowerCase().startsWith('gateway-listening');
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -490,6 +491,19 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         const sectionType = getSectionType(section);
 
         section.questions?.forEach((question, qIdx) => {
+          if (sectionType === 'notes-completion') {
+            const blankCount = countNotesCompletionBlanks(question?.notesText) ||
+              (question?.answers && typeof question.answers === 'object' ? Object.keys(question.answers).length : 0);
+            for (let blankIdx = 0; blankIdx < blankCount; blankIdx += 1) {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+              const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+              map[key] = questionNum + 1;
+              map[legacyKey] = questionNum + 1;
+              questionNum++;
+            }
+            return;
+          }
+
           if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
             question.questions.forEach((nestedQ, nestedIdx) => {
               const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
@@ -747,11 +761,11 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
 
   const mappedQuestionResults = useMemo(() => {
     if (!submission?.detailedResults || typeof submission.detailedResults !== 'object') {
-      return [];
+      if (!isGatewayListeningResult) return [];
     }
 
     const mapped = new Map();
-    Object.entries(submission.detailedResults).forEach(([key, result]) => {
+    Object.entries(submission?.detailedResults || {}).forEach(([key, result]) => {
       const questionNum = Number(questionNumberMap[key]);
       if (!Number.isFinite(questionNum) || questionNum <= 0) return;
       if (!result || typeof result !== 'object') return;
@@ -760,8 +774,35 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       }
     });
 
+    if (isGatewayListeningResult) {
+      const questionKeysByNumber = new Map();
+      Object.entries(questionNumberMap).forEach(([key, questionNum]) => {
+        const normalizedNum = Number(questionNum);
+        if (!Number.isFinite(normalizedNum) || normalizedNum <= 0) return;
+        if (!questionKeysByNumber.has(normalizedNum)) questionKeysByNumber.set(normalizedNum, []);
+        questionKeysByNumber.get(normalizedNum).push(key);
+      });
+
+      return Array.from(questionKeysByNumber.entries())
+        .sort(([left], [right]) => left - right)
+        .map(([questionNum, keys]) => {
+          if (mapped.has(questionNum)) return mapped.get(questionNum);
+          const answerKey = keys.find((key) =>
+            Object.prototype.hasOwnProperty.call(submission?.answers || {}, key)
+          ) || keys[0];
+          return {
+            key: answerKey,
+            questionNum,
+            result: {
+              userAnswer: submission?.answers?.[answerKey] ?? null,
+              isCorrect: null,
+            },
+          };
+        });
+    }
+
     return Array.from(mapped.values()).sort((left, right) => left.questionNum - right.questionNum);
-  }, [questionNumberMap, submission?.detailedResults]);
+  }, [isGatewayListeningResult, questionNumberMap, submission?.answers, submission?.detailedResults]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -1318,7 +1359,13 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
                       style={{
                         ...styles.questionBadge,
                         backgroundColor: status.bg,
-                        color: status.text
+                        color: status.text,
+                        ...(isGatewayResult
+                          ? {
+                              border: `1px solid ${status.text}`,
+                              fontWeight: 700,
+                            }
+                          : {}),
                       }}
                       title={status.label}
                     >
