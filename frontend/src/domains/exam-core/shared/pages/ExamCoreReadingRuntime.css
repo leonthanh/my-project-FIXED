@@ -839,6 +839,11 @@
   color: #fff !important;
 }
 
+.cambridge-test-container--gateway-listening .cambridge-question-wrapper {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn {
   background: #e8f5e9;
   border-color: #82b889;
