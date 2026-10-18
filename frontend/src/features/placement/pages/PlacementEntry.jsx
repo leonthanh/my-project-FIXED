@@ -24,6 +24,7 @@ const getPlatformLabel = (platform, fceDisplayName) => {
   const normalizedPlatform = String(platform || "").trim().toLowerCase();
   if (normalizedPlatform === "orange") return "Orange";
   if (normalizedPlatform === "ix") return "IX";
+  if (normalizedPlatform === "gateway") return "Gateway";
   if (normalizedPlatform === "fce") return fceDisplayName;
   return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
 };
@@ -110,9 +111,18 @@ const PlacementEntry = () => {
     if (selectionSummary.fce > 0) {
       summaryParts.push(`${selectionSummary.fce} ${fceDisplayName}`);
     }
+    if (selectionSummary.gateway > 0) {
+      summaryParts.push(`${selectionSummary.gateway} Gateway`);
+    }
 
     return summaryParts.join(" • ");
-  }, [fceDisplayName, selectionSummary.fce, selectionSummary.ix, selectionSummary.orange]);
+  }, [
+    fceDisplayName,
+    selectionSummary.fce,
+    selectionSummary.gateway,
+    selectionSummary.ix,
+    selectionSummary.orange,
+  ]);
 
   const groupedSelections = useMemo(() => {
     return groupPlacementItems(selections);
@@ -122,7 +132,10 @@ const PlacementEntry = () => {
     () =>
       groupedSelections.filter(
         (group) =>
-          group.platform === "ix" || group.platform === "orange" || group.platform === "fce"
+          group.platform === "ix" ||
+          group.platform === "orange" ||
+          group.platform === "gateway" ||
+          group.platform === "fce"
       ),
     [groupedSelections]
   );
@@ -357,7 +370,11 @@ const PlacementEntry = () => {
 
                     <div className="placement-entry-list">
                       {group.items.map((item, index) => {
-                        const itemAccent = item.platform === "orange" ? "orange" : "ix";
+                        const itemAccent = item.platform === "orange"
+                          ? "orange"
+                          : item.platform === "gateway"
+                            ? "gateway"
+                            : "ix";
 
                         return (
                           <div

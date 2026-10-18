@@ -481,6 +481,115 @@ const buildGatewayQuestionsFromBlueprint = (blueprint) => {
   return [buildGatewayQuestionDataFromBlueprint(blueprint)];
 };
 
+const createGatewayListeningNotesQuestionData = () => ({
+  ...getDefaultQuestionData("notes-completion"),
+  notesTitle: "Earth Festival",
+  notesText: [
+    "<ul>",
+    "<li>The festival is ______ years old this year.</li>",
+    "<li>The topic of this year's festival is ______.</li>",
+    "<li>Sheila Sparks is a famous ______.</li>",
+    "<li>There will be recycled games and ______ in the Games Zone.</li>",
+    "<li>The festival costs £3 for ______.</li>",
+    "</ul>",
+  ].join(""),
+  wordLimit: "ONE WORD ONLY",
+  answers: {},
+});
+
+const createGatewayListeningMultipleChoiceQuestions = () => [
+  {
+    questionText: "You will hear two friends talking about working with other students in class.\nThe girl thinks that working with other students in class",
+    options: [
+      "A. is more useful for the lesson.",
+      "B. takes longer than working alone.",
+      "C. makes classes more fun.",
+    ],
+  },
+  {
+    questionText: "You will hear two friends talking about a school trip to a museum.\nThe friends agree that",
+    options: [
+      "A. the exhibitions were all interesting.",
+      "B. there were nice things in the shop.",
+      "C. it was too large to see in one visit.",
+    ],
+  },
+  {
+    questionText: "You will hear two friends talking about a football match.\nThe boy is feeling happy because",
+    options: [
+      "A. his team won.",
+      "B. he scored a goal.",
+      "C. his parents came to watch.",
+    ],
+  },
+  {
+    questionText: "You will hear two friends talking about a poem they've read.\nThey think the poem would be better if",
+    options: [
+      "A. it was shorter.",
+      "B. it had a clearer meaning.",
+      "C. the sections were in a different order.",
+    ],
+  },
+  {
+    questionText: "You will hear a boy asking a girl about an essay he has written.\nThe girl thinks the boy should",
+    options: [
+      "A. add more detail.",
+      "B. change the subject.",
+      "C. improve the style.",
+    ],
+  },
+].map((question) => ({
+  ...getDefaultQuestionData("abc"),
+  ...question,
+  correctAnswer: "",
+}));
+
+const GATEWAY_LISTENING_SECTION_BLUEPRINTS = [
+  {
+    sectionTitle: "Earth Festival — Notes Completion",
+    questionType: "notes-completion",
+    buildDefaultQuestionData: createGatewayListeningNotesQuestionData,
+  },
+  {
+    sectionTitle: "Five Conversations — Multiple Choice",
+    questionType: "abc",
+    buildDefaultQuestions: createGatewayListeningMultipleChoiceQuestions,
+  },
+];
+
+const getGatewayListeningSectionBlueprint = (sectionTitle = "") => (
+  GATEWAY_LISTENING_SECTION_BLUEPRINTS.find(
+    (item) => normalizeGatewaySectionKey(item.sectionTitle) === normalizeGatewaySectionKey(sectionTitle)
+  ) || null
+);
+
+const buildGatewayListeningTemplateParts = () => ([
+  {
+    partNumber: 1,
+    title: "Part A",
+    instruction: "<p>Listen to a conversation about a festival. Complete the notes with ONE WORD in each space.</p><p>____/5 (1 mark per answer)</p>",
+    audioUrl: "",
+    imageUrl: "",
+    sections: [{
+      sectionTitle: GATEWAY_LISTENING_SECTION_BLUEPRINTS[0].sectionTitle,
+      questionType: GATEWAY_LISTENING_SECTION_BLUEPRINTS[0].questionType,
+      questions: buildGatewayQuestionsFromBlueprint(GATEWAY_LISTENING_SECTION_BLUEPRINTS[0]),
+    }],
+  },
+  {
+    partNumber: 2,
+    title: "Part B",
+    instruction: "<p>Listen to five conversations. For each question, choose the correct answer.</p><p>____/5 (1 mark per answer)</p>",
+    audioUrl: "",
+    imageUrl: "",
+    sections: [{
+      sectionTitle: GATEWAY_LISTENING_SECTION_BLUEPRINTS[1].sectionTitle,
+      questionType: GATEWAY_LISTENING_SECTION_BLUEPRINTS[1].questionType,
+      questions: buildGatewayQuestionsFromBlueprint(GATEWAY_LISTENING_SECTION_BLUEPRINTS[1]),
+    }],
+  },
+]);
+
 const normalizeGatewayTrueFalseAnswer = (answer) => {
   const normalized = String(answer || "").trim().toUpperCase();
   if (normalized === "TRUE") return "T";
@@ -878,6 +987,31 @@ const isLegacyGatewayReadingDraft = (partsData = []) => {
   return partTitle === 'part 1' && !sectionTitle && (questionType === '' || questionType === 'fill');
 };
 
+const isLegacyGatewayListeningDraft = (partsData = []) => {
+  if (!Array.isArray(partsData) || partsData.length !== 1) return false;
+  const [part] = partsData;
+  const sections = Array.isArray(part?.sections) ? part.sections : [];
+  if (String(part?.title || "").trim().toLowerCase() !== "part 1" || sections.length !== 1) {
+    return false;
+  }
+
+  const section = sections[0] || {};
+  const question = section?.questions?.[0] || {};
+  const notesText = String(question.notesText || "").replace(/<[^>]*>/g, "").trim();
+  const hasAnswers = Object.values(question.answers || {}).some((answer) => String(answer || "").trim());
+
+  return (
+    !String(part.instruction || "").replace(/<[^>]*>/g, "").trim()
+    && !String(part.audioUrl || "").trim()
+    && !String(section.sectionTitle || "").trim()
+    && String(section.questionType || "").trim().toLowerCase() === "notes-completion"
+    && (section.questions || []).length <= 1
+    && !String(question.notesTitle || "").trim()
+    && !notesText
+    && !hasAnswers
+  );
+};
+
 
 /**
  * Shared test builder for Cambridge, Gateway, and other compatible exam formats.
@@ -898,6 +1032,7 @@ const ExamCoreTestBuilder = ({
   const testConfig = getTestConfig(testType);
   const isGatewayTest = String(testType || '').startsWith('gateway-');
   const isGatewayReadingWriting = String(testType || '').toLowerCase() === 'gateway-reading-writing';
+  const isGatewayListening = String(testType || '').toLowerCase() === 'gateway-listening';
   const isListeningTest = testType.includes('listening');
   const youngLearnerSupportedTypeMap = {
     movers: ['matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
@@ -1097,6 +1232,13 @@ const ExamCoreTestBuilder = ({
       if (isGatewayReadingWriting && isLegacyGatewayReadingDraft(savedData.parts)) {
         return buildGatewayReadingWritingTemplateParts();
       }
+      if (
+        isGatewayListening
+        && !String(savedData.mainAudioUrl || "").trim()
+        && isLegacyGatewayListeningDraft(savedData.parts)
+      ) {
+        return buildGatewayListeningTemplateParts();
+      }
       const normalizedParts = normalizePeopleMatchingIds(normalizeListeningPartsAudio(normalizeShortMessageParts(savedData.parts)));
       if (isGatewayReadingWriting) {
         return ensureGatewayReadingWritingSections(normalizedParts);
@@ -1105,6 +1247,9 @@ const ExamCoreTestBuilder = ({
     }
     if (isGatewayReadingWriting) {
       return buildGatewayReadingWritingTemplateParts();
+    }
+    if (isGatewayListening) {
+      return buildGatewayListeningTemplateParts();
     }
     return [
       {
@@ -1189,7 +1334,13 @@ const ExamCoreTestBuilder = ({
     if (!isGatewayReadingWriting || !currentSection) return null;
     return getGatewayReadingWritingSectionBlueprint(currentSection.sectionTitle);
   }, [isGatewayReadingWriting, currentSection]);
-  const isGatewaySectionTypeLocked = Boolean(isGatewayReadingWriting && currentGatewaySectionBlueprint);
+  const currentGatewayListeningSectionBlueprint = useMemo(() => {
+    if (!isGatewayListening || !currentSection) return null;
+    return getGatewayListeningSectionBlueprint(currentSection.sectionTitle);
+  }, [isGatewayListening, currentSection]);
+  const activeGatewaySectionBlueprint =
+    currentGatewaySectionBlueprint || currentGatewayListeningSectionBlueprint;
+  const isGatewaySectionTypeLocked = Boolean(activeGatewaySectionBlueprint);
   const questionTypeOptions = useMemo(() => {
     const currentTypeId = currentSection?.questionType;
     if (!currentTypeId || availableTypes.some((type) => type.id === currentTypeId)) {
@@ -1465,22 +1616,22 @@ const ExamCoreTestBuilder = ({
   };
 
   const handleRestoreGatewaySectionTemplate = useCallback(() => {
-    if (!currentGatewaySectionBlueprint) return;
+    if (!activeGatewaySectionBlueprint) return;
     updateParts((prevParts) => prevParts.map((part, pIdx) => {
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
         return {
           ...section,
-          sectionTitle: currentGatewaySectionBlueprint.sectionTitle,
-          questionType: currentGatewaySectionBlueprint.questionType,
-          questions: buildGatewayQuestionsFromBlueprint(currentGatewaySectionBlueprint),
+          sectionTitle: activeGatewaySectionBlueprint.sectionTitle,
+          questionType: activeGatewaySectionBlueprint.questionType,
+          questions: buildGatewayQuestionsFromBlueprint(activeGatewaySectionBlueprint),
         };
       });
       return { ...part, sections: nextSections };
     }));
-    setMessage({ type: 'success', text: `Đã khôi phục mẫu ${currentGatewaySectionBlueprint.sectionTitle}.` });
-  }, [currentGatewaySectionBlueprint, selectedPartIndex, selectedSectionIndex, updateParts]);
+    setMessage({ type: 'success', text: `Đã khôi phục mẫu ${activeGatewaySectionBlueprint.sectionTitle}.` });
+  }, [activeGatewaySectionBlueprint, selectedPartIndex, selectedSectionIndex, updateParts]);
 
   /* eslint-disable-next-line no-unused-vars */
   const handleQuestionChange = (field, value) => {
@@ -2175,7 +2326,11 @@ const ExamCoreTestBuilder = ({
           <div style={{ marginTop: '24px' }}>
             <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
               <InlineIcon name="document" size={14} />
-              {isGatewayReadingWriting ? "Mục bài Gateway" : `Sections trong Part ${selectedPartIndex + 1}`}
+              {isGatewayReadingWriting
+                ? "Mục bài Gateway"
+                : isGatewayListening
+                  ? `Sections trong ${currentPart.title || `Part ${selectedPartIndex + 1}`}`
+                  : `Sections trong Part ${selectedPartIndex + 1}`}
             </h4>
             {currentPart.sections.map((sec, idx) => (
               <div
@@ -2196,7 +2351,9 @@ const ExamCoreTestBuilder = ({
                   fontSize: '13px',
                 }}
               >
-                {isGatewayReadingWriting ? (sec.sectionTitle || `Mục ${idx + 1}`) : `Section ${idx + 1}: ${sec.questionType}`}
+                {isGatewayReadingWriting || isGatewayListening
+                  ? (sec.sectionTitle || `Mục ${idx + 1}`)
+                  : `Section ${idx + 1}: ${sec.questionType}`}
                 <div style={{ fontSize: '11px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#cbd5e1', marginTop: '2px' }}>
                   {isGatewayReadingWriting
                     ? (getQuestionCountForSection(sec) || sec.questions.length)
@@ -2975,7 +3132,9 @@ const ExamCoreTestBuilder = ({
               }}>
                 <h3 style={{ margin: '0 0 16px', color: isMoversReading ? 'var(--builder-text, #1f2937)' : '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <InlineIcon name="writing" size={16} />
-                  {isGatewayReadingWriting ? (currentSection.sectionTitle || `Mục ${selectedSectionIndex + 1}`) : `Section ${selectedSectionIndex + 1}`}
+                  {isGatewayReadingWriting || isGatewayListening
+                    ? (currentSection.sectionTitle || `Mục ${selectedSectionIndex + 1}`)
+                    : `Section ${selectedSectionIndex + 1}`}
                 </h3>
 
                 {currentPart?.sections?.length > 1 ? (
@@ -3027,7 +3186,7 @@ const ExamCoreTestBuilder = ({
                           fontSize: '13px',
                         }}
                       >
-                        Cố định theo mẫu Gateway: {currentGatewaySectionBlueprint?.questionType}
+                        Cố định theo mẫu Gateway: {activeGatewaySectionBlueprint?.questionType}
                       </div>
                       <button
                         type="button"

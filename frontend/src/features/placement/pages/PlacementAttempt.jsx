@@ -97,7 +97,10 @@ const PlacementAttempt = () => {
     () =>
       groupedItems.filter(
         (group) =>
-          group.platform === "ix" || group.platform === "orange" || group.platform === "fce"
+          group.platform === "ix" ||
+          group.platform === "orange" ||
+          group.platform === "gateway" ||
+          group.platform === "fce"
       ),
     [groupedItems]
   );
@@ -123,9 +126,12 @@ const PlacementAttempt = () => {
     if (summary.fce > 0) {
       summaryParts.push(`${summary.fce} ${fceDisplayName}`);
     }
+    if (summary.gateway > 0) {
+      summaryParts.push(`${summary.gateway} Gateway`);
+    }
 
     return summaryParts.join(" • ");
-  }, [fceDisplayName, summary.fce, summary.ix, summary.orange]);
+  }, [fceDisplayName, summary.fce, summary.gateway, summary.ix, summary.orange]);
 
   return (
     <div className="placement-entry-page">
@@ -245,11 +251,15 @@ const PlacementAttempt = () => {
                       <div className="placement-entry-list">
                         {group.items.map((item, index) => {
                           const runtimePath = buildPlacementAttemptItemRuntimePath(item, attemptToken);
-                          const itemAccent = item.platform === "orange" ? "orange" : "ix";
+                          const itemAccent = item.platform === "orange"
+                            ? "orange"
+                            : item.platform === "gateway"
+                              ? "gateway"
+                              : "ix";
                           return (
                             <div
                               key={item.attemptItemToken || `${item.platform}-${item.testType || item.skill}-${item.testId}-${group.startIndex + index}`}
-                              className={`placement-entry-testCard${itemAccent === "orange" ? " placement-entry-testCard--orange" : ""}`}
+                              className={`placement-entry-testCard placement-entry-testCard--${itemAccent}`}
                             >
                               <div className="placement-entry-testHeader">
                                 <span className="placement-entry-testBadge">{getStatusLabel(item.status)}</span>

@@ -49,6 +49,15 @@ describe("MyFeedback", () => {
             totalQuestions: 51,
             studentResultVisibility: "confirmation",
           },
+          {
+            id: 5,
+            testTitle: "General reading test",
+            testType: "fce-reading-60",
+            classCode: "IX-General",
+            score: 30,
+            totalQuestions: 60,
+            studentResultVisibility: "confirmation",
+          },
         ]);
       }
       if (String(url).includes("gateway/submissions/user/")) {
@@ -128,5 +137,31 @@ describe("MyFeedback", () => {
     expect(
       screen.queryByRole("link", { name: /View Full Result/i })
     ).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /General/ }));
+    expect(await screen.findByText("General reading test")).toBeInTheDocument();
+    expect(screen.queryByText("Orange mid-course test")).not.toBeInTheDocument();
+    expect(screen.queryByText("30/60")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /View Full Result/i })
+    ).not.toBeInTheDocument();
+  });
+
+  test("orders feedback sections from IX skills down to General", async () => {
+    render(
+      <ThemeProvider>
+        <MyFeedback />
+      </ThemeProvider>
+    );
+
+    const tabs = await screen.findAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      expect.stringContaining("IX-Writing"),
+      expect.stringContaining("IX-Reading"),
+      expect.stringContaining("IX-Listening"),
+      expect.stringContaining("Gateway"),
+      expect.stringContaining("Orange"),
+      expect.stringContaining("General"),
+    ]);
   });
 });

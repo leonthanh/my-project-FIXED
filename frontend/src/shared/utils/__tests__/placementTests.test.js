@@ -1,6 +1,7 @@
 import {
   filterPlacementGroups,
   buildPlacementAttemptItemRuntimePath,
+  getPlacementItemSummaryCounts,
   groupPlacementItems,
   isPlacementEligible,
 } from "../placementTests";
@@ -22,6 +23,23 @@ describe("placementTests", () => {
         platform: "orange",
         skill: "writing",
         testType: "pet-writing",
+      })
+    ).toBe(true);
+  });
+
+  test("treats Gateway reading-writing and listening tests as placement eligible", () => {
+    expect(
+      isPlacementEligible({
+        platform: "gateway",
+        skill: "reading-writing",
+        testType: "gateway-reading-writing",
+      })
+    ).toBe(true);
+    expect(
+      isPlacementEligible({
+        platform: "gateway",
+        skill: "listening",
+        testType: "gateway-listening",
       })
     ).toBe(true);
   });
@@ -60,6 +78,23 @@ describe("placementTests", () => {
     );
   });
 
+  test("builds Gateway placement runtime paths", () => {
+    expect(
+      buildPlacementAttemptItemRuntimePath(
+        {
+          platform: "gateway",
+          skill: "reading-writing",
+          testId: 5,
+          testType: "gateway-reading-writing",
+          attemptItemToken: "item_gateway_5",
+        },
+        "attempt_gateway_2"
+      )
+    ).toBe(
+      "/placement/gateway/reading-writing/5?attempt=attempt_gateway_2&attemptItem=item_gateway_5"
+    );
+  });
+
   test("groups placement items by platform with stable filtered numbering", () => {
     const groups = groupPlacementItems([
       {
@@ -94,5 +129,25 @@ describe("placementTests", () => {
 
     expect(filterPlacementGroups(groups).map((group) => group.startIndex)).toEqual([0, 2]);
     expect(filterPlacementGroups(groups, "orange")[0].startIndex).toBe(0);
+  });
+
+  test("includes Gateway items in their platform group and summary count", () => {
+    const gatewayItem = {
+      platform: "gateway",
+      skill: "reading-writing",
+      testType: "gateway-reading-writing",
+      title: "284-GW-5A",
+    };
+    const groups = groupPlacementItems([gatewayItem]);
+
+    expect(groups).toEqual([
+      {
+        platform: "gateway",
+        accent: "gateway",
+        title: "Gateway tests",
+        items: [gatewayItem],
+      },
+    ]);
+    expect(getPlacementItemSummaryCounts([gatewayItem]).gateway).toBe(1);
   });
 });

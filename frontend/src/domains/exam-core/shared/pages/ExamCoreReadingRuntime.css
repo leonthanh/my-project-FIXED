@@ -833,6 +833,73 @@
   box-shadow: 0 0 0 2.5px rgba(249, 115, 22, 0.45);
 }
 
+.cambridge-test-container--gateway-listening .cambridge-question-number {
+  background-color: #2f7d46 !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-question-wrapper {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn {
+  background: #e8f5e9;
+  border-color: #82b889;
+  color: #256b3b;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn:hover:not(.active) {
+  background: #d5ebd9;
+  border-color: #4f965e;
+  color: #1f5d32;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn.answered {
+  background: #48a85b;
+  border-color: #2f7d46;
+  color: #fff;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn.active {
+  background: #2f7d46;
+  border-color: #256b3b;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.28);
+  transform: scale(1.18);
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn.answered.active {
+  background: #1f5d32;
+  border-color: #184b28;
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.36);
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-question-num-btn.flagged {
+  border-color: #f97316;
+  box-shadow: 0 0 0 2.5px rgba(249, 115, 22, 0.45);
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-part-tab {
+  background: #e8f5e9;
+  border-color: #82b889;
+  color: #256b3b;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-part-tab:hover:not(.active) {
+  background: #d5ebd9;
+  border-color: #4f965e;
+  color: #1f5d32;
+}
+
+.cambridge-test-container--gateway-listening .cambridge-footer--gateway-listening .cambridge-part-tab.active {
+  background: #2f7d46;
+  border-color: #256b3b;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.24);
+}
+
 /* Flag icon rendered as a real DOM element for reliable emoji + animation */
 .nav-flag-icon {
   position: absolute;

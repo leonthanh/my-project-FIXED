@@ -107,6 +107,10 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
     return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
 
+  if (normalizedPlatform === "gateway") {
+    return normalizedSkill === "reading-writing" || normalizedSkill === "listening";
+  }
+
   if (normalizedPlatform === "fce") {
     return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
@@ -212,13 +216,14 @@ export const groupPlacementItems = (items) => {
   const buckets = {
     ix: [],
     orange: [],
+    gateway: [],
   };
   const extraBuckets = new Map();
 
   (Array.isArray(items) ? items : []).forEach((item) => {
     const platform = normalizePlacementGroupValue(item?.platform);
 
-    if (platform === "ix" || platform === "orange") {
+    if (platform === "ix" || platform === "orange" || platform === "gateway") {
       buckets[platform].push(item);
       return;
     }
@@ -230,16 +235,23 @@ export const groupPlacementItems = (items) => {
     extraBuckets.get(fallbackPlatform).push(item);
   });
 
-  return [["ix", buckets.ix], ["orange", buckets.orange], ...Array.from(extraBuckets.entries())]
+  return [
+    ["ix", buckets.ix],
+    ["orange", buckets.orange],
+    ["gateway", buckets.gateway],
+    ...Array.from(extraBuckets.entries()),
+  ]
     .filter(([, groupItems]) => groupItems.length > 0)
     .map(([platform, groupItems]) => ({
       platform,
-      accent: platform === "orange" ? "orange" : "ix",
+      accent: platform === "orange" ? "orange" : platform === "gateway" ? "gateway" : "ix",
       title:
         platform === "orange"
           ? "Orange tests"
           : platform === "ix"
             ? "IX tests"
+            : platform === "gateway"
+              ? "Gateway tests"
             : `${platform.toUpperCase()} tests`,
       items: [...groupItems].sort((left, right) => comparePlacementItems(platform, left, right)),
     }));
@@ -271,6 +283,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     (acc, item) => {
       if (item?.platform === "ix") acc.ix += 1;
       if (item?.platform === "orange") acc.orange += 1;
+      if (item?.platform === "gateway") acc.gateway += 1;
       if (item?.platform === "fce") acc.fce += 1;
       if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
@@ -283,6 +296,7 @@ export const getPlacementItemSummaryCounts = (items) => {
     {
       ix: 0,
       orange: 0,
+      gateway: 0,
       fce: 0,
       writing: 0,
       reading: 0,
@@ -336,6 +350,8 @@ export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") =>
     basePath = `/placement/ix/listening/${testId}`;
   } else if (platform === "orange") {
     basePath = `/placement/orange/${encodeURIComponent(normalizedTestType)}/${testId}`;
+  } else if (platform === "gateway") {
+    basePath = `/placement/gateway/${encodeURIComponent(skill)}/${testId}`;
   }
 
   return appendSearchParams(basePath, {

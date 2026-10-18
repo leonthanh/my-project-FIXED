@@ -144,6 +144,7 @@ const ExamCoreReadingRuntimePage = ({
 
   const examType = useMemo(() => {
     const s = routeTestType;
+    if (s.startsWith("gateway-")) return "GATEWAY";
     if (s.includes("ket")) return "KET";
     if (s.includes("pet")) return "PET";
     if (s.includes("flyers")) return "FLYERS";

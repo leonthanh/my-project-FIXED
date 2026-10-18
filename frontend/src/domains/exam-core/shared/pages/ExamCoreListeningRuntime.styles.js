@@ -10,7 +10,7 @@ const createStyles = (isDarkMode = false, examType = 'CAMBRIDGE') => {
         text: "#e8e8e8",
         muted: "#b0b0b0",
         border: "#3d3d5c",
-        primary: "#4a90d9",
+        primary: examType === 'GATEWAY' ? '#2f7d46' : "#4a90d9",
         warning: "#f59e0b",
       }
     : {
@@ -20,7 +20,7 @@ const createStyles = (isDarkMode = false, examType = 'CAMBRIDGE') => {
         text: "#0f172a",
         muted: "#475569",
         border: "#e5e7eb",
-        primary: "#0e276f",
+        primary: examType === 'GATEWAY' ? '#2f7d46' : "#0e276f",
         warning: "#f59e0b",
       };
 
@@ -392,7 +392,7 @@ const createStyles = (isDarkMode = false, examType = 'CAMBRIDGE') => {
     justifyContent: 'center',
     width: '28px',
     height: '28px',
-    backgroundColor: '#0e276f',
+    backgroundColor: colors.primary,
     color: '#fff',
     borderRadius: '50%',
     fontWeight: 600,

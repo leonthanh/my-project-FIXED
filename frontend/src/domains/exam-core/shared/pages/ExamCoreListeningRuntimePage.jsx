@@ -31,7 +31,16 @@ import {
   recordRuntimeSyncRequestMetric,
 } from "../../../../shared/utils/runtimeSync";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
-import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../utils/examQuestionNumbering";
+import {
+  computeQuestionStarts,
+  countClozeBlanksFromText,
+  countNotesCompletionBlanks,
+  getQuestionCountForSection,
+} from "../utils/examQuestionNumbering";
+import {
+  getCurrentListeningAudioUrl,
+  getListeningAudioMetadata,
+} from "../utils/examListeningAudio";
 import { ExamCoreQuestionDisplay, CompactExamCoreQuestionDisplay } from "../components/ExamCoreQuestionCards";
 import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../components/ExamCoreListeningRuntimeSections";
 import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../components/ExamCoreSectionDisplays";
@@ -85,6 +94,7 @@ const ExamCoreListeningRuntimePage = ({
   const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
   const examType = useMemo(() => {
     const s = routeTestType;
+    if (s.startsWith("gateway-")) return "GATEWAY";
     if (s.includes("ket")) return "KET";
     if (s.includes("pet")) return "PET";
     if (s.includes("flyers")) return "FLYERS";
@@ -103,6 +113,8 @@ const ExamCoreListeningRuntimePage = ({
 
   // States
   const [test, setTest] = useState(null);
+  const isGatewayListening =
+    String(test?.testType || routeTestType).trim().toLowerCase() === 'gateway-listening';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -452,26 +464,8 @@ const ExamCoreListeningRuntimePage = ({
   }, [test]);
 
   const audioMeta = useMemo(() => {
-    if (test?.mainAudioUrl) {
-      return {
-        hasAudio: true,
-        uniqueCount: 1,
-        isSingleFile: true,
-        usesMain: true,
-      };
-    }
-    const urls = new Set(
-      (test?.parts || [])
-        .map((p) => (p?.audioUrl ? String(p.audioUrl).trim() : ''))
-        .filter(Boolean)
-    );
-    return {
-      hasAudio: urls.size > 0,
-      uniqueCount: urls.size,
-      isSingleFile: urls.size === 1,
-      usesMain: false,
-    };
-  }, [test]);
+    return getListeningAudioMetadata(test, routeTestType);
+  }, [test, routeTestType]);
 
 
   // Build global question order + ranges (for footer nav)
@@ -482,10 +476,14 @@ const ExamCoreListeningRuntimePage = ({
     const byPart = [];
     const orderedKeys = [];
 
-    const countClozeBlanks = (question) => {
+    const countClozeBlanks = (question, sectionType) => {
+      if (sectionType === 'notes-completion') {
+        return countNotesCompletionBlanks(question?.notesText);
+      }
       if (Array.isArray(question?.blanks) && question.blanks.length) return question.blanks.length;
       if (question?.answers && typeof question.answers === 'object') {
-        return Object.keys(question.answers).length;
+        const answerCount = Object.keys(question.answers).length;
+        if (answerCount > 0) return answerCount;
       }
       return countClozeBlanksFromText(question?.passageText || question?.passage || '');
     };
@@ -533,8 +531,8 @@ const ExamCoreListeningRuntimePage = ({
             continue;
           }
 
-          if (secType === 'cloze-test') {
-            const blanksCount = countClozeBlanks(q);
+          if (secType === 'cloze-test' || secType === 'notes-completion') {
+            const blanksCount = countClozeBlanks(q, secType);
             if (blanksCount > 0) {
               for (let blankIdx = 0; blankIdx < blanksCount; blankIdx++) {
                 const key = `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`;
@@ -936,6 +934,8 @@ const ExamCoreListeningRuntimePage = ({
   }, [test, currentPartIndex]);
 
   const isSinglePanelPart = useMemo(() => {
+    if (isGatewayListening) return true;
+
     const isPetListening = String(test?.testType || routeTestType || '').toLowerCase().includes('pet');
     if (currentPartIndex === 0) return true;
     if (isPetListening && currentPartIndex === 1) return true;
@@ -960,13 +960,13 @@ const ExamCoreListeningRuntimePage = ({
         (Array.isArray(q0?.people) ? 'people-matching' : '') ||
         (Array.isArray(q0?.sentences) ? 'word-form' : '') ||
         '';
-      return sectionType === 'cloze-test';
+      return sectionType === 'cloze-test' || sectionType === 'notes-completion';
     });
-  }, [currentPartIndex, currentPart, routeTestType, test?.testType]);
+  }, [currentPartIndex, currentPart, isGatewayListening, routeTestType, test?.testType]);
 
   const currentAudioUrl = useMemo(() => {
-    return test?.mainAudioUrl || currentPart?.audioUrl || globalAudioUrl || '';
-  }, [test?.mainAudioUrl, currentPart, globalAudioUrl]);
+    return getCurrentListeningAudioUrl(test, currentPart, globalAudioUrl, routeTestType);
+  }, [test, currentPart, globalAudioUrl, routeTestType]);
 
   const resolveAudioSrc = useCallback((url) => {
     if (!url) return '';
@@ -1392,6 +1392,19 @@ const ExamCoreListeningRuntimePage = ({
       handleAnswerChange={handleAnswerChange}
     />
   );
+  const renderNotesCompletionSection = (section, secIdx, sectionStartNum) => {
+    const clozeSection = {
+      ...section,
+      questionType: 'cloze-test',
+      questions: (section.questions || []).map((question) => ({
+        ...question,
+        passageTitle: question.notesTitle || '',
+        passageText: question.notesText || '',
+      })),
+    };
+
+    return renderOpenClozeSection(clozeSection, secIdx, sectionStartNum);
+  };
   const renderGapMatchSection = (section, secIdx, sectionStartNum) => (
     <GapMatchSectionDisplay
       section={section}
@@ -2103,7 +2116,11 @@ const ExamCoreListeningRuntimePage = ({
   }
 
   return (
-    <div ref={annotationContentRef} className="cambridge-test-container" data-student-annotation-layout="true">
+    <div
+      ref={annotationContentRef}
+      className={`cambridge-test-container${isGatewayListening ? ' cambridge-test-container--gateway-listening' : ''}`}
+      data-student-annotation-layout="true"
+    >
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
       {/* Header */}
@@ -2528,6 +2545,8 @@ const ExamCoreListeningRuntimePage = ({
                         })()
                       ) : sectionType === 'gap-match' ? (
                         renderGapMatchSection(section, secIdx, sectionStartNum)
+                      ) : sectionType === 'notes-completion' ? (
+                        renderNotesCompletionSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'cloze-test' ? (
                         renderOpenClozeSection(section, secIdx, sectionStartNum)
                       ) : sectionType === 'letter-matching' ? (
@@ -3099,6 +3118,8 @@ const ExamCoreListeningRuntimePage = ({
                           </div>
                         );
                       })()
+                    ) : sectionType === 'notes-completion' ? (
+                      renderNotesCompletionSection(section, secIdx, sectionStartNum)
                     ) : sectionType === 'cloze-test' ? (
                       renderOpenClozeSection(section, secIdx, sectionStartNum)
                     ) : sectionType === 'word-form' ? (
@@ -3431,7 +3452,7 @@ const ExamCoreListeningRuntimePage = ({
       </div>
 
       {/* Footer Navigation (match Cambridge Reading) */}
-      <footer className="cambridge-footer cambridge-footer--centered-nav">
+      <footer className={`cambridge-footer cambridge-footer--centered-nav${isGatewayListening ? ' cambridge-footer--gateway-listening' : ''}`}>
         {/* Navigation Arrows - Top Right */}
         <div className="cambridge-footer-arrows">
           <button
@@ -3463,6 +3484,10 @@ const ExamCoreListeningRuntimePage = ({
             const answeredInPart = p.keys.reduce((acc, item) => acc + (answers[item.key] ? 1 : 0), 0);
             const isActive = currentPartIndex === p.partIndex;
             const firstKey = p.keys?.[0]?.key;
+            const partLabel =
+              isGatewayListening && p.partIndex < 26
+                ? String.fromCharCode(65 + p.partIndex)
+                : p.partIndex + 1;
 
             return (
               <div key={p.partIndex} className="cambridge-part-wrapper">
@@ -3475,7 +3500,7 @@ const ExamCoreListeningRuntimePage = ({
                   }}
                 >
                   <span className="cambridge-part-label">Part</span>
-                  <span className="cambridge-part-number">{p.partIndex + 1}</span>
+                  <span className="cambridge-part-number">{partLabel}</span>
                 </button>
 
                 {isActive && (

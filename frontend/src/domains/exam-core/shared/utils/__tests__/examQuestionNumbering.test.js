@@ -129,3 +129,38 @@ describe("computeQuestionStarts for Gateway Reading-Writing", () => {
     expect(getQuestionCountForSection(section)).toBe(5);
   });
 });
+
+describe("computeQuestionStarts for Gateway Listening", () => {
+  it("counts notes-completion blanks and continues numbering in Part B", () => {
+    const parts = [
+      {
+        sections: [{
+          questionType: "notes-completion",
+          questions: [{
+            notesText: [
+              "<ul>",
+              "<li>The festival is ______ years old.</li>",
+              "<li>The topic is ______.</li>",
+              "<li>Sheila is a ______.</li>",
+              "<li>Games and ______.</li>",
+              "<li>It costs £3 for ______.</li>",
+              "</ul>",
+            ].join(""),
+          }],
+        }],
+      },
+      {
+        sections: [{
+          questionType: "abc",
+          questions: makeQuestions(5),
+        }],
+      },
+    ];
+
+    const starts = computeQuestionStarts(parts, "gateway-listening");
+
+    expect(getQuestionCountForSection(parts[0].sections[0])).toBe(5);
+    expect(starts.sectionStart["1-0"]).toBe(6);
+    expect(starts.questionStart["1-0-4"]).toBe(10);
+  });
+});

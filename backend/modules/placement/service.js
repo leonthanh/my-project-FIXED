@@ -84,6 +84,7 @@ const summarizeAttemptItems = (items = []) => {
       if (item?.skill === "listening") summary.listening += 1;
       if (item?.platform === "ix") summary.ix += 1;
       if (item?.platform === "orange") summary.orange += 1;
+      if (item?.platform === "gateway") summary.gateway += 1;
       return summary;
     },
     {
@@ -95,6 +96,7 @@ const summarizeAttemptItems = (items = []) => {
       listening: 0,
       ix: 0,
       orange: 0,
+      gateway: 0,
     }
   );
 };
