@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { hostPath } from '../../../../shared/utils/api';
 import {
   computeQuestionStarts,
+  countNotesCompletionBlanks,
   getQuestionCountForSection,
   isZeroNumberedClozeExample,
   parseClozeBlanksFromText,
@@ -740,6 +741,7 @@ function getSectionDisplayName(sectionType) {
     'long-text-mc': 'Reading Passage',
     'cloze-mc': 'Cloze Multiple Choice',
     'cloze-test': 'Open Cloze',
+    'notes-completion': 'Notes Completion',
     'gap-match': 'Matching',
     'word-form': 'Word Form',
     'matching-pictures': 'Matching Pictures',
@@ -767,6 +769,10 @@ function questionCountForQuestion(sectionType, question, testType = '') {
   if (!question || typeof question !== 'object') return 0;
   const isLegacyDrawLines = sectionType === 'matching' && hasAnchors(question);
 
+  if (sectionType === 'notes-completion') {
+    return countNotesCompletionBlanks(question.notesText) ||
+      (question.answers && typeof question.answers === 'object' ? Object.keys(question.answers).length : 0);
+  }
   if (sectionType === 'long-text-mc') return Array.isArray(question.questions) ? question.questions.length : 0;
   if (sectionType === 'cloze-mc' || sectionType === 'inline-choice') return Array.isArray(question.blanks) ? question.blanks.length : 0;
   if (sectionType === 'cloze-test') {
@@ -1136,15 +1142,31 @@ function hasIntegratedLookReadWriteWriting(part) {
   });
 }
 
-function SectionShell({ title, typeLabel, rangeLabel, children }) {
+function SectionShell({ title, typeLabel, rangeLabel, children, gatewayTheme = false }) {
   return (
-    <div style={styles.sectionCard}>
+    <div
+      style={{
+        ...styles.sectionCard,
+        ...(gatewayTheme ? { background: 'linear-gradient(180deg, #fbfefb 0%, #f2f9f3 100%)', borderColor: '#cfe6d3' } : {}),
+      }}
+    >
       <div style={styles.sectionHeader}>
         <div style={styles.sectionTitleWrap}>
-          <h4 style={styles.sectionTitle}>{title}</h4>
-          <p style={styles.sectionType}>{typeLabel}</p>
+          <h4 style={{ ...styles.sectionTitle, ...(gatewayTheme ? { color: '#1b5e20' } : {}) }}>{title}</h4>
+          <p style={{ ...styles.sectionType, ...(gatewayTheme ? { color: '#2f7d46' } : {}) }}>{typeLabel}</p>
         </div>
-        {rangeLabel ? <span style={styles.sectionRange}>{rangeLabel}</span> : null}
+        {rangeLabel ? (
+          <span
+            style={{
+              ...styles.sectionRange,
+              ...(gatewayTheme
+                ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
+                : {}),
+            }}
+          >
+            {rangeLabel}
+          </span>
+        ) : null}
       </div>
       <div style={styles.sectionContent}>{children}</div>
     </div>
@@ -1645,7 +1667,18 @@ function SentenceCorrectionReview({ question, partIdx, secIdx, qIdx, sectionStar
   );
 }
 
-function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answers, detailedResults, testType }) {
+function ClozeTestReview({
+  question,
+  partIdx,
+  secIdx,
+  qIdx,
+  sectionStart,
+  answers,
+  detailedResults,
+  testType,
+  title = 'Open Cloze',
+  gatewayTheme = false,
+}) {
   const passageText = question?.passageText || question?.passage || question?.clozeText || '';
   const blanks = normalizeClozeTestBlanks(question, sectionStart, testType);
   const blankIndexByQuestionNum = new Map(
@@ -1770,9 +1803,14 @@ function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answer
 
   return (
     <div style={styles.asideCard}>
-      <h5 style={styles.asideTitle}>Open Cloze</h5>
+      <h5 style={styles.asideTitle}>{title}</h5>
       {inlinePassage ? (
-        <div style={styles.clozePassageCard}>
+        <div
+          style={{
+            ...styles.clozePassageCard,
+            ...(gatewayTheme ? { background: '#f3faf4', borderColor: '#b7dfc0' } : {}),
+          }}
+        >
           <div style={styles.clozePassageBody}>{inlinePassage}</div>
         </div>
       ) : null}
@@ -1791,7 +1829,14 @@ function ClozeTestReview({ question, partIdx, secIdx, qIdx, sectionStart, answer
               }}
             >
               <div style={styles.clozeAnswerItemHeader}>
-                <span style={{ ...styles.clozeAnswerNum, background: blankReview.status.background, color: blankReview.status.color }}>
+                <span
+                  style={{
+                    ...styles.clozeAnswerNum,
+                    background: blankReview.status.background,
+                    color: blankReview.status.color,
+                    ...(gatewayTheme ? { border: '1px solid #2f7d46' } : {}),
+                  }}
+                >
                   {questionNumber}
                 </span>
                 <span style={styles.clozeAnswerStatus}>{blankReview.status.label}</span>
@@ -2212,6 +2257,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
   const testType = submission?.testType || '';
   const examType = getExamType(testType);
   const isListeningTest = /listening/i.test(testType);
+  const isGatewayListeningTest = String(testType).trim().toLowerCase().startsWith('gateway-listening');
   const answers = submission?.answers && typeof submission.answers === 'object' ? submission.answers : {};
   const detailedResults = submission?.detailedResults && typeof submission.detailedResults === 'object'
     ? submission.detailedResults
@@ -2251,7 +2297,10 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
   }
 
   return (
-    <div style={styles.wrapper}>
+    <div
+      className={isGatewayListeningTest ? 'cambridge-test-container--gateway-listening' : undefined}
+      style={styles.wrapper}
+    >
       <div style={styles.introCard}>
         <h3 style={styles.introTitle}>Original student layout</h3>
         <p style={styles.introText}>
@@ -2274,6 +2323,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
       </div>
 
       {test.parts.map((part, partIdx) => {
+        const gatewayPartLabel = `Part ${String.fromCharCode(65 + partIdx)}`;
         const partRangeSections = (part.sections || []).filter((section) => (
           shouldIncludeSectionForPart(testType, partIdx, section, part.sections || []) &&
           getQuestionCountForSection(section) > 0
@@ -2305,14 +2355,33 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
         const isExpanded = expandedParts[partIdx] ?? true;
 
         return (
-          <div key={`part-${partIdx}`} style={styles.partCard}>
+          <div
+            key={`part-${partIdx}`}
+            style={{
+              ...styles.partCard,
+              ...(isGatewayListeningTest ? { borderColor: '#cfe6d3', borderTop: '3px solid #2f7d46' } : {}),
+            }}
+          >
             <div style={styles.partHeader}>
               <div>
-                <p style={styles.partEyebrow}>Part {partIdx + 1}</p>
-                <h3 style={styles.partTitle}>{part.partTitle || `Part ${partIdx + 1}`}</h3>
+                <p style={{ ...styles.partEyebrow, ...(isGatewayListeningTest ? { color: '#2f7d46' } : {}) }}>
+                  {isGatewayListeningTest ? gatewayPartLabel.toUpperCase() : `Part ${partIdx + 1}`}
+                </p>
+                <h3 style={{ ...styles.partTitle, ...(isGatewayListeningTest ? { color: '#1b5e20' } : {}) }}>
+                  {isGatewayListeningTest ? gatewayPartLabel : part.partTitle || `Part ${partIdx + 1}`}
+                </h3>
               </div>
               <div style={styles.partActions}>
-                <span style={styles.partRange}>{partRangeLabel}</span>
+                <span
+                  style={{
+                    ...styles.partRange,
+                    ...(isGatewayListeningTest
+                      ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
+                      : {}),
+                  }}
+                >
+                  {partRangeLabel}
+                </span>
                 <button type="button" style={styles.partToggleButton} onClick={() => togglePart(partIdx)}>
                   {isExpanded ? 'Collapse' : 'Expand'}
                 </button>
@@ -2320,7 +2389,13 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
             </div>
 
             {isExpanded && part.instruction && !standaloneWritingOnly ? (
-              <div style={styles.partInstruction} dangerouslySetInnerHTML={{ __html: part.instruction }} />
+              <div
+                style={{
+                  ...styles.partInstruction,
+                  ...(isGatewayListeningTest ? { background: '#f3faf4', borderColor: '#cfe6d3' } : {}),
+                }}
+                dangerouslySetInnerHTML={{ __html: part.instruction }}
+              />
             ) : null}
 
             {isExpanded && part.audioUrl ? (
@@ -2420,6 +2495,28 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                       answers={answers}
                       detailedResults={detailedResults}
                       testType={testType}
+                    />
+                  );
+                }
+
+                if (sectionType === 'notes-completion') {
+                  return (
+                    <ClozeTestReview
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      question={{
+                        ...question,
+                        passageTitle: question.notesTitle || '',
+                        passageText: question.notesText || '',
+                      }}
+                      partIdx={partIdx}
+                      secIdx={secIdx}
+                      qIdx={qIdx}
+                      sectionStart={questionStart}
+                      answers={answers}
+                      detailedResults={detailedResults}
+                      testType={testType}
+                      title="Notes Completion"
+                      gatewayTheme={isGatewayListeningTest}
                     />
                   );
                 }
@@ -2827,6 +2924,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                   title={section.sectionTitle || getSectionDisplayName(sectionType)}
                   typeLabel={getSectionDisplayName(sectionType)}
                   rangeLabel={rangeLabel}
+                  gatewayTheme={isGatewayListeningTest}
                 >
                   {content}
                 </SectionShell>
