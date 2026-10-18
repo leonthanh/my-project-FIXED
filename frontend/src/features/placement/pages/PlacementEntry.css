@@ -277,6 +277,12 @@
   border-color: rgba(249, 115, 22, 0.18);
 }
 
+.placement-entry-jumpButton--gateway {
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.96) 100%);
+  color: #276738;
+  border-color: rgba(47, 111, 62, 0.2);
+}
+
 .placement-entry-jumpButton.is-active {
   transform: translateY(-1px);
   border-color: transparent;
@@ -292,6 +298,12 @@
   background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
   color: #ffffff;
   box-shadow: 0 16px 28px rgba(249, 115, 22, 0.24);
+}
+
+.placement-entry-jumpButton--gateway.is-active {
+  background: linear-gradient(135deg, #2f6f3e 0%, #417e4b 100%);
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(47, 111, 62, 0.24);
 }
 
 .placement-entry-jumpCount {
@@ -527,6 +539,11 @@
   color: #c95a14;
 }
 
+.placement-entry-groupPill--gateway {
+  background: rgba(47, 111, 62, 0.12);
+  color: #276738;
+}
+
 .placement-entry-groupCount {
   background: rgba(148, 163, 184, 0.12);
   color: #42516d;
@@ -588,6 +605,14 @@
   box-shadow: 0 18px 34px rgba(249, 115, 22, 0.08);
 }
 
+.placement-entry-testCard--gateway {
+  --placement-entry-card-overlay-top: rgba(240, 253, 244, 0.5);
+  --placement-entry-card-overlay-bottom: rgba(255, 255, 255, 0.68);
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+  border-color: rgba(47, 111, 62, 0.22);
+  box-shadow: 0 18px 34px rgba(47, 111, 62, 0.08);
+}
+
 .placement-entry-testHeader {
   display: flex;
   align-items: center;
@@ -637,6 +662,12 @@
   color: #c95a14;
 }
 
+.placement-entry-testCard--gateway .placement-entry-testNumber {
+  border-color: rgba(47, 111, 62, 0.3);
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.96) 100%);
+  color: #276738;
+}
+
 .placement-entry-testCard--ix .placement-entry-testNumber {
   border-color: rgba(37, 99, 235, 0.34);
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.96) 100%);
@@ -651,6 +682,11 @@
 .placement-entry-testBadge--orange {
   background: rgba(249, 115, 22, 0.14);
   color: #c95a14;
+}
+
+.placement-entry-testBadge--gateway {
+  background: rgba(47, 111, 62, 0.12);
+  color: #276738;
 }
 
 .placement-entry-testTitle {

@@ -9,6 +9,11 @@ const GatewayResultPage = lazy(() => import('./pages/GatewayResultPage'));
 
 export const buildGatewayRoutes = ({ isAuthenticated }) => [
   <Route
+    key="gateway-placement-do"
+    path="/placement/gateway/:skill/:id"
+    element={renderAuthenticated(isAuthenticated, <GatewayDoTestPage />)}
+  />,
+  <Route
     key="gateway-create"
     path="/admin/create-gateway/:skill"
     element={renderProtected('teacher', <GatewayCreateTestPage />)}

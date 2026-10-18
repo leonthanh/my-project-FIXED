@@ -937,6 +937,21 @@ const SelectTest = () => {
     });
   };
 
+  const buildGatewayPlacementSelection = (test, classCode, teacherName) => {
+    return createPlacementSelection({
+      platform: "gateway",
+      skill: activeGatewayTab,
+      testId: test.id,
+      testType: test.testType,
+      title: test.title || (classCode !== "N/A" ? classCode : `Gateway ${currentSkillInfo.label}`),
+      subtitle: buildPlacementSubtitle(
+        classCode !== "N/A" ? classCode : "",
+        teacherName !== "N/A" ? `Teacher ${teacherName}` : ""
+      ),
+      badge: "Gateway",
+    });
+  };
+
   const persistPlacementSelections = async (nextSelections, successMessage, rollbackSelections) => {
     if (!isPlacementAdmin) {
       setPlacementFeedback("Only admins can manage the placement page.");
@@ -1612,6 +1627,13 @@ const SelectTest = () => {
                         visibleList.map((test, index) => {
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
+                          const placementSelection = buildGatewayPlacementSelection(test, classCode, teacherName);
+                          const placementEligible = isPlacementAdmin && isPlacementEligible({
+                            platform: "gateway",
+                            skill: activeGatewayTab,
+                            testType: test.testType,
+                          });
+                          const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
 
                           return (
                             <div
@@ -1644,19 +1666,38 @@ const SelectTest = () => {
                                 <div className="select-test-cardFooter select-test-cardFooter--noFootnote">
                                   <div className="select-test-cardFooterMeta">
                                     <span className="select-test-cardActionHint">Start</span>
+                                    {placementEligible ? (
+                                      <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
+                                        {placementShown ? "Placement On" : "Placement Off"}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 </div>
                               </button>
 
-                              {canManageCurrentSelection ? (
+                              {canManageCurrentSelection || placementEligible ? (
                                 <div className="select-test-cardActions">
-                                  <button
-                                    type="button"
-                                    className="select-test-edit"
-                                    onClick={() => handleEdit(test.id, "gateway", test)}
-                                  >
-                                    <span>Edit Test</span>
-                                  </button>
+                                  {canManageCurrentSelection ? (
+                                    <button
+                                      type="button"
+                                      className="select-test-edit"
+                                      onClick={() => handleEdit(test.id, "gateway", test)}
+                                    >
+                                      <span>Edit Test</span>
+                                    </button>
+                                  ) : null}
+
+                                  {placementEligible ? (
+                                    <button
+                                      type="button"
+                                      className={`select-test-placementToggle${placementShown ? " is-active" : ""}`}
+                                      disabled={placementSaving}
+                                      onClick={() => handleTogglePlacement(placementSelection)}
+                                    >
+                                      <LineIcon name={placementShown ? "publish" : "target"} size={16} />
+                                      <span>{placementShown ? "Show Off" : "Show On"}</span>
+                                    </button>
+                                  ) : null}
                                 </div>
                               ) : null}
                             </div>
