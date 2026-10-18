@@ -4,7 +4,7 @@ import { formatStudentDisplayName } from "../utils/personName";
 import "./TestHeader.css";
 
 /**
- * TestHeader - Shared header component for IELTS & Cambridge test pages
+ * TestHeader - Shared header component for IELTS, Cambridge, and Gateway test pages
  * 
  * @param {string} testType - "READING" | "LISTENING" | "WRITING"
  * @param {string} testTitle - Title of the test
@@ -21,7 +21,7 @@ import "./TestHeader.css";
  * @param {boolean} timerCritical - Show critical style (< 1 min)
  * @param {boolean} showAutoSave - Show auto-save indicator
  * @param {string} audioStatusText - Optional audio status label (e.g., "Audio is playing")
- * @param {string} examType - "IELTS" | "KET" | "PET" | "FLYERS" | etc.
+ * @param {string} examType - "IELTS" | "GATEWAY" | "KET" | "PET" | "FLYERS" | etc.
  * @param {string} studentName - Optional student display name shown in the header
  * @param {React.ReactNode} headerActions - Optional action buttons rendered beside the student name
  */
@@ -56,6 +56,7 @@ const TestHeader = ({
   );
 
   const isCambridge = detectedExamType !== 'IX';
+  const isGateway = detectedExamType === 'GATEWAY';
   const displayTitle = title || testTitle;
   const displayStudentName = formatStudentDisplayName(studentName, "");
 
@@ -76,7 +77,7 @@ const TestHeader = ({
   return (
     <header className="test-header">
       <div className="header-left">
-        <div className="test-badge" style={isCambridge ? {background: '#0052CC'} : {}}>
+        <div className="test-badge" style={isCambridge ? {background: isGateway ? '#2f7d46' : '#0052CC'} : {}}>
           {detectedExamType}
         </div>
         <div className="test-info">

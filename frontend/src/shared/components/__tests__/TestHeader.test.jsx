@@ -5,6 +5,20 @@ import "@testing-library/jest-dom";
 import TestHeader from "../TestHeader.jsx";
 
 describe("TestHeader", () => {
+  test("shows Gateway branding and book-green badge on Gateway tests", () => {
+    render(
+      <TestHeader
+        examType="GATEWAY"
+        title="Gateway Listening"
+        totalQuestions={10}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText("GATEWAY")).toHaveStyle({ background: "#2f7d46" });
+    expect(screen.getByRole("heading", { name: "Gateway Listening" })).toBeInTheDocument();
+  });
+
   test("renders the optional student name and custom header actions", async () => {
     const handleNotesClick = jest.fn();
 

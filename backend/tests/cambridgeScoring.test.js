@@ -85,4 +85,58 @@ describe("Cambridge fill-answer scoring", () => {
     expect(result).toMatchObject({ score: 1, total: 1 });
     expect(Object.values(result.detailedResults)[0].isCorrect).toBe(true);
   });
+
+  test("scores Gateway Listening notes blanks and multiple-choice questions", () => {
+    const notesAnswers = {
+      1: "twenty",
+      2: "nature",
+      3: "artist",
+      4: "rides",
+      5: "children",
+    };
+    const notesText = [
+      "<ul>",
+      "<li>The festival is ______ years old.</li>",
+      "<li>The topic is ______.</li>",
+      "<li>Sheila is a ______.</li>",
+      "<li>Games and ______.</li>",
+      "<li>It costs £3 for ______.</li>",
+      "</ul>",
+    ].join("");
+    const multipleChoiceQuestions = ["A", "B", "C", "A", "C"].map((correctAnswer) => ({
+      questionType: "abc",
+      correctAnswer,
+    }));
+    const answers = Object.values(notesAnswers).reduce((result, answer, index) => {
+      result[`0-0-0-${index}`] = answer;
+      return result;
+    }, {});
+    multipleChoiceQuestions.forEach((question, index) => {
+      answers[`1-0-${index}`] = question.correctAnswer;
+    });
+
+    const result = scoreTest(
+      {
+        testType: "gateway-listening",
+        parts: [
+          {
+            sections: [{
+              questionType: "notes-completion",
+              questions: [{ notesText, notesTitle: "Earth Festival", answers: notesAnswers }],
+            }],
+          },
+          {
+            sections: [{
+              questionType: "abc",
+              questions: multipleChoiceQuestions,
+            }],
+          },
+        ],
+      },
+      answers
+    );
+
+    expect(result).toMatchObject({ score: 10, total: 10 });
+    expect(Object.values(result.detailedResults).every(({ isCorrect }) => isCorrect)).toBe(true);
+  });
 });

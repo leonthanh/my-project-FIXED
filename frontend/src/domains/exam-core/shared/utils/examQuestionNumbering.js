@@ -77,6 +77,11 @@ const countClozeBlanksFromText = (passageText) => {
   return underscores ? underscores.length : 0;
 };
 
+const countNotesCompletionBlanks = (notesText) => {
+  const plainText = String(notesText || '').replace(/<[^>]*>/g, ' ');
+  return (plainText.match(/(\d+\s*[_\u2026]+|[_\u2026]{2,})/g) || []).length;
+};
+
 const isZeroNumberedClozeExample = (blank) => {
   if (!blank || typeof blank !== 'object') return false;
   if (blank.isExample === true || blank.example === true) return true;
@@ -135,6 +140,16 @@ const getQuestionCountForSection = (section) => {
   if (section.questionType === 'letter-matching' || q0.questionType === 'letter-matching') {
     const people = Array.isArray(q0.people) ? q0.people : [];
     return people.slice(1).filter((p) => String(p?.name || '').trim()).length;
+  }
+  if (section.questionType === 'notes-completion') {
+    const notesBlankCount = countNotesCompletionBlanks(q0.notesText);
+    if (notesBlankCount > 0) return notesBlankCount;
+
+    if (q0.answers && typeof q0.answers === 'object') {
+      return Object.keys(q0.answers).length;
+    }
+
+    return 0;
   }
   if (section.questionType === 'cloze-mc' && section.questions[0]?.blanks) {
     return section.questions[0].blanks.length;
@@ -264,6 +279,7 @@ const computeQuestionStarts = (passages, testType = '') => {
     'long-text-mc',
     'cloze-mc',
     'cloze-test',
+    'notes-completion',
     'short-message',
     'people-matching',
     'word-form',
@@ -331,6 +347,7 @@ const computeQuestionStarts = (passages, testType = '') => {
 
 export {
   countClozeBlanksFromText,
+  countNotesCompletionBlanks,
   isZeroNumberedClozeExample,
   getQuestionCountForSection,
   parseClozeBlanksFromText,

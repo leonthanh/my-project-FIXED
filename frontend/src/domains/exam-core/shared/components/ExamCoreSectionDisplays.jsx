@@ -85,6 +85,8 @@ export const OpenClozeSectionDisplay = ({
     blanks = blankMatches.sort((a, b) => a.questionNum - b.questionNum);
   }
 
+  let nextAutoNumberedBlankIndex = 0;
+
   const renderInlineWithInputs = (html, lineKeyPrefix, firstNumberInPassage) => {
     if (!html) return [];
 
@@ -144,7 +146,6 @@ export const OpenClozeSectionDisplay = ({
 
     if (!matchedAnyNumber) {
       const underscorePattern = /[_\u2026]{3,}/g;
-      let blankIndex = 0;
       lastIndex = 0;
       let underscoreMatch;
 
@@ -158,7 +159,9 @@ export const OpenClozeSectionDisplay = ({
           );
         }
 
+        const blankIndex = nextAutoNumberedBlankIndex;
         if (blankIndex < blanks.length) {
+          nextAutoNumberedBlankIndex += 1;
           const questionNumber = sectionStartNum + blankIndex;
           const questionKey = `${currentPartIndex}-${secIdx}-${qIdx}-${blankIndex}`;
           const userAnswer = answers[questionKey] || '';
@@ -188,7 +191,6 @@ export const OpenClozeSectionDisplay = ({
               }}
             />
           );
-          blankIndex += 1;
         }
 
         lastIndex = underscoreMatch.index + underscoreMatch[0].length;
@@ -568,4 +570,3 @@ export const GapMatchSectionDisplay = ({
     </div>
   );
 };
-

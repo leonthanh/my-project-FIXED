@@ -182,10 +182,23 @@ const countClozeBlanksFromText = (passageText) => {
   return underscores ? underscores.length : 0;
 };
 
+const countNotesCompletionBlanks = (notesText) => {
+  const plainText = String(notesText || '').replace(/<[^>]*>/g, ' ');
+  return (plainText.match(/(\d+\s*[_\u2026]+|[_\u2026]{2,})/g) || []).length;
+};
+
 const getQuestionCount = (question, sectionType) => {
   const q = question || {};
   if (sectionType === 'long-text-mc' && Array.isArray(q.questions)) return q.questions.length;
   if (sectionType === 'cloze-mc' && Array.isArray(q.blanks)) return q.blanks.length;
+  if (sectionType === 'notes-completion') {
+    const blankCount = countNotesCompletionBlanks(q.notesText);
+    if (blankCount > 0) return blankCount;
+    if (q.answers && typeof q.answers === 'object' && !Array.isArray(q.answers)) {
+      return Object.keys(q.answers).length;
+    }
+    return 0;
+  }
   if (sectionType === 'cloze-test') {
     if (q.blanks?.length) return q.blanks.length;
     return countClozeBlanksFromText(q.passageText || q.passage || q.clozeText || '');
@@ -758,6 +771,51 @@ const scoreTest = (test, answers) => {
               correctAnswer,
               questionType: 'abc',
               questionText: blank.questionText || '',
+            };
+          });
+        } else if (sectionType === 'notes-completion') {
+          const notesText = String(question.notesText || '').replace(/<[^>]*>/g, ' ');
+          const blanks = [...notesText.matchAll(/(\d+\s*[_\u2026]+|[_\u2026]{2,})/g)];
+          const answerMap =
+            question.answers && typeof question.answers === 'object' && !Array.isArray(question.answers)
+              ? question.answers
+              : {};
+          let autoQuestionNumber = questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1;
+
+          blanks.forEach((blank, blankIdx) => {
+            const explicitNumber = String(blank[1] || '').match(/^(\d+)/)?.[1];
+            const questionNumber = explicitNumber ? Number(explicitNumber) : autoQuestionNumber++;
+            const key = `${partIdx}-${secIdx}-${qIdx}-${blankIdx}`;
+            const legacyKey = `${partIdx}-${secIdx}-${blankIdx}`;
+            const userAnswer = pickAnswer(key, [legacyKey]);
+            const correctAnswer = answerMap[String(questionNumber)];
+
+            if (
+              correctAnswer === undefined
+              || correctAnswer === null
+              || (typeof correctAnswer === 'string' && !correctAnswer.trim())
+            ) {
+              detailedResults[key] = {
+                isCorrect: null,
+                userAnswer: userAnswer || null,
+                correctAnswer: null,
+                questionType: 'fill',
+                questionText: question.notesTitle || '',
+                questionNumber,
+              };
+              return;
+            }
+
+            total++;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            if (isCorrect) score++;
+            detailedResults[key] = {
+              isCorrect,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: question.notesTitle || '',
+              questionNumber,
             };
           });
         } else if (sectionType === 'cloze-test' && question.blanks && Array.isArray(question.blanks)) {
