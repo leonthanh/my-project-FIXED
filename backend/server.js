@@ -689,6 +689,9 @@ sequelize
       models.GeneralReading.sync(),
       models.GeneralListening.sync(),
       models.GeneralSubmission.sync(),
+      models.ExamLevel.sync(),
+      models.ExamLevelTest.sync(),
+      models.ExamLevelSubmission.sync(),
     ])
   )
   .then(async () => {

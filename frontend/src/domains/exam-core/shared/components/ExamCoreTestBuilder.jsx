@@ -1023,13 +1023,26 @@ const ExamCoreTestBuilder = ({
   resetDraftOnLoad = false,
   apiBasePath = null,
   successPathResolver = null,
+  durationMinutes = null,
+  displayName = null,
 }) => {
   const navigate = useNavigate();
   const user = getStoredUser();
   const currentTeacherName = resolveAuthUserDisplayName(user);
   const isCreateMode = !editId && !initialData;
 
-  const testConfig = getTestConfig(testType);
+  const baseTestConfig = getTestConfig(testType);
+  const resolvedDuration = Number(durationMinutes);
+  const testConfig = baseTestConfig
+    ? {
+        ...baseTestConfig,
+        name: displayName || baseTestConfig.name,
+        duration:
+          Number.isFinite(resolvedDuration) && resolvedDuration > 0
+            ? resolvedDuration
+            : baseTestConfig.duration,
+      }
+    : null;
   const isGatewayTest = String(testType || '').startsWith('gateway-');
   const isGatewayReadingWriting = String(testType || '').toLowerCase() === 'gateway-reading-writing';
   const isGatewayListening = String(testType || '').toLowerCase() === 'gateway-listening';
@@ -1980,7 +1993,8 @@ const ExamCoreTestBuilder = ({
             setRequiresLogin(true);
             return;
           }
-          throw new Error('Lỗi khi lưu đề thi');
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.message || 'Lỗi khi lưu đề thi');
         }
 
         /* eslint-disable-next-line no-unused-vars */

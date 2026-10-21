@@ -24,6 +24,8 @@ const PlacementAttemptItem = require("./PlacementAttemptItem");
 const RefreshToken = require("./RefreshToken");
 const AppSetting = require("./AppSetting");
 const ExamLevel = require("./ExamLevel");
+const ExamLevelTest = require("./ExamLevelTest");
+const ExamLevelSubmission = require("./ExamLevelSubmission");
 
 // Quan hệ WritingTest ↔ Submission
 WritingTest.hasMany(Submission, { foreignKey: "testId" });
@@ -77,6 +79,13 @@ GeneralReading.hasMany(GeneralSubmission, {
   constraints: false,
 });
 
+ExamLevel.hasMany(ExamLevelTest, { foreignKey: "levelId", constraints: false });
+ExamLevelTest.belongsTo(ExamLevel, { foreignKey: "levelId", constraints: false });
+ExamLevel.hasMany(ExamLevelSubmission, { foreignKey: "levelId", constraints: false });
+ExamLevelSubmission.belongsTo(ExamLevel, { foreignKey: "levelId", constraints: false });
+ExamLevelTest.hasMany(ExamLevelSubmission, { foreignKey: "testId", constraints: false });
+ExamLevelSubmission.belongsTo(ExamLevelTest, { foreignKey: "testId", constraints: false });
+
 // Quan hệ User ↔ CambridgeSubmission
 User.hasMany(CambridgeSubmission, { foreignKey: "userId" });
 CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
@@ -119,4 +128,6 @@ module.exports = {
   RefreshToken,
   AppSetting,
   ExamLevel,
+  ExamLevelTest,
+  ExamLevelSubmission,
 };

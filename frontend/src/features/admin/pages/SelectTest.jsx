@@ -134,6 +134,8 @@ const SelectTest = () => {
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
   const [activeGeneralTab, setActiveGeneralTab] = useState(DEFAULT_GENERAL_SKILL);
+  const [registeredLevels, setRegisteredLevels] = useState([]);
+  const [registeredLevelError, setRegisteredLevelError] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -153,6 +155,30 @@ const SelectTest = () => {
   const { displayLabels } = useDisplaySettings();
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
+
+  useEffect(() => {
+    let mounted = true;
+    authFetch(apiPath("exam-levels"))
+      .then(async (response) => {
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(payload.message || "Could not load configured exam levels.");
+        }
+        if (mounted) {
+          setRegisteredLevels(Array.isArray(payload) ? payload : []);
+          setRegisteredLevelError("");
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          setRegisteredLevelError(error.message);
+          setRegisteredLevels([]);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const applyPlacementPackage = useMemo(
     () => (placementPackage) => {
@@ -1104,6 +1130,35 @@ const SelectTest = () => {
                     </button>
                   ))}
                 </div>
+
+                {registeredLevels.length > 0 || registeredLevelError ? (
+                  <div className="select-test-sidebarPanel">
+                    <div className="select-test-sidebarPanelHeader">
+                      <span className="select-test-sidebarPanelTitle">Configured levels</span>
+                    </div>
+                    {registeredLevelError ? (
+                      <p className="select-test-shelfMetaItem" role="alert">{registeredLevelError}</p>
+                    ) : null}
+                    {registeredLevels.map((level) => (
+                      <button
+                        key={level.id}
+                        type="button"
+                        className="select-test-sidePlatform select-test-sidePlatform--level"
+                        onClick={() => navigate(`/exam-levels/${encodeURIComponent(level.code)}`)}
+                      >
+                        <span className="select-test-sidePlatformIcon" aria-hidden="true">
+                          <LineIcon name="tests" size={18} />
+                        </span>
+                        <span className="select-test-sidePlatformCopy">
+                          <span className="select-test-sidePlatformLabel">{level.name}</span>
+                          <span className="select-test-sidePlatformHint">
+                            {(level.skills || []).map((skill) => skill[0].toUpperCase() + skill.slice(1)).join(" · ")}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
 
                 {activePlatform === "ix" ? (
                   <div className="select-test-sidebarPanel">

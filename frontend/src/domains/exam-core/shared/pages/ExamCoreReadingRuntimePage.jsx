@@ -55,6 +55,10 @@ import "./ExamCoreReadingRuntime.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+const requestSubmissionApi = (submissionBasePath, url, options) =>
+  String(submissionBasePath || "").startsWith("exam-levels/")
+    ? authFetch(url, options)
+    : fetch(url, options);
 
 const resolvePartIllustrationUrl = (imageUrl) => {
   const normalized = String(imageUrl || '').trim();
@@ -119,6 +123,9 @@ const ExamCoreReadingRuntimePage = ({
   fetchBasePath = 'cambridge/reading-tests',
   submitBasePath = 'cambridge/reading-tests',
   submissionBasePath = 'cambridge/submissions',
+  storageNamespace = 'cambridge',
+  examDisplayName = null,
+  hubPath = null,
 }) => {
   const { testType, id } = useParams(); // testType: ket-reading, pet-reading, etc.
   const location = useLocation();
@@ -128,9 +135,8 @@ const ExamCoreReadingRuntimePage = ({
     [defaultTestType, testType]
   );
   const isGatewayReadingWriting = routeTestType === 'gateway-reading-writing';
-  const fallbackHubPath = useMemo(
-    () => (routeTestType.startsWith('gateway-') ? '/select-test?platform=gateway&tab=reading-writing' : '/cambridge'),
-    [routeTestType]
+  const fallbackHubPath = hubPath || (
+    routeTestType.startsWith('gateway-') ? '/select-test?platform=gateway&tab=reading-writing' : '/cambridge'
   );
   const placementContext = useMemo(
     () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
@@ -143,6 +149,7 @@ const ExamCoreReadingRuntimePage = ({
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
 
   const examType = useMemo(() => {
+    if (examDisplayName) return examDisplayName;
     const s = routeTestType;
     if (s.startsWith("gateway-")) return "GATEWAY";
     if (s.includes("ket")) return "KET";
@@ -152,9 +159,12 @@ const ExamCoreReadingRuntimePage = ({
     if (s.includes("starters")) return "STARTERS";
     if (s.includes("general")) return generalDisplayName;
     return "CAMBRIDGE";
-  }, [generalDisplayName, routeTestType]);
+  }, [examDisplayName, generalDisplayName, routeTestType]);
 
-  const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
+  const startedKey = useMemo(
+    () => `${storageNamespace}_reading_test_${id}_started`,
+    [id, storageNamespace]
+  );
 
   // Stable user ID: isolates data per-student on shared devices
   const storageUserId = useMemo(() => {
@@ -167,10 +177,10 @@ const ExamCoreReadingRuntimePage = ({
       return u?.id || 'anon';
     } catch (e) { return 'anon'; }
   }, [placementContext.placementAttemptItemToken]);
-  const camReadTimeKey  = useMemo(() => `cambridge_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
-  const camReadAnsKey   = useMemo(() => `cambridge_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
-  const camReadStartKey = useMemo(() => `cambridge_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
-  const camReadSubmissionKey = useMemo(() => `cambridge_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
+  const camReadTimeKey  = useMemo(() => `${storageNamespace}_reading_${id}_expiresAt:${storageUserId}`, [id, storageNamespace, storageUserId]);
+  const camReadAnsKey   = useMemo(() => `${storageNamespace}_reading_${id}_answers:${storageUserId}`, [id, storageNamespace, storageUserId]);
+  const camReadStartKey = useMemo(() => `${storageNamespace}_reading_${id}_started:${storageUserId}`, [id, storageNamespace, storageUserId]);
+  const camReadSubmissionKey = useMemo(() => `${storageNamespace}_reading_${id}_submissionId:${storageUserId}`, [id, storageNamespace, storageUserId]);
   const annotationStorageKey = useMemo(() => `${camReadAnsKey}:annotations`, [camReadAnsKey]);
   const expiresAtRef = useRef(null);
   const submissionIdRef = useRef(null);
@@ -213,7 +223,7 @@ const ExamCoreReadingRuntimePage = ({
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`cambridge_reading_${id}_started:${storageUserId}`) === "true";
+      return localStorage.getItem(camReadStartKey) === "true";
     } catch (e) {
       return false;
     }
@@ -440,7 +450,8 @@ const ExamCoreReadingRuntimePage = ({
 
         if (query) {
           try {
-            const activeRes = await fetch(
+            const activeRes = await requestSubmissionApi(
+              submissionBasePath,
               apiPath(
                 `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
               )
@@ -649,11 +660,15 @@ const ExamCoreReadingRuntimePage = ({
             currentQuestionIndex,
           },
         };
-        const res = await fetch(apiPath(`${submissionBasePath}/autosave`), {
+        const res = await requestSubmissionApi(
+          submissionBasePath,
+          apiPath(`${submissionBasePath}/autosave`),
+          {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        });
+          }
+        );
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
           scope: "orange-reading",
@@ -748,7 +763,8 @@ const ExamCoreReadingRuntimePage = ({
 
     try {
       timingSyncInFlightRef.current = true;
-      const res = await fetch(
+      const res = await requestSubmissionApi(
+        submissionBasePath,
         apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
       recordRuntimeSyncRequestMetric({

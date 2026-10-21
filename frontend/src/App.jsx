@@ -14,6 +14,7 @@ import { buildIxRoutes } from './app/routes/ixRoutes';
 import { buildGatewayRoutes } from './app/routes/gatewayRoutes';
 import { buildCambridgeRoutes } from './app/routes/cambridgeRoutes';
 import { buildGeneralRoutes } from './domains/general/generalRoutes';
+import { buildExamLevelRoutes } from './domains/exam-levels/examLevelRoutes';
 import { buildAdminRoutes } from './app/routes/adminRoutes';
 
 const hasStoredUser = () => Boolean(getStoredUser());
@@ -199,6 +200,7 @@ function App() {
           {buildGatewayRoutes({ isAuthenticated })}
           {buildCambridgeRoutes({ isAuthenticated })}
           {buildGeneralRoutes({ isAuthenticated })}
+          {buildExamLevelRoutes({ isAuthenticated })}
           {buildAdminRoutes()}
         </Routes>
       </Suspense>

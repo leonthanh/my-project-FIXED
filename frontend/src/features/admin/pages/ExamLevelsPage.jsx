@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import "./ExamLevelsPage.css";
@@ -18,20 +19,19 @@ const groupTemplatesBySkill = (templates) => {
   return Array.from(grouped.values());
 };
 
+const createSkillConfig = (skill) => ({
+  templateId: skill.templates[0].templateId,
+  weight: 1,
+  durationMinutes: skill.templates[0].defaultDurationMinutes,
+});
+
 const createEmptyForm = (skills = []) => ({
   code: "",
   name: "",
   description: "",
   skills: skills.map(({ id }) => id),
   skillConfig: Object.fromEntries(
-    skills.map(({ id, templates }) => [
-      id,
-      {
-        templateId: templates[0].templateId,
-        weight: 1,
-        durationMinutes: templates[0].defaultDurationMinutes,
-      },
-    ])
+    skills.map((skill) => [skill.id, createSkillConfig(skill)])
   ),
   sortOrder: 0,
   isActive: true,
@@ -63,6 +63,7 @@ const toForm = (level, skills) => ({
 });
 
 const ExamLevelsPage = () => {
+  const navigate = useNavigate();
   const [levels, setLevels] = useState([]);
   const [templates, setTemplates] = useState([]);
   const skillOptions = useMemo(() => groupTemplatesBySkill(templates), [templates]);
@@ -115,12 +116,13 @@ const ExamLevelsPage = () => {
   };
 
   const updateSkillConfig = (skillId, key, value) => {
+    const skill = skillOptions.find(({ id }) => id === skillId);
     setForm((current) => ({
       ...current,
       skillConfig: {
         ...current.skillConfig,
         [skillId]: {
-          ...current.skillConfig[skillId],
+          ...(current.skillConfig[skillId] || createSkillConfig(skill)),
           [key]: key === "templateId" ? value : Number(value),
         },
       },
@@ -270,7 +272,8 @@ const ExamLevelsPage = () => {
               <div className="exam-levels-page__skill-grid">
                 {skillOptions.map((skill) => {
                   const enabled = form.skills.includes(skill.id);
-                  const config = form.skillConfig[skill.id];
+                  const config =
+                    form.skillConfig[skill.id] || createSkillConfig(skill);
                   return (
                     <article
                       className={`exam-levels-page__skill-card${enabled ? " is-enabled" : ""}`}
@@ -398,6 +401,14 @@ const ExamLevelsPage = () => {
                     </div>
                   </div>
                   <div className="exam-levels-page__row-actions">
+                    <button
+                      className="exam-levels-page__button exam-levels-page__button--primary"
+                      type="button"
+                      disabled={!level.isActive}
+                      onClick={() => navigate(`/exam-levels/${encodeURIComponent(level.code)}`)}
+                    >
+                      Manage tests
+                    </button>
                     <button
                       className="exam-levels-page__button exam-levels-page__button--quiet"
                       type="button"

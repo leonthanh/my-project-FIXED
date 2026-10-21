@@ -49,6 +49,10 @@ import './ExamCoreReadingRuntime.css';
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+const requestSubmissionApi = (submissionBasePath, url, options) =>
+  String(submissionBasePath || "").startsWith("exam-levels/")
+    ? authFetch(url, options)
+    : fetch(url, options);
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -74,6 +78,9 @@ const ExamCoreListeningRuntimePage = ({
   fetchBasePath = 'cambridge/listening-tests',
   submitBasePath = fetchBasePath,
   submissionBasePath = 'cambridge/submissions',
+  storageNamespace = 'cambridge',
+  examDisplayName = null,
+  hubPath = null,
 }) => {
   const { testType, id } = useParams(); // testType: ket-listening, pet-listening, etc.
   const routeTestType = useMemo(
@@ -93,6 +100,7 @@ const ExamCoreListeningRuntimePage = ({
   const { displayLabels } = useDisplaySettings();
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const examType = useMemo(() => {
+    if (examDisplayName) return examDisplayName;
     const s = routeTestType;
     if (s.startsWith("gateway-")) return "GATEWAY";
     if (s.includes("ket")) return "KET";
@@ -103,10 +111,9 @@ const ExamCoreListeningRuntimePage = ({
     if (s.includes("general")) return generalDisplayName;
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
-  }, [generalDisplayName, routeTestType]);
-  const fallbackHubPath = useMemo(
-    () => (routeTestType.startsWith('gateway-') ? '/select-test?platform=gateway&tab=reading-writing' : '/cambridge'),
-    [routeTestType]
+  }, [examDisplayName, generalDisplayName, routeTestType]);
+  const fallbackHubPath = hubPath || (
+    routeTestType.startsWith('gateway-') ? '/select-test?platform=gateway&tab=reading-writing' : '/cambridge'
   );
 
   const styles = useMemo(() => createStyles(isDarkMode, examType), [isDarkMode, examType]);
@@ -177,18 +184,21 @@ const ExamCoreListeningRuntimePage = ({
   );
 
   const storageKey = useMemo(() => {
+    const prefix = storageNamespace === "cambridge"
+      ? "cambridgeListeningProgress"
+      : `${storageNamespace}ListeningProgress`;
     if (placementContext.placementAttemptItemToken) {
-      return `cambridgeListeningProgress-${routeTestType || 'listening'}-${id || 'unknown'}-placement:${placementContext.placementAttemptItemToken}`;
+      return `${prefix}-${routeTestType || 'listening'}-${id || 'unknown'}-placement:${placementContext.placementAttemptItemToken}`;
     }
 
     try {
       const u = JSON.parse(localStorage.getItem('user') || 'null');
       const uid = u?.id || 'anon';
-      return `cambridgeListeningProgress-${routeTestType || 'listening'}-${id || 'unknown'}-${uid}`;
+      return `${prefix}-${routeTestType || 'listening'}-${id || 'unknown'}-${uid}`;
     } catch {
-      return `cambridgeListeningProgress-${routeTestType || 'listening'}-${id || 'unknown'}-anon`;
+      return `${prefix}-${routeTestType || 'listening'}-${id || 'unknown'}-anon`;
     }
-  }, [id, placementContext.placementAttemptItemToken, routeTestType]);
+  }, [id, placementContext.placementAttemptItemToken, routeTestType, storageNamespace]);
 
   const annotationStorageKey = useMemo(() => `${storageKey}:annotations`, [storageKey]);
 
@@ -333,7 +343,8 @@ const ExamCoreListeningRuntimePage = ({
 
         if (query) {
           try {
-            const activeRes = await fetch(
+            const activeRes = await requestSubmissionApi(
+              submissionBasePath,
               apiPath(
                 `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
               )
@@ -747,11 +758,15 @@ const ExamCoreListeningRuntimePage = ({
             hasResumeAudio,
           },
         };
-        const res = await fetch(apiPath(`${submissionBasePath}/autosave`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const res = await requestSubmissionApi(
+          submissionBasePath,
+          apiPath(`${submissionBasePath}/autosave`),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
           scope: "orange-listening",
@@ -858,7 +873,8 @@ const ExamCoreListeningRuntimePage = ({
 
     try {
       timingSyncInFlightRef.current = true;
-      const res = await fetch(
+      const res = await requestSubmissionApi(
+        submissionBasePath,
         apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
       recordRuntimeSyncRequestMetric({

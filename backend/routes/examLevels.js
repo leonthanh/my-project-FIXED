@@ -7,6 +7,7 @@ const { normalizeExamLevelPayload } = require("../utils/examLevelValidation");
 
 const router = express.Router();
 const requireAdmin = [requireAuth, requireRole("admin")];
+const levelTestsRouter = require("../modules/examLevels/testsRouter");
 
 const handleRouteError = (res, error, message) => {
   if (error.statusCode === 400) {
@@ -81,5 +82,7 @@ router.put("/admin/:id", ...requireAdmin, async (req, res) => {
     return handleRouteError(res, error, "Could not update exam level.");
   }
 });
+
+router.use(levelTestsRouter);
 
 module.exports = router;
