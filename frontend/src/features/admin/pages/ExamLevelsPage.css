@@ -1,0 +1,367 @@
+.exam-levels-page {
+  min-height: 100vh;
+  color: #172033;
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(194, 225, 255, 0.32), transparent 38rem),
+    #f4f7fb;
+}
+
+.exam-levels-page__main {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 34px 0 64px;
+}
+
+.exam-levels-page__header,
+.exam-levels-page__section-heading,
+.exam-levels-page__form-footer,
+.exam-levels-page__level-row,
+.exam-levels-page__level-title,
+.exam-levels-page__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exam-levels-page__header {
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.exam-levels-page__header h1,
+.exam-levels-page__section-heading h2,
+.exam-levels-page__level-title h3,
+.exam-levels-page__header p {
+  margin: 0;
+}
+
+.exam-levels-page__header h1 {
+  margin: 3px 0 7px;
+  color: #14213d;
+  font-size: clamp(28px, 4vw, 38px);
+  letter-spacing: -0.04em;
+}
+
+.exam-levels-page__header > div > p:last-child {
+  max-width: 680px;
+  color: #657187;
+  line-height: 1.55;
+}
+
+.exam-levels-page__eyebrow {
+  margin: 0;
+  color: #4376bd;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.exam-levels-page__count {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border: 1px solid #d6e2f0;
+  border-radius: 999px;
+  color: #33577d;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exam-levels-page__panel {
+  margin-top: 20px;
+  padding: 25px;
+  border: 1px solid #e1e8f1;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 40px rgba(38, 67, 104, 0.06);
+}
+
+.exam-levels-page__section-heading {
+  margin-bottom: 21px;
+}
+
+.exam-levels-page__section-heading h2 {
+  margin-top: 4px;
+  color: #1b2b46;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+
+.exam-levels-page__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.exam-levels-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #45546d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exam-levels-page input:not([type="checkbox"]),
+.exam-levels-page select,
+.exam-levels-page textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d7e0ec;
+  border-radius: 9px;
+  color: #172033;
+  background: #fff;
+  font: inherit;
+  font-weight: 500;
+}
+
+.exam-levels-page input:focus,
+.exam-levels-page select:focus,
+.exam-levels-page textarea:focus {
+  border-color: #4b8dde;
+  outline: 3px solid rgba(75, 141, 222, 0.14);
+}
+
+.exam-levels-page input:disabled,
+.exam-levels-page select:disabled {
+  color: #9aa6b8;
+  background: #f3f6fa;
+}
+
+.exam-levels-page small {
+  color: #7a879b;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.exam-levels-page__wide-field {
+  grid-column: 1 / -1;
+}
+
+.exam-levels-page__skills {
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.exam-levels-page__skills legend {
+  margin-bottom: 12px;
+  color: #35455f;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.exam-levels-page__skill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.exam-levels-page__skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e0e7f0;
+  border-radius: 13px;
+  background: #f9fbfd;
+}
+
+.exam-levels-page__skill-card.is-enabled {
+  border-color: #c6dcf7;
+  background: #f5f9ff;
+}
+
+.exam-levels-page .exam-levels-page__skill-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  color: #223451;
+  font-size: 15px;
+}
+
+.exam-levels-page__skill-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #397fd0;
+}
+
+.exam-levels-page__skill-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.exam-levels-page__form-footer {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.exam-levels-page__sort-order {
+  width: 150px;
+  margin-right: auto;
+}
+
+.exam-levels-page__button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.exam-levels-page__button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.exam-levels-page__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.exam-levels-page__button--primary {
+  min-width: 140px;
+  color: white;
+  background: #286fbd;
+}
+
+.exam-levels-page__button--primary:hover:not(:disabled) {
+  background: #1f5f9f;
+}
+
+.exam-levels-page__button--quiet {
+  color: #39516f;
+  border-color: #dce5ef;
+  background: #fff;
+}
+
+.exam-levels-page__button--quiet:hover:not(:disabled) {
+  background: #f3f7fb;
+}
+
+.exam-levels-page__level-row {
+  padding: 17px 0;
+  border-top: 1px solid #e9eef5;
+}
+
+.exam-levels-page__level-info {
+  min-width: 0;
+}
+
+.exam-levels-page__level-title {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.exam-levels-page__level-title h3 {
+  color: #20324f;
+  font-size: 16px;
+}
+
+.exam-levels-page__level-title code {
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #536782;
+  background: #edf2f8;
+  font-size: 11px;
+}
+
+.exam-levels-page__status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #6a7485;
+  background: #eef1f5;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.exam-levels-page__status.is-active {
+  color: #18734d;
+  background: #e0f5eb;
+}
+
+.exam-levels-page__level-info > p {
+  margin: 7px 0 0;
+  color: #6e7c90;
+  font-size: 13px;
+}
+
+.exam-levels-page__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.exam-levels-page__badges span {
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #50637e;
+  background: #edf4fc;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.exam-levels-page__empty {
+  margin: 0;
+  padding: 12px 0;
+  color: #728096;
+}
+
+.exam-levels-page__alert {
+  margin: 12px 0;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.exam-levels-page__alert--error {
+  color: #9e3434;
+  border-color: #f2cdcd;
+  background: #fff1f1;
+}
+
+.exam-levels-page__alert--success {
+  color: #18734d;
+  border-color: #cbe8d8;
+  background: #edfaf2;
+}
+
+@media (max-width: 760px) {
+  .exam-levels-page__main {
+    width: min(100% - 24px, 1180px);
+    padding-top: 24px;
+  }
+
+  .exam-levels-page__panel {
+    padding: 18px;
+  }
+
+  .exam-levels-page__skill-grid,
+  .exam-levels-page__form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-levels-page__wide-field {
+    grid-column: auto;
+  }
+
+  .exam-levels-page__header,
+  .exam-levels-page__level-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .exam-levels-page__row-actions {
+    width: 100%;
+  }
+}

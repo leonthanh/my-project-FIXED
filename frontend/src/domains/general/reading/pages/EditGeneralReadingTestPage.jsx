@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import AdminNavbar from "../../../../shared/components/AdminNavbar";
 import { apiPath } from "../../../../shared/utils/api";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
-import FceTestBuilder from "../../shared/components/FceTestBuilder";
+import GeneralTestBuilder from "../../shared/components/GeneralTestBuilder";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -20,7 +20,7 @@ const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   </span>
 );
 
-const EditFceListeningTestPage = () => {
+const EditGeneralReadingTestPage = () => {
   const { id } = useParams();
 
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ const EditFceListeningTestPage = () => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const res = await fetch(apiPath(`cambridge/listening-tests/${id}`));
+        const res = await fetch(apiPath(`general/reading-tests/${id}`));
         if (!res.ok) throw new Error("Không thể tải đề thi");
 
         const data = await res.json();
@@ -86,13 +86,13 @@ const EditFceListeningTestPage = () => {
   }
 
   return (
-    <FceTestBuilder
-      testType="fce-listening"
+    <GeneralTestBuilder
+      testType="general-reading-60"
       editId={id}
       initialData={fetchedData}
-      apiBasePath="cambridge/listening-tests"
+      apiBasePath="general/reading-tests"
     />
   );
 };
 
-export default EditFceListeningTestPage;
+export default EditGeneralReadingTestPage;

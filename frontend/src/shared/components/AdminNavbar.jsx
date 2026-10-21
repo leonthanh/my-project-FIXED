@@ -185,13 +185,14 @@ const adminRoutePreloaders = {
   "/admin/create/starters": () => import("../../domains/cambridge/starters/reading/teacher/pages/CreateStartersReadingPage"),
   "/admin/create-movers-listening": () => import("../../domains/cambridge/movers/listening/pages/CreateMoversListeningTestPage"),
   "/admin/cambridge-submissions": () => import("../../features/admin/pages/CambridgeSubmissionsPage"),
-  "/admin/fce-submissions": () => import("../../domains/fce/pages/FceSubmissionsPage"),
-  "/admin/create-fce-reading": () => import("../../domains/fce/reading/pages/CreateFceReadingTestPage"),
-  "/admin/create-fce-listening": () => import("../../domains/fce/listening/pages/CreateFceListeningTestPage"),
+  "/admin/general-submissions": () => import("../../domains/general/pages/GeneralSubmissionsPage"),
+  "/admin/create-general-reading": () => import("../../domains/general/reading/pages/CreateGeneralReadingTestPage"),
+  "/admin/create-general-listening": () => import("../../domains/general/listening/pages/CreateGeneralListeningTestPage"),
   "/admin/gateway-submissions": () => import("../../features/gateway/pages/GatewaySubmissionsPage"),
   "/admin/create-gateway/reading-writing": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/create-gateway/listening": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
+  "/admin/exam-levels": () => import("../../features/admin/pages/ExamLevelsPage"),
   "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
@@ -357,14 +358,14 @@ const AdminNavbar = () => {
   const [mobileCambridgeGroup, setMobileCambridgeGroup] = useState("flyers");
   const [mobileSubmissionSection, setMobileSubmissionSection] =
     useState("create");
-  const [mobileFceSection, setMobileFceSection] = useState("create");
+  const [mobileGeneralSection, setMobileGeneralSection] = useState("create");
   const [mobileGatewaySection, setMobileGatewaySection] = useState("create");
   const [desktopDrawerMode, setDesktopDrawerMode] = useState(null);
   const [desktopCambridgeSection, setDesktopCambridgeSection] = useState("ket");
   const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
   const [desktopSubmissionSection, setDesktopSubmissionSection] =
     useState("create");
-  const [desktopFceSection, setDesktopFceSection] = useState("create");
+  const [desktopGeneralSection, setDesktopGeneralSection] = useState("create");
   const [desktopGatewaySection, setDesktopGatewaySection] = useState("create");
   const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const notificationDropdownRef = useRef(null);
@@ -375,7 +376,7 @@ const AdminNavbar = () => {
   const canManageReading = canManageCategory(user, "reading");
   const canManageListening = canManageCategory(user, "listening");
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const notificationSeenStorageKey = useMemo(
     () => buildNotificationSeenStorageKey(user),
     [user]
@@ -699,10 +700,15 @@ const AdminNavbar = () => {
     if (pathname === "/select-test") {
       const platform = new URLSearchParams(location?.search || "").get("platform");
       if (platform === "gateway") return "gateway";
+      if (platform === "general") return "general";
     }
     if (pathname.includes("cambridge")) return "orange";
-    if (pathname.includes("/fce") || pathname.includes("create-fce") || pathname.includes("fce-submissions")) {
-      return "fce";
+    if (
+      pathname.includes("/general") ||
+      pathname.includes("create-general") ||
+      pathname.includes("general-submissions")
+    ) {
+      return "general";
     }
     if (
       pathname === "/select-test" ||
@@ -749,10 +755,10 @@ const AdminNavbar = () => {
     return { section: "ket", group: "flyers" };
   };
 
-  const getPreferredDesktopFceSection = () => {
+  const getPreferredDesktopGeneralSection = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
-    if (pathname.includes("/admin/fce-submissions")) {
+    if (pathname.includes("/admin/general-submissions")) {
       return "submissions";
     }
 
@@ -851,8 +857,8 @@ const AdminNavbar = () => {
       setDesktopSubmissionSection(getPreferredDesktopSubmissionSection());
     }
 
-    if (mode === "fce") {
-      setDesktopFceSection(getPreferredDesktopFceSection());
+    if (mode === "general") {
+      setDesktopGeneralSection(getPreferredDesktopGeneralSection());
     }
 
     if (mode === "gateway") {
@@ -1088,7 +1094,7 @@ const AdminNavbar = () => {
     [canManageListening, canManageReading, canManageWriting]
   );
 
-  const fceSections = useMemo(
+  const generalSections = useMemo(
     () =>
       [
         {
@@ -1098,15 +1104,15 @@ const AdminNavbar = () => {
           iconName: "create",
           items: [
             buildAdminLinkItem(
-              "create-fce-reading",
-              "/admin/create-fce-reading",
+              "create-general-reading",
+              "/admin/create-general-reading",
               "Reading & Writing",
               canManageReading,
               "reading"
             ),
             buildAdminLinkItem(
-              "create-fce-listening",
-              "/admin/create-fce-listening",
+              "create-general-listening",
+              "/admin/create-general-listening",
               "Listening",
               canManageListening,
               "listening"
@@ -1120,8 +1126,8 @@ const AdminNavbar = () => {
           iconName: "submissions",
           items: [
             buildAdminLinkItem(
-              "fce-submissions",
-              "/admin/fce-submissions",
+              "general-submissions",
+              "/admin/general-submissions",
               "View submissions",
               true,
               "submissions"
@@ -1214,6 +1220,13 @@ const AdminNavbar = () => {
           true,
           "permissions"
         ),
+        buildAdminLinkItem(
+          "exam-levels",
+          "/admin/exam-levels",
+          "Level Registry",
+          true,
+          "management"
+        ),
         buildAdminLinkItem("users", "/admin/users", "User Management", true, "users"),
       ].filter(Boolean),
     []
@@ -1243,9 +1256,9 @@ const AdminNavbar = () => {
         return;
       }
 
-      if (mobileDrawerTab === "fce") {
-        preloadAdminItems(flattenAdminSections(fceSections));
-        preloadAdminRoute("/admin/fce-submissions");
+      if (mobileDrawerTab === "general") {
+        preloadAdminItems(flattenAdminSections(generalSections));
+        preloadAdminRoute("/admin/general-submissions");
         return;
       }
 
@@ -1281,7 +1294,7 @@ const AdminNavbar = () => {
     mobileDrawerOpen,
     mobileDrawerTab,
     adminItems,
-    fceSections,
+    generalSections,
     gatewaySections,
     cambridgeSections,
     ieltsSections,
@@ -1304,16 +1317,16 @@ const AdminNavbar = () => {
         return;
       }
 
-      if (desktopDrawerMode === "fce") {
-        preloadAdminItems(flattenAdminSections(fceSections));
-        preloadAdminRoute("/admin/fce-submissions");
+      if (desktopDrawerMode === "general") {
+        preloadAdminItems(flattenAdminSections(generalSections));
+        preloadAdminRoute("/admin/general-submissions");
       }
     }, 0);
 
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [isCompactMenu, desktopDrawerMode, fceSections, cambridgeSections, ieltsSections]);
+  }, [isCompactMenu, desktopDrawerMode, generalSections, cambridgeSections, ieltsSections]);
 
   const activeCambridgeSection =
     cambridgeSections.find((section) => section.key === mobileCambridgeSection) ||
@@ -1329,9 +1342,9 @@ const AdminNavbar = () => {
     ieltsSections.find((section) => section.key === mobileSubmissionSection) ||
     ieltsSections[0] ||
     null;
-  const activeFceSection =
-    fceSections.find((section) => section.key === mobileFceSection) ||
-    fceSections[0] ||
+  const activeGeneralSection =
+    generalSections.find((section) => section.key === mobileGeneralSection) ||
+    generalSections[0] ||
     null;
   const activeGatewaySection =
     gatewaySections.find((section) => section.key === mobileGatewaySection) ||
@@ -1350,9 +1363,9 @@ const AdminNavbar = () => {
     ieltsSections.find((section) => section.key === desktopSubmissionSection) ||
     ieltsSections[0] ||
     null;
-  const activeDesktopFceSection =
-    fceSections.find((section) => section.key === desktopFceSection) ||
-    fceSections[0] ||
+  const activeDesktopGeneralSection =
+    generalSections.find((section) => section.key === desktopGeneralSection) ||
+    generalSections[0] ||
     null;
   const activeDesktopGatewaySection =
     gatewaySections.find((section) => section.key === desktopGatewaySection) ||
@@ -1467,15 +1480,16 @@ const AdminNavbar = () => {
     ? new URLSearchParams(location.search || "").get("platform")
     : null;
   const isOrangeCurrent = pathname.includes("cambridge") || pathname.includes("pet-writing");
-  const isFceCurrent =
-    pathname.includes("/fce") ||
-    pathname.includes("create-fce") ||
-    pathname.includes("fce-submissions");
+  const isGeneralCurrent =
+    pathname.includes("/general") ||
+    pathname.includes("create-general") ||
+    pathname.includes("general-submissions") ||
+    (pathname === "/select-test" && platformParam === "general");
   const isGatewayCurrent =
     pathname.includes("gateway") ||
     (pathname === "/select-test" && platformParam === "gateway");
   const isIxCurrent =
-    (pathname.startsWith("/admin/create") && !isFceCurrent && !isGatewayCurrent) ||
+    (pathname.startsWith("/admin/create") && !isGeneralCurrent && !isGatewayCurrent) ||
     pathname.includes("writing-submissions") ||
     pathname.includes("reading-submissions") ||
     pathname.includes("listening-submissions");
@@ -1487,6 +1501,7 @@ const AdminNavbar = () => {
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions") ||
     pathname.startsWith("/admin/display-settings") ||
+    pathname.startsWith("/admin/exam-levels") ||
     pathname.startsWith("/admin/runtime-sync-metrics");
 
   const mobileDrawerTabs = [
@@ -1497,7 +1512,7 @@ const AdminNavbar = () => {
     { key: "ix", label: "IX" },
     { key: "gateway", label: "Gateway" },
     { key: "orange", label: "Orange" },
-    { key: "fce", label: fceDisplayName },
+    { key: "general", label: generalDisplayName },
     { key: "overview", label: "Overview" },
     ...(user?.role === "admin" ? [{ key: "admin", label: "Admin" }] : []),
   ];
@@ -1698,24 +1713,24 @@ const AdminNavbar = () => {
     );
   };
 
-  const renderDesktopFceDrawerContent = () => {
-    if (!activeDesktopFceSection) return null;
+  const renderDesktopGeneralDrawerContent = () => {
+    if (!activeDesktopGeneralSection) return null;
 
     return (
       <>
         {renderDesktopDrawerTabs(
-          fceSections,
+          generalSections,
           gatewaySections,
-          activeDesktopFceSection.key,
-          setDesktopFceSection
+          activeDesktopGeneralSection.key,
+          setDesktopGeneralSection
         )}
         <div className="adminNavbar__desktopDrawerBody">
           <div className="adminNavbar__desktopDrawerSectionTitle">
-            {activeDesktopFceSection.title}
+            {activeDesktopGeneralSection.title}
           </div>
           <div className="adminNavbar__desktopDrawerList">
             {renderMenuItems(
-              activeDesktopFceSection.items,
+              activeDesktopGeneralSection.items,
               closeDesktopDrawer,
               "drawer"
             )}
@@ -1867,31 +1882,31 @@ const AdminNavbar = () => {
     );
   };
 
-  const renderMobileFceMenu = () => {
-    if (!activeFceSection) return null;
+  const renderMobileGeneralMenu = () => {
+    if (!activeGeneralSection) return null;
 
     return (
       <>
         <div className="adminNavbar__mobileMenuTop">
-          <div className="adminNavbar__mobileMenuTitle">{fceDisplayName}</div>
+          <div className="adminNavbar__mobileMenuTitle">{generalDisplayName}</div>
           <div className="adminNavbar__mobileMenuHint">
-            Create {fceDisplayName} reading, listening, and review student submissions.
+            Create {generalDisplayName} reading, listening, and review student submissions.
           </div>
         </div>
         {renderMobileTabs(
-          fceSections,
-          activeFceSection.key,
-          setMobileFceSection
+          generalSections,
+          activeGeneralSection.key,
+          setMobileGeneralSection
         )}
         <div
-          key={activeFceSection.key}
+          key={activeGeneralSection.key}
           className="adminNavbar__mobileAnimatedStage"
         >
           <div className="adminNavbar__mobileMenuBody">
             <div className="adminNavbar__mobileSectionTitle">
-              {activeFceSection.title}
+              {activeGeneralSection.title}
             </div>
-            {renderMenuItems(activeFceSection.items, closeMobileDrawer, "mobile")}
+            {renderMenuItems(activeGeneralSection.items, closeMobileDrawer, "mobile")}
           </div>
         </div>
       </>
@@ -2035,8 +2050,8 @@ const AdminNavbar = () => {
       return renderMobileSubmissionMenu();
     }
 
-    if (mobileDrawerTab === "fce") {
-      return renderMobileFceMenu();
+    if (mobileDrawerTab === "general") {
+      return renderMobileGeneralMenu();
     }
 
     if (mobileDrawerTab === "gateway") {
@@ -2117,8 +2132,8 @@ const AdminNavbar = () => {
                   ? "Orange menu"
                   : desktopDrawerMode === "gateway"
                   ? "Gateway menu"
-                  : desktopDrawerMode === "fce"
-                  ? `${fceDisplayName} menu`
+                  : desktopDrawerMode === "general"
+                  ? `${generalDisplayName} menu`
                   : "IX menu"
               }
             >
@@ -2144,8 +2159,8 @@ const AdminNavbar = () => {
                         ? "Orange Drawer"
                         : desktopDrawerMode === "gateway"
                         ? "Gateway Drawer"
-                        : desktopDrawerMode === "fce"
-                        ? `${fceDisplayName} Drawer`
+                        : desktopDrawerMode === "general"
+                        ? `${generalDisplayName} Drawer`
                         : "IX Drawer"}
                     </div>
                     <div className="adminNavbar__desktopDrawerMeta">
@@ -2153,8 +2168,8 @@ const AdminNavbar = () => {
                         ? "Cambridge creation and submissions collected into a cleaner side panel."
                         : desktopDrawerMode === "gateway"
                         ? "Gateway creation, test library, and submissions in a dedicated side panel."
-                        : desktopDrawerMode === "fce"
-                        ? `${fceDisplayName} creation and submissions in a dedicated side panel.`
+                        : desktopDrawerMode === "general"
+                        ? `${generalDisplayName} creation and submissions in a dedicated side panel.`
                         : "Create and review IELTS tests without a crowded dropdown menu."}
                     </div>
                   </div>
@@ -2175,7 +2190,7 @@ const AdminNavbar = () => {
               >
                 {desktopDrawerMode === "orange" && renderDesktopCambridgeDrawerContent()}
                 {desktopDrawerMode === "ix" && renderDesktopSubmissionDrawerContent()}
-                {desktopDrawerMode === "fce" && renderDesktopFceDrawerContent()}
+                {desktopDrawerMode === "general" && renderDesktopGeneralDrawerContent()}
                 {desktopDrawerMode === "gateway" && renderDesktopGatewayDrawerContent()}
               </div>
             </aside>
@@ -2278,12 +2293,12 @@ const AdminNavbar = () => {
 
         <div className="adminNavbar__dropdown">
           <span
-            className={`adminNavbar__link adminNavbar__dropdownToggle${isFceCurrent || desktopDrawerMode === "fce" ? " adminNavbar__link--active" : ""}`}
-            onClick={() => toggleDesktopDrawer("fce")}
-            title={fceDisplayName}
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isGeneralCurrent || desktopDrawerMode === "general" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("general")}
+            title={generalDisplayName}
           >
             <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">{fceDisplayName}</span>
+            <span className="adminNavbar__label">{generalDisplayName}</span>
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
         </div>

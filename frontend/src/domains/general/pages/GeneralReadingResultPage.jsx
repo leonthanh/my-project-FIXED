@@ -151,7 +151,7 @@ const resolveExplicitQuestionNumber = (entry) => {
   return null;
 };
 
-const buildFceReadingQuestionEntries = (parts = []) => {
+const buildGeneralReadingQuestionEntries = (parts = []) => {
   const questions = [];
   let qNum = 1;
 
@@ -397,13 +397,13 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-GB');
 };
 
-const FceReadingResultPage = () => {
+const GeneralReadingResultPage = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
+  const generalDisplayName = String(displayLabels?.generalDisplayName || 'General').trim() || 'General';
   const [submission, setSubmission] = useState(() => normalizeSubmission(location.state?.submission) || null);
   const [test, setTest] = useState(() => {
     const rawTest = location.state?.test;
@@ -417,8 +417,8 @@ const FceReadingResultPage = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
 
-  const isFceReading60 = useMemo(
-    () => String(submission?.testType || '').trim().toLowerCase() === 'fce-reading-60',
+  const isGeneralReading60 = useMemo(
+    () => String(submission?.testType || '').trim().toLowerCase() === 'general-reading-60',
     [submission?.testType]
   );
 
@@ -430,7 +430,7 @@ const FceReadingResultPage = () => {
       try {
         setLoading(true);
         setError('');
-        const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), { signal: controller.signal });
+        const res = await fetch(apiPath(`general/submissions/${submissionId}`), { signal: controller.signal });
         if (!res.ok) throw new Error('Result not found');
         const data = await res.json();
         if (!cancelled) {
@@ -453,7 +453,7 @@ const FceReadingResultPage = () => {
   }, [submissionId]);
 
   useEffect(() => {
-    if (!submission?.testId || !isFceReading60) return;
+    if (!submission?.testId || !isGeneralReading60) return;
     if (test && String(test.id) === String(submission.testId) && Array.isArray(test.parts)) return;
 
     let cancelled = false;
@@ -461,7 +461,7 @@ const FceReadingResultPage = () => {
 
     (async () => {
       try {
-        const res = await fetch(apiPath(`cambridge/reading-tests/${submission.testId}`), {
+        const res = await fetch(apiPath(`general/reading-tests/${submission.testId}`), {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error('Failed to load test');
@@ -482,17 +482,17 @@ const FceReadingResultPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [isFceReading60, submission?.testId, test]);
+  }, [isGeneralReading60, submission?.testId, test]);
 
   const questionEntries = useMemo(() => {
-    if (!isFceReading60 || !Array.isArray(test?.parts)) return [];
-    return buildFceReadingQuestionEntries(test.parts)
+    if (!isGeneralReading60 || !Array.isArray(test?.parts)) return [];
+    return buildGeneralReadingQuestionEntries(test.parts)
       .filter((entry) => Number.isFinite(entry.questionNumber) && entry.questionNumber > 0)
       .sort((left, right) => left.questionNumber - right.questionNumber);
-  }, [isFceReading60, test?.parts]);
+  }, [isGeneralReading60, test?.parts]);
 
   const questionResults = useMemo(() => {
-    if (!isFceReading60) return [];
+    if (!isGeneralReading60) return [];
 
     const detailedResults = parseJsonIfString(submission?.detailedResults);
     if (!detailedResults || typeof detailedResults !== 'object') {
@@ -515,7 +515,7 @@ const FceReadingResultPage = () => {
         result: matchedKey ? detailedResults[matchedKey] : null,
       };
     });
-  }, [isFceReading60, questionEntries, submission?.detailedResults]);
+  }, [isGeneralReading60, questionEntries, submission?.detailedResults]);
 
   const stats = useMemo(() => {
     if (!submission) return null;
@@ -616,7 +616,7 @@ const FceReadingResultPage = () => {
         <AdminNavbar />
         <div style={{ minHeight: '100vh', background: colors.page, padding: '32px' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto', color: colors.text }}>
-            {`Loading ${fceDisplayName} result...`}
+            {`Loading ${generalDisplayName} result...`}
           </div>
         </div>
       </>
@@ -634,10 +634,10 @@ const FceReadingResultPage = () => {
             </div>
             <button
               type="button"
-              onClick={() => navigate('/admin/fce-submissions')}
+              onClick={() => navigate('/admin/general-submissions')}
               style={{ width: 'fit-content', padding: '10px 16px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.text, cursor: 'pointer' }}
             >
-              {`Back to ${fceDisplayName} submissions`}
+              {`Back to ${generalDisplayName} submissions`}
             </button>
           </div>
         </div>
@@ -645,14 +645,14 @@ const FceReadingResultPage = () => {
     );
   }
 
-  if (!isFceReading60) {
+  if (!isGeneralReading60) {
     return (
       <>
         <AdminNavbar />
         <div style={{ minHeight: '100vh', background: colors.page, padding: '32px' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'grid', gap: '16px' }}>
             <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '20px', padding: '24px', color: colors.text }}>
-              {`This ${fceDisplayName} result page currently supports fce-reading-60 submissions only.`}
+              {`This ${generalDisplayName} result page currently supports general-reading-60 submissions only.`}
             </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button
@@ -664,10 +664,10 @@ const FceReadingResultPage = () => {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/fce-submissions')}
+                onClick={() => navigate('/admin/general-submissions')}
                 style={{ padding: '10px 16px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.text, cursor: 'pointer' }}
               >
-                {`Back to ${fceDisplayName} submissions`}
+                {`Back to ${generalDisplayName} submissions`}
               </button>
             </div>
           </div>
@@ -686,16 +686,16 @@ const FceReadingResultPage = () => {
               <div>
                 <button
                   type="button"
-                  onClick={() => navigate('/admin/fce-submissions')}
+                  onClick={() => navigate('/admin/general-submissions')}
                   style={{ padding: '8px 14px', borderRadius: '999px', border: `1px solid ${colors.border}`, background: colors.surfaceAlt, color: colors.text, cursor: 'pointer', fontWeight: 600, marginBottom: '14px' }}
                 >
-                  {`Back to ${fceDisplayName} submissions`}
+                  {`Back to ${generalDisplayName} submissions`}
                 </button>
                 <h1 style={{ margin: 0, fontSize: '2rem', color: colors.text }}>
-                  {`${fceDisplayName} Result Review`}
+                  {`${generalDisplayName} Result Review`}
                 </h1>
                 <p style={{ margin: '10px 0 0', color: colors.muted, lineHeight: 1.7 }}>
-                  {submission.testTitle || `${fceDisplayName} Reading & Writing`}
+                  {submission.testTitle || `${generalDisplayName} Reading & Writing`}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -749,7 +749,7 @@ const FceReadingResultPage = () => {
               {breakdownGroups.length > 0 ? (
                 <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '24px', padding: '24px' }}>
                   <h2 style={{ margin: '0 0 16px', color: colors.text, fontSize: '1.2rem' }}>
-                    {`${fceDisplayName} Score Groups`}
+                    {`${generalDisplayName} Score Groups`}
                   </h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                     {breakdownGroups.map((group) => (
@@ -842,4 +842,4 @@ const FceReadingResultPage = () => {
   );
 };
 
-export default FceReadingResultPage;
+export default GeneralReadingResultPage;

@@ -17,7 +17,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "listening",
       "gateway",
       "cambridge",
-      "fce",
+      "general",
     ]);
   });
 
@@ -33,7 +33,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "listening",
       "gateway",
       "cambridge",
-      "fce",
+      "general",
       "display-settings",
       "runtime-sync-metrics",
       "permissions",
@@ -56,7 +56,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "listening",
       "gateway",
       "cambridge",
-      "fce",
+      "general",
     ]);
   });
 });
@@ -105,7 +105,7 @@ describe("buildReviewWorkspaceNav", () => {
         navigate,
         displayLabels: {
           ixDisplayName: "IX",
-          fceDisplayName: "General",
+          generalDisplayName: "General",
         },
         activeTab: "writing",
         activeWorkspaceGroup: "ix",

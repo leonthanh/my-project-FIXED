@@ -17,6 +17,9 @@ const CambridgeSubmission = require('../models/CambridgeSubmission');
 const GatewayListening = require('../models/GatewayListening');
 const GatewayReading = require('../models/GatewayReading');
 const GatewaySubmission = require('../models/GatewaySubmission');
+const GeneralListening = require('../models/GeneralListening');
+const GeneralReading = require('../models/GeneralReading');
+const GeneralSubmission = require('../models/GeneralSubmission');
 const AnalyticsEvent = require('../models/AnalyticsEvent');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { logError } = require('../logger');
@@ -120,6 +123,12 @@ const buildGatewayTestPayload = (test, submissionCount = 0, category = 'reading'
   typeLabel: `Gateway ${category === 'listening' ? 'Listening' : 'Reading-Writing'}`,
 });
 
+const buildGeneralTestPayload = (test, submissionCount = 0, category = 'reading') => ({
+  ...buildCambridgeTestPayload(test, submissionCount, category),
+  deleteScope: `general-${category}`,
+  typeLabel: `General ${category === 'listening' ? 'Listening' : 'Reading'}`,
+});
+
 const resolveAdminTestScope = (scope) => {
   switch (String(scope || '').toLowerCase()) {
     case 'ix-writing':
@@ -170,6 +179,18 @@ const resolveAdminTestScope = (scope) => {
       return {
         Model: GatewayListening,
         label: 'đề Gateway Listening',
+        visibilityField: 'status',
+      };
+    case 'general-reading':
+      return {
+        Model: GeneralReading,
+        label: 'đề General Reading',
+        visibilityField: 'status',
+      };
+    case 'general-listening':
+      return {
+        Model: GeneralListening,
+        label: 'đề General Listening',
         visibilityField: 'status',
       };
     default:
@@ -489,6 +510,7 @@ router.delete('/users/bulk', requireAuth, requireRole('admin'), async (req, res)
     await ListeningSubmission.destroy({ where: { userId: safeIds } });
     await CambridgeSubmission.destroy({ where: { userId: safeIds } });
     await GatewaySubmission.destroy({ where: { userId: safeIds } });
+    await GeneralSubmission.destroy({ where: { userId: safeIds } });
     const deleted = await User.destroy({ where: { id: safeIds } });
 
     res.json({ message: `Đã xóa ${deleted} người dùng và toàn bộ dữ liệu liên quan.`, deleted });
@@ -510,6 +532,7 @@ router.delete('/submissions/bulk', requireAuth, requireRole('admin'), async (req
       listening: ListeningSubmission,
       cambridge: CambridgeSubmission,
       gateway: GatewaySubmission,
+      general: GeneralSubmission,
     };
     let deleted = 0;
     for (const { type, id } of items) {
@@ -541,6 +564,7 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), async (req, res) 
     await ListeningSubmission.destroy({ where: { userId: targetId } });
     await CambridgeSubmission.destroy({ where: { userId: targetId } });
     await GatewaySubmission.destroy({ where: { userId: targetId } });
+    await GeneralSubmission.destroy({ where: { userId: targetId } });
 
     const userName = user.name;
     await user.destroy();
@@ -602,16 +626,19 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
       liveReadingSessions,
       liveListeningSessions,
       liveCambridgeSessions,
+      liveGeneralSessions,
       liveVisitorEvents,
       todayWritingActivity,
       todayReadingActivity,
       todayListeningActivity,
       todayCambridgeActivity,
+      todayGeneralActivity,
       todayVisitorEvents,
       todayWritingSubmissions,
       todayReadingSubmissions,
       todayListeningSubmissions,
       todayCambridgeSubmissions,
+      todayGeneralSubmissions,
       todayNewStudents,
     ] = await Promise.all([
       Submission.findAll({
@@ -630,6 +657,11 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
         raw: true,
       }),
       CambridgeSubmission.findAll({
+        where: liveRuntimeWhere,
+        attributes: ['id', 'userId', 'studentPhone', 'studentName'],
+        raw: true,
+      }),
+      GeneralSubmission.findAll({
         where: liveRuntimeWhere,
         attributes: ['id', 'userId', 'studentPhone', 'studentName'],
         raw: true,
@@ -664,6 +696,13 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
         raw: true,
       }),
       CambridgeSubmission.findAll({
+        where: {
+          updatedAt: { [Op.between]: [todayStart, todayEnd] },
+        },
+        attributes: ['id', 'userId', 'studentPhone', 'studentName'],
+        raw: true,
+      }),
+      GeneralSubmission.findAll({
         where: {
           updatedAt: { [Op.between]: [todayStart, todayEnd] },
         },
@@ -714,6 +753,12 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
           [Op.or]: [{ finished: true }, { finished: null }],
         },
       }),
+      GeneralSubmission.count({
+        where: {
+          createdAt: { [Op.between]: [todayStart, todayEnd] },
+          [Op.or]: [{ finished: true }, { finished: null }],
+        },
+      }),
       User.count({
         where: {
           role: 'student',
@@ -727,12 +772,14 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
     addRecordsToIdentitySet(liveUsers, liveReadingSessions, 'reading-runtime');
     addRecordsToIdentitySet(liveUsers, liveListeningSessions, 'listening-runtime');
     addRecordsToIdentitySet(liveUsers, liveCambridgeSessions, 'cambridge-runtime');
+    addRecordsToIdentitySet(liveUsers, liveGeneralSessions, 'general-runtime');
 
     const todayUsers = new Set();
     addRecordsToIdentitySet(todayUsers, todayWritingActivity, 'writing-activity');
     addRecordsToIdentitySet(todayUsers, todayReadingActivity, 'reading-activity');
     addRecordsToIdentitySet(todayUsers, todayListeningActivity, 'listening-activity');
     addRecordsToIdentitySet(todayUsers, todayCambridgeActivity, 'cambridge-activity');
+    addRecordsToIdentitySet(todayUsers, todayGeneralActivity, 'general-activity');
 
     const liveVisitors = new Set();
     (liveVisitorEvents || []).forEach((event) => {
@@ -760,6 +807,7 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
       reading: countRows(liveReadingSessions),
       listening: countRows(liveListeningSessions),
       cambridge: countRows(liveCambridgeSessions),
+      general: countRows(liveGeneralSessions),
     };
 
     const submissionsByType = {
@@ -767,6 +815,7 @@ router.get('/usage-overview', requireAuth, requireRole('admin'), async (_req, re
       reading: Number(todayReadingSubmissions || 0),
       listening: Number(todayListeningSubmissions || 0),
       cambridge: Number(todayCambridgeSubmissions || 0),
+      general: Number(todayGeneralSubmissions || 0),
     };
 
     const activeTestSessions = Object.values(liveSessionsByType).reduce(
@@ -950,11 +999,14 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
       cambridgeListeningTests,
       gatewayReadingTests,
       gatewayListeningTests,
+      generalReadingTests,
+      generalListeningTests,
       writingSubmissionCounts,
       readingSubmissionCounts,
       listeningSubmissionCounts,
       cambridgeSubmissionCounts,
       gatewaySubmissionCounts,
+      generalSubmissionCounts,
     ] = await Promise.all([
       WritingTest.findAll({
         order: [['createdAt', 'DESC']],
@@ -981,6 +1033,14 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
         attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
       }),
       GatewayListening.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      GeneralReading.findAll({
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
+      }),
+      GeneralListening.findAll({
         order: [['createdAt', 'DESC']],
         attributes: ['id', 'title', 'classCode', 'teacherName', 'testType', 'totalQuestions', 'status', 'createdAt', 'updatedAt'],
       }),
@@ -1013,6 +1073,11 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
         group: ['testId', 'testType'],
         raw: true,
       }),
+      GeneralSubmission.findAll({
+        attributes: ['testId', 'testType', [fn('COUNT', col('id')), 'count']],
+        group: ['testId', 'testType'],
+        raw: true,
+      }),
     ]);
 
     const writingCountMap = buildCountMap(writingSubmissionCounts, (row) => row.testId);
@@ -1024,6 +1089,10 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
     );
     const gatewayCountMap = buildCountMap(
       gatewaySubmissionCounts,
+      (row) => `${String(row.testType || '').toLowerCase()}:${row.testId}`
+    );
+    const generalCountMap = buildCountMap(
+      generalSubmissionCounts,
       (row) => `${String(row.testType || '').toLowerCase()}:${row.testId}`
     );
 
@@ -1085,7 +1154,24 @@ router.get('/tests', requireAuth, requireRole('admin'), async (_req, res) => {
       ),
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    res.json({ ixWriting, ixReading, ixListening, cambridge, gateway });
+    const general = [
+      ...generalReadingTests.map(toPlain).map((test) =>
+        buildGeneralTestPayload(
+          test,
+          generalCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'reading'
+        )
+      ),
+      ...generalListeningTests.map(toPlain).map((test) =>
+        buildGeneralTestPayload(
+          test,
+          generalCountMap.get(`${String(test.testType || '').toLowerCase()}:${test.id}`) || 0,
+          'listening'
+        )
+      ),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ ixWriting, ixReading, ixListening, cambridge, gateway, general });
   } catch (err) {
     logError('Lỗi lấy danh sách đề thi admin', err);
     res.status(500).json({ message: 'Lỗi server.' });
@@ -1183,7 +1269,7 @@ router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) =
     if (!userId) return res.status(400).json({ message: 'Thiếu userId.' });
     const uid = parseInt(userId, 10);
 
-    const [writing, reading, listening, cambridge, gateway] = await Promise.all([
+    const [writing, reading, listening, cambridge, gateway, general] = await Promise.all([
       Submission.findAll({
         where: {
           userId: uid,
@@ -1217,9 +1303,15 @@ router.get('/submissions', requireAuth, requireRole('admin'), async (req, res) =
         limit: 100,
         attributes: ['id', 'studentName', 'testId', 'testType', 'score', 'totalQuestions', 'percentage', 'createdAt'],
       }),
+      GeneralSubmission.findAll({
+        where: { userId: uid },
+        order: [['createdAt', 'DESC']],
+        limit: 100,
+        attributes: ['id', 'studentName', 'testId', 'testType', 'score', 'totalQuestions', 'percentage', 'createdAt'],
+      }),
     ]);
 
-    res.json({ writing, reading, listening, cambridge, gateway });
+    res.json({ writing, reading, listening, cambridge, gateway, general });
   } catch (err) {
     logError('Lỗi lấy submissions', err);
     res.status(500).json({ message: 'Lỗi server.' });
@@ -1281,6 +1373,17 @@ router.delete('/submissions/gateway/:id', requireAuth, requireRole('admin'), asy
     res.json({ message: 'Đã xóa bài làm Gateway.' });
   } catch (err) {
     logError('Lỗi xóa Gateway submission', err);
+    res.status(500).json({ message: 'Lỗi server.' });
+  }
+});
+
+router.delete('/submissions/general/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const n = await GeneralSubmission.destroy({ where: { id: req.params.id } });
+    if (!n) return res.status(404).json({ message: 'Không tìm thấy bài làm.' });
+    res.json({ message: 'Đã xóa bài làm General.' });
+  } catch (err) {
+    logError('Lỗi xóa General submission', err);
     res.status(500).json({ message: 'Lỗi server.' });
   }
 });

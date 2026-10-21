@@ -3,7 +3,7 @@ import React from 'react';
 const normalize = (value) => String(value || '').trim().toLowerCase();
 
 /**
- * OddOneOutDisplay - FCE Part 3 student display
+ * OddOneOutDisplay - General Part 3 student display
  * Shows groups of 4 words; student selects the one that does not belong.
  */
 const OddOneOutDisplay = ({

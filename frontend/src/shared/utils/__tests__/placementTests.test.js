@@ -44,6 +44,26 @@ describe("placementTests", () => {
     ).toBe(true);
   });
 
+  test("builds General placement runtime paths and groups", () => {
+    const item = {
+      platform: "general",
+      skill: "listening",
+      testId: 18,
+      testType: "general-listening",
+      title: "General listening test",
+      attemptItemToken: "item_general_18",
+    };
+
+    expect(isPlacementEligible(item)).toBe(true);
+    expect(buildPlacementAttemptItemRuntimePath(item, "attempt_general_3")).toBe(
+      "/placement/general/listening/18?attempt=attempt_general_3&attemptItem=item_general_18"
+    );
+    expect(groupPlacementItems([item]).map(({ platform, title }) => ({ platform, title }))).toEqual([
+      { platform: "general", title: "General tests" },
+    ]);
+    expect(getPlacementItemSummaryCounts([item]).general).toBe(1);
+  });
+
   test("builds ix writing placement runtime paths", () => {
     expect(
       buildPlacementAttemptItemRuntimePath(
@@ -92,6 +112,23 @@ describe("placementTests", () => {
       )
     ).toBe(
       "/placement/gateway/reading-writing/5?attempt=attempt_gateway_2&attemptItem=item_gateway_5"
+    );
+  });
+
+  test("builds General placement runtime paths", () => {
+    expect(
+      buildPlacementAttemptItemRuntimePath(
+        {
+          platform: "general",
+          skill: "reading",
+          testId: 22,
+          testType: "general-reading-60",
+          attemptItemToken: "item_general_22",
+        },
+        "attempt_general_4"
+      )
+    ).toBe(
+      "/placement/general/reading/22?attempt=attempt_general_4&attemptItem=item_general_22"
     );
   });
 

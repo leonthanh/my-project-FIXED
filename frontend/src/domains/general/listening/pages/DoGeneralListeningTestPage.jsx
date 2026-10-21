@@ -31,10 +31,10 @@ import { ExamCoreQuestionDisplay, CompactExamCoreQuestionDisplay } from "../../.
 import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../../../exam-core/shared/components/ExamCoreListeningRuntimeSections";
 import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../exam-core/shared/components/ExamCoreSectionDisplays";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
-import createStyles from "./DoFceListeningTest.styles";
-import './DoFceListeningTest.css';
+import createStyles from "./DoGeneralListeningTest.styles";
+import './DoGeneralListeningTest.css';
 import {
-  replaceFceDisplayName,
+  replaceGeneralDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
 
@@ -62,7 +62,7 @@ const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
  */
 const DoCambridgeListeningTest = () => {
   const { id } = useParams();
-  const testType = 'fce-listening';
+  const testType = 'general-listening';
   const location = useLocation();
   const navigate = useNavigate();
   const placementContext = useMemo(
@@ -74,7 +74,7 @@ const DoCambridgeListeningTest = () => {
   );
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const examType = useMemo(() => {
     const s = String(testType || "").trim().toLowerCase();
     if (s.includes("ket")) return "KET";
@@ -82,10 +82,10 @@ const DoCambridgeListeningTest = () => {
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return fceDisplayName;
+    if (s.includes("general")) return generalDisplayName;
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
-  }, [fceDisplayName, testType]);
+  }, [generalDisplayName, testType]);
 
   const styles = useMemo(() => createStyles(isDarkMode, examType), [isDarkMode, examType]);
 
@@ -148,7 +148,7 @@ const DoCambridgeListeningTest = () => {
   }, [testType]);
 
   const localizedTestConfigName = useMemo(
-    () => replaceFceDisplayName(testConfig?.name || "", displayLabels),
+    () => replaceGeneralDisplayName(testConfig?.name || "", displayLabels),
     [displayLabels, testConfig?.name]
   );
 
@@ -228,7 +228,7 @@ const DoCambridgeListeningTest = () => {
       try {
         setLoading(true);
         const localUser = getStoredUser();
-        const res = await fetch(apiPath(`cambridge/listening-tests/${id}`));
+        const res = await fetch(apiPath(`general/listening-tests/${id}`));
         if (!res.ok) throw new Error("Không tìm thấy đề thi");
         const data = await res.json();
 
@@ -297,7 +297,7 @@ const DoCambridgeListeningTest = () => {
           try {
             const activeRes = await fetch(
               apiPath(
-                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
+                `general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
               )
             );
             if (activeRes.ok) {
@@ -716,14 +716,14 @@ const DoCambridgeListeningTest = () => {
             hasResumeAudio,
           },
         };
-        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+        const res = await fetch(apiPath("general/submissions/autosave"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
-          scope: "fce-listening",
+          scope: "general-listening",
           endpoint: "autosave",
           status: res.status,
         });
@@ -763,7 +763,7 @@ const DoCambridgeListeningTest = () => {
         }
       } catch (_err) {
         recordRuntimeSyncRequestMetric({
-          scope: "fce-listening",
+          scope: "general-listening",
           endpoint: "autosave",
           status: "network_error",
         });
@@ -828,10 +828,10 @@ const DoCambridgeListeningTest = () => {
     try {
       timingSyncInFlightRef.current = true;
       const res = await fetch(
-        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
       );
       recordRuntimeSyncRequestMetric({
-        scope: "fce-listening",
+        scope: "general-listening",
         endpoint: "active",
         status: res.status,
       });
@@ -856,7 +856,7 @@ const DoCambridgeListeningTest = () => {
       }
     } catch (_err) {
       recordRuntimeSyncRequestMetric({
-        scope: "fce-listening",
+        scope: "general-listening",
         endpoint: "active",
         status: "network_error",
       });
@@ -1834,7 +1834,7 @@ const DoCambridgeListeningTest = () => {
       const initialTime = (testConfig.duration || 30) * 60;
       const timeSpent = initialTime - timeRemaining;
 
-      const res = await fetch(apiPath(`cambridge/listening-tests/${id}/submit`), {
+      const res = await fetch(apiPath(`general/listening-tests/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -2177,7 +2177,7 @@ const DoCambridgeListeningTest = () => {
       {isStartGateVisible && (
         <TestStartModal
           iconName="listening"
-          eyebrow={fceDisplayName}
+          eyebrow={generalDisplayName}
           subtitle="Listening Test"
           title={test?.title || localizedTestConfigName || 'Cambridge Listening'}
           stats={[

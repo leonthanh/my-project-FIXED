@@ -9,7 +9,7 @@ const stripOptionLabel = (text) => {
 /**
  * MatchingDisplay - Student display for generic matching questions
  * Renders left column items (numbered) and right column options (lettered A-H).
- * Used by IELTS/KET/PET/FCE matching questionType.
+ * Used by IELTS/KET/PET/General matching questionType.
  */
 const MatchingDisplay = ({
   section,

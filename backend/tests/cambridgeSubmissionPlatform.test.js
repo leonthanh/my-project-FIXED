@@ -7,10 +7,16 @@ jest.mock("../models", () => ({
     findAndCountAll: jest.fn(),
     findAll: jest.fn(),
   },
+  GeneralSubmission: {
+    findAndCountAll: jest.fn(),
+    findAll: jest.fn(),
+  },
   CambridgeReading: { findByPk: jest.fn() },
   CambridgeListening: { findByPk: jest.fn() },
   GatewayReading: { findByPk: jest.fn() },
   GatewayListening: { findByPk: jest.fn() },
+  GeneralReading: { findByPk: jest.fn() },
+  GeneralListening: { findByPk: jest.fn() },
 }));
 
 const { Op } = require("sequelize");
@@ -19,7 +25,10 @@ const {
   CambridgeReading,
   GatewaySubmission,
   GatewayReading,
+  GeneralReading,
+  GeneralListening,
 } = require("../models");
+const { getCambridgeModelByType } = require("../modules/cambridge/shared/submissionUtils");
 const {
   listCambridgeSubmissions,
   listCambridgeSubmissionsByPhone,
@@ -60,18 +69,36 @@ describe("Cambridge submission platform filters", () => {
 
     await listCambridgeSubmissions({
       query: {
+        platform: "general",
+        includeActive: "1",
+      },
+    });
+
+    const generalWhere = CambridgeSubmission.findAndCountAll.mock.calls[1][0].where;
+    const generalPlatformFilter = generalWhere[Op.and].find(
+      (condition) => condition.logic?.[Op.like] !== undefined
+    );
+    expect(generalPlatformFilter.logic[Op.like]).toBe("general-%");
+
+    await listCambridgeSubmissions({
+      query: {
         platform: "orange",
         includeActive: "1",
       },
     });
 
-    const orangeWhere = CambridgeSubmission.findAndCountAll.mock.calls[1][0].where;
+    const orangeWhere = CambridgeSubmission.findAndCountAll.mock.calls[2][0].where;
     const orangePlatformFilter = orangeWhere[Op.and].find(
       (condition) => Array.isArray(condition[Op.and])
     );
     expect(
       orangePlatformFilter[Op.and].map((condition) => condition.logic?.[Op.notLike])
-    ).toEqual(["fce-%", "gateway-%"]);
+    ).toEqual(["general-%", "gateway-%"]);
+  });
+
+  test("resolves General tests through the dedicated models", () => {
+    expect(getCambridgeModelByType("general-reading-60", "general")).toBe(GeneralReading);
+    expect(getCambridgeModelByType("general-listening", "general")).toBe(GeneralListening);
   });
 
   test("hides scores from the student submission list when the test is confirmation-only", async () => {

@@ -48,7 +48,7 @@ import {
   recordRuntimeSyncRequestMetric,
 } from "../../../../shared/utils/runtimeSync";
 import {
-  replaceFceDisplayName,
+  replaceGeneralDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
 import "./ExamCoreReadingRuntime.css";
@@ -140,7 +140,7 @@ const ExamCoreReadingRuntimePage = ({
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
 
   const examType = useMemo(() => {
     const s = routeTestType;
@@ -150,9 +150,9 @@ const ExamCoreReadingRuntimePage = ({
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return fceDisplayName;
+    if (s.includes("general")) return generalDisplayName;
     return "CAMBRIDGE";
-  }, [fceDisplayName, routeTestType]);
+  }, [generalDisplayName, routeTestType]);
 
   const startedKey = useMemo(() => `cambridge_reading_test_${id}_started`, [id]);
 
@@ -263,7 +263,7 @@ const ExamCoreReadingRuntimePage = ({
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
   const localizedTestConfigName = useMemo(
-    () => replaceFceDisplayName(testConfig?.name || '', displayLabels),
+    () => replaceGeneralDisplayName(testConfig?.name || '', displayLabels),
     [displayLabels, testConfig?.name]
   );
 
@@ -1297,7 +1297,7 @@ const ExamCoreReadingRuntimePage = ({
     if (isGatewayReadingWriting) return null;
 
     const sectionType = entry?.section?.questionType;
-    // For FCE internal multi-item types, item/group numbers are local to the section
+    // For General internal multi-item types, item/group numbers are local to the section
     // and should not override the global sequential numbering computed at runtime.
     const ignoreItemNumber =
       sectionType === 'preposition-gap-fill' ||
@@ -1428,7 +1428,7 @@ const ExamCoreReadingRuntimePage = ({
               });
             });
           } else if (section.questionType === 'preposition-gap-fill' && q.items && Array.isArray(q.items)) {
-            // FCE Part 2: one entry per sentence blank
+            // General Part 2: one entry per sentence blank
             q.items.forEach((item, itemIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1444,7 +1444,7 @@ const ExamCoreReadingRuntimePage = ({
               });
             });
           } else if (section.questionType === 'odd-one-out' && q.groups && Array.isArray(q.groups)) {
-            // FCE Part 3: one entry per word group
+            // General Part 3: one entry per word group
             q.groups.forEach((group, groupIdx) => {
               questions.push({
                 partIndex: pIdx,
@@ -1707,7 +1707,7 @@ const ExamCoreReadingRuntimePage = ({
 
       // In Movers, standalone writing sections are skipped when the test already has
       // integrated look-read-write writing tasks, so drop them from navigation as well.
-      // For all other exams (KET/PET/FCE), keep the writing tasks so footer part chips work.
+      // For all other exams (KET/PET/GENERAL), keep the writing tasks so footer part chips work.
       const shouldDropWritingTask =
         isWritingTask &&
         examType === 'MOVERS' &&
@@ -2164,7 +2164,7 @@ const ExamCoreReadingRuntimePage = ({
       {!started && !submitted && !loading && !error && (
         <TestStartModal
           iconName="reading"
-          eyebrow={examType === fceDisplayName ? fceDisplayName : `Cambridge ${examType}`}
+          eyebrow={examType === generalDisplayName ? generalDisplayName : `Cambridge ${examType}`}
           subtitle="Reading Test"
           title={test?.title || localizedTestConfigName || 'Cambridge Reading'}
           stats={[

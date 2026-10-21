@@ -456,7 +456,7 @@ export const QUESTION_TYPES = {
     label: 'Sentence Correction',
     labelVi: 'Sửa lỗi câu',
     iconName: 'edit',
-    description: 'FCE Part 5: Viết lại câu đúng sau khi phát hiện lỗi',
+    description: 'General Part 5: Viết lại câu đúng sau khi phát hiện lỗi',
     editor: 'SentenceCorrectionEditor',
     defaultData: {
       instruction: 'Correct the sentences.',
@@ -465,7 +465,7 @@ export const QUESTION_TYPES = {
         { sentence: 'The audience felt very bored at the performance last night.', correctAnswer: 'The audience felt very bored by the performance last night.', explanation: '' },
       ],
     },
-    supportedTests: ['fce-reading', 'fce-reading-60'],
+    supportedTests: ['general-reading', 'general-reading-60'],
   },
 
   'reading-open-questions': {
@@ -473,7 +473,7 @@ export const QUESTION_TYPES = {
     label: 'Reading Open Questions',
     labelVi: 'Đọc hiểu + trả lời câu hỏi',
     iconName: 'reading',
-    description: 'FCE Part 6: Đọc message/đoạn văn và trả lời câu hỏi ngắn',
+    description: 'General Part 6: Đọc message/đoạn văn và trả lời câu hỏi ngắn',
     editor: 'ReadingOpenQuestionsEditor',
     defaultData: {
       passageTitle: 'Part 6 Read the message.',
@@ -482,7 +482,7 @@ export const QUESTION_TYPES = {
       instruction: 'Answer the questions. (10 points)',
       items: Array.from({ length: 10 }, () => ({ questionText: '', correctAnswer: '', explanation: '' })),
     },
-    supportedTests: ['fce-reading', 'fce-reading-60'],
+    supportedTests: ['general-reading', 'general-reading-60'],
   },
 
   // =========== KET/PET WRITING ===========
@@ -518,7 +518,7 @@ export const QUESTION_TYPES = {
       wordLimit: { min: 80, max: 100 },
       sampleAnswer: '',
     },
-    supportedTests: ['pet-reading', 'fce-reading-60'],
+    supportedTests: ['pet-reading', 'general-reading-60'],
   },
 
   // =========== YOUNG LEARNERS SPECIFIC ===========
@@ -701,7 +701,7 @@ export const QUESTION_TYPES = {
     label: 'Prepositions & Phrasal Verbs Gap Fill',
     labelVi: 'Điền giới từ / cụm động từ',
     iconName: 'selector',
-    description: 'FCE Part 2: Bảng từ cho sẵn + điền vào chỗ trống trong các câu',
+    description: 'General Part 2: Bảng từ cho sẵn + điền vào chỗ trống trong các câu',
     editor: 'PrepositionGapFillEditor',
     defaultData: {
       passageTitle: '',
@@ -727,7 +727,7 @@ export const QUESTION_TYPES = {
         { number: 6, sentence: 'fall _______ a deep sleep', correctAnswer: 'into' },
       ],
     },
-    supportedTests: ['fce-reading', 'fce-reading-60'],
+    supportedTests: ['general-reading', 'general-reading-60'],
   },
 
   'odd-one-out': {
@@ -735,7 +735,7 @@ export const QUESTION_TYPES = {
     label: 'Odd One Out',
     labelVi: 'Chọn từ khác loại',
     iconName: 'correct',
-    description: 'FCE Part 3: Chọn từ không cùng nhóm trong mỗi dãy 4 từ',
+    description: 'General Part 3: Chọn từ không cùng nhóm trong mỗi dãy 4 từ',
     editor: 'OddOneOutEditor',
     defaultData: {
       instruction: 'Circle the word that is not in the same group.',
@@ -744,7 +744,7 @@ export const QUESTION_TYPES = {
         { words: ['cabbage', 'spinach', 'pork', 'garlic'], correctAnswer: 'pork', explanation: 'pork is meat, not a vegetable' },
       ],
     },
-    supportedTests: ['fce-reading', 'fce-reading-60'],
+    supportedTests: ['general-reading', 'general-reading-60'],
   },
 };
 
@@ -797,8 +797,46 @@ const GATEWAY_LISTENING_QUESTION_TYPES = [
   'abcd',
   'matching',
 ];
+const EXAM_READING_QUESTION_TYPES = GATEWAY_READING_WRITING_QUESTION_TYPES.filter(
+  (typeId) => !['short-message', 'story-writing'].includes(typeId)
+);
+const EXAM_WRITING_QUESTION_TYPES = [
+  'short-message',
+  'story-writing',
+  'reading-open-questions',
+];
 
 export const TEST_CONFIGS = {
+  'exam-reading-v1': {
+    id: 'exam-reading-v1',
+    name: 'Reading',
+    nameVi: 'Reading',
+    totalQuestions: 0,
+    parts: 0,
+    duration: 45,
+    questionTypes: EXAM_READING_QUESTION_TYPES,
+    partStructure: [],
+  },
+  'exam-listening-v1': {
+    id: 'exam-listening-v1',
+    name: 'Listening',
+    nameVi: 'Listening',
+    totalQuestions: 0,
+    parts: 0,
+    duration: 30,
+    questionTypes: GATEWAY_LISTENING_QUESTION_TYPES,
+    partStructure: [],
+  },
+  'writing-task-v1': {
+    id: 'writing-task-v1',
+    name: 'Writing',
+    nameVi: 'Writing',
+    totalQuestions: 0,
+    parts: 0,
+    duration: 45,
+    questionTypes: EXAM_WRITING_QUESTION_TYPES,
+    partStructure: [],
+  },
   // IELTS Tests
   'ielts-listening': {
     id: 'ielts-listening',
@@ -1071,10 +1109,10 @@ export const TEST_CONFIGS = {
     ],
   },
 
-  'fce-reading': {
-    id: 'fce-reading',
-    name: 'FCE Reading & Writing',
-    nameVi: 'FCE Reading & Writing',
+  'general-reading': {
+    id: 'general-reading',
+    name: 'General Reading & Writing',
+    nameVi: 'General Reading & Writing',
     totalQuestions: 80,
     parts: 9,
     duration: 60, // minutes
@@ -1106,15 +1144,15 @@ export const TEST_CONFIGS = {
       { part: 9, questions: 'Writing', description: 'Writing task' },
     ],
   },
-  'fce-reading-60': {
-    id: 'fce-reading-60',
-    name: 'FCE Reading 60-point Profile',
-    nameVi: 'FCE Reading 60-point Profile',
+  'general-reading-60': {
+    id: 'general-reading-60',
+    name: 'General Reading 60-point Profile',
+    nameVi: 'General Reading 60-point Profile',
     totalQuestions: 60,
     manualScoredTotal: 20,
     parts: 8,
     duration: 60,
-    scoringProfile: 'fce-reading-60',
+    scoringProfile: 'general-reading-60',
     questionTypes: [
       'matching',
       'preposition-gap-fill',
@@ -1138,10 +1176,10 @@ export const TEST_CONFIGS = {
     ],
   },
 
-  'fce-listening': {
-    id: 'fce-listening',
-    name: 'FCE Listening',
-    nameVi: 'FCE Listening',
+  'general-listening': {
+    id: 'general-listening',
+    name: 'General Listening',
+    nameVi: 'General Listening',
     totalQuestions: 20,
     parts: 4,
     duration: 20, // minutes

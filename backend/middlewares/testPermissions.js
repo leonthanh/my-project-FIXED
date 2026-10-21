@@ -1,6 +1,6 @@
 const User = require('../models/User');
 
-// category: 'reading' | 'listening' | 'writing' | 'cambridge' | 'gateway'
+// category: 'reading' | 'listening' | 'writing' | 'cambridge' | 'gateway' | 'general'
 function requireTestPermission(category) {
   return async (req, res, next) => {
     try {
@@ -19,8 +19,8 @@ function requireTestPermission(category) {
       // All teachers may create/edit writing tests
       if (cat === 'writing') return next();
 
-      // For reading/listening/cambridge/gateway: check the canManageTests flag on the user record
-      if (['reading', 'listening', 'cambridge', 'gateway'].includes(cat)) {
+      // For reading/listening/cambridge/gateway/general: check canManageTests.
+      if (['reading', 'listening', 'cambridge', 'gateway', 'general'].includes(cat)) {
         if (user.canManageTests) return next();
         return res.status(403).json({ message: 'Only a privileged teacher may create/edit this type of test' });
       }

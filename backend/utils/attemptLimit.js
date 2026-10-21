@@ -6,6 +6,7 @@ const ReadingSubmission = require('../models/ReadingSubmission');
 const ListeningSubmission = require('../models/ListeningSubmission');
 const CambridgeSubmission = require('../models/CambridgeSubmission');
 const GatewaySubmission = require('../models/GatewaySubmission');
+const GeneralSubmission = require('../models/GeneralSubmission');
 
 const DEFAULT_MAX_ATTEMPTS_PER_TEST = 1;
 
@@ -126,7 +127,9 @@ const countFinalizedAttempts = async ({ scope, userId, testId, testType } = {}) 
     const normalizedTestType = String(testType || '').trim().toLowerCase();
     const SubmissionModel = normalizedTestType.startsWith('gateway-')
       ? GatewaySubmission
-      : CambridgeSubmission;
+      : normalizedTestType.startsWith('general-')
+        ? GeneralSubmission
+        : CambridgeSubmission;
     return SubmissionModel.count({
       where: {
         testId: Number(testId),
@@ -202,6 +205,7 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
     listeningSubmissions,
     cambridgeSubmissions,
     gatewaySubmissions,
+    generalSubmissions,
   ] = await Promise.all([
       Submission.findAll({
         where: {
@@ -232,6 +236,13 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
         attributes: ['testId', 'testType'],
       }),
       GatewaySubmission.findAll({
+        where: {
+          userId: numericUserId,
+          ...FINALIZED_CAMBRIDGE_WHERE,
+        },
+        attributes: ['testId', 'testType'],
+      }),
+      GeneralSubmission.findAll({
         where: {
           userId: numericUserId,
           ...FINALIZED_CAMBRIDGE_WHERE,
@@ -272,7 +283,7 @@ const getAttemptStatusForStudent = async ({ userId } = {}) => {
     );
   });
 
-  [...cambridgeSubmissions, ...gatewaySubmissions].forEach((submission) => {
+  [...cambridgeSubmissions, ...gatewaySubmissions, ...generalSubmissions].forEach((submission) => {
     incrementAttemptStatusCount(
       countsByKey,
       buildAttemptStatusKey({

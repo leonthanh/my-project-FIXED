@@ -8,6 +8,8 @@
     "test": "jest --runInBand",
     "migrate:add-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js",
     "migrate:rollback-listening-autosave-fields": "node scripts/add-listening-autosave-fields.js --down",
+    "migrate:general-model-separation": "node scripts/migrate-general-to-dedicated-models.js --dry-run",
+    "migrate:general-model-separation:apply": "node scripts/migrate-general-to-dedicated-models.js --apply",
     "backfill:writing-isdraft-null": "node scripts/backfill-writing-isdraft-null.js --dry-run",
     "backfill:writing-isdraft-null:apply": "node scripts/backfill-writing-isdraft-null.js --apply"
   },

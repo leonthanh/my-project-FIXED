@@ -63,7 +63,7 @@ const normalizeStatements = (statements) => {
 
 /**
  * TrueFalseNotGivenEditor - Editor cho dạng True/False/Not Given
- * Dùng cho: IELTS Reading, FCE Listening
+ * Dùng cho: IELTS Reading, General Listening
  */
 const TrueFalseNotGivenEditor = ({
   question = {},

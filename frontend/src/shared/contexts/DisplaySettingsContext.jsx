@@ -11,11 +11,11 @@ import { apiPath, authFetch } from "../utils/api";
 export const DEFAULT_DISPLAY_LABELS = Object.freeze({
   ixDisplayName: "IX",
   orangeDisplayName: "Orange",
-  fceDisplayName: "FCE",
+  generalDisplayName: "General",
 });
 
 const MAX_LABEL_LENGTH = 40;
-const FCE_WORD_REGEX = /\bFCE\b/g;
+const GENERAL_WORD_REGEX = /\bGeneral\b/gi;
 
 const normalizeLabel = (value, fallbackValue) => {
   const normalized = String(value ?? "")
@@ -26,14 +26,17 @@ const normalizeLabel = (value, fallbackValue) => {
   return normalized.slice(0, MAX_LABEL_LENGTH);
 };
 
-export const resolveFceDisplayName = (displayLabels = {}) =>
-  normalizeLabel(displayLabels?.fceDisplayName, DEFAULT_DISPLAY_LABELS.fceDisplayName);
+export const resolveGeneralDisplayName = (displayLabels = {}) =>
+  normalizeLabel(
+    displayLabels?.generalDisplayName,
+    DEFAULT_DISPLAY_LABELS.generalDisplayName
+  );
 
-export const replaceFceDisplayName = (value, displayLabels = {}) => {
+export const replaceGeneralDisplayName = (value, displayLabels = {}) => {
   const raw = String(value ?? "");
   if (!raw) return raw;
-  const fceDisplayName = resolveFceDisplayName(displayLabels);
-  return raw.replace(FCE_WORD_REGEX, fceDisplayName);
+  const generalDisplayName = resolveGeneralDisplayName(displayLabels);
+  return raw.replace(GENERAL_WORD_REGEX, generalDisplayName);
 };
 
 const mergeDisplayLabels = (rawLabels = {}) => ({
@@ -42,7 +45,7 @@ const mergeDisplayLabels = (rawLabels = {}) => ({
     rawLabels.orangeDisplayName,
     DEFAULT_DISPLAY_LABELS.orangeDisplayName
   ),
-  fceDisplayName: resolveFceDisplayName(rawLabels),
+  generalDisplayName: resolveGeneralDisplayName(rawLabels),
 });
 
 const DisplaySettingsContext = createContext({

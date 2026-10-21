@@ -52,7 +52,7 @@ describe("MyFeedback", () => {
           {
             id: 5,
             testTitle: "General reading test",
-            testType: "fce-reading-60",
+            testType: "general-reading-60",
             classCode: "IX-General",
             score: 30,
             totalQuestions: 60,

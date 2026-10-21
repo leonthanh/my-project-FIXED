@@ -11,7 +11,7 @@ const acceptedAnswers = (raw) => {
 };
 
 /**
- * SentenceCorrectionDisplay - FCE sentence error correction display.
+ * SentenceCorrectionDisplay - General sentence error correction display.
  * Students rewrite each incorrect sentence correctly.
  */
 const SentenceCorrectionDisplay = ({

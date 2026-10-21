@@ -27,12 +27,12 @@ describe("getPlatformSubmissionRoute", () => {
       );
     });
 
-    test("preserves existing Cambridge and FCE result destinations", () => {
+    test("preserves existing Cambridge and General result destinations", () => {
       expect(getSubmissionResultRoute("orange-reading", 7)).toBe(
         "/cambridge/result/7"
       );
-      expect(getSubmissionResultRoute("fce-reading-60", 9)).toBe(
-        "/fce/result/9"
+      expect(getSubmissionResultRoute("general-reading-60", 9)).toBe(
+        "/general/result/9"
       );
     });
   });
@@ -49,7 +49,7 @@ describe("getPlatformSubmissionRoute", () => {
     );
   });
 
-  test("maps general views to fce submissions routes", () => {
+  test("maps general views to general submissions routes", () => {
     expect(getPlatformSubmissionRoute("general", "all")).toBe(
       PLATFORM_SUBMISSION_PAGE_BY_GROUP.general.all
     );

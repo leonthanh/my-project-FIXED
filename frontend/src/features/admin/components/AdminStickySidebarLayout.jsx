@@ -5,8 +5,8 @@ import { getCurrentUser, isAdmin } from "../../../shared/utils/permissions";
 
 import "./AdminStickySidebarLayout.css";
 
-const resolveFceDisplayName = (displayLabels = {}) =>
-  String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+const resolveGeneralDisplayName = (displayLabels = {}) =>
+  String(displayLabels?.generalDisplayName || "General").trim() || "General";
 
 const resolveIxDisplayName = (displayLabels = {}) =>
   String(displayLabels?.ixDisplayName || "IX").trim() || "IX";
@@ -14,7 +14,7 @@ const resolveIxDisplayName = (displayLabels = {}) =>
 const IX_WORKSPACE_KEYS = ["writing", "reading", "listening"];
 
 const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
-  const fceDisplayName = resolveFceDisplayName(displayLabels);
+  const generalDisplayName = resolveGeneralDisplayName(displayLabels);
 
   return [
   {
@@ -66,12 +66,12 @@ const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
     onClick: () => navigate("/admin/cambridge-submissions"),
   },
   {
-    key: "fce",
-    label: fceDisplayName,
-    hint: `${fceDisplayName} submissions`,
+    key: "general",
+    label: generalDisplayName,
+    hint: `${generalDisplayName} submissions`,
     tone: "cyan",
-    active: currentKey === "fce",
-    onClick: () => navigate("/admin/fce-submissions"),
+    active: currentKey === "general",
+    onClick: () => navigate("/admin/general-submissions"),
   },
   ];
 };
@@ -92,6 +92,14 @@ const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
     tone: "cyan",
     active: currentKey === "runtime-sync-metrics",
     onClick: () => navigate("/admin/runtime-sync-metrics"),
+  },
+  {
+    key: "exam-levels",
+    label: "Levels",
+    hint: "Level and skill templates",
+    tone: "blue",
+    active: currentKey === "exam-levels",
+    onClick: () => navigate("/admin/exam-levels"),
   },
   {
     key: "permissions",
@@ -159,7 +167,7 @@ export const buildSubmissionWorkspaceContext = ({
   const gatewayWorkspaceLink =
     workspaceLinks.find((item) => item?.key === "gateway") || null;
   const generalWorkspaceLink =
-    workspaceLinks.find((item) => item?.key === "fce") || null;
+    workspaceLinks.find((item) => item?.key === "general") || null;
 
   return {
     workspaceLinks,

@@ -14,7 +14,7 @@ import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import {
-  replaceFceDisplayName,
+  replaceGeneralDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
 import {
@@ -91,7 +91,7 @@ const ExamCoreListeningRuntimePage = ({
   );
   const { isDarkMode } = useTheme();
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const examType = useMemo(() => {
     const s = routeTestType;
     if (s.startsWith("gateway-")) return "GATEWAY";
@@ -100,10 +100,10 @@ const ExamCoreListeningRuntimePage = ({
     if (s.includes("flyers")) return "FLYERS";
     if (s.includes("movers")) return "MOVERS";
     if (s.includes("starters")) return "STARTERS";
-    if (s.includes("fce")) return fceDisplayName;
+    if (s.includes("general")) return generalDisplayName;
     // fallback to Cambridge style if unknown
     return "CAMBRIDGE";
-  }, [fceDisplayName, routeTestType]);
+  }, [generalDisplayName, routeTestType]);
   const fallbackHubPath = useMemo(
     () => (routeTestType.startsWith('gateway-') ? '/select-test?platform=gateway&tab=reading-writing' : '/cambridge'),
     [routeTestType]
@@ -172,7 +172,7 @@ const ExamCoreListeningRuntimePage = ({
   }, [routeTestType]);
 
   const localizedTestConfigName = useMemo(
-    () => replaceFceDisplayName(testConfig?.name || "", displayLabels),
+    () => replaceGeneralDisplayName(testConfig?.name || "", displayLabels),
     [displayLabels, testConfig?.name]
   );
 
@@ -2247,7 +2247,7 @@ const ExamCoreListeningRuntimePage = ({
       {isStartGateVisible && (
         <TestStartModal
           iconName="listening"
-          eyebrow={examType === fceDisplayName ? fceDisplayName : `Cambridge ${examType}`}
+          eyebrow={examType === generalDisplayName ? generalDisplayName : `Cambridge ${examType}`}
           subtitle="Listening Test"
           title={test?.title || localizedTestConfigName || 'Cambridge Listening'}
           stats={[

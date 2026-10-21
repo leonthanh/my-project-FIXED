@@ -11,8 +11,8 @@ import {
   groupPlacementItems,
 } from "../../../shared/utils/placementTests";
 import {
-  replaceFceDisplayName,
-  resolveFceDisplayName,
+  replaceGeneralDisplayName,
+  resolveGeneralDisplayName,
   useDisplaySettings,
 } from "../../../shared/contexts/DisplaySettingsContext";
 import "./PlacementEntry.css";
@@ -23,11 +23,11 @@ const getStatusLabel = (status) => {
   return "Ready";
 };
 
-const getPlatformLabel = (platform, fceDisplayName) => {
+const getPlatformLabel = (platform, generalDisplayName) => {
   const normalizedPlatform = String(platform || "").trim().toLowerCase();
   if (normalizedPlatform === "orange") return "Orange";
   if (normalizedPlatform === "ix") return "IX";
-  if (normalizedPlatform === "fce") return fceDisplayName;
+  if (normalizedPlatform === "general") return generalDisplayName;
   return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
 };
 
@@ -100,7 +100,7 @@ const PlacementAttempt = () => {
           group.platform === "ix" ||
           group.platform === "orange" ||
           group.platform === "gateway" ||
-          group.platform === "fce"
+          group.platform === "general"
       ),
     [groupedItems]
   );
@@ -116,22 +116,22 @@ const PlacementAttempt = () => {
     () => buildPlacementSharePath(attempt?.shareToken),
     [attempt?.shareToken]
   );
-  const fceDisplayName = useMemo(
-    () => resolveFceDisplayName(displayLabels),
+  const generalDisplayName = useMemo(
+    () => resolveGeneralDisplayName(displayLabels),
     [displayLabels]
   );
   const platformSummaryLine = useMemo(() => {
     const summaryParts = [`${summary.ix} IX`, `${summary.orange} Orange`];
 
-    if (summary.fce > 0) {
-      summaryParts.push(`${summary.fce} ${fceDisplayName}`);
+    if (summary.general > 0) {
+      summaryParts.push(`${summary.general} ${generalDisplayName}`);
     }
     if (summary.gateway > 0) {
       summaryParts.push(`${summary.gateway} Gateway`);
     }
 
     return summaryParts.join(" • ");
-  }, [fceDisplayName, summary.fce, summary.gateway, summary.ix, summary.orange]);
+  }, [generalDisplayName, summary.general, summary.gateway, summary.ix, summary.orange]);
 
   return (
     <div className="placement-entry-page">
@@ -215,7 +215,7 @@ const PlacementAttempt = () => {
                       onClick={() => setActivePlatform(group.platform)}
                       aria-pressed={selectedPlatform === group.platform}
                     >
-                      <span>{getPlatformLabel(group.platform, fceDisplayName)}</span>
+                      <span>{getPlatformLabel(group.platform, generalDisplayName)}</span>
                       <span className="placement-entry-jumpCount">{group.items.length}</span>
                     </button>
                   ))}
@@ -239,9 +239,9 @@ const PlacementAttempt = () => {
                       <div className="placement-entry-groupHeader">
                         <div className="placement-entry-groupTitleRow">
                           <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
-                            {getPlatformLabel(group.platform, fceDisplayName)}
+                            {getPlatformLabel(group.platform, generalDisplayName)}
                           </span>
-                          <h3 className="placement-entry-groupTitle">{replaceFceDisplayName(group.title, displayLabels)}</h3>
+                          <h3 className="placement-entry-groupTitle">{replaceGeneralDisplayName(group.title, displayLabels)}</h3>
                         </div>
                         <span className="placement-entry-groupCount">
                           {group.items.length} test{group.items.length === 1 ? "" : "s"}
@@ -255,6 +255,8 @@ const PlacementAttempt = () => {
                             ? "orange"
                             : item.platform === "gateway"
                               ? "gateway"
+                              : item.platform === "general"
+                                ? "general"
                               : "ix";
                           return (
                             <div
@@ -273,7 +275,7 @@ const PlacementAttempt = () => {
                               ) : null}
 
                               <div className="placement-entry-testMeta">
-                                <span>{getPlatformLabel(item.platform, fceDisplayName)}</span>
+                                <span>{getPlatformLabel(item.platform, generalDisplayName)}</span>
                                 <span>{item.skill}</span>
                                 {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                                 {item.durationLabel ? <span>{item.durationLabel}</span> : null}

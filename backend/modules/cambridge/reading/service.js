@@ -15,6 +15,13 @@ const createServiceError = (statusCode, message) => {
   return error;
 };
 
+const isTestTypeAllowedForPlatform = (testType, platform) => {
+  const normalizedTestType = String(testType || '').trim().toLowerCase();
+  if (platform === 'gateway') return normalizedTestType.startsWith('gateway-');
+  if (platform === 'general') return normalizedTestType.startsWith('general-');
+  return !normalizedTestType.startsWith('gateway-') && !normalizedTestType.startsWith('general-');
+};
+
 const normalizeForcedTestType = (forcedTestType) => {
   const normalized = String(forcedTestType || '').trim().toLowerCase();
   return normalized || null;
@@ -116,7 +123,7 @@ const createReadingTest = async ({
   if (!title || !classCode || !effectiveTestType) {
     throw createServiceError(400, 'Thiếu thông tin bắt buộc: title, classCode, testType');
   }
-  if ((platform === 'gateway') !== isGatewayTest) {
+  if (!isTestTypeAllowedForPlatform(effectiveTestType, platform) || (platform === 'gateway') !== isGatewayTest) {
     throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
   }
 
@@ -157,7 +164,10 @@ const updateReadingTest = async ({
     studentResultVisibility,
   } = body;
   const effectiveTestType = ensureForcedTypeMatch(testType || test.testType, forcedTestType);
-  if ((platform === 'gateway') !== effectiveTestType.startsWith('gateway-')) {
+  if (
+    !isTestTypeAllowedForPlatform(effectiveTestType, platform) ||
+    (platform === 'gateway') !== effectiveTestType.startsWith('gateway-')
+  ) {
     throw createServiceError(400, 'Loại đề thi không thuộc nền tảng đã chọn.');
   }
   const processedParts = parts ? processTestParts(parts) : test.parts;

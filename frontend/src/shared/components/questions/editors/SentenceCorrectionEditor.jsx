@@ -3,7 +3,7 @@ import React from "react";
 const createEmptyItem = () => ({ sentence: "", correctAnswer: "", explanation: "" });
 
 /**
- * SentenceCorrectionEditor - FCE sentence error correction editor.
+ * SentenceCorrectionEditor - General sentence error correction editor.
  * Teachers enter incorrect sentences and the expected corrected sentence.
  */
 const SentenceCorrectionEditor = ({

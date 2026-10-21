@@ -12,6 +12,8 @@ const safeJsonParse = (value, fallback) => {
 const canUseStorage = () => typeof window !== "undefined" && !!window.localStorage;
 
 const normalizeText = (value) => String(value ?? "").trim();
+const normalizePlacementPlatform = (value) => normalizeText(value).toLowerCase();
+const normalizePlacementTestType = (value) => normalizeText(value).toLowerCase();
 
 const appendSearchParams = (path, params) => {
   const searchParams = new URLSearchParams();
@@ -28,9 +30,9 @@ const appendSearchParams = (path, params) => {
 
 export const buildPlacementSelectionKey = ({ platform, skill, testId, testType }) => {
   return [
-    normalizeText(platform).toLowerCase(),
+    normalizePlacementPlatform(platform),
     normalizeText(skill).toLowerCase(),
-    normalizeText(testType).toLowerCase() || "generic",
+    normalizePlacementTestType(testType) || "generic",
     normalizeText(testId),
   ].join(":");
 };
@@ -46,7 +48,7 @@ export const createPlacementSelection = ({
   questionsLabel = "",
   durationLabel = "",
 }) => {
-  const normalizedPlatform = normalizeText(platform).toLowerCase();
+  const normalizedPlatform = normalizePlacementPlatform(platform);
   const normalizedSkill = normalizeText(skill).toLowerCase();
   const normalizedTestId = normalizeText(testId);
 
@@ -60,7 +62,7 @@ export const createPlacementSelection = ({
     platform: normalizedPlatform,
     skill: normalizedSkill,
     testId: normalizedTestId,
-    testType: normalizeText(testType).toLowerCase(),
+    testType: normalizePlacementTestType(testType),
     title: normalizeText(title),
     subtitle: normalizeText(subtitle),
     badge: normalizeText(badge),
@@ -87,7 +89,7 @@ export const normalizePlacementSelections = (items) => {
 };
 
 export const isPlacementEligible = ({ platform, skill, testType }) => {
-  const normalizedPlatform = normalizeText(platform).toLowerCase();
+  const normalizedPlatform = normalizePlacementPlatform(platform);
   const normalizedSkill = normalizeText(skill).toLowerCase();
   const normalizedTestType = normalizeText(testType).toLowerCase();
 
@@ -111,7 +113,7 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
     return normalizedSkill === "reading-writing" || normalizedSkill === "listening";
   }
 
-  if (normalizedPlatform === "fce") {
+  if (normalizedPlatform === "general") {
     return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
 
@@ -217,13 +219,14 @@ export const groupPlacementItems = (items) => {
     ix: [],
     orange: [],
     gateway: [],
+    general: [],
   };
   const extraBuckets = new Map();
 
   (Array.isArray(items) ? items : []).forEach((item) => {
     const platform = normalizePlacementGroupValue(item?.platform);
 
-    if (platform === "ix" || platform === "orange" || platform === "gateway") {
+    if (platform === "ix" || platform === "orange" || platform === "gateway" || platform === "general") {
       buckets[platform].push(item);
       return;
     }
@@ -239,12 +242,20 @@ export const groupPlacementItems = (items) => {
     ["ix", buckets.ix],
     ["orange", buckets.orange],
     ["gateway", buckets.gateway],
+    ["general", buckets.general],
     ...Array.from(extraBuckets.entries()),
   ]
     .filter(([, groupItems]) => groupItems.length > 0)
     .map(([platform, groupItems]) => ({
       platform,
-      accent: platform === "orange" ? "orange" : platform === "gateway" ? "gateway" : "ix",
+      accent:
+        platform === "orange"
+          ? "orange"
+          : platform === "gateway"
+            ? "gateway"
+            : platform === "general"
+              ? "general"
+              : "ix",
       title:
         platform === "orange"
           ? "Orange tests"
@@ -252,13 +263,15 @@ export const groupPlacementItems = (items) => {
             ? "IX tests"
             : platform === "gateway"
               ? "Gateway tests"
+              : platform === "general"
+                ? "General tests"
             : `${platform.toUpperCase()} tests`,
       items: [...groupItems].sort((left, right) => comparePlacementItems(platform, left, right)),
     }));
 };
 
 export const filterPlacementGroups = (groups, activePlatform = "") => {
-  const normalizedPlatform = normalizeText(activePlatform).toLowerCase();
+  const normalizedPlatform = normalizePlacementPlatform(activePlatform);
   const visibleGroups = normalizedPlatform
     ? (Array.isArray(groups) ? groups : []).filter((group) => group.platform === normalizedPlatform)
     : Array.isArray(groups)
@@ -284,7 +297,7 @@ export const getPlacementItemSummaryCounts = (items) => {
       if (item?.platform === "ix") acc.ix += 1;
       if (item?.platform === "orange") acc.orange += 1;
       if (item?.platform === "gateway") acc.gateway += 1;
-      if (item?.platform === "fce") acc.fce += 1;
+      if (normalizePlacementPlatform(item?.platform) === "general") acc.general += 1;
       if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
       if (item?.skill === "listening") acc.listening += 1;
@@ -297,7 +310,7 @@ export const getPlacementItemSummaryCounts = (items) => {
       ix: 0,
       orange: 0,
       gateway: 0,
-      fce: 0,
+      general: 0,
       writing: 0,
       reading: 0,
       listening: 0,
@@ -329,12 +342,18 @@ export const buildPlacementAttemptPath = (attemptToken) => {
 };
 
 export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") => {
-  const platform = normalizeText(item?.platform).toLowerCase();
+  const platform = normalizePlacementPlatform(item?.platform);
   const skill = normalizeText(item?.skill).toLowerCase();
   const testId = encodeURIComponent(normalizeText(item?.testId));
   const normalizedTestType =
-    normalizeText(item?.testType).toLowerCase() ||
-    (skill === "listening" ? "ket-listening" : "ket-reading");
+    normalizePlacementTestType(item?.testType) ||
+    (platform === "general"
+      ? skill === "listening"
+        ? "general-listening"
+        : "general-reading-60"
+      : skill === "listening"
+        ? "ket-listening"
+        : "ket-reading");
 
   if (!platform || !skill || !testId) {
     return buildPlacementAttemptPath(attemptToken);
@@ -352,6 +371,8 @@ export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") =>
     basePath = `/placement/orange/${encodeURIComponent(normalizedTestType)}/${testId}`;
   } else if (platform === "gateway") {
     basePath = `/placement/gateway/${encodeURIComponent(skill)}/${testId}`;
+  } else if (platform === "general") {
+    basePath = `/placement/general/${encodeURIComponent(skill)}/${testId}`;
   }
 
   return appendSearchParams(basePath, {

@@ -43,7 +43,7 @@ const getCambridgeSubmissionTabs = (platformFilter) => [
     shortLabel: 'All',
     label: 'All Submissions',
     tone:
-      platformFilter === 'fce'
+      platformFilter === 'general'
         ? 'cyan'
         : platformFilter === 'gateway'
         ? 'green'
@@ -58,13 +58,13 @@ const getCambridgeSubmissionTabs = (platformFilter) => [
   {
     key: 'reading',
     shortLabel:
-      platformFilter === 'fce'
+      platformFilter === 'general'
         ? 'Reading + Writing'
         : platformFilter === 'gateway'
         ? 'Reading-Writing'
         : 'Reading',
     label:
-      platformFilter === 'fce'
+      platformFilter === 'general'
         ? 'Reading + Writing Submissions'
         : platformFilter === 'gateway'
         ? 'Reading-Writing Submissions'
@@ -311,7 +311,7 @@ const CambridgeSubmissionsPage = ({
     : globalDisplayLabels;
   const styles = useMemo(() => getCambridgePageStyles(isDarkMode), [isDarkMode]);
   const statusTones = useMemo(() => getCambridgeStatusTones(isDarkMode), [isDarkMode]);
-  const resolvedPlatformFilter = ['fce', 'gateway'].includes(platformFilter)
+  const resolvedPlatformFilter = ['general', 'gateway'].includes(platformFilter)
     ? platformFilter
     : 'orange';
   const navigate = useNavigate();
@@ -354,7 +354,7 @@ const CambridgeSubmissionsPage = ({
     normalizeSubmissionView(searchParams.get('view'))
   ); // all, listening, reading
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState(
-    resolvedPlatformFilter === 'fce'
+    resolvedPlatformFilter === 'general'
       ? 'general'
       : resolvedPlatformFilter === 'gateway'
       ? 'gateway'
@@ -554,7 +554,7 @@ const CambridgeSubmissionsPage = ({
 
   useEffect(() => {
     setActiveWorkspaceGroup(
-      resolvedPlatformFilter === 'fce'
+      resolvedPlatformFilter === 'general'
         ? 'general'
         : resolvedPlatformFilter === 'gateway'
         ? 'gateway'
@@ -1361,13 +1361,13 @@ const CambridgeSubmissionsPage = ({
       (deepLinkedSubmission?.id === activeReviewSubmissionId ? deepLinkedSubmission : null)
     : null;
   const workspaceCurrentKey =
-    resolvedPlatformFilter === 'fce'
-      ? 'fce'
+    resolvedPlatformFilter === 'general'
+      ? 'general'
       : resolvedPlatformFilter === 'gateway'
       ? 'gateway'
       : 'cambridge';
   const activePlatformWorkspaceGroup =
-    resolvedPlatformFilter === 'fce'
+    resolvedPlatformFilter === 'general'
       ? 'general'
       : resolvedPlatformFilter === 'gateway'
       ? 'gateway'
@@ -1413,7 +1413,7 @@ const CambridgeSubmissionsPage = ({
     ]
   );
   const platformTone =
-    resolvedPlatformFilter === 'fce'
+    resolvedPlatformFilter === 'general'
       ? 'cyan'
       : resolvedPlatformFilter === 'gateway'
       ? 'green'

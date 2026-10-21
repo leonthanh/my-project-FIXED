@@ -13,7 +13,7 @@ import {
   getTestConfig,
   QUESTION_TYPES,
 } from "../../../../shared/config/questionTypes";
-import { getOrangeSelectTestPathForTestType } from "../../../cambridge/config/navigation";
+import { getGeneralSelectTestPathForTestType } from "../../config/navigation";
 import {
   apiPath,
   hostPath,
@@ -25,13 +25,13 @@ import useQuillImageUpload from "../../../../shared/hooks/useQuillImageUpload";
 import { canManageCategory } from "../../../../shared/utils/permissions";
 import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
-import "./FceTestBuilder.css";
+import "./GeneralTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "../../../exam-core/shared/utils/examQuestionNumbering";
 import { normalizeQuillPromptHtml } from "../../../exam-core/shared/utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 import {
-  replaceFceDisplayName,
+  replaceGeneralDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
 
@@ -64,10 +64,10 @@ const SECTION_BASED_TYPES = [
 ];
 
 /**
- * FceTestBuilder - Dedicated builder for FCE (B2 First) reading and listening tests.
+ * GeneralTestBuilder - Dedicated builder for General (B2 First) reading and listening tests.
  */
-const FceTestBuilder = ({
-  testType = "fce-reading-60",
+const GeneralTestBuilder = ({
+  testType = "general-reading-60",
   editId = null,
   initialData = null,
   resetDraftOnLoad = false,
@@ -78,14 +78,14 @@ const FceTestBuilder = ({
   const currentTeacherName = resolveAuthUserDisplayName(user);
   const isCreateMode = !editId && !initialData;
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
 
   const testConfig = getTestConfig(testType);
-  const isListeningTest = testType === "fce-listening";
+  const isListeningTest = testType === "general-listening";
   const availableTypes = useMemo(() => getQuestionTypesForTest(testType), [testType]);
   const defaultQuestionType = availableTypes[0]?.id || "fill";
   const builderDisplayName =
-    replaceFceDisplayName(testConfig?.name || "", displayLabels) || `${fceDisplayName} Test`;
+    replaceGeneralDisplayName(testConfig?.name || "", displayLabels) || `${generalDisplayName} Test`;
 
   const { quillRef: partInstructionRef, modules: partInstructionModules } = useQuillImageUpload();
 
@@ -144,7 +144,7 @@ const FceTestBuilder = ({
   useEffect(() => {
     if (!resetDraftOnLoad || didResetDraftRef.current) return;
     try {
-      localStorage.removeItem(`fceTestDraft-${testType}`);
+      localStorage.removeItem(`generalTestDraft-${testType}`);
     } catch {
       // ignore
     }
@@ -153,7 +153,7 @@ const FceTestBuilder = ({
 
   const loadSavedData = () => {
     try {
-      const savedData = localStorage.getItem(`fceTestDraft-${testType}`);
+      const savedData = localStorage.getItem(`generalTestDraft-${testType}`);
       if (savedData) {
         return JSON.parse(savedData);
       }
@@ -254,9 +254,9 @@ const FceTestBuilder = ({
       if (!questionType || typeof questionType !== "object") return questionType;
       return {
         ...questionType,
-        label: replaceFceDisplayName(questionType.label || "", displayLabels),
-        labelVi: replaceFceDisplayName(questionType.labelVi || "", displayLabels),
-        description: replaceFceDisplayName(questionType.description || "", displayLabels),
+        label: replaceGeneralDisplayName(questionType.label || "", displayLabels),
+        labelVi: replaceGeneralDisplayName(questionType.labelVi || "", displayLabels),
+        description: replaceGeneralDisplayName(questionType.description || "", displayLabels),
       };
     },
     [displayLabels]
@@ -639,7 +639,7 @@ const FceTestBuilder = ({
   }, []);
 
   const saveToLocalStorage = useCallback(() => {
-    const storageKey = `fceTestDraft-${testType}`;
+    const storageKey = `generalTestDraft-${testType}`;
     try {
       setIsSaving(true);
       const normalizedParts = normalizeListeningPartsAudio(
@@ -764,7 +764,7 @@ const FceTestBuilder = ({
         ),
       };
 
-      const endpoint = apiBasePath || (isListeningTest ? "cambridge/listening-tests" : "cambridge/reading-tests");
+      const endpoint = apiBasePath || (isListeningTest ? "general/listening-tests" : "general/reading-tests");
 
       if (editId) {
         const res = await authFetch(apiPath(`${endpoint}/${editId}`), {
@@ -790,7 +790,7 @@ const FceTestBuilder = ({
           throw new Error(err?.message || "Lỗi khi cập nhật đề");
         }
         setMessage({ type: "success", text: "Cập nhật đề thành công!" });
-        localStorage.removeItem(`fceTestDraft-${testType}`);
+        localStorage.removeItem(`generalTestDraft-${testType}`);
       } else {
         const response = await authFetch(apiPath(endpoint), {
           method: "POST",
@@ -798,6 +798,7 @@ const FceTestBuilder = ({
           body: JSON.stringify(payload),
         });
 
+        const result = await response.json().catch(() => ({}));
         if (!response.ok) {
           if (response.status === 401) {
             try {
@@ -812,16 +813,15 @@ const FceTestBuilder = ({
             setRequiresLogin(true);
             return;
           }
-          throw new Error("Lỗi khi lưu đề thi");
+          throw new Error(result.message || `Lỗi khi lưu đề thi (${response.status})`);
         }
 
-        await response.json();
         setMessage({ type: "success", text: "Tạo đề thành công!" });
-        localStorage.removeItem(`fceTestDraft-${testType}`);
+        localStorage.removeItem(`generalTestDraft-${testType}`);
       }
 
       setTimeout(() => {
-        navigate(getOrangeSelectTestPathForTestType(testType));
+        navigate(getGeneralSelectTestPathForTestType(testType));
       }, 1500);
     } catch (error) {
       console.error("Save error:", error);
@@ -853,16 +853,16 @@ const FceTestBuilder = ({
           <InlineIcon name="error" size={20} style={{ color: "#dc2626" }} />
           Test type không hợp lệ: {testType}
         </h2>
-        <p>Các {fceDisplayName} test types hỗ trợ:</p>
+        <p>Các {generalDisplayName} test types hỗ trợ:</p>
         <ul style={{ listStyle: "none", padding: 0 }}>
           <li style={{ padding: "4px" }}>
-            <code>fce-reading-60</code> - {fceDisplayName} Reading 60-point Profile
+            <code>general-reading-60</code> - {generalDisplayName} Reading 60-point Profile
           </li>
           <li style={{ padding: "4px" }}>
-            <code>fce-reading</code> - Legacy {fceDisplayName} Reading &amp; Writing
+            <code>general-reading</code> - Legacy {generalDisplayName} Reading &amp; Writing
           </li>
           <li style={{ padding: "4px" }}>
-            <code>fce-listening</code> - {fceDisplayName} Listening
+            <code>general-listening</code> - {generalDisplayName} Listening
           </li>
         </ul>
       </div>
@@ -1254,7 +1254,7 @@ const FceTestBuilder = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={`VD: ${fceDisplayName} Reading Test 1`}
+                  placeholder={`VD: ${generalDisplayName} Reading Test 1`}
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -1281,7 +1281,7 @@ const FceTestBuilder = ({
                   type="text"
                   value={classCode}
                   onChange={(e) => setClassCode(e.target.value)}
-                  placeholder={`VD: ${fceDisplayName}-102-A`}
+                  placeholder={`VD: ${generalDisplayName}-102-A`}
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -2224,4 +2224,4 @@ if (typeof document !== "undefined") {
   }
 }
 
-export default FceTestBuilder;
+export default GeneralTestBuilder;

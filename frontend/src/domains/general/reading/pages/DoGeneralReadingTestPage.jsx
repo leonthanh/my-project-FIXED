@@ -6,7 +6,7 @@ import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
 } from "../../../../shared/utils/placementTests";
-import { getFceSelectTestPathForTestType } from "../../config/navigation";
+import { getGeneralSelectTestPathForTestType } from "../../config/navigation";
 import TestHeader from "../../../../shared/components/TestHeader";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
@@ -35,10 +35,10 @@ import {
   recordRuntimeSyncRequestMetric,
 } from "../../../../shared/utils/runtimeSync";
 import {
-  replaceFceDisplayName,
+  replaceGeneralDisplayName,
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
-import "./DoFceReadingTest.css";
+import "./DoGeneralReadingTest.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
@@ -99,12 +99,12 @@ const PartIllustrationCard = ({ imageUrl, alt = 'Part illustration' }) => {
 };
 
 /**
- * DoFceReadingTest - FCE (B2 First) Reading Test runtime
+ * DoGeneralReadingTest - General (B2 First) Reading Test runtime
  */
-const DoFceReadingTest = ({
-  defaultTestType = 'fce-reading-60',
-  fetchBasePath = 'cambridge/reading-tests',
-  submitBasePath = 'cambridge/reading-tests',
+const DoGeneralReadingTest = ({
+  defaultTestType = 'general-reading-60',
+  fetchBasePath = 'general/reading-tests',
+  submitBasePath = 'general/reading-tests',
 }) => {
   const { id } = useParams();
   const location = useLocation();
@@ -118,10 +118,10 @@ const DoFceReadingTest = ({
     placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
   );
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
-  const examType = fceDisplayName;
+  const generalDisplayName = String(displayLabels?.generalDisplayName || 'General').trim() || 'General';
+  const examType = generalDisplayName;
 
-  const startedKey = useMemo(() => `fce_reading_test_${id}_started`, [id]);
+  const startedKey = useMemo(() => `general_reading_test_${id}_started`, [id]);
 
   // Stable user ID: isolates data per-student on shared devices
   const storageUserId = useMemo(() => {
@@ -134,10 +134,10 @@ const DoFceReadingTest = ({
       return u?.id || 'anon';
     } catch (e) { return 'anon'; }
   }, [placementContext.placementAttemptItemToken]);
-  const camReadTimeKey  = useMemo(() => `fce_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
-  const camReadAnsKey   = useMemo(() => `fce_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
-  const camReadStartKey = useMemo(() => `fce_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
-  const camReadSubmissionKey = useMemo(() => `fce_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
+  const camReadTimeKey  = useMemo(() => `general_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
+  const camReadAnsKey   = useMemo(() => `general_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
+  const camReadStartKey = useMemo(() => `general_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
+  const camReadSubmissionKey = useMemo(() => `general_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
   const annotationStorageKey = useMemo(() => `${camReadAnsKey}:annotations`, [camReadAnsKey]);
   const expiresAtRef = useRef(null);
   const submissionIdRef = useRef(null);
@@ -168,14 +168,14 @@ const DoFceReadingTest = ({
   const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
   const testType = useMemo(
-    () => String(test?.testType || routeTestType || 'fce-reading-60').trim().toLowerCase(),
+    () => String(test?.testType || routeTestType || 'general-reading-60').trim().toLowerCase(),
     [routeTestType, test?.testType]
   );
 
   // Started flag for the test (show start modal and control timer)
   const [started, setStarted] = useState(() => {
     try {
-      return localStorage.getItem(`fce_reading_${id}_started:${storageUserId}`) === "true";
+      return localStorage.getItem(`general_reading_${id}_started:${storageUserId}`) === "true";
     } catch (e) {
       return false;
     }
@@ -203,7 +203,7 @@ const DoFceReadingTest = ({
       normalized,
       normalized.replace(/-reading$/i, ''),
       normalized.replace(/-listening$/i, ''),
-      normalized === 'fce-reading' ? 'fce-reading-60' : '',
+      normalized === 'general-reading' ? 'general-reading-60' : '',
     ];
 
     for (const key of candidates) {
@@ -222,11 +222,11 @@ const DoFceReadingTest = ({
       const fromData = resolveTestConfig(test.testType);
       if (fromData) return fromData;
     }
-    return TEST_CONFIGS['fce-reading-60'];
+    return TEST_CONFIGS['general-reading-60'];
   }, [resolveTestConfig, routeTestType, test?.testType]);
 
   const localizedTestConfigName = useMemo(
-    () => replaceFceDisplayName(testConfig?.name || '', displayLabels),
+    () => replaceGeneralDisplayName(testConfig?.name || '', displayLabels),
     [displayLabels, testConfig?.name]
   );
 
@@ -390,7 +390,7 @@ const DoFceReadingTest = ({
           try {
             const activeRes = await fetch(
               apiPath(
-                `cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
+                `general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
               )
             );
             if (activeRes.ok) {
@@ -610,14 +610,14 @@ const DoFceReadingTest = ({
             currentQuestionIndex,
           },
         };
-        const res = await fetch(apiPath("cambridge/submissions/autosave"), {
+        const res = await fetch(apiPath("general/submissions/autosave"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
-          scope: "fce-reading",
+          scope: "general-reading",
           endpoint: "autosave",
           status: res.status,
         });
@@ -646,7 +646,7 @@ const DoFceReadingTest = ({
         }
       } catch (_err) {
         recordRuntimeSyncRequestMetric({
-          scope: "fce-reading",
+          scope: "general-reading",
           endpoint: "autosave",
           status: "network_error",
         });
@@ -709,10 +709,10 @@ const DoFceReadingTest = ({
     try {
       timingSyncInFlightRef.current = true;
       const res = await fetch(
-        apiPath(`cambridge/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(testType)}`)
+        apiPath(`general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(testType)}`)
       );
       recordRuntimeSyncRequestMetric({
-        scope: "fce-reading",
+        scope: "general-reading",
         endpoint: "active",
         status: res.status,
       });
@@ -737,7 +737,7 @@ const DoFceReadingTest = ({
       }
     } catch (_err) {
       recordRuntimeSyncRequestMetric({
-        scope: "fce-reading",
+        scope: "general-reading",
         endpoint: "active",
         status: "network_error",
       });
@@ -1178,7 +1178,7 @@ const DoFceReadingTest = ({
 
   const resolveExplicitQuestionNumber = useCallback((entry) => {
     const sectionType = entry?.section?.questionType;
-    // For FCE internal multi-item types, item/group numbers are local to the section
+    // For General internal multi-item types, item/group numbers are local to the section
     // and should not override the global sequential numbering computed at runtime.
     const ignoreItemNumber =
       sectionType === 'preposition-gap-fill' ||
@@ -3388,7 +3388,7 @@ const DoFceReadingTest = ({
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={confirmSubmit}
-        title={`Submit ${fceDisplayName} Reading & Writing?`}
+        title={`Submit ${generalDisplayName} Reading & Writing?`}
         message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
         type="info"
         iconName="reading"
@@ -3421,7 +3421,7 @@ const DoFceReadingTest = ({
           onClose={() => {
             setResults(null);
             setSubmitted(false);
-            navigate(getFceSelectTestPathForTestType(testType), { replace: true });
+            navigate(getGeneralSelectTestPathForTestType(testType), { replace: true });
           }}
         />
       )}
@@ -3429,4 +3429,4 @@ const DoFceReadingTest = ({
   );
 };
 
-export default DoFceReadingTest;
+export default DoGeneralReadingTest;

@@ -2,7 +2,7 @@ import React from "react";
 import InlineIcon from "../../InlineIcon.jsx";
 
 /**
- * OddOneOutEditor - FCE Part 3: Circle the word that is not in the same group
+ * OddOneOutEditor - General Part 3: Circle the word that is not in the same group
  *
  * Format mẫu:
  * - Nhiều dãy từ, mỗi dãy 4 từ

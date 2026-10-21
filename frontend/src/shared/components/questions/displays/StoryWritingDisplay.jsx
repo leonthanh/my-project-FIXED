@@ -4,7 +4,7 @@ const BLANK_REGEX = /_{3,}/;
 
 /**
  * StoryWritingDisplay - Display component for story writing questions
- * Used in: FCE Reading
+ * Used in: General Reading
  */
 const StoryWritingDisplay = ({
   section,

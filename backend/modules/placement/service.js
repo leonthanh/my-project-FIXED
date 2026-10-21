@@ -10,6 +10,7 @@ const ReadingSubmission = require("../../models/ReadingSubmission");
 const ListeningSubmission = require("../../models/ListeningSubmission");
 const CambridgeSubmission = require("../../models/CambridgeSubmission");
 const GatewaySubmission = require("../../models/GatewaySubmission");
+const GeneralSubmission = require("../../models/GeneralSubmission");
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -20,6 +21,8 @@ const createServiceError = (statusCode, message) => {
 const normalizeText = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeText(value).toLowerCase();
 const normalizePhone = (value) => normalizeText(value).replace(/\s+/g, "");
+const normalizePlatform = (value) => normalizeLower(value);
+const normalizeTestType = (value) => normalizeLower(value);
 
 const createOpaqueToken = (prefix) =>
   `${prefix}_${crypto.randomBytes(18).toString("hex")}`;
@@ -29,6 +32,7 @@ const RUNTIME_SUBMISSION_MODELS = {
   reading: ReadingSubmission,
   listening: ListeningSubmission,
   cambridge: CambridgeSubmission,
+  general: GeneralSubmission,
   gateway: GatewaySubmission,
 };
 
@@ -40,7 +44,7 @@ const sortByOrder = (rows) =>
   });
 
 const normalizePlacementItem = (item, index = 0) => {
-  const platform = normalizeLower(item?.platform);
+  const platform = normalizePlatform(item?.platform);
   const skill = normalizeLower(item?.skill);
   const testId = normalizeText(item?.testId);
   const title = normalizeText(item?.title);
@@ -53,7 +57,7 @@ const normalizePlacementItem = (item, index = 0) => {
     platform,
     skill,
     testId,
-    testType: normalizeLower(item?.testType) || null,
+    testType: normalizeTestType(item?.testType) || null,
     title,
     subtitle: normalizeText(item?.subtitle) || null,
     badge: normalizeText(item?.badge) || null,
@@ -82,9 +86,10 @@ const summarizeAttemptItems = (items = []) => {
       if (item?.skill === "writing") summary.writing += 1;
       if (item?.skill === "reading") summary.reading += 1;
       if (item?.skill === "listening") summary.listening += 1;
-      if (item?.platform === "ix") summary.ix += 1;
-      if (item?.platform === "orange") summary.orange += 1;
-      if (item?.platform === "gateway") summary.gateway += 1;
+      if (normalizePlatform(item?.platform) === "ix") summary.ix += 1;
+      if (normalizePlatform(item?.platform) === "orange") summary.orange += 1;
+      if (normalizePlatform(item?.platform) === "gateway") summary.gateway += 1;
+      if (normalizePlatform(item?.platform) === "general") summary.general += 1;
       return summary;
     },
     {
@@ -97,16 +102,17 @@ const summarizeAttemptItems = (items = []) => {
       ix: 0,
       orange: 0,
       gateway: 0,
+      general: 0,
     }
   );
 };
 
 const buildAttemptItemMatchKey = (item) => {
   return [
-    normalizeLower(item?.platform),
+    normalizePlatform(item?.platform),
     normalizeLower(item?.skill),
     normalizeText(item?.testId),
-    normalizeLower(item?.testType),
+    normalizeTestType(item?.testType),
   ].join("::");
 };
 
@@ -595,7 +601,7 @@ const ensureAttemptItemMatchesRuntime = async ({
 }) => {
   const attemptItem = await getAttemptItemByTokenRecord(attemptItemToken);
 
-  if (normalizeLower(attemptItem.platform) !== normalizeLower(platform)) {
+  if (normalizePlatform(attemptItem.platform) !== normalizePlatform(platform)) {
     throw createServiceError(404, "Placement attempt item not found for this platform.");
   }
 
@@ -607,7 +613,7 @@ const ensureAttemptItemMatchesRuntime = async ({
     throw createServiceError(404, "Placement attempt item not found for this test.");
   }
 
-  if (testType && normalizeLower(attemptItem.testType) !== normalizeLower(testType)) {
+  if (testType && normalizeTestType(attemptItem.testType) !== normalizeTestType(testType)) {
     throw createServiceError(404, "Placement attempt item not found for this test type.");
   }
 

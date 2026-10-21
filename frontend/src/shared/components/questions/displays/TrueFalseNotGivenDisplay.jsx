@@ -8,7 +8,7 @@ const OPTIONS = [
 
 /**
  * TrueFalseNotGivenDisplay - Display component for True/False/Not Given questions
- * Used in: IELTS Reading, FCE Listening
+ * Used in: IELTS Reading, General Listening
  */
 const TrueFalseNotGivenDisplay = ({
   section,

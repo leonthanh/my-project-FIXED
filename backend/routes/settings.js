@@ -11,7 +11,7 @@ const MAX_LABEL_LENGTH = 40;
 const DEFAULT_DISPLAY_LABELS = Object.freeze({
   ixDisplayName: "IX",
   orangeDisplayName: "Orange",
-  fceDisplayName: "FCE",
+  generalDisplayName: "General",
 });
 
 let settingsTableReadyPromise = null;
@@ -44,7 +44,10 @@ const sanitizeDisplayLabels = (raw = {}) => ({
     raw.orangeDisplayName,
     DEFAULT_DISPLAY_LABELS.orangeDisplayName
   ),
-  fceDisplayName: sanitizeDisplayLabel(raw.fceDisplayName, DEFAULT_DISPLAY_LABELS.fceDisplayName),
+  generalDisplayName: sanitizeDisplayLabel(
+    raw.generalDisplayName,
+    DEFAULT_DISPLAY_LABELS.generalDisplayName
+  ),
 });
 
 const parseSettingValue = (value) => {
@@ -64,10 +67,7 @@ const loadDisplayLabels = async () => {
   });
 
   const rawLabels = record ? parseSettingValue(record.settingValue) : {};
-  const labels = sanitizeDisplayLabels({
-    ...DEFAULT_DISPLAY_LABELS,
-    ...rawLabels,
-  });
+  const labels = sanitizeDisplayLabels(rawLabels);
 
   return {
     record,

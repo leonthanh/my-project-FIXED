@@ -66,13 +66,17 @@ const submitListeningTest = async ({
   }
 
   const test = ensureListeningRecord(await testModel.findByPk(id), forcedTestType);
+  const normalizedPlatformType = String(test.testType || '').trim().toLowerCase();
+  if (platform === 'general' && !normalizedPlatformType.startsWith('general-')) {
+    throw createServiceError(404, 'Không tìm thấy đề thi');
+  }
   const { score, total, percentage, detailedResults } = scoreTest(test, answers);
 
   let placementContext = null;
   if (placementAttemptItemToken) {
     placementContext = await placementService.getRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform,
       skill: 'listening',
       testId: String(parseInt(id, 10)),
       testType: test.testType,
@@ -149,11 +153,12 @@ const submitListeningTest = async ({
   if (placementAttemptItemToken) {
     await placementService.syncRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform,
       skill: 'listening',
       testId: String(parseInt(id, 10)),
       testType: test.testType,
-      runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
+      runtimeSubmissionModel:
+        platform === 'gateway' ? 'gateway' : platform === 'general' ? 'general' : 'cambridge',
       runtimeSubmissionId: submission.id,
       status: 'submitted',
       correct: score,

@@ -13,7 +13,7 @@ import { buildCoreRoutes } from './app/routes/coreRoutes';
 import { buildIxRoutes } from './app/routes/ixRoutes';
 import { buildGatewayRoutes } from './app/routes/gatewayRoutes';
 import { buildCambridgeRoutes } from './app/routes/cambridgeRoutes';
-import { buildFceRoutes } from './domains/fce/fceRoutes';
+import { buildGeneralRoutes } from './domains/general/generalRoutes';
 import { buildAdminRoutes } from './app/routes/adminRoutes';
 
 const hasStoredUser = () => Boolean(getStoredUser());
@@ -198,7 +198,7 @@ function App() {
           {buildIxRoutes({ isAuthenticated })}
           {buildGatewayRoutes({ isAuthenticated })}
           {buildCambridgeRoutes({ isAuthenticated })}
-          {buildFceRoutes({ isAuthenticated })}
+          {buildGeneralRoutes({ isAuthenticated })}
           {buildAdminRoutes()}
         </Routes>
       </Suspense>

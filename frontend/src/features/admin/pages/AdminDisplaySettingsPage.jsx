@@ -28,10 +28,10 @@ const FIELD_META = [
     placeholder: "Orange",
   },
   {
-    key: "fceDisplayName",
-    label: "FCE label",
-    description: "Shown wherever the current FCE name appears.",
-    placeholder: "FCE",
+    key: "generalDisplayName",
+    label: "General label",
+    description: "Shown wherever the current General name appears.",
+    placeholder: "General",
   },
 ];
 
@@ -175,7 +175,7 @@ const AdminDisplaySettingsPage = () => {
       orangeDisplayName: String(
         displayLabels?.orangeDisplayName || DEFAULT_DISPLAY_LABELS.orangeDisplayName
       ),
-      fceDisplayName: String(displayLabels?.fceDisplayName || DEFAULT_DISPLAY_LABELS.fceDisplayName),
+      generalDisplayName: String(displayLabels?.generalDisplayName || DEFAULT_DISPLAY_LABELS.generalDisplayName),
     });
   }, [displayLabels]);
 
@@ -293,15 +293,15 @@ const AdminDisplaySettingsPage = () => {
         color: "#c2410c",
       },
       {
-        key: "fce",
-        label: "FCE",
-        value: formValues.fceDisplayName || "-",
+        key: "general",
+        label: "General",
+        value: formValues.generalDisplayName || "-",
         bg: "#ecfeff",
         border: "#a5f3fc",
         color: "#155e75",
       },
     ],
-    [formValues.fceDisplayName, formValues.ixDisplayName, formValues.orangeDisplayName]
+    [formValues.generalDisplayName, formValues.ixDisplayName, formValues.orangeDisplayName]
   );
 
   const hasChanges = useMemo(() => {
@@ -309,7 +309,7 @@ const AdminDisplaySettingsPage = () => {
       String(formValues.ixDisplayName || "") !== String(displayLabels?.ixDisplayName || "") ||
       String(formValues.orangeDisplayName || "") !==
         String(displayLabels?.orangeDisplayName || "") ||
-      String(formValues.fceDisplayName || "") !== String(displayLabels?.fceDisplayName || "")
+      String(formValues.generalDisplayName || "") !== String(displayLabels?.generalDisplayName || "")
     );
   }, [displayLabels, formValues]);
 
@@ -514,7 +514,7 @@ const AdminDisplaySettingsPage = () => {
   const labelFilledCount = [
     formValues.ixDisplayName,
     formValues.orangeDisplayName,
-    formValues.fceDisplayName,
+    formValues.generalDisplayName,
   ].filter((value) => String(value || "").trim()).length;
   const labelCoveragePercent = Math.round((labelFilledCount / FIELD_META.length) * 100);
 
@@ -802,7 +802,7 @@ const AdminDisplaySettingsPage = () => {
           { label: "Coverage", value: `${labelCoveragePercent}%`, note: `${labelFilledCount}/${FIELD_META.length} labels set` },
           { label: "IX label", value: formValues.ixDisplayName || "-", note: "Navbar + test library" },
           { label: "Orange label", value: formValues.orangeDisplayName || "-", note: "Orange library" },
-          { label: "FCE label", value: formValues.fceDisplayName || "-", note: "FCE surfaces" },
+          { label: "General label", value: formValues.generalDisplayName || "-", note: "General surfaces" },
         ],
       };
     }
@@ -829,7 +829,7 @@ const AdminDisplaySettingsPage = () => {
   }, [
     activeDrilldownKey,
     filteredAlertItems,
-    formValues.fceDisplayName,
+    formValues.generalDisplayName,
     formValues.ixDisplayName,
     formValues.orangeDisplayName,
     labelCoveragePercent,
@@ -864,7 +864,7 @@ const AdminDisplaySettingsPage = () => {
       orangeDisplayName: String(
         displayLabels?.orangeDisplayName || DEFAULT_DISPLAY_LABELS.orangeDisplayName
       ),
-      fceDisplayName: String(displayLabels?.fceDisplayName || DEFAULT_DISPLAY_LABELS.fceDisplayName),
+      generalDisplayName: String(displayLabels?.generalDisplayName || DEFAULT_DISPLAY_LABELS.generalDisplayName),
     });
     setStatus("Form reset to current live labels.");
     setStatusTone("neutral");
@@ -876,7 +876,7 @@ const AdminDisplaySettingsPage = () => {
       const nextLabels = {
         ixDisplayName: formValues.ixDisplayName,
         orangeDisplayName: formValues.orangeDisplayName,
-        fceDisplayName: formValues.fceDisplayName,
+        generalDisplayName: formValues.generalDisplayName,
       };
 
       await saveDisplayLabels(nextLabels);
@@ -1489,7 +1489,7 @@ const AdminDisplaySettingsPage = () => {
                       <div style={styles.previewRow}>
                         <span style={styles.previewChip}>{formValues.ixDisplayName || "IX"}</span>
                         <span style={styles.previewChip}>{formValues.orangeDisplayName || "Orange"}</span>
-                        <span style={styles.previewChip}>{formValues.fceDisplayName || "FCE"}</span>
+                        <span style={styles.previewChip}>{formValues.generalDisplayName || "General"}</span>
                       </div>
                     </div>
                   </div>
