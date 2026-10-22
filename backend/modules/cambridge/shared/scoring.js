@@ -1,14 +1,14 @@
 const { processTestParts } = require('../../../utils/clozParser');
 const { safeParseParts } = require('./readingTestUtils');
 
-const FCE_READING_60_BREAKDOWN_GROUPS = [
+const GENERAL_READING_60_BREAKDOWN_GROUPS = [
   { key: 'vocabulary', label: 'Vocabulary', parts: [0, 1] },
   { key: 'grammar', label: 'Grammar', parts: [2, 3, 4] },
   { key: 'reading', label: 'Reading', parts: [5, 6] },
   { key: 'everydayEnglish', label: 'Everyday English', parts: [7] },
 ];
 
-const FCE_READING_60_PART_MARKS = new Map([
+const GENERAL_READING_60_PART_MARKS = new Map([
   [0, 5],
   [1, 6],
   [2, 4],
@@ -21,7 +21,7 @@ const FCE_READING_60_PART_MARKS = new Map([
 
 const roundScore = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
-const computeFceReading60WeightedSummary = (detailedResults = {}) => {
+const computeGeneralReading60WeightedSummary = (detailedResults = {}) => {
   const partStats = new Map();
 
   Object.entries(detailedResults).forEach(([resultKey, result]) => {
@@ -30,7 +30,7 @@ const computeFceReading60WeightedSummary = (detailedResults = {}) => {
     }
 
     const partIdx = Number(String(resultKey).split('-')[0]);
-    if (!Number.isInteger(partIdx) || !FCE_READING_60_PART_MARKS.has(partIdx)) {
+    if (!Number.isInteger(partIdx) || !GENERAL_READING_60_PART_MARKS.has(partIdx)) {
       return;
     }
 
@@ -42,7 +42,7 @@ const computeFceReading60WeightedSummary = (detailedResults = {}) => {
     partStats.set(partIdx, bucket);
   });
 
-  const groups = FCE_READING_60_BREAKDOWN_GROUPS.map((group) => ({
+  const groups = GENERAL_READING_60_BREAKDOWN_GROUPS.map((group) => ({
     key: group.key,
     label: group.label,
     score: 0,
@@ -52,9 +52,9 @@ const computeFceReading60WeightedSummary = (detailedResults = {}) => {
 
   const bucketByKey = new Map(groups.map((group) => [group.key, group]));
 
-  FCE_READING_60_BREAKDOWN_GROUPS.forEach((group) => {
+  GENERAL_READING_60_BREAKDOWN_GROUPS.forEach((group) => {
     group.parts.forEach((partIdx) => {
-      const targetMarks = FCE_READING_60_PART_MARKS.get(partIdx) || 0;
+      const targetMarks = GENERAL_READING_60_PART_MARKS.get(partIdx) || 0;
       const stats = partStats.get(partIdx) || { rawTotal: 0, rawCorrect: 0 };
       const markPerItem = stats.rawTotal > 0 ? targetMarks / stats.rawTotal : 0;
       const weightedScore = roundScore(stats.rawCorrect * markPerItem);
@@ -79,7 +79,7 @@ const computeFceReading60WeightedSummary = (detailedResults = {}) => {
   );
 
   return {
-    profile: 'fce-reading-60',
+    profile: 'general-reading-60',
     groups,
     overall,
   };
@@ -88,13 +88,13 @@ const computeFceReading60WeightedSummary = (detailedResults = {}) => {
 const computeScoreBreakdown = (test, detailedResults, score, total) => {
   const testType = String(test?.testType || '').trim().toLowerCase();
 
-  if (testType !== 'fce-reading-60') {
+  if (testType !== 'general-reading-60') {
     return null;
   }
 
-  const weightedSummary = computeFceReading60WeightedSummary(detailedResults);
+  const weightedSummary = computeGeneralReading60WeightedSummary(detailedResults);
   return weightedSummary || {
-    profile: 'fce-reading-60',
+    profile: 'general-reading-60',
     groups: [],
     overall: {
       score,

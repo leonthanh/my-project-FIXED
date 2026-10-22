@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import InlineIcon from "../../InlineIcon.jsx";
 
 /**
- * PrepositionGapFillEditor - FCE Part 2: Prepositions & Phrasal Verbs Gap Fill
+ * PrepositionGapFillEditor - General Part 2: Prepositions & Phrasal Verbs Gap Fill
  *
  * Format mẫu:
  * - Bảng từ / cụm từ cho sẵn (word bank) với số lần xuất hiện

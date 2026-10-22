@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * SentenceTransformationDisplay - Display component for sentence transformation questions
- * Used in: KET Reading Part 7, PET Writing, FCE Reading
+ * Used in: KET Reading Part 7, PET Writing, General Reading
  */
 const SentenceTransformationDisplay = ({
   section,

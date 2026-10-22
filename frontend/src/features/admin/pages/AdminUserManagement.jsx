@@ -68,6 +68,7 @@ const TEST_BUCKETS = [
   { id: 'ixListening', label: 'IX Listening' },
   { id: 'cambridge', label: 'Orange' },
   { id: 'gateway', label: 'Gateway' },
+  { id: 'general', label: 'General' },
 ];
 
 const getAdminTestBucketFromScope = (scope) => {
@@ -81,6 +82,9 @@ const getAdminTestBucketFromScope = (scope) => {
     case 'gateway-reading':
     case 'gateway-listening':
       return 'gateway';
+    case 'general-reading':
+    case 'general-listening':
+      return 'general';
     default:
       return 'cambridge';
   }
@@ -98,6 +102,8 @@ const getAdminTestTypeLabel = (test = {}) => {
   if (test.deleteScope === 'cambridge-listening') return 'Cambridge Listening';
   if (test.deleteScope === 'gateway-reading') return 'Gateway Reading-Writing';
   if (test.deleteScope === 'gateway-listening') return 'Gateway Listening';
+  if (test.deleteScope === 'general-reading') return 'General Reading';
+  if (test.deleteScope === 'general-listening') return 'General Listening';
   return 'Test';
 };
 
@@ -119,6 +125,10 @@ const getAdminTestEditPath = (test = {}) => {
       return `/admin/edit-gateway/reading-writing/${test.id}`;
     case 'gateway-listening':
       return `/admin/edit-gateway/listening/${test.id}`;
+    case 'general-reading':
+      return `/general/reading/${test.id}/edit`;
+    case 'general-listening':
+      return `/general/listening/${test.id}/edit`;
     default:
       return null;
   }
@@ -208,7 +218,8 @@ const getTestCardTone = (test = {}) => {
   return { accent: '#0f766e', border: '#99f6e4' };
 };
 
-const getSubmissionDisplayName = (type, sub) => (type === 'cambridge' ? sub.studentName : sub.userName) || '—';
+const getSubmissionDisplayName = (type, sub) =>
+  (['cambridge', 'gateway', 'general'].includes(type) ? sub.studentName : sub.userName) || '—';
 
 const getSubmissionStatusMeta = (type, sub) => {
   if (type === 'writing') {
@@ -217,7 +228,7 @@ const getSubmissionStatusMeta = (type, sub) => {
       : { label: 'Waiting review', variant: 'pending' };
   }
 
-  if (type === 'cambridge') {
+  if (['cambridge', 'gateway', 'general'].includes(type)) {
     return { label: 'Submitted', variant: 'active' };
   }
 
@@ -250,7 +261,7 @@ const getSubmissionBandSummary = (sub) => {
 };
 
 const getSubmissionTestSummary = (type, sub) => {
-  if (type === 'cambridge') {
+  if (['cambridge', 'gateway', 'general'].includes(type)) {
     return `Test #${sub.testId || '—'}${sub.testType ? ` · ${String(sub.testType).toUpperCase()}` : ''}`;
   }
   return `Test #${sub.testId || '—'}`;
@@ -604,13 +615,14 @@ const UsersTab = ({ onViewSubmissions }) => {
 };
 
 // ─── Tab: Submissions ─────────────────────────────────────────────────────────
-const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge', 'gateway'];
+const SUB_TYPES = ['writing', 'reading', 'listening', 'cambridge', 'gateway', 'general'];
 const SUB_LABELS = {
   writing: 'Writing',
   reading: 'Reading',
   listening: 'Listening',
   cambridge: 'Orange',
   gateway: 'Gateway',
+  general: 'General',
 };
 
 const SubmissionsTab = ({ initialUser }) => {
@@ -776,6 +788,14 @@ const SubmissionsTab = ({ initialUser }) => {
         bg: '#f5f3ff',
         border: '#ddd6fe',
         color: '#6d28d9',
+      },
+      {
+        key: 'general',
+        label: 'General',
+        count: subs.general?.length || 0,
+        bg: '#ecfeff',
+        border: '#a5f3fc',
+        color: '#0f766e',
       },
     ];
   }, [subs]);
@@ -1236,6 +1256,7 @@ const TestsTab = () => {
     ixListening: [],
     cambridge: [],
     gateway: [],
+    general: [],
   });
   const [activeBucket, setActiveBucket] = useState('ixWriting');
   const [search, setSearch] = useState('');
@@ -1265,6 +1286,7 @@ const TestsTab = () => {
         ixListening: Array.isArray(payload.ixListening) ? payload.ixListening : [],
         cambridge: Array.isArray(payload.cambridge) ? payload.cambridge : [],
         gateway: Array.isArray(payload.gateway) ? payload.gateway : [],
+        general: Array.isArray(payload.general) ? payload.general : [],
       });
     } catch (_err) {
       showToast('Could not load tests.');

@@ -79,7 +79,7 @@ const getHighlightedSentence = (sentence, userAnswer, submitted, isCorrect, onDr
 };
 
 /**
- * PrepositionGapFillDisplay - FCE Part 2 student display
+ * PrepositionGapFillDisplay - General Part 2 student display
  * Shows word bank and sentences with blanks for students to fill in.
  */
 const PrepositionGapFillDisplay = ({

@@ -12,20 +12,20 @@ import {
   savePlacementLeadDraft,
 } from "../../../shared/utils/placementTests";
 import {
-  replaceFceDisplayName,
-  resolveFceDisplayName,
+  replaceGeneralDisplayName,
+  resolveGeneralDisplayName,
   useDisplaySettings,
 } from "../../../shared/contexts/DisplaySettingsContext";
 import "./PlacementEntry.css";
 
 const vnPhoneRegex = /^(0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
 
-const getPlatformLabel = (platform, fceDisplayName) => {
+const getPlatformLabel = (platform, generalDisplayName) => {
   const normalizedPlatform = String(platform || "").trim().toLowerCase();
   if (normalizedPlatform === "orange") return "Orange";
   if (normalizedPlatform === "ix") return "IX";
   if (normalizedPlatform === "gateway") return "Gateway";
-  if (normalizedPlatform === "fce") return fceDisplayName;
+  if (normalizedPlatform === "general") return generalDisplayName;
   return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
 };
 
@@ -97,8 +97,8 @@ const PlacementEntry = () => {
     return getPlacementItemSummaryCounts(selections);
   }, [selections]);
 
-  const fceDisplayName = useMemo(
-    () => resolveFceDisplayName(displayLabels),
+  const generalDisplayName = useMemo(
+    () => resolveGeneralDisplayName(displayLabels),
     [displayLabels]
   );
 
@@ -108,8 +108,8 @@ const PlacementEntry = () => {
       `${selectionSummary.orange} Orange`,
     ];
 
-    if (selectionSummary.fce > 0) {
-      summaryParts.push(`${selectionSummary.fce} ${fceDisplayName}`);
+    if (selectionSummary.general > 0) {
+      summaryParts.push(`${selectionSummary.general} ${generalDisplayName}`);
     }
     if (selectionSummary.gateway > 0) {
       summaryParts.push(`${selectionSummary.gateway} Gateway`);
@@ -117,8 +117,8 @@ const PlacementEntry = () => {
 
     return summaryParts.join(" • ");
   }, [
-    fceDisplayName,
-    selectionSummary.fce,
+    generalDisplayName,
+    selectionSummary.general,
     selectionSummary.gateway,
     selectionSummary.ix,
     selectionSummary.orange,
@@ -135,7 +135,7 @@ const PlacementEntry = () => {
           group.platform === "ix" ||
           group.platform === "orange" ||
           group.platform === "gateway" ||
-          group.platform === "fce"
+          group.platform === "general"
       ),
     [groupedSelections]
   );
@@ -322,7 +322,7 @@ const PlacementEntry = () => {
                     onClick={() => setActivePlatform(group.platform)}
                     aria-pressed={selectedPlatform === group.platform}
                   >
-                    <span>{getPlatformLabel(group.platform, fceDisplayName)}</span>
+                    <span>{getPlatformLabel(group.platform, generalDisplayName)}</span>
                     <span className="placement-entry-jumpCount">{group.items.length}</span>
                   </button>
                 ))}
@@ -359,9 +359,9 @@ const PlacementEntry = () => {
                     <div className="placement-entry-groupHeader">
                       <div className="placement-entry-groupTitleRow">
                         <span className={`placement-entry-groupPill placement-entry-groupPill--${group.accent}`}>
-                          {getPlatformLabel(group.platform, fceDisplayName)}
+                          {getPlatformLabel(group.platform, generalDisplayName)}
                         </span>
-                        <h3 className="placement-entry-groupTitle">{replaceFceDisplayName(group.title, displayLabels)}</h3>
+                        <h3 className="placement-entry-groupTitle">{replaceGeneralDisplayName(group.title, displayLabels)}</h3>
                       </div>
                       <span className="placement-entry-groupCount">
                         {group.items.length} test{group.items.length === 1 ? "" : "s"}
@@ -374,6 +374,8 @@ const PlacementEntry = () => {
                           ? "orange"
                           : item.platform === "gateway"
                             ? "gateway"
+                            : item.platform === "general"
+                              ? "general"
                             : "ix";
 
                         return (
@@ -383,7 +385,7 @@ const PlacementEntry = () => {
                           >
                             <div className="placement-entry-testHeader">
                               <span className={`placement-entry-testBadge placement-entry-testBadge--${itemAccent}`}>
-                                {replaceFceDisplayName(item.badge, displayLabels) || getPlatformLabel(item.platform, fceDisplayName)}
+                                {replaceGeneralDisplayName(item.badge, displayLabels) || getPlatformLabel(item.platform, generalDisplayName)}
                               </span>
                               <span className="placement-entry-testNumber">{group.startIndex + index + 1}</span>
                             </div>
@@ -395,7 +397,7 @@ const PlacementEntry = () => {
                             ) : null}
 
                             <div className="placement-entry-testMeta">
-                              <span>{getPlatformLabel(item.platform, fceDisplayName)}</span>
+                              <span>{getPlatformLabel(item.platform, generalDisplayName)}</span>
                               <span>{item.skill}</span>
                               {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                               {item.durationLabel ? <span>{item.durationLabel}</span> : null}

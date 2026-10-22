@@ -74,8 +74,8 @@ const buildSubmissionTypeFilter = (testType) => {
       [Op.or]: [
         { testType: { [Op.like]: '%-reading' } },
         { testType: { [Op.in]: BASE_READING_CAMBRIDGE_TEST_TYPES } },
-        { testType: 'fce-reading' },
-        { testType: 'fce-reading-60' },
+        { testType: 'general-reading' },
+        { testType: 'general-reading-60' },
         { testType: 'gateway-reading-writing' },
       ],
     };
@@ -95,10 +95,8 @@ const buildSubmissionPlatformFilter = (platform) => {
     return null;
   }
 
-  if (normalized === 'fce') {
-    return sequelizeWhere(fn('LOWER', col('testType')), {
-      [Op.like]: 'fce-%',
-    });
+  if (normalized === 'general') {
+    return sequelizeWhere(fn('LOWER', col('testType')), { [Op.like]: 'general-%' });
   }
 
   if (normalized === 'gateway') {
@@ -111,7 +109,7 @@ const buildSubmissionPlatformFilter = (platform) => {
     return {
       [Op.and]: [
         sequelizeWhere(fn('LOWER', col('testType')), {
-          [Op.notLike]: 'fce-%',
+          [Op.notLike]: 'general-%',
         }),
         sequelizeWhere(fn('LOWER', col('testType')), {
           [Op.notLike]: 'gateway-%',
@@ -165,7 +163,11 @@ const autosaveCambridgeSubmission = async ({
   if (!numericTestId || !normalizedTestType) {
     throw createServiceError(400, 'Missing testId or testType.');
   }
-  if ((platform === 'gateway') !== normalizedTestType.toLowerCase().startsWith('gateway-')) {
+  const normalizedTypeLower = normalizedTestType.toLowerCase();
+  if (
+    (platform === 'gateway' && !normalizedTypeLower.startsWith('gateway-')) ||
+    (platform === 'general' && !normalizedTypeLower.startsWith('general-'))
+  ) {
     throw createServiceError(400, 'Test type does not match the selected platform.');
   }
 
@@ -180,6 +182,8 @@ const autosaveCambridgeSubmission = async ({
       : {};
   const normalizedProgressMeta = normalizeCambridgeProgressMeta(progressMeta);
   const now = new Date();
+  const placementPlatform =
+    platform === 'general' ? 'general' : platform === 'gateway' ? 'gateway' : 'orange';
 
   if (placementAttemptItemToken) {
     const skill = normalizedTestType.toLowerCase().includes('listening')
@@ -187,7 +191,7 @@ const autosaveCambridgeSubmission = async ({
       : 'reading';
     const { attempt, submission } = await placementService.getRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform: placementPlatform,
       skill,
       testId: String(numericTestId),
       testType: normalizedTestType,
@@ -222,11 +226,12 @@ const autosaveCambridgeSubmission = async ({
 
       await placementService.syncRuntimeSubmissionForAttemptItem({
         attemptItemToken: placementAttemptItemToken,
-        platform: 'orange',
+        platform: placementPlatform,
         skill,
         testId: String(numericTestId),
         testType: normalizedTestType,
-        runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
+        runtimeSubmissionModel:
+          platform === 'gateway' ? 'gateway' : platform === 'general' ? 'general' : 'cambridge',
         runtimeSubmissionId: submission.id,
         status: 'started',
       });
@@ -269,11 +274,12 @@ const autosaveCambridgeSubmission = async ({
 
     await placementService.syncRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform: placementPlatform,
       skill,
       testId: String(numericTestId),
       testType: normalizedTestType,
-      runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
+      runtimeSubmissionModel:
+        platform === 'gateway' ? 'gateway' : platform === 'general' ? 'general' : 'cambridge',
       runtimeSubmissionId: created.id,
       status: 'started',
     });

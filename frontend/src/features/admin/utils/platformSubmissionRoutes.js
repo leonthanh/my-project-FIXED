@@ -10,9 +10,9 @@ export const PLATFORM_SUBMISSION_PAGE_BY_GROUP = Object.freeze({
     reading: "/admin/cambridge-submissions?view=reading",
   }),
   general: Object.freeze({
-    all: "/admin/fce-submissions",
-    listening: "/admin/fce-submissions?view=listening",
-    reading: "/admin/fce-submissions?view=reading",
+    all: "/admin/general-submissions",
+    listening: "/admin/general-submissions?view=listening",
+    reading: "/admin/general-submissions?view=reading",
   }),
 });
 
@@ -45,8 +45,8 @@ export const getSubmissionResultRoute = (testType, submissionId) => {
   if (normalizedTestType.startsWith("gateway-")) {
     return `/gateway/result/${encodedId}`;
   }
-  if (normalizedTestType === "fce-reading-60") {
-    return `/fce/result/${encodedId}`;
+  if (normalizedTestType === "general-reading-60") {
+    return `/general/result/${encodedId}`;
   }
   return `/cambridge/result/${encodedId}`;
 };

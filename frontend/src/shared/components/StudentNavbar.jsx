@@ -6,7 +6,7 @@ import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import {
   IX_HUB_PATH,
   ORANGE_HUB_PATH,
-  FCE_HUB_PATH,
+  GENERAL_HUB_PATH,
   GATEWAY_HUB_PATH,
 } from "../config/examRegistry";
 import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
@@ -119,7 +119,7 @@ const StudentNavbar = () => {
   const moreDropdownRef = useRef(null);
   const navRef = useRef(null);
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -448,7 +448,7 @@ const StudentNavbar = () => {
 
   const ixHubPath = IX_HUB_PATH;
   const orangeHubPath = ORANGE_HUB_PATH;
-  const fceHubPath = FCE_HUB_PATH;
+  const generalHubPath = GENERAL_HUB_PATH;
   const gatewayHubPath = GATEWAY_HUB_PATH;
 
   const getPreferredMobileTab = () => {
@@ -456,13 +456,13 @@ const StudentNavbar = () => {
     if (pathname.startsWith("/my-feedback")) return "feedback";
     if (pathname.startsWith("/gateway/")) return "gateway";
     if (pathname.startsWith("/cambridge")) return "orange";
-    if (pathname.startsWith("/fce")) return "fce";
+    if (pathname.startsWith("/general")) return "general";
     if (pathname.startsWith("/select-test")) {
       const params = new URLSearchParams(location.search || "");
       const platform = params.get("platform");
       if (platform === "gateway") return "gateway";
       if (platform === "orange") return "orange";
-      if (platform === "fce") return "fce";
+      if (platform === "general") return "general";
       return "ielts";
     }
     return "overview";
@@ -498,7 +498,7 @@ const StudentNavbar = () => {
     ? new URLSearchParams(location.search || "").get("platform")
     : null;
   const isIxCurrent =
-    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "fce" && platformParam !== "gateway") ||
+    (pathname.startsWith("/select-test") && platformParam !== "orange" && platformParam !== "general" && platformParam !== "gateway") ||
     pathname.startsWith("/reading/") ||
     pathname.startsWith("/listening/") ||
     pathname.startsWith("/writing-test");
@@ -506,9 +506,9 @@ const StudentNavbar = () => {
     (pathname.startsWith("/select-test") && platformParam === "orange") ||
     pathname.startsWith("/cambridge/") ||
     pathname.startsWith("/pet-writing");
-  const isFceCurrent =
-    (pathname.startsWith("/select-test") && platformParam === "fce") ||
-    pathname.startsWith("/fce/");
+  const isGeneralCurrent =
+    (pathname.startsWith("/select-test") && platformParam === "general") ||
+    pathname.startsWith("/general/");
   const isGatewayCurrent =
     (pathname.startsWith("/select-test") && platformParam === "gateway") ||
     pathname.startsWith("/gateway/");
@@ -520,7 +520,7 @@ const StudentNavbar = () => {
     { key: "ielts", label: "IX" },
     { key: "gateway", label: "Gateway" },
     { key: "orange", label: "Orange" },
-    { key: "fce", label: fceDisplayName },
+    { key: "general", label: generalDisplayName },
     {
       key: "feedback",
       label: `Feedback${totalNotifications > 0 ? ` (${totalNotifications})` : ""}`,
@@ -576,9 +576,9 @@ const StudentNavbar = () => {
           {renderMobileQuickLink(gatewayHubPath, "Gateway", "Open Gateway to the World tests", "tests")}
           {renderMobileQuickLink(orangeHubPath, "Orange", "Open Orange practice tests", "cambridge")}
           {renderMobileQuickLink(
-            fceHubPath,
-            fceDisplayName,
-            `Open ${fceDisplayName} practice tests`,
+            generalHubPath,
+            generalDisplayName,
+            `Open ${generalDisplayName} practice tests`,
             "tests"
           )}
           {renderMobileQuickLink(
@@ -651,19 +651,19 @@ const StudentNavbar = () => {
     </>
   );
 
-  const renderMobileFce = () => (
+  const renderMobileGeneral = () => (
     <>
       <div className="studentNavbar__mobileMenuTop">
-        <div className="studentNavbar__mobileMenuTitle">{fceDisplayName}</div>
+        <div className="studentNavbar__mobileMenuTitle">{generalDisplayName}</div>
         <div className="studentNavbar__mobileMenuHint">
-          Jump to {fceDisplayName} placement tests.
+          Jump to {generalDisplayName} placement tests.
         </div>
       </div>
       <div className="studentNavbar__mobileMenuBody studentNavbar__mobileMenuBody--compact">
         {renderMobileQuickLink(
-          fceHubPath,
-          `Open ${fceDisplayName} tests`,
-          `Go to the ${fceDisplayName} test hub`,
+          generalHubPath,
+          `Open ${generalDisplayName} tests`,
+          `Go to the ${generalDisplayName} test hub`,
           "tests"
         )}
       </div>
@@ -737,7 +737,7 @@ const StudentNavbar = () => {
   const renderMobileDrawerContent = () => {
     if (mobileDrawerTab === "ielts") return renderMobileIelts();
     if (mobileDrawerTab === "orange") return renderMobileOrange();
-    if (mobileDrawerTab === "fce") return renderMobileFce();
+    if (mobileDrawerTab === "general") return renderMobileGeneral();
     if (mobileDrawerTab === "gateway") return renderMobileGateway();
     if (mobileDrawerTab === "feedback") return renderMobileFeedback();
     return renderMobileOverview();
@@ -867,9 +867,9 @@ const StudentNavbar = () => {
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="cambridge" /></span>
           <span className="studentNavbar__label">Orange</span>
         </Link>
-        <Link to={fceHubPath} className={`studentNavbar__link${isFceCurrent ? " studentNavbar__link--active" : ""}`} title={fceDisplayName}>
+        <Link to={generalHubPath} className={`studentNavbar__link${isGeneralCurrent ? " studentNavbar__link--active" : ""}`} title={generalDisplayName}>
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-          <span className="studentNavbar__label">{fceDisplayName}</span>
+          <span className="studentNavbar__label">{generalDisplayName}</span>
         </Link>
 
         <button
@@ -929,12 +929,12 @@ const StudentNavbar = () => {
                 <span>Orange</span>
               </Link>
               <Link
-                to={fceHubPath}
+                to={generalHubPath}
                 className="studentNavbar__menuItem"
                 onClick={() => setMoreDropdownVisible(false)}
               >
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
-                <span>{fceDisplayName}</span>
+                <span>{generalDisplayName}</span>
               </Link>
               <Link
                 to="/my-feedback"

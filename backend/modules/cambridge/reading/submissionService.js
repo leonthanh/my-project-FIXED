@@ -67,13 +67,17 @@ const submitReadingTest = async ({
   }
 
   const test = ensureReadingRecord(await testModel.findByPk(id), forcedTestType);
+  const normalizedPlatformType = String(test.testType || '').trim().toLowerCase();
+  if (platform === 'general' && !normalizedPlatformType.startsWith('general-')) {
+    throw createServiceError(404, 'Không tìm thấy đề thi');
+  }
   const { score, total, percentage, detailedResults, breakdown } = scoreTest(test, answers);
 
   let placementContext = null;
   if (placementAttemptItemToken) {
     placementContext = await placementService.getRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform,
       skill: 'reading',
       testId: String(parseInt(id, 10)),
       testType: test.testType,
@@ -150,11 +154,12 @@ const submitReadingTest = async ({
   if (placementAttemptItemToken) {
     await placementService.syncRuntimeSubmissionForAttemptItem({
       attemptItemToken: placementAttemptItemToken,
-      platform: 'orange',
+      platform,
       skill: 'reading',
       testId: String(parseInt(id, 10)),
       testType: test.testType,
-      runtimeSubmissionModel: platform === 'gateway' ? 'gateway' : 'cambridge',
+      runtimeSubmissionModel:
+        platform === 'gateway' ? 'gateway' : platform === 'general' ? 'general' : 'cambridge',
       runtimeSubmissionId: submission.id,
       status: 'submitted',
       correct: score,
@@ -201,7 +206,8 @@ const listReadingTestSubmissions = async ({
       where[Op.or] = [
         { testType: { [Op.like]: '%-reading' } },
         { testType: { [Op.in]: BASE_READING_CAMBRIDGE_TEST_TYPES } },
-        { testType: 'fce-reading-60' },
+        { testType: 'general-reading' },
+        { testType: 'general-reading-60' },
       ];
     }
   }

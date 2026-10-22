@@ -406,7 +406,7 @@ const MyFeedback = () => {
   }, [searchClassCode, searchTeacher, searchFeedbackBy, gatewaySubmissions]);
 
   const isGeneralSubmission = (submission) =>
-    String(submission?.testType || "").trim().toLowerCase().startsWith("fce-");
+    String(submission?.testType || "").trim().toLowerCase().startsWith("general-");
   const generalSubmissions = cambridgeSubmissions.filter(isGeneralSubmission);
   const orangeSubmissions = cambridgeSubmissions.filter((submission) => !isGeneralSubmission(submission));
   const filteredGeneral = filteredCambridge.filter(isGeneralSubmission);

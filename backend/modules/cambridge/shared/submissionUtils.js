@@ -6,6 +6,9 @@ const {
   GatewayListening,
   GatewayReading,
   GatewaySubmission,
+  GeneralListening,
+  GeneralReading,
+  GeneralSubmission,
 } = require('../../../models');
 const {
   getCambridgeResponseFeedbackText,
@@ -63,8 +66,12 @@ const countPendingManualAnswers = (submission) => {
 
 const getCambridgeModelByType = (testType = '', platform = 'cambridge') => {
   const normalized = String(testType || '').trim().toLowerCase();
-  if (String(platform || '').trim().toLowerCase() === 'gateway') {
+  const normalizedPlatform = String(platform || '').trim().toLowerCase();
+  if (normalizedPlatform === 'gateway') {
     return normalized.includes('listening') ? GatewayListening : GatewayReading;
+  }
+  if (normalizedPlatform === 'general') {
+    return normalized.includes('listening') ? GeneralListening : GeneralReading;
   }
   return normalized.includes('listening') ? CambridgeListening : CambridgeReading;
 };

@@ -12,6 +12,9 @@ jest.mock('../models/CambridgeSubmission', () => ({ findAll: jest.fn(), destroy:
 jest.mock('../models/GatewayReading', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
 jest.mock('../models/GatewayListening', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
 jest.mock('../models/GatewaySubmission', () => ({ findAll: jest.fn(), destroy: jest.fn() }));
+jest.mock('../models/GeneralReading', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
+jest.mock('../models/GeneralListening', () => ({ findAll: jest.fn(), findByPk: jest.fn() }));
+jest.mock('../models/GeneralSubmission', () => ({ findAll: jest.fn(), destroy: jest.fn() }));
 jest.mock('../middlewares/auth', () => ({
   requireAuth: (_req, _res, next) => next(),
   optionalAuth: (_req, _res, next) => next(),
@@ -31,6 +34,9 @@ const CambridgeSubmission = require('../models/CambridgeSubmission');
 const GatewayReading = require('../models/GatewayReading');
 const GatewayListening = require('../models/GatewayListening');
 const GatewaySubmission = require('../models/GatewaySubmission');
+const GeneralReading = require('../models/GeneralReading');
+const GeneralListening = require('../models/GeneralListening');
+const GeneralSubmission = require('../models/GeneralSubmission');
 const router = require('../routes/admin');
 
 const getRouteHandler = (path, method) => {
@@ -48,6 +54,9 @@ describe('GET /admin/tests payload', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    GeneralReading.findAll.mockResolvedValue([]);
+    GeneralListening.findAll.mockResolvedValue([]);
+    GeneralSubmission.findAll.mockResolvedValue([]);
   });
 
   test('keeps PET Writing in the Cambridge bucket with a PET title', async () => {
@@ -159,6 +168,54 @@ describe('GET /admin/tests payload', () => {
         typeLabel: 'Gateway Reading-Writing',
         submissionCount: 3,
         deleteScope: 'gateway-reading',
+      }),
+    ]);
+  });
+
+  test('returns General tests and submissions in their own bucket', async () => {
+    WritingTest.findAll.mockResolvedValue([]);
+    ReadingTest.findAll.mockResolvedValue([]);
+    ListeningTest.findAll.mockResolvedValue([]);
+    CambridgeReading.findAll.mockResolvedValue([]);
+    CambridgeListening.findAll.mockResolvedValue([]);
+    GatewayReading.findAll.mockResolvedValue([]);
+    GatewayListening.findAll.mockResolvedValue([]);
+    GeneralReading.findAll.mockResolvedValue([
+      {
+        id: 71,
+        title: 'General Reading',
+        testType: 'general-reading-60',
+        classCode: 'GEN-A',
+        teacherName: 'General Teacher',
+        totalQuestions: 30,
+        status: 'published',
+        createdAt: '2026-05-18T00:00:00.000Z',
+      },
+    ]);
+    GeneralListening.findAll.mockResolvedValue([]);
+    Submission.findAll.mockResolvedValue([]);
+    ReadingSubmission.findAll.mockResolvedValue([]);
+    ListeningSubmission.findAll.mockResolvedValue([]);
+    CambridgeSubmission.findAll.mockResolvedValue([]);
+    GatewaySubmission.findAll.mockResolvedValue([]);
+    GeneralSubmission.findAll.mockResolvedValue([
+      { testId: 71, testType: 'general-reading-60', count: 2 },
+    ]);
+
+    const res = {
+      json: jest.fn(),
+      status: jest.fn(function status() { return this; }),
+    };
+    await getTestsHandler({}, res);
+
+    const payload = res.json.mock.calls[0][0];
+    expect(payload.cambridge).toEqual([]);
+    expect(payload.general).toEqual([
+      expect.objectContaining({
+        id: 71,
+        typeLabel: 'General Reading',
+        submissionCount: 2,
+        deleteScope: 'general-reading',
       }),
     ]);
   });

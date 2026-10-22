@@ -5,7 +5,7 @@ const BLANK_PLACEHOLDER = '_____';
 
 /**
  * StoryWritingEditor - Teacher editor for story writing questions
- * Used in: FCE Reading
+ * Used in: General Reading
  */
 const StoryWritingEditor = ({ section, onChange }) => {
   const [data, setData] = useState({

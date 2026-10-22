@@ -1,0 +1,160 @@
+.exam-level-hub {
+  width: min(1120px, calc(100% - 32px));
+  margin: 32px auto;
+  color: #172033;
+}
+
+.exam-level-hub__header,
+.exam-level-hub__skillHeader,
+.exam-level-hub__cardTop,
+.exam-level-hub__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exam-level-hub__header {
+  padding: 28px;
+  margin-bottom: 24px;
+  border: 1px solid #dce4f0;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff 0%, #f3f7ff 100%);
+}
+
+.exam-level-hub__header h1,
+.exam-level-hub__skill h2,
+.exam-level-hub__card h3,
+.exam-level-hub__header p {
+  margin: 0;
+}
+
+.exam-level-hub__header h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+.exam-level-hub__header p,
+.exam-level-hub__skillHeader p,
+.exam-level-hub__card p,
+.exam-level-hub__empty {
+  color: #607089;
+}
+
+.exam-level-hub__eyebrow {
+  color: #4568a5 !important;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.exam-level-hub__back,
+.exam-level-hub__create,
+.exam-level-hub__actions button {
+  border: 1px solid #cad5e5;
+  border-radius: 10px;
+  padding: 9px 13px;
+  background: #fff;
+  color: #24344d;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exam-level-hub__create {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-color: #315caa;
+  background: #315caa;
+  color: #fff;
+}
+
+.exam-level-hub__skill {
+  padding: 24px;
+  margin: 18px 0;
+  border: 1px solid #dce4f0;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.exam-level-hub__skillHeader {
+  margin-bottom: 18px;
+}
+
+.exam-level-hub__skillHeader p {
+  margin: 4px 0 0;
+}
+
+.exam-level-hub__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+
+.exam-level-hub__card {
+  padding: 18px;
+  border: 1px solid #dce4f0;
+  border-radius: 14px;
+  background: #fbfcff;
+}
+
+.exam-level-hub__cardTop {
+  margin-bottom: 14px;
+  color: #4568a5;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.exam-level-hub__cardTop strong {
+  color: #607089;
+  font-size: 11px;
+}
+
+.exam-level-hub__card h3 {
+  font-size: 18px;
+}
+
+.exam-level-hub__card p {
+  margin: 8px 0 16px;
+  font-size: 13px;
+}
+
+.exam-level-hub__actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.exam-level-hub__actions button:first-child {
+  border-color: #315caa;
+  background: #315caa;
+  color: #fff;
+}
+
+.exam-level-hub__empty {
+  margin: 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f5f7fb;
+}
+
+.exam-level-hub__error {
+  padding: 12px 16px;
+  border-radius: 10px;
+  color: #922;
+  background: #fff0f0;
+}
+
+.exam-level-page-state {
+  width: min(720px, calc(100% - 32px));
+  margin: 72px auto;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .exam-level-hub__header,
+  .exam-level-hub__skillHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

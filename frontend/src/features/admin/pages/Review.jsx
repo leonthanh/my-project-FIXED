@@ -365,7 +365,7 @@ const Review = () => {
         setLoadingGeneral(true);
         const buildUrl = (page) =>
           apiPath(
-            `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1&platform=fce`
+            `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1&platform=general`
           );
 
         const firstRes = await authFetch(buildUrl(1));

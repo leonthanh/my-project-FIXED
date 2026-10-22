@@ -8,6 +8,7 @@ import {
   parseClozeBlanksFromText,
   shouldIncludeSectionForPart,
 } from '../../../exam-core/shared/utils/examQuestionNumbering';
+import getClozeReviewCorrectAnswer from '../utils/clozeReviewAnswers';
 import QuestionDisplayFactory from '../../../../shared/components/questions/displays/QuestionDisplayFactory';
 import createListeningStyles from '../../../exam-core/shared/pages/ExamCoreListeningRuntime.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
@@ -979,7 +980,8 @@ function resolveStructuredAnswer({ partIdx, secIdx, qIdx = 0, itemIdx = null, an
     studentAnswer = result?.userAnswer;
   }
 
-  const correctAnswer = result?.correctAnswer ?? fallbackCorrectAnswer;
+  const resultCorrectAnswer = result?.correctAnswer;
+  const correctAnswer = hasAnswerValue(resultCorrectAnswer) ? resultCorrectAnswer : fallbackCorrectAnswer;
 
   return {
     result,
@@ -987,6 +989,10 @@ function resolveStructuredAnswer({ partIdx, secIdx, qIdx = 0, itemIdx = null, an
     correctAnswer,
     status: getResultStatus({ ...result, userAnswer: studentAnswer, correctAnswer }),
   };
+}
+
+function hasAnswerValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
 function renderSentenceWithAnswer(sentence, answer) {
@@ -1142,7 +1148,7 @@ function hasIntegratedLookReadWriteWriting(part) {
   });
 }
 
-function SectionShell({ title, typeLabel, rangeLabel, children, gatewayTheme = false }) {
+function SectionShell({ title, typeLabel, rangeLabel, headerActions = null, children, gatewayTheme = false }) {
   return (
     <div
       style={{
@@ -1155,17 +1161,22 @@ function SectionShell({ title, typeLabel, rangeLabel, children, gatewayTheme = f
           <h4 style={{ ...styles.sectionTitle, ...(gatewayTheme ? { color: '#1b5e20' } : {}) }}>{title}</h4>
           <p style={{ ...styles.sectionType, ...(gatewayTheme ? { color: '#2f7d46' } : {}) }}>{typeLabel}</p>
         </div>
-        {rangeLabel ? (
-          <span
-            style={{
-              ...styles.sectionRange,
-              ...(gatewayTheme
-                ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
-                : {}),
-            }}
-          >
-            {rangeLabel}
-          </span>
+        {rangeLabel || headerActions ? (
+          <div style={styles.partActions}>
+            {rangeLabel ? (
+              <span
+                style={{
+                  ...styles.sectionRange,
+                  ...(gatewayTheme
+                    ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
+                    : {}),
+                }}
+              >
+                {rangeLabel}
+              </span>
+            ) : null}
+            {headerActions}
+          </div>
         ) : null}
       </div>
       <div style={styles.sectionContent}>{children}</div>
@@ -1689,7 +1700,12 @@ function ClozeTestReview({
 
   const getBlankReview = (blankIdx) => {
     const blank = blanks[blankIdx] || {};
-    const fallbackCorrectAnswer = blank?.correctAnswer || question?.answers?.[blankIdx] || question?.answers?.[String(blank?.questionNum)] || '';
+    const fallbackCorrectAnswer = getClozeReviewCorrectAnswer({
+      question,
+      blank,
+      blankIdx,
+      blankCount: blanks.length,
+    });
     return resolveStructuredAnswer({
       partIdx,
       secIdx,
@@ -2254,15 +2270,19 @@ function WritingTaskReview({ sectionType, question, userAnswer, detailedResult, 
 }
 
 export default function CambridgeStudentStyleReview({ test, submission }) {
-  const testType = submission?.testType || '';
+  const testType = submission?.testType || test?.testType || '';
   const examType = getExamType(testType);
   const isListeningTest = /listening/i.test(testType);
   const isGatewayListeningTest = String(testType).trim().toLowerCase().startsWith('gateway-listening');
+  const isGatewayReadingWritingReview =
+    String(testType).trim().toLowerCase().startsWith('gateway-reading-writing') &&
+    test?.parts?.length === 1;
   const answers = submission?.answers && typeof submission.answers === 'object' ? submission.answers : {};
   const detailedResults = submission?.detailedResults && typeof submission.detailedResults === 'object'
     ? submission.detailedResults
     : {};
   const [expandedParts, setExpandedParts] = useState({});
+  const [expandedSections, setExpandedSections] = useState({});
   const questionRefs = useRef({});
 
   const questionStarts = useMemo(
@@ -2278,6 +2298,23 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
       next[partIdx] = expanded;
     });
     setExpandedParts(next);
+  };
+
+  const setAllSectionsExpanded = (expanded) => {
+    const next = {};
+    (test?.parts || []).forEach((part, partIdx) => {
+      (part.sections || []).forEach((_, secIdx) => {
+        next[`${partIdx}-${secIdx}`] = expanded;
+      });
+    });
+    setExpandedSections(next);
+  };
+
+  const setSectionExpanded = (partIdx, secIdx, expanded) => {
+    setExpandedSections((previous) => ({
+      ...previous,
+      [`${partIdx}-${secIdx}`]: expanded,
+    }));
   };
 
   const togglePart = (partIdx) => {
@@ -2310,14 +2347,34 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
 
       <div style={styles.reviewToolbar}>
         <div style={styles.reviewToolbarGroup}>
-          <span style={styles.introText}>You can collapse each part to keep the teacher review more compact.</span>
+          <span style={styles.introText}>
+            {isGatewayReadingWritingReview
+              ? 'You can collapse each section to keep the teacher review more compact.'
+              : 'You can collapse each part to keep the teacher review more compact.'}
+          </span>
         </div>
         <div style={styles.reviewToolbarGroup}>
-          <button type="button" style={styles.toolbarButton} onClick={() => setAllPartsExpanded(true)}>
-            Expand all parts
+          <button
+            type="button"
+            style={styles.toolbarButton}
+            onClick={() => (
+              isGatewayReadingWritingReview
+                ? setAllSectionsExpanded(true)
+                : setAllPartsExpanded(true)
+            )}
+          >
+            {isGatewayReadingWritingReview ? 'Expand all sections' : 'Expand all parts'}
           </button>
-          <button type="button" style={styles.toolbarButton} onClick={() => setAllPartsExpanded(false)}>
-            Collapse all parts
+          <button
+            type="button"
+            style={styles.toolbarButton}
+            onClick={() => (
+              isGatewayReadingWritingReview
+                ? setAllSectionsExpanded(false)
+                : setAllPartsExpanded(false)
+            )}
+          >
+            {isGatewayReadingWritingReview ? 'Collapse all sections' : 'Collapse all parts'}
           </button>
         </div>
       </div>
@@ -2352,43 +2409,49 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
             const sectionType = getSectionType(section);
             return sectionType === 'short-message' || sectionType === 'story-writing';
           });
-        const isExpanded = expandedParts[partIdx] ?? true;
+        const isExpanded = isGatewayReadingWritingReview ? true : expandedParts[partIdx] ?? true;
 
         return (
           <div
             key={`part-${partIdx}`}
             style={{
-              ...styles.partCard,
-              ...(isGatewayListeningTest ? { borderColor: '#cfe6d3', borderTop: '3px solid #2f7d46' } : {}),
+              ...(isGatewayReadingWritingReview
+                ? { display: 'grid', gap: '16px' }
+                : {
+                    ...styles.partCard,
+                    ...(isGatewayListeningTest ? { borderColor: '#cfe6d3', borderTop: '3px solid #2f7d46' } : {}),
+                  }),
             }}
           >
-            <div style={styles.partHeader}>
-              <div>
-                <p style={{ ...styles.partEyebrow, ...(isGatewayListeningTest ? { color: '#2f7d46' } : {}) }}>
-                  {isGatewayListeningTest ? gatewayPartLabel.toUpperCase() : `Part ${partIdx + 1}`}
-                </p>
-                <h3 style={{ ...styles.partTitle, ...(isGatewayListeningTest ? { color: '#1b5e20' } : {}) }}>
-                  {isGatewayListeningTest ? gatewayPartLabel : part.partTitle || `Part ${partIdx + 1}`}
-                </h3>
+            {!isGatewayReadingWritingReview && (
+              <div style={styles.partHeader}>
+                <div>
+                  <p style={{ ...styles.partEyebrow, ...(isGatewayListeningTest ? { color: '#2f7d46' } : {}) }}>
+                    {isGatewayListeningTest ? gatewayPartLabel.toUpperCase() : `Part ${partIdx + 1}`}
+                  </p>
+                  <h3 style={{ ...styles.partTitle, ...(isGatewayListeningTest ? { color: '#1b5e20' } : {}) }}>
+                    {isGatewayListeningTest ? gatewayPartLabel : part.partTitle || `Part ${partIdx + 1}`}
+                  </h3>
+                </div>
+                <div style={styles.partActions}>
+                  <span
+                    style={{
+                      ...styles.partRange,
+                      ...(isGatewayListeningTest
+                        ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
+                        : {}),
+                    }}
+                  >
+                    {partRangeLabel}
+                  </span>
+                  <button type="button" style={styles.partToggleButton} onClick={() => togglePart(partIdx)}>
+                    {isExpanded ? 'Collapse' : 'Expand'}
+                  </button>
+                </div>
               </div>
-              <div style={styles.partActions}>
-                <span
-                  style={{
-                    ...styles.partRange,
-                    ...(isGatewayListeningTest
-                      ? { background: '#e8f5e9', color: '#2f7d46', border: '1px solid #b7dfc0' }
-                      : {}),
-                  }}
-                >
-                  {partRangeLabel}
-                </span>
-                <button type="button" style={styles.partToggleButton} onClick={() => togglePart(partIdx)}>
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </button>
-              </div>
-            </div>
+            )}
 
-            {isExpanded && part.instruction && !standaloneWritingOnly ? (
+            {!isGatewayReadingWritingReview && isExpanded && part.instruction && !standaloneWritingOnly ? (
               <div
                 style={{
                   ...styles.partInstruction,
@@ -2398,7 +2461,7 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
               />
             ) : null}
 
-            {isExpanded && part.audioUrl ? (
+            {!isGatewayReadingWritingReview && isExpanded && part.audioUrl ? (
               <audio controls preload="metadata" src={resolveAsset(part.audioUrl)} style={styles.partAudio} />
             ) : null}
 
@@ -2420,6 +2483,26 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                   ? `Question ${sectionStart}`
                   : `Questions ${sectionStart}-${sectionStart + questionCount - 1}`
                 : 'Writing task';
+              const sectionKey = `${partIdx}-${secIdx}`;
+              const isSectionExpanded = expandedSections[sectionKey] ?? true;
+              const sectionHeaderActions = isGatewayReadingWritingReview ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    style={styles.partToggleButton}
+                    onClick={() => setSectionExpanded(partIdx, secIdx, true)}
+                  >
+                    Expand
+                  </button>
+                  <button
+                    type="button"
+                    style={styles.partToggleButton}
+                    onClick={() => setSectionExpanded(partIdx, secIdx, false)}
+                  >
+                    Collapse
+                  </button>
+                </div>
+              ) : null;
 
               let questionCursor = sectionStart;
               const content = (section.questions || []).map((question, qIdx) => {
@@ -2924,9 +3007,14 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                   title={section.sectionTitle || getSectionDisplayName(sectionType)}
                   typeLabel={getSectionDisplayName(sectionType)}
                   rangeLabel={rangeLabel}
+                  headerActions={sectionHeaderActions}
                   gatewayTheme={isGatewayListeningTest}
                 >
-                  {content}
+                  {isGatewayReadingWritingReview && !isSectionExpanded ? (
+                    <div style={styles.collapsedNote}>
+                      This section is collapsed. Select Expand to reopen its questions and answers.
+                    </div>
+                  ) : content}
                 </SectionShell>
               );
             })}

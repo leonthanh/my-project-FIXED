@@ -433,8 +433,8 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     );
   };
 
-  const isFceReading60 = useMemo(
-    () => String(submission?.testType || '').trim().toLowerCase() === 'fce-reading-60',
+  const isGeneralReading60 = useMemo(
+    () => String(submission?.testType || '').trim().toLowerCase() === 'general-reading-60',
     [submission?.testType]
   );
 
@@ -836,7 +836,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
 
     const total = detailSummary
       ? detailSummary.total
-      : isFceReading60 || isGatewaySubmission
+      : isGeneralReading60 || isGatewaySubmission
         ? Number(submission.totalQuestions) || resultsForStats.length || 0
       : mappedQuestionResults.length || Number(submission.totalQuestions) || 0;
     const displayedScore = detailSummary?.correct ?? (Number(score) || 0);
@@ -851,7 +851,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       unanswered: unansweredCount,
       grade: getGrade(displayedPercentage)
     };
-  }, [getResultStatus, isFceReading60, isGatewaySubmission, mappedQuestionResults, submission]);
+  }, [getResultStatus, isGeneralReading60, isGatewaySubmission, mappedQuestionResults, submission]);
 
   // Get grade based on percentage
   function getGrade(percentage) {

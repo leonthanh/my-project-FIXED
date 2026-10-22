@@ -13,31 +13,34 @@ import {
   normalizeOrangeType,
 } from '../../domains/cambridge/config/levels';
 import {
-  DEFAULT_FCE_SKILL,
-  DEFAULT_FCE_TYPE,
-  normalizeFceSkill,
-} from '../../domains/fce/config';
+  DEFAULT_GENERAL_SKILL,
+  DEFAULT_GENERAL_TYPE,
+  normalizeGeneralSkill,
+} from '../../domains/general/config';
 
 export const PLATFORM_TABS = [
   { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
   { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
   { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
-  { key: 'fce', label: 'FCE', icon: 'tests', hint: 'Placement-style combined skills.' },
+  { key: 'general', label: 'General', icon: 'tests', hint: 'Placement-style combined skills.' },
 ];
 
 export function buildPlatformTabs(displayLabels = {}) {
-  const fceDisplayName = String(displayLabels?.fceDisplayName || 'FCE').trim() || 'FCE';
+  const generalDisplayName = String(displayLabels?.generalDisplayName || 'General').trim() || 'General';
 
   return [
     { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
     { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
     { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
-    { key: 'fce', label: fceDisplayName, icon: 'tests', hint: 'Placement-style combined skills.' },
+    { key: 'general', label: generalDisplayName, icon: 'tests', hint: 'Placement-style combined skills.' },
   ];
 }
 
 export function normalizeSelectTestState({ platform, type, tab }) {
-  if (platform === 'orange') {
+  const requestedPlatform = String(platform || '').trim().toLowerCase();
+  const normalizedPlatform = requestedPlatform;
+
+  if (normalizedPlatform === 'orange') {
     const orangeType = normalizeOrangeType(type);
 
     return {
@@ -46,29 +49,29 @@ export function normalizeSelectTestState({ platform, type, tab }) {
       gatewayTab: DEFAULT_GATEWAY_SKILL,
       orangeType,
       orangeTab: normalizeOrangeSkill(orangeType, tab),
-      fceTab: DEFAULT_FCE_SKILL,
+      generalTab: DEFAULT_GENERAL_SKILL,
     };
   }
 
-  if (platform === 'fce') {
+  if (normalizedPlatform === 'general') {
     return {
-      platform: 'fce',
+      platform: 'general',
       ixTab: DEFAULT_IX_SKILL,
       gatewayTab: DEFAULT_GATEWAY_SKILL,
       orangeType: normalizeOrangeType(type),
       orangeTab: normalizeOrangeSkill(type, tab),
-      fceTab: normalizeFceSkill(tab),
+      generalTab: normalizeGeneralSkill(tab),
     };
   }
 
-  if (platform === 'gateway') {
+  if (normalizedPlatform === 'gateway') {
     return {
       platform: 'gateway',
       ixTab: DEFAULT_IX_SKILL,
       gatewayTab: normalizeGatewaySkill(tab),
       orangeType: normalizeOrangeType(type),
       orangeTab: normalizeOrangeSkill(type, tab),
-      fceTab: DEFAULT_FCE_SKILL,
+      generalTab: DEFAULT_GENERAL_SKILL,
     };
   }
 
@@ -78,7 +81,7 @@ export function normalizeSelectTestState({ platform, type, tab }) {
     gatewayTab: DEFAULT_GATEWAY_SKILL,
     orangeType: normalizeOrangeType(type),
     orangeTab: normalizeOrangeSkill(type, tab),
-    fceTab: DEFAULT_FCE_SKILL,
+    generalTab: DEFAULT_GENERAL_SKILL,
   };
 }
 
@@ -103,10 +106,10 @@ export function buildSelectTestPath({ platform = 'ix', type = DEFAULT_ORANGE_TYP
   } else if (normalized.platform === 'gateway') {
     params.set('platform', 'gateway');
     params.set('tab', normalized.gatewayTab);
-  } else if (normalized.platform === 'fce') {
-    params.set('platform', 'fce');
-    params.set('type', DEFAULT_FCE_TYPE);
-    params.set('tab', normalized.fceTab);
+  } else if (normalized.platform === 'general') {
+    params.set('platform', 'general');
+    params.set('type', DEFAULT_GENERAL_TYPE);
+    params.set('tab', normalized.generalTab);
   } else {
     params.set('platform', 'ix');
     params.set('tab', normalized.ixTab);
@@ -126,10 +129,10 @@ export const ORANGE_HUB_PATH = buildSelectTestPath({
   tab: DEFAULT_ORANGE_SKILL,
 });
 
-export const FCE_HUB_PATH = buildSelectTestPath({
-  platform: 'fce',
-  type: DEFAULT_FCE_TYPE,
-  tab: DEFAULT_FCE_SKILL,
+export const GENERAL_HUB_PATH = buildSelectTestPath({
+  platform: 'general',
+  type: DEFAULT_GENERAL_TYPE,
+  tab: DEFAULT_GENERAL_SKILL,
 });
 
 export const GATEWAY_HUB_PATH = buildSelectTestPath({

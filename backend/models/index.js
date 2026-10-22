@@ -13,6 +13,9 @@ const CambridgeSubmission = require("./CambridgeSubmission");
 const GatewayListening = require("./GatewayListening");
 const GatewayReading = require("./GatewayReading");
 const GatewaySubmission = require("./GatewaySubmission");
+const GeneralListening = require("./GeneralListening");
+const GeneralReading = require("./GeneralReading");
+const GeneralSubmission = require("./GeneralSubmission");
 const AnalyticsEvent = require("./AnalyticsEvent");
 const PlacementPackage = require("./PlacementPackage");
 const PlacementPackageItem = require("./PlacementPackageItem");
@@ -20,6 +23,9 @@ const PlacementAttempt = require("./PlacementAttempt");
 const PlacementAttemptItem = require("./PlacementAttemptItem");
 const RefreshToken = require("./RefreshToken");
 const AppSetting = require("./AppSetting");
+const ExamLevel = require("./ExamLevel");
+const ExamLevelTest = require("./ExamLevelTest");
+const ExamLevelSubmission = require("./ExamLevelSubmission");
 
 // Quan hệ WritingTest ↔ Submission
 WritingTest.hasMany(Submission, { foreignKey: "testId" });
@@ -63,11 +69,30 @@ GatewayReading.hasMany(GatewaySubmission, {
   scope: { testType: 'gateway-reading-writing' }
 });
 
+GeneralListening.hasMany(GeneralSubmission, {
+  foreignKey: "testId",
+  constraints: false,
+});
+
+GeneralReading.hasMany(GeneralSubmission, {
+  foreignKey: "testId",
+  constraints: false,
+});
+
+ExamLevel.hasMany(ExamLevelTest, { foreignKey: "levelId", constraints: false });
+ExamLevelTest.belongsTo(ExamLevel, { foreignKey: "levelId", constraints: false });
+ExamLevel.hasMany(ExamLevelSubmission, { foreignKey: "levelId", constraints: false });
+ExamLevelSubmission.belongsTo(ExamLevel, { foreignKey: "levelId", constraints: false });
+ExamLevelTest.hasMany(ExamLevelSubmission, { foreignKey: "testId", constraints: false });
+ExamLevelSubmission.belongsTo(ExamLevelTest, { foreignKey: "testId", constraints: false });
+
 // Quan hệ User ↔ CambridgeSubmission
 User.hasMany(CambridgeSubmission, { foreignKey: "userId" });
 CambridgeSubmission.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(GatewaySubmission, { foreignKey: "userId", constraints: false });
 GatewaySubmission.belongsTo(User, { foreignKey: "userId", constraints: false });
+User.hasMany(GeneralSubmission, { foreignKey: "userId", constraints: false });
+GeneralSubmission.belongsTo(User, { foreignKey: "userId", constraints: false });
 
 // Refresh tokens
 User.hasMany(RefreshToken, { foreignKey: "userId" });
@@ -92,6 +117,9 @@ module.exports = {
   GatewayListening,
   GatewayReading,
   GatewaySubmission,
+  GeneralListening,
+  GeneralReading,
+  GeneralSubmission,
   AnalyticsEvent,
   PlacementPackage,
   PlacementPackageItem,
@@ -99,4 +127,7 @@ module.exports = {
   PlacementAttemptItem,
   RefreshToken,
   AppSetting,
+  ExamLevel,
+  ExamLevelTest,
+  ExamLevelSubmission,
 };

@@ -1,0 +1,3432 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
+/* eslint-disable-next-line no-unused-vars */
+import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../../shared/utils/placementTests";
+import { getGeneralSelectTestPathForTestType } from "../../config/navigation";
+import TestHeader from "../../../../shared/components/TestHeader";
+import ExtensionToast from "../../../../shared/components/ExtensionToast";
+import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
+import TestStartModal from "../../../../shared/components/TestStartModal";
+import ConfirmModal from "../../../../shared/components/ConfirmModal";
+import InlineIcon from "../../../../shared/components/InlineIcon.jsx";
+import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
+import QuestionDisplayFactory from "../../../../shared/components/questions/displays/QuestionDisplayFactory";
+import PrepositionGapFillDisplay from "../../../../shared/components/questions/displays/PrepositionGapFillDisplay";
+import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
+import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
+import ReadingOpenQuestionsDisplay from "../../../../shared/components/questions/displays/ReadingOpenQuestionsDisplay";
+import ExamCoreResultsModal from "../../../exam-core/shared/components/ExamCoreResultsModal";
+import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import {
+  formatClock,
+  getExtensionToastMessage,
+  getGraceRemainingSeconds,
+  getRemainingSeconds,
+  toTimestamp,
+} from "../../../../shared/utils/testTiming";
+import { getRuntimeSyncRateLimitMessage } from "../../../../shared/utils/runtimeRateLimit";
+import { formatStudentDisplayName } from "../../../../shared/utils/personName";
+import {
+  getServerCooldownMs,
+  recordRuntimeSyncRequestMetric,
+} from "../../../../shared/utils/runtimeSync";
+import {
+  replaceGeneralDisplayName,
+  useDisplaySettings,
+} from "../../../../shared/contexts/DisplaySettingsContext";
+import "./DoGeneralReadingTest.css";
+
+const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
+const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+
+const resolvePartIllustrationUrl = (imageUrl) => {
+  const normalized = String(imageUrl || '').trim();
+  if (!normalized) return '';
+  return /^https?:\/\//i.test(normalized) ? normalized : hostPath(normalized);
+};
+
+const PartIllustrationCard = ({ imageUrl, alt = 'Part illustration' }) => {
+  const resolvedImageUrl = resolvePartIllustrationUrl(imageUrl);
+  if (!resolvedImageUrl) return null;
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '18px' }}>
+      <div
+        style={{
+          width: 'min(100%, 640px)',
+          padding: '10px',
+          borderRadius: '22px',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+          border: '1px solid rgba(148, 163, 184, 0.28)',
+          boxShadow: '0 18px 34px rgba(15, 23, 42, 0.08)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '10px',
+            color: '#475569',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <InlineIcon name="image" size={14} />
+          <span>Part illustration</span>
+        </div>
+        <img
+          src={resolvedImageUrl}
+          alt={alt}
+          style={{
+            display: 'block',
+            width: '100%',
+            maxHeight: '300px',
+            objectFit: 'contain',
+            borderRadius: '16px',
+            background: '#f8fafc',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+/**
+ * DoGeneralReadingTest - General (B2 First) Reading Test runtime
+ */
+const DoGeneralReadingTest = ({
+  defaultTestType = 'general-reading-60',
+  fetchBasePath = 'general/reading-tests',
+  submitBasePath = 'general/reading-tests',
+}) => {
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routeTestType = defaultTestType;
+  const placementContext = useMemo(
+    () => readPlacementRuntimeContext({ pathname: location.pathname, search: location.search }),
+    [location.pathname, location.search]
+  );
+  const isPlacementRuntime = Boolean(
+    placementContext.isPlacementRuntime && placementContext.placementAttemptItemToken
+  );
+  const { displayLabels } = useDisplaySettings();
+  const generalDisplayName = String(displayLabels?.generalDisplayName || 'General').trim() || 'General';
+  const examType = generalDisplayName;
+
+  const startedKey = useMemo(() => `general_reading_test_${id}_started`, [id]);
+
+  // Stable user ID: isolates data per-student on shared devices
+  const storageUserId = useMemo(() => {
+    if (placementContext.placementAttemptItemToken) {
+      return `placement:${placementContext.placementAttemptItemToken}`;
+    }
+
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      return u?.id || 'anon';
+    } catch (e) { return 'anon'; }
+  }, [placementContext.placementAttemptItemToken]);
+  const camReadTimeKey  = useMemo(() => `general_reading_${id}_expiresAt:${storageUserId}`, [id, storageUserId]);
+  const camReadAnsKey   = useMemo(() => `general_reading_${id}_answers:${storageUserId}`, [id, storageUserId]);
+  const camReadStartKey = useMemo(() => `general_reading_${id}_started:${storageUserId}`, [id, storageUserId]);
+  const camReadSubmissionKey = useMemo(() => `general_reading_${id}_submissionId:${storageUserId}`, [id, storageUserId]);
+  const annotationStorageKey = useMemo(() => `${camReadAnsKey}:annotations`, [camReadAnsKey]);
+  const expiresAtRef = useRef(null);
+  const submissionIdRef = useRef(null);
+  const confirmSubmitRef = useRef(null);
+  const autoSubmittingRef = useRef(false);
+  const lastAnnouncedExpiryRef = useRef(null);
+  const autosaveBlockedUntilRef = useRef(0);
+  const autosaveInFlightRef = useRef(false);
+  const timingSyncBlockedUntilRef = useRef(0);
+  const timingSyncInFlightRef = useRef(false);
+
+  // States
+  const [test, setTest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [results, setResults] = useState(null);
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(null); // Will be set from localStorage or config
+  const [graceRemaining, setGraceRemaining] = useState(0);
+  const [extensionToast, setExtensionToast] = useState("");
+  const [runtimeLimitToast, setRuntimeLimitToast] = useState("");
+  /* eslint-disable-next-line no-unused-vars */
+  const [activeQuestion, setActiveQuestion] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Current question number
+  const [flaggedQuestions, setFlaggedQuestions] = useState(new Set()); // Flagged questions
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  const testType = useMemo(
+    () => String(test?.testType || routeTestType || 'general-reading-60').trim().toLowerCase(),
+    [routeTestType, test?.testType]
+  );
+
+  // Started flag for the test (show start modal and control timer)
+  const [started, setStarted] = useState(() => {
+    try {
+      return localStorage.getItem(`general_reading_${id}_started:${storageUserId}`) === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+  
+  // Divider resize state
+  const [leftWidth, setLeftWidth] = useState(50); // Percentage
+  const [isResizing, setIsResizing] = useState(false);
+  const [isSignSplitCompact, setIsSignSplitCompact] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
+  ));
+  const containerRef = useRef(null);
+  const annotationLayoutRef = useRef(null);
+  const annotationContentRef = useRef(null);
+
+  /* eslint-disable-next-line no-unused-vars */
+  const questionRefs = useRef({});
+
+  const resolveTestConfig = useCallback((rawType) => {
+    const normalized = String(rawType || '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    // Support alias routes like "movers-reading" while configs are keyed as "movers".
+    const candidates = [
+      normalized,
+      normalized.replace(/-reading$/i, ''),
+      normalized.replace(/-listening$/i, ''),
+      normalized === 'general-reading' ? 'general-reading-60' : '',
+    ];
+
+    for (const key of candidates) {
+      if (TEST_CONFIGS[key]) return TEST_CONFIGS[key];
+    }
+    return null;
+  }, []);
+
+  // Get test config - will be updated once test data is loaded
+  const testConfig = useMemo(() => {
+    if (routeTestType) {
+      const fromUrl = resolveTestConfig(routeTestType);
+      if (fromUrl) return fromUrl;
+    }
+    if (test?.testType) {
+      const fromData = resolveTestConfig(test.testType);
+      if (fromData) return fromData;
+    }
+    return TEST_CONFIGS['general-reading-60'];
+  }, [resolveTestConfig, routeTestType, test?.testType]);
+
+  const localizedTestConfigName = useMemo(
+    () => replaceGeneralDisplayName(testConfig?.name || '', displayLabels),
+    [displayLabels, testConfig?.name]
+  );
+
+  const headerTitle = useMemo(
+    () => localizedTestConfigName || 'Reading & Writing',
+    [localizedTestConfigName]
+  );
+
+  const currentStudentName = useMemo(() => {
+    const user = getStoredUser();
+    return formatStudentDisplayName(
+      user?.name || user?.username || user?.fullName || user?.email,
+      "Student"
+    );
+  }, []);
+
+  const effectiveDuration = useMemo(() => {
+    // Prefer the authoritative config duration for the test's type (avoids DB default of 60
+    // being used for tests that never had duration saved explicitly).
+    const fromConfig = Number(testConfig.duration);
+    if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
+    const fromTest = Number(test?.duration);
+    if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
+    return 60;
+  }, [test?.duration, testConfig.duration]);
+
+  const syncTimingState = useCallback(
+    (expiresAtValue, fallbackSeconds = null) => {
+      const expiresAtMs = toTimestamp(expiresAtValue);
+      if (Number.isFinite(expiresAtMs)) {
+        expiresAtRef.current = expiresAtMs;
+        try {
+          localStorage.setItem(camReadTimeKey, String(expiresAtMs));
+        } catch (_err) {
+          // ignore storage errors
+        }
+        setTimeRemaining(getRemainingSeconds(expiresAtMs));
+        setGraceRemaining(getGraceRemainingSeconds(expiresAtMs));
+        return true;
+      }
+
+      expiresAtRef.current = null;
+      setGraceRemaining(0);
+      if (fallbackSeconds !== null) {
+        setTimeRemaining(fallbackSeconds);
+      }
+      return false;
+    },
+    [camReadTimeKey]
+  );
+
+  const announceExtension = useCallback((nextExpiresAtValue, previousExpiresAtValue) => {
+    const nextExpiresAtMs = toTimestamp(nextExpiresAtValue);
+    const message = getExtensionToastMessage(previousExpiresAtValue, nextExpiresAtMs);
+    const lastAnnouncedMs = toTimestamp(lastAnnouncedExpiryRef.current);
+
+    if (!message || !Number.isFinite(nextExpiresAtMs)) return;
+    if (Number.isFinite(lastAnnouncedMs) && Math.abs(lastAnnouncedMs - nextExpiresAtMs) <= 1000) {
+      return;
+    }
+
+    lastAnnouncedExpiryRef.current = nextExpiresAtMs;
+    setExtensionToast(message);
+  }, []);
+
+  useEffect(() => {
+    if (!extensionToast) return;
+    const timeoutId = setTimeout(() => setExtensionToast(""), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [extensionToast]);
+
+  useEffect(() => {
+    if (!runtimeLimitToast) return;
+    const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
+    return () => clearTimeout(timeoutId);
+  }, [runtimeLimitToast]);
+
+  const sanitizeQuillHtml = useCallback((html) => {
+    if (typeof html !== 'string' || !html.trim()) return '';
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+
+      // Remove empty images
+      doc.querySelectorAll('img').forEach(img => {
+        const src = (img.getAttribute('src') || '').trim();
+        if (!src) img.remove();
+      });
+
+      // Remove empty paragraphs and collapse repeated <br>
+      doc.querySelectorAll('p').forEach(p => {
+        const text = (p.textContent || '').replace(/\u00a0/g, ' ').trim();
+        const hasImg = p.querySelector('img');
+        const brCount = p.querySelectorAll('br').length;
+        if (!text && !hasImg && brCount > 0) {
+          p.remove();
+        }
+      });
+
+      return doc.body.innerHTML;
+    } catch (err) {
+      console.warn('sanitizeQuillHtml failed:', err);
+      return html;
+    }
+  }, []);
+
+  const stripOptionLabel = useCallback((raw = '') => {
+    const s = String(raw).trim();
+    const m = s.match(/^[A-H](?:\.\s*|\s+)(.+)$/i);
+    return m ? m[1].trim() : s;
+  }, []);
+
+  // Fetch test data
+  useEffect(() => {
+    const fetchTest = async () => {
+      try {
+        setLoading(true);
+        const localUser = getStoredUser();
+        const savedSubmissionId = localStorage.getItem(camReadSubmissionKey);
+        if (savedSubmissionId) {
+          submissionIdRef.current = savedSubmissionId;
+        }
+        const res = await fetch(apiPath(`${fetchBasePath}/${id}`));
+        if (!res.ok) throw new Error("Không tìm thấy đề thi");
+        const data = await res.json();
+
+        // Parse parts JSON
+        let parsedParts = typeof data.parts === "string"
+          ? JSON.parse(data.parts)
+          : data.parts;
+
+        const parsedData = {
+          ...data,
+          parts: parsedParts,
+        };
+
+        setTest(parsedData);
+
+        let restoredFromServer = false;
+        const query = placementContext.placementAttemptItemToken
+          ? `?placementAttemptItemToken=${encodeURIComponent(
+              placementContext.placementAttemptItemToken
+            )}`
+          : submissionIdRef.current
+            ? `?submissionId=${submissionIdRef.current}`
+            : localUser?.id
+              ? `?userId=${localUser.id}`
+              : "";
+
+        // Check if there's saved data for this test
+        const savedExpiry = localStorage.getItem(camReadTimeKey);
+        const savedAnswers = localStorage.getItem(camReadAnsKey);
+        // Prefer testType config duration over the DB value (DB defaults to 60 for all types)
+        const configDuration = Number(TEST_CONFIGS[data.testType]?.duration);
+        const rawDuration = Number(data.duration);
+        const resolvedDuration = Number.isFinite(configDuration) && configDuration > 0
+          ? configDuration
+          : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
+        const durationSeconds = resolvedDuration * 60;
+
+        if (query) {
+          try {
+            const activeRes = await fetch(
+              apiPath(
+                `general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
+              )
+            );
+            if (activeRes.ok) {
+              const payload = await activeRes.json().catch(() => null);
+              const draft = payload?.submission || null;
+              if (draft && draft.finished !== true) {
+                restoredFromServer = true;
+                if (draft.id) {
+                  submissionIdRef.current = draft.id;
+                  localStorage.setItem(camReadSubmissionKey, String(draft.id));
+                }
+
+                const serverAnswers =
+                  draft.answers &&
+                  typeof draft.answers === "object" &&
+                  !Array.isArray(draft.answers)
+                    ? draft.answers
+                    : {};
+                setAnswers(serverAnswers);
+                localStorage.setItem(camReadAnsKey, JSON.stringify(serverAnswers));
+
+                const expiresAtMs = draft.expiresAt
+                  ? new Date(draft.expiresAt).getTime()
+                  : null;
+                if (Number.isFinite(expiresAtMs)) {
+                  syncTimingState(expiresAtMs, durationSeconds);
+                } else {
+                  setTimeRemaining(durationSeconds);
+                  setGraceRemaining(0);
+                }
+
+                const progressMeta =
+                  draft.progressMeta &&
+                  typeof draft.progressMeta === "object" &&
+                  !Array.isArray(draft.progressMeta)
+                    ? draft.progressMeta
+                    : {};
+                const resumedStarted =
+                  progressMeta.started === true ||
+                  Boolean(expiresAtMs) ||
+                  Object.keys(serverAnswers).length > 0;
+                setStarted(resumedStarted);
+                localStorage.setItem(camReadStartKey, resumedStarted ? "true" : "false");
+                setHasSavedProgress(true);
+
+                if (Number.isFinite(Number(progressMeta.currentPartIndex))) {
+                  setCurrentPartIndex(Number(progressMeta.currentPartIndex));
+                }
+                if (Number.isFinite(Number(progressMeta.currentQuestionIndex))) {
+                  setCurrentQuestionIndex(Number(progressMeta.currentQuestionIndex));
+                }
+              }
+            }
+          } catch (resumeErr) {
+            console.error("Error restoring Cambridge reading draft:", resumeErr);
+          }
+        }
+
+        if (!restoredFromServer && (savedExpiry || savedAnswers)) {
+          // Restore existing progress (even if answers are empty)
+          setHasSavedProgress(true);
+          if (savedExpiry) {
+            syncTimingState(parseInt(savedExpiry, 10), durationSeconds);
+          } else {
+            setTimeRemaining(durationSeconds);
+            setGraceRemaining(0);
+          }
+          try {
+            setAnswers(savedAnswers ? JSON.parse(savedAnswers) : {});
+          } catch (e) {
+            console.error("Error parsing saved answers:", e);
+            setAnswers({});
+          }
+        } else if (!restoredFromServer) {
+          // New test - clean up any old saved data and start fresh
+          setHasSavedProgress(false);
+          localStorage.removeItem(camReadTimeKey);
+          localStorage.removeItem(camReadAnsKey);
+          localStorage.removeItem(camReadSubmissionKey);
+          // If there's no saved progress, force start modal again
+          localStorage.removeItem(camReadStartKey);
+          setStarted(false);
+          setTimeRemaining(durationSeconds);
+          setGraceRemaining(0);
+          setAnswers({});
+        }
+      } catch (err) {
+        console.error("Error fetching test:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTest();
+  }, [
+    camReadAnsKey,
+    camReadStartKey,
+    camReadSubmissionKey,
+    camReadTimeKey,
+    fetchBasePath,
+    id,
+    placementContext.placementAttemptItemToken,
+    syncTimingState,
+    testConfig.duration,
+    startedKey,
+  ]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (submitted || !started || !Number.isFinite(expiresAtRef.current)) return;
+
+    const tick = () => {
+      const expiresAtMs = expiresAtRef.current;
+      if (!Number.isFinite(expiresAtMs)) return;
+
+      const remaining = getRemainingSeconds(expiresAtMs);
+      const nextGraceRemaining = getGraceRemainingSeconds(expiresAtMs);
+
+      setTimeRemaining(remaining);
+      setGraceRemaining(nextGraceRemaining);
+
+      if (
+        remaining !== null &&
+        remaining <= 0 &&
+        nextGraceRemaining !== null &&
+        nextGraceRemaining <= 0 &&
+        !autoSubmittingRef.current &&
+        confirmSubmitRef.current
+      ) {
+        autoSubmittingRef.current = true;
+        confirmSubmitRef.current();
+      }
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    const onCheck = () => tick();
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [submitted, started]);
+
+  useEffect(() => {
+    if (
+      !started ||
+      submitted ||
+      timeRemaining === null ||
+      timeRemaining > 0
+    ) {
+      return;
+    }
+    if (autoSubmittingRef.current || !confirmSubmitRef.current) {
+      return;
+    }
+
+    autoSubmittingRef.current = true;
+    confirmSubmitRef.current();
+  }, [started, submitted, timeRemaining, graceRemaining]);
+
+  // Format time display
+  const formatTime = (seconds) => {
+    return formatClock(seconds);
+  };
+
+  // Handle answer change
+  const handleAnswerChange = useCallback(
+    (questionKey, value) => {
+      if (submitted) return;
+      setAnswers((prev) => {
+        const newAnswers = {
+          ...prev,
+          [questionKey]: value,
+        };
+        // Save to localStorage
+        localStorage.setItem(camReadAnsKey, JSON.stringify(newAnswers));
+        return newAnswers;
+      });
+    },
+    [submitted, camReadAnsKey]
+  );
+
+  useEffect(() => {
+    if (!started || submitted || timeRemaining === null) return;
+
+    const user = getStoredUser();
+    if (
+      !placementContext.placementAttemptItemToken &&
+      !user?.id &&
+      !submissionIdRef.current
+    ) {
+      return;
+    }
+
+    const persistDraft = async () => {
+      if (autosaveInFlightRef.current || Date.now() < autosaveBlockedUntilRef.current) {
+        return;
+      }
+      autosaveInFlightRef.current = true;
+      try {
+        const payload = {
+          submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
+          testId: id,
+          testType: testType,
+          answers,
+          expiresAt: expiresAtRef.current,
+          user,
+          progressMeta: {
+            started,
+            currentPartIndex,
+            currentQuestionIndex,
+          },
+        };
+        const res = await fetch(apiPath("general/submissions/autosave"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => null);
+        recordRuntimeSyncRequestMetric({
+          scope: "general-reading",
+          endpoint: "autosave",
+          status: res.status,
+        });
+        if (!res.ok) {
+          const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
+          if (runtimeMessage) {
+            setRuntimeLimitToast(runtimeMessage);
+          }
+          if (res.status === 429) {
+            autosaveBlockedUntilRef.current =
+              Date.now() + getServerCooldownMs(res, json || {});
+          }
+          return;
+        }
+
+        autosaveBlockedUntilRef.current = 0;
+        setRuntimeLimitToast("");
+        if (json?.submissionId) {
+          submissionIdRef.current = json.submissionId;
+          localStorage.setItem(camReadSubmissionKey, String(json.submissionId));
+        }
+        const nextExpiresAt = json?.timing?.expiresAt || json?.expiresAt;
+        if (nextExpiresAt) {
+          announceExtension(nextExpiresAt, expiresAtRef.current);
+          syncTimingState(nextExpiresAt);
+        }
+      } catch (_err) {
+        recordRuntimeSyncRequestMetric({
+          scope: "general-reading",
+          endpoint: "autosave",
+          status: "network_error",
+        });
+        // Keep local progress if the network is unavailable.
+      } finally {
+        autosaveInFlightRef.current = false;
+      }
+    };
+
+    const debounceId = setTimeout(persistDraft, 600);
+    const intervalId = setInterval(persistDraft, SERVER_AUTOSAVE_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persistDraft();
+    };
+    const onBeforeUnload = () => {
+      persistDraft();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      clearTimeout(debounceId);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [
+    answers,
+    camReadSubmissionKey,
+    currentPartIndex,
+    currentQuestionIndex,
+    id,
+    placementContext.placementAttemptItemToken,
+    started,
+    submitted,
+    testType,
+    timeRemaining,
+    announceExtension,
+    syncTimingState,
+  ]);
+
+  const reconcileServerTiming = useCallback(async () => {
+    if (!started || submitted) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
+
+    const localUser = getStoredUser();
+    const query = placementContext.placementAttemptItemToken
+      ? `?placementAttemptItemToken=${encodeURIComponent(
+          placementContext.placementAttemptItemToken
+        )}`
+      : submissionIdRef.current
+        ? `?submissionId=${submissionIdRef.current}`
+        : localUser?.id
+          ? `?userId=${localUser.id}`
+          : "";
+    if (!query || !test) return;
+
+    try {
+      timingSyncInFlightRef.current = true;
+      const res = await fetch(
+        apiPath(`general/submissions/active${query}&testId=${id}&testType=${encodeURIComponent(testType)}`)
+      );
+      recordRuntimeSyncRequestMetric({
+        scope: "general-reading",
+        endpoint: "active",
+        status: res.status,
+      });
+      if (res.status === 429) {
+        timingSyncBlockedUntilRef.current =
+          Date.now() + getServerCooldownMs(res);
+        return;
+      }
+      if (!res.ok) return;
+      timingSyncBlockedUntilRef.current = 0;
+      const data = await res.json().catch(() => ({}));
+      const nextExpiresAt = data?.submission?.expiresAt || data?.timing?.expiresAt;
+      const nextExpiresAtMs = toTimestamp(nextExpiresAt);
+      const currentExpiresAtMs = toTimestamp(expiresAtRef.current);
+
+      if (
+        Number.isFinite(nextExpiresAtMs) &&
+        (!Number.isFinite(currentExpiresAtMs) || Math.abs(nextExpiresAtMs - currentExpiresAtMs) > 1000)
+      ) {
+        announceExtension(nextExpiresAtMs, currentExpiresAtMs);
+        syncTimingState(nextExpiresAtMs);
+      }
+    } catch (_err) {
+      recordRuntimeSyncRequestMetric({
+        scope: "general-reading",
+        endpoint: "active",
+        status: "network_error",
+      });
+      // ignore polling errors; autosave and refresh can still recover timing
+    } finally {
+      timingSyncInFlightRef.current = false;
+    }
+  }, [announceExtension, id, placementContext.placementAttemptItemToken, started, submitted, syncTimingState, test, testType]);
+
+  useEffect(() => {
+    if (!started || submitted || !test) return;
+
+    reconcileServerTiming();
+    const intervalId = setInterval(
+      reconcileServerTiming,
+      SERVER_TIMING_RECONCILE_INTERVAL_MS
+    );
+    const onCheck = () => {
+      if (document.visibilityState !== "hidden") {
+        reconcileServerTiming();
+      }
+    };
+
+    window.addEventListener("focus", onCheck);
+    document.addEventListener("visibilitychange", onCheck);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onCheck);
+      document.removeEventListener("visibilitychange", onCheck);
+    };
+  }, [reconcileServerTiming, started, submitted, test]);
+
+  // Handle submit
+  const handleSubmit = () => setShowConfirm(true);
+
+  // Confirm and submit
+  const confirmSubmit = async () => {
+    try {
+      // Get user info from localStorage
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const initialTime = effectiveDuration * 60;
+      const timeSpent = initialTime - timeRemaining;
+
+      // Calculate results locally
+      const localResults = calculateLocalResults();
+
+      // Submit to backend
+      const res = await fetch(apiPath(`${submitBasePath}/${id}/submit`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          submissionId: submissionIdRef.current,
+          placementAttemptItemToken:
+            placementContext.placementAttemptItemToken || undefined,
+          answers,
+          studentName: formatStudentDisplayName(user.name || user.username, 'Unknown'),
+          studentPhone: user.phone || null,
+          studentEmail: user.email || null,
+          classCode: test?.classCode || null,
+          userId: user.id || null,
+          timeRemaining,
+          timeSpent,
+          score: localResults.score,
+          correct: localResults.correct,
+          incorrect: localResults.incorrect,
+          total: localResults.total,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to submit the test");
+
+      const dr = data.detailedResults || {};
+      const backendCorrect = Object.values(dr).filter((result) => result.isCorrect === true).length;
+      const backendIncorrect = Object.values(dr).filter((result) => result.isCorrect === false).length;
+      const manualScoredTotal = Number(testConfig?.manualScoredTotal) || 0;
+
+      // Clear saved data from localStorage
+      localStorage.removeItem(camReadTimeKey);
+      localStorage.removeItem(camReadAnsKey);
+      localStorage.removeItem(camReadStartKey);
+      localStorage.removeItem(camReadSubmissionKey);
+      expiresAtRef.current = null;
+      submissionIdRef.current = null;
+
+      if (isPlacementRuntime && placementContext.placementAttemptToken) {
+        setSubmitted(true);
+        setShowConfirm(false);
+        navigate(buildPlacementAttemptPath(placementContext.placementAttemptToken), {
+          replace: true,
+        });
+      } else {
+        setResults({
+          score: data.score,
+          total: data.total,
+          autoScoredTotal: data.total,
+          percentage: data.percentage,
+          correct: backendCorrect,
+          incorrect: backendIncorrect,
+          breakdown: data.breakdown,
+          manualScoredTotal,
+          writingQuestions: localResults.writingQuestions || [],
+          writingCount: localResults.writingCount || 0,
+        });
+        setSubmitted(true);
+        setShowConfirm(false);
+      }
+    } catch (err) {
+      console.error("Error submitting:", err);
+      if (isPlacementRuntime) {
+        setShowConfirm(false);
+        alert(err?.message || "Could not submit this placement test. Please try again.");
+      } else {
+        // Calculate locally and show results even if backend fails
+        const localResults = calculateLocalResults();
+        setResults({
+          ...localResults,
+          total: Number(testConfig?.totalQuestions) || localResults.total,
+          manualScoredTotal: Number(testConfig?.manualScoredTotal) || 0,
+        });
+        setSubmitted(true);
+        setShowConfirm(false);
+        // Clear saved data on error too
+        localStorage.removeItem(camReadTimeKey);
+        localStorage.removeItem(camReadAnsKey);
+        localStorage.removeItem(camReadStartKey);
+        localStorage.removeItem(camReadSubmissionKey);
+        expiresAtRef.current = null;
+        submissionIdRef.current = null;
+      }
+    }
+  };
+
+  confirmSubmitRef.current = confirmSubmit;
+
+  // Calculate results locally (fallback)
+  const calculateLocalResults = () => {
+    let correct = 0;
+    let incorrect = 0;
+    let writingQuestions = [];
+    let debugInfo = [];
+    let scorableCount = 0;
+
+    const normalize = (val) => String(val).trim().toLowerCase();
+
+    const explode = (val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string' && (val.includes('/') || val.includes('|'))) {
+        return val.split(new RegExp('[\\/|]')).map((v) => v.trim()).filter(Boolean);
+      }
+      return [val];
+    };
+
+    // Use allQuestions for accurate scoring
+    allQuestions.forEach((q) => {
+      const questionType = q.nestedQuestion?.questionType
+        || q.section?.questionType
+        || q.question?.questionType;
+
+      // Skip writing tasks (manual scoring)
+      if (questionType === 'short-message' || questionType === 'story-writing') {
+        writingQuestions.push({
+          questionNumber: q.questionNumber,
+          sectionType: q.section.questionType,
+          answered: answers[q.key] ? true : false,
+          answer: answers[q.key] || null,
+        });
+        return;
+      }
+      // word-drag-cloze: answers stored as {partIdx}-{secIdx}-blank-{blank.number}
+      if (questionType === 'word-drag-cloze' && q.blank) {
+        const wdcKey = `${q.partIndex}-${q.sectionIndex}-blank-${q.blank.number}`;
+        const ua = answers[wdcKey];
+        const ca = q.blank.correctAnswer ?? q.blank.answer ?? q.blank.correct;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: word-drag-cloze no correctAnswer`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // story-completion: q.key = "{p}-{s}-item-{n}", q.item.answer = correct answer
+      if (questionType === 'story-completion' && q.item) {
+        const ua = answers[q.key];
+        const ca = q.item.answer ?? q.item.correctAnswer;
+        if (ca === undefined || ca === null) {
+          debugInfo.push(`Q${q.questionNumber}: story-completion no answer on item`);
+          return;
+        }
+        scorableCount++;
+        if (!ua) return;
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // look-read-write: q.key = "{p}-{s}-g{g}-item{i}", free-write items accept any non-empty
+      if (questionType === 'look-read-write' && q.item) {
+        const ua = answers[q.key];
+        const ca = (q.item.answer ?? q.item.correctAnswer ?? '').trim();
+        scorableCount++;
+        if (!ua || !ua.trim()) return;
+        if (!ca) { correct++; return; } // free-write: any answer accepted
+        const accepted = explode(ca);
+        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // matching: q.key = "{p}-{s}-{q}-{itemIdx}", correct answer from answers map or correctAnswer text
+      if (questionType === 'matching' && Array.isArray(q.question?.leftItems)) {
+        const expectedNum = q.questionNumber;
+        const answersMap = q.question.answers;
+        let correctAnswer = '';
+        if (answersMap && typeof answersMap === 'object') {
+          correctAnswer = answersMap[expectedNum] ?? answersMap[String(expectedNum)] ?? '';
+        }
+        if (!correctAnswer && q.question.correctAnswer) {
+          const text = String(q.question.correctAnswer);
+          const match = text.match(new RegExp(`(?:^|[^\\d])${expectedNum}\\s*[-=:]\\s*([A-H])`, 'i'));
+          if (match) correctAnswer = match[1].toUpperCase();
+        }
+        if (!correctAnswer) {
+          debugInfo.push(`Q${q.questionNumber}: matching no correctAnswer`);
+          return;
+        }
+        scorableCount++;
+        const ua = answers[q.key];
+        if (!ua) return;
+        if (normalize(ua) === normalize(correctAnswer)) correct++;
+        else incorrect++;
+        return;
+      }
+
+      // Word-form: score each sentence using its own key
+      if (questionType === 'word-form' && Array.isArray(q.question?.sentences)) {
+        q.question.sentences.forEach((sentence, sentIdx) => {
+          const legacyKey = `${q.partIndex}-${q.sectionIndex}-${sentIdx}`;
+          const primaryKey = `${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${sentIdx}`;
+          const userAnswer = answers[primaryKey] ?? answers[legacyKey];
+          const correctAnswer = sentence?.correctAnswer;
+
+          if (correctAnswer === undefined || correctAnswer === null) {
+            debugInfo.push(`Q${q.questionNumber + sentIdx}: No correctAnswer field`);
+            return;
+          }
+
+          scorableCount++;
+          if (!userAnswer) return;
+
+          const accepted = explode(correctAnswer);
+          const isCorrect = accepted.some((ans) => normalize(ans) === normalize(userAnswer));
+          if (isCorrect) {
+            correct++;
+          } else {
+            incorrect++;
+          }
+        });
+        return;
+      }
+
+      if (questionType === 'sentence-correction' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: sentence-correction no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      if (questionType === 'reading-open-questions' && q.item) {
+        const userAnswer = answers[q.key];
+        const correctAnswer = q.item.correctAnswer;
+
+        if (correctAnswer === undefined || correctAnswer === null) {
+          debugInfo.push(`Q${q.questionNumber}: reading-open-questions no correctAnswer`);
+          return;
+        }
+
+        scorableCount++;
+        if (!userAnswer) return;
+
+        const accepted = explode(correctAnswer);
+        if (accepted.some((ans) => normalize(ans) === normalize(userAnswer))) correct++;
+        else incorrect++;
+        return;
+      }
+
+      const userAnswer = answers[q.key];
+      let resolvedCorrect = q.nestedQuestion?.correctAnswer
+        ?? q.nestedQuestion?.answers
+        ?? q.nestedQuestion?.answer
+        ?? q.nestedQuestion?.correct
+        ?? q.blank?.correctAnswer
+        ?? q.blank?.answers
+        ?? q.blank?.answer
+        ?? q.blank?.correct
+        ?? q.question?.correctAnswer
+        ?? q.question?.answers
+        ?? q.question?.answer
+        ?? q.question?.correct;
+
+      // Object-form correct answers keyed by question number (e.g., {"25":"the"})
+      if (resolvedCorrect && typeof resolvedCorrect === 'object' && !Array.isArray(resolvedCorrect)) {
+        const key = String(q.blank?.questionNum || q.questionNumber);
+        resolvedCorrect = resolvedCorrect[key] ?? Object.values(resolvedCorrect)[0];
+      }
+      if (questionType === 'inline-choice' && typeof resolvedCorrect === 'string') {
+        resolvedCorrect = String(resolvedCorrect).replace(/^[A-H]\.\s*/i, '').trim();
+      }
+
+      // Missing correct answer: do not penalize, just log
+      if (resolvedCorrect === undefined || resolvedCorrect === null) {
+        debugInfo.push(`Q${q.questionNumber}: No correctAnswer field`);
+        return;
+      }
+
+      scorableCount++;
+
+      if (!userAnswer) return;
+
+      const checkArray = (expected, actual) => {
+        const normalizedActual = normalize(actual);
+        return expected.some((ans) => normalize(ans) === normalizedActual);
+      };
+
+      const checkAnswer = () => {
+        // MC types: case-insensitive letter compare
+        if (questionType === 'abc' || questionType === 'abcd' || questionType === 'long-text-mc' || questionType === 'cloze-mc') {
+          return normalize(userAnswer) === normalize(resolvedCorrect);
+        }
+
+        const accepted = explode(resolvedCorrect);
+        return checkArray(accepted, userAnswer);
+      };
+
+      if (checkAnswer()) {
+        correct++;
+      } else {
+        incorrect++;
+        debugInfo.push(
+          `Q${q.questionNumber}: user=${JSON.stringify(userAnswer)} expected=${JSON.stringify(resolvedCorrect)}`
+        );
+      }
+    });
+
+    const scorableQuestions = scorableCount;
+    const overallQuestionCount = Math.max(
+      Number(totalQuestions) || 0,
+      scorableQuestions + writingQuestions.length
+    );
+    const score = correct;
+
+    // Log debug info if there are issues
+    if (debugInfo.length > 0) {
+      console.warn('Scoring debug info:', debugInfo.slice(0, 10));
+    }
+
+    return {
+      score,
+      correct,
+      incorrect,
+      total: overallQuestionCount,
+      autoScoredTotal: scorableQuestions,
+      percentage: scorableQuestions > 0 ? Math.round((correct / scorableQuestions) * 100) : 0,
+      writingQuestions,
+      writingCount: writingQuestions.length,
+    };
+  };
+
+  // Get current part data
+  /* eslint-disable-next-line no-unused-vars */
+  const currentPart = useMemo(() => {
+    return test?.parts?.[currentPartIndex] || null;
+  }, [test?.parts, currentPartIndex]);
+
+  const questionStarts = useMemo(() => {
+    return computeQuestionStarts(test?.parts || []);
+  }, [test?.parts]);
+
+  // Calculate question number range for a part
+  const getPartQuestionRange = useCallback((partIndex) => {
+    if (!test?.parts) return { start: 1, end: 1 };
+
+    const startNum = questionStarts.sectionStart[`${partIndex}-0`] || 1;
+    let count = 0;
+    for (const sec of test.parts[partIndex]?.sections || []) {
+      count += getQuestionCountForSection(sec);
+    }
+
+    return { start: startNum, end: count > 0 ? startNum + count - 1 : startNum };
+  }, [test?.parts, questionStarts]);
+
+  const getStructuredSectionPrimaryQuestionIndex = useCallback((section) => {
+    const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
+    if (sectionQuestions.length <= 1) return 0;
+
+    if (section?.questionType === 'long-text-mc') {
+      const matchIndex = sectionQuestions.findIndex(
+        (question) => Array.isArray(question?.questions) && question.questions.length > 0
+      );
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    if (section?.questionType === 'cloze-mc' || section?.questionType === 'inline-choice') {
+      const matchIndex = sectionQuestions.findIndex(
+        (question) => Array.isArray(question?.blanks) && question.blanks.length > 0
+      );
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    if (section?.questionType === 'cloze-test') {
+      const matchIndex = sectionQuestions.findIndex((question) => {
+        if (Array.isArray(question?.blanks) && question.blanks.length > 0) return true;
+        return Boolean(String(question?.passageText || question?.passage || question?.clozeText || '').trim());
+      });
+      return matchIndex >= 0 ? matchIndex : 0;
+    }
+
+    return 0;
+  }, []);
+
+  const resolveExplicitQuestionNumber = useCallback((entry) => {
+    const sectionType = entry?.section?.questionType;
+    // For General internal multi-item types, item/group numbers are local to the section
+    // and should not override the global sequential numbering computed at runtime.
+    const ignoreItemNumber =
+      sectionType === 'preposition-gap-fill' ||
+      sectionType === 'odd-one-out' ||
+      sectionType === 'sentence-correction' ||
+      sectionType === 'reading-open-questions' ||
+      sectionType === 'matching';
+
+    const candidates = [
+      entry?.blank?.questionNum,
+      entry?.blank?.number,
+      entry?.nestedQuestion?.questionNumber,
+      entry?.nestedQuestion?.number,
+      ...(ignoreItemNumber ? [] : [entry?.item?.questionNumber, entry?.item?.number]),
+      entry?.prompt?.questionNumber,
+      entry?.prompt?.number,
+      entry?.question?.questionNumber,
+      entry?.question?.number,
+    ];
+
+    for (const candidate of candidates) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }, []);
+
+  const getClozeQuestionNumbersFromText = useCallback((text) => {
+    const numbers = [];
+    const seen = new Set();
+    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
+    let match;
+
+    while ((match = regex.exec(String(text || ''))) !== null) {
+      const questionNum = Number(match[1] || match[2]);
+      if (Number.isFinite(questionNum) && questionNum > 0 && !seen.has(questionNum)) {
+        seen.add(questionNum);
+        numbers.push(questionNum);
+      }
+    }
+
+    return numbers;
+  }, []);
+
+  const normalizeClozeTestBlanks = useCallback((question, fallbackStart) => {
+    const passageText = question?.passageText || question?.passage || question?.clozeText || '';
+    const passageNumbers = getClozeQuestionNumbersFromText(passageText);
+    const rawBlanks = Array.isArray(question?.blanks) ? question.blanks : [];
+    const rawBlankNumbers = new Set(
+      rawBlanks
+        .map((blank) => Number(blank?.questionNum || blank?.number))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+    );
+    const rawBlanksMatchPassage = passageNumbers.some((questionNum) => rawBlankNumbers.has(questionNum));
+
+    if (passageNumbers.length > 0 && (!rawBlanks.length || !rawBlanksMatchPassage)) {
+      return passageNumbers.map((questionNum) => ({ questionNum }));
+    }
+
+    if (rawBlanks.length > 0) return rawBlanks;
+
+    if (question?.answers && !Array.isArray(question.answers)) {
+      const answerNumbers = Object.keys(question.answers)
+        .map((questionNum) => Number(questionNum))
+        .filter((questionNum) => Number.isFinite(questionNum) && questionNum > 0)
+        .sort((a, b) => a - b);
+      if (answerNumbers.length > 0) {
+        return answerNumbers.map((questionNum) => ({ questionNum }));
+      }
+    }
+
+    return parseClozeBlanksFromText(passageText, fallbackStart);
+  }, [getClozeQuestionNumbersFromText]);
+
+  // Get all questions flattened
+  const allQuestions = useMemo(() => {
+    if (!test?.parts) return [];
+    const questions = [];
+    let qNum = 1;
+    
+    test.parts.forEach((part, pIdx) => {
+      part.sections?.forEach((section, sIdx) => {
+        section.questions?.forEach((q, qIdx) => {
+          const shouldRestrictToPrimaryStructuredQuestion =
+            section.questionType === 'long-text-mc' ||
+            section.questionType === 'cloze-test' ||
+            section.questionType === 'preposition-gap-fill' ||
+            section.questionType === 'odd-one-out' ||
+            section.questionType === 'sentence-correction' ||
+            section.questionType === 'reading-open-questions';
+
+          if (
+            shouldRestrictToPrimaryStructuredQuestion &&
+            qIdx !== getStructuredSectionPrimaryQuestionIndex(section)
+          ) {
+            return;
+          }
+
+          if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
+            q.questions.forEach((nestedQ, nestedIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                nestedIndex: nestedIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${nestedIdx}`,
+                question: q,
+                nestedQuestion: nestedQ,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'preposition-gap-fill' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'odd-one-out' && q.groups && Array.isArray(q.groups)) {
+            q.groups.forEach((group, groupIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                groupIndex: groupIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${groupIdx}`,
+                question: q,
+                group: group,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'sentence-correction' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'reading-open-questions' && q.items && Array.isArray(q.items)) {
+            q.items.forEach((item, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                item: item,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'matching' && Array.isArray(q.leftItems)) {
+            q.leftItems.forEach((leftItem, itemIdx) => {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                itemIndex: itemIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}-${itemIdx}`,
+                question: q,
+                section: section,
+                part: part,
+              });
+            });
+          } else if (section.questionType === 'cloze-test') {
+            const blanks = normalizeClozeTestBlanks(q, qNum);
+
+            if (blanks.length > 0) {
+              blanks.forEach((blank, blankIdx) => {
+                questions.push({
+                  partIndex: pIdx,
+                  sectionIndex: sIdx,
+                  questionIndex: qIdx,
+                  blankIndex: blankIdx,
+                  questionNumber: qNum++,
+                  key: `${pIdx}-${sIdx}-${qIdx}-${blankIdx}`,
+                  question: q,
+                  blank: blank,
+                  section: section,
+                  part: part,
+                });
+              });
+            } else {
+              questions.push({
+                partIndex: pIdx,
+                sectionIndex: sIdx,
+                questionIndex: qIdx,
+                questionNumber: qNum++,
+                key: `${pIdx}-${sIdx}-${qIdx}`,
+                question: q,
+                section: section,
+                part: part,
+              });
+            }
+          } else {
+            questions.push({
+              partIndex: pIdx,
+              sectionIndex: sIdx,
+              questionIndex: qIdx,
+              questionNumber: qNum++,
+              key: `${pIdx}-${sIdx}-${qIdx}`,
+              question: q,
+              section: section,
+              part: part,
+            });
+          }
+        });
+      });
+    });
+    
+    const explicitNumbers = new Set(
+      questions
+        .map((entry) => resolveExplicitQuestionNumber(entry))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    );
+
+    if (explicitNumbers.size === 0) {
+      return questions;
+    }
+
+    const maxExplicitNumber = Math.max(...explicitNumbers);
+    const assignedNumbers = new Set();
+    let nextFallbackNumber = 1;
+
+    return questions.reduce((normalizedEntries, entry) => {
+      const explicitQuestionNumber = resolveExplicitQuestionNumber(entry);
+
+      if (Number.isFinite(explicitQuestionNumber) && explicitQuestionNumber > 0) {
+        assignedNumbers.add(explicitQuestionNumber);
+        nextFallbackNumber = Math.max(nextFallbackNumber, explicitQuestionNumber + 1);
+        normalizedEntries.push({
+          ...entry,
+          questionNumber: explicitQuestionNumber,
+        });
+        return normalizedEntries;
+      }
+
+      while (explicitNumbers.has(nextFallbackNumber) || assignedNumbers.has(nextFallbackNumber)) {
+        nextFallbackNumber += 1;
+      }
+
+      const isWritingTask =
+        entry?.section?.questionType === 'short-message' ||
+        entry?.section?.questionType === 'story-writing';
+
+      // Keep all non-writing entries so multi-item sections are not silently dropped
+      // when their fallback number exceeds the max explicit number.
+      if (isWritingTask && nextFallbackNumber > maxExplicitNumber) {
+        normalizedEntries.push({
+          ...entry,
+          questionNumber: null,
+        });
+        return normalizedEntries;
+      }
+
+      assignedNumbers.add(nextFallbackNumber);
+      normalizedEntries.push({
+        ...entry,
+        questionNumber: nextFallbackNumber,
+      });
+      nextFallbackNumber += 1;
+      return normalizedEntries;
+    }, []);
+  }, [getStructuredSectionPrimaryQuestionIndex, normalizeClozeTestBlanks, resolveExplicitQuestionNumber, test?.parts]);
+
+  const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
+
+  const numberedQuestions = useMemo(() => {
+    return allQuestions.filter(isNumberedQuestion);
+  }, [allQuestions, isNumberedQuestion]);
+
+  const unnumberedQuestions = useMemo(() => {
+    return allQuestions.filter((q) => !isNumberedQuestion(q));
+  }, [allQuestions, isNumberedQuestion]);
+
+  const questionIndexByKey = useMemo(() => {
+    const indexMap = new Map();
+    allQuestions.forEach((q, index) => {
+      indexMap.set(q.key, index);
+    });
+    return indexMap;
+  }, [allQuestions]);
+
+  const isQuestionAnswered = useCallback((q) => {
+    if (q.section?.questionType === 'story-completion') {
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
+      if (Array.isArray(val)) return val.some(Boolean); // backward compat
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'look-read-write') {
+      const val = answers[q.key];
+      if (typeof val === "string") return val.trim().length > 0;
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'short-message' || q.section?.questionType === 'story-writing') {
+      const val = answers[q.key];
+      if (typeof val === 'string') return val.trim().length > 0;
+      return Boolean(val);
+    }
+    if (q.section?.questionType === 'word-drag-cloze') {
+      // WDC stores answers as `${partIdx}-${sectionIdx}-blank-${blank.number}`
+      const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
+      const blankAnswerKey = `${wdcPrefix}-blank-${q.blank?.number}`;
+      return Boolean((answers[blankAnswerKey] || '').trim());
+    }
+    if (q.section?.questionType === 'preposition-gap-fill' || q.section?.questionType === 'odd-one-out' || q.section?.questionType === 'sentence-correction' || q.section?.questionType === 'reading-open-questions' || q.section?.questionType === 'matching') {
+      const val = answers[q.key];
+      if (typeof val === 'string') return val.trim().length > 0;
+      return Boolean(val);
+    }
+    return Boolean(answers[q.key]);
+  }, [answers]);
+
+  const answeredObjectiveCount = useMemo(() => {
+    return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
+  }, [isQuestionAnswered, numberedQuestions]);
+
+  const actualQuestionCount = numberedQuestions.length;
+  const totalQuestions = numberedQuestions.reduce(
+    (maxQuestionNumber, question) => Math.max(maxQuestionNumber, question.questionNumber || 0),
+    actualQuestionCount
+  );
+  const hiddenQuestionSlots = Math.max(totalQuestions - actualQuestionCount, 0);
+  const answeredManualTaskCount = useMemo(() => {
+    return unnumberedQuestions.filter((q) => isQuestionAnswered(q)).length;
+  }, [isQuestionAnswered, unnumberedQuestions]);
+  const answeredCount = useMemo(() => {
+    if (hiddenQuestionSlots <= 0 || unnumberedQuestions.length === 0) {
+      return answeredObjectiveCount;
+    }
+
+    if (answeredManualTaskCount === 0) {
+      return answeredObjectiveCount;
+    }
+
+    const weightedManualAnswered = Math.round((answeredManualTaskCount / unnumberedQuestions.length) * hiddenQuestionSlots);
+    return Math.min(totalQuestions, answeredObjectiveCount + weightedManualAnswered);
+  }, [answeredManualTaskCount, answeredObjectiveCount, hiddenQuestionSlots, totalQuestions, unnumberedQuestions.length]);
+  const unansweredCount = Math.max(totalQuestions - answeredCount, 0);
+
+  // Get current question data
+  const currentQuestion = useMemo(() => {
+    return allQuestions[currentQuestionIndex] || null;
+  }, [allQuestions, currentQuestionIndex]);
+
+  const isWritingTaskQuestion = useMemo(() => {
+    const questionType = String(currentQuestion?.section?.questionType || '').trim().toLowerCase();
+    return questionType === 'short-message' || questionType === 'story-writing';
+  }, [currentQuestion?.section?.questionType]);
+
+  const usesSinglePanelLayout = useMemo(() => {
+    if (!currentQuestion) return false;
+
+    const questionType = String(currentQuestion.section?.questionType || '').trim().toLowerCase();
+    if (questionType !== 'abc') return false;
+
+    const partPassage = String(currentQuestion.part?.passage || '').replace(/<[^>]*>/g, ' ').trim();
+    const questionPassage = String(currentQuestion.question?.passage || '').replace(/<[^>]*>/g, ' ').trim();
+    const hasIllustration = Boolean(resolvePartIllustrationUrl(currentQuestion.part?.imageUrl));
+
+    return !partPassage && !questionPassage && !hasIllustration;
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    if (!allQuestions.length) return;
+    if (currentQuestionIndex >= 0 && currentQuestionIndex < allQuestions.length) return;
+
+    const fallbackIndex = Math.min(Math.max(currentQuestionIndex, 0), allQuestions.length - 1);
+    const fallbackQuestion = allQuestions[fallbackIndex];
+    setCurrentQuestionIndex(fallbackIndex);
+    if (fallbackQuestion) {
+      setCurrentPartIndex(fallbackQuestion.partIndex);
+      setActiveQuestion(fallbackQuestion.key);
+    }
+  }, [allQuestions, currentQuestionIndex]);
+
+  const currentCounterLabel = currentQuestion?.questionNumber ?? (currentQuestion ? 'W' : 0);
+
+  // Navigate to question
+  const goToQuestion = (index) => {
+    if (index >= 0 && index < allQuestions.length) {
+      const q = allQuestions[index];
+      
+      setCurrentQuestionIndex(index);
+      setCurrentPartIndex(q.partIndex);
+      setActiveQuestion(q.key);
+
+      // Scroll to question element and focus/open
+      setTimeout(() => {
+        if (!Number.isFinite(q.questionNumber)) return;
+        const questionElement = document.getElementById(`question-${q.questionNumber}`);
+        
+        if (questionElement) {
+          // Ưu tiên scroll container scroll riêng (cambridge-passage-column / overflow-y: auto)
+          // thay vì window, để left panel tự cuộn đúng vị trí
+          const scrollContainer = questionElement.closest('.cambridge-passage-column') ||
+                                  questionElement.closest('.cambridge-questions-column');
+          if (scrollContainer) {
+            const elemRect = questionElement.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const offset = elemRect.top - containerRect.top - (scrollContainer.clientHeight / 2) + (questionElement.offsetHeight / 2);
+            scrollContainer.scrollBy({ top: offset, behavior: 'smooth' });
+          } else {
+            questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          
+          if (typeof questionElement.focus === 'function') {
+            questionElement.focus();
+          }
+          
+          // If it's a select element (cloze-mc), focus and trigger open
+          if (questionElement.tagName === 'SELECT') {
+            questionElement.focus();
+            
+            // Try modern API first (Chrome 99+, Firefox 97+, Safari 16+)
+            if (questionElement.showPicker && typeof questionElement.showPicker === 'function') {
+              try {
+                questionElement.showPicker();
+              } catch (e) {
+                // Fallback silently
+              }
+            } else {
+              // Fallback: try keyboard event
+              const keyEvent = new KeyboardEvent('keydown', {
+                key: 'ArrowDown',
+                code: 'ArrowDown',
+                keyCode: 40,
+                altKey: true,
+                bubbles: true,
+                cancelable: true
+              });
+              questionElement.dispatchEvent(keyEvent);
+            }
+          } else if (questionElement.tagName === 'INPUT') {
+            // For cloze-test text inputs
+            questionElement.focus();
+            questionElement.select(); // Select all text to show cursor and highlight
+          } else {
+            // For container elements, focus the first interactive control inside
+            const firstControl = questionElement.querySelector('input[type="radio"], select, input[type="text"], button');
+            if (firstControl) {
+              firstControl.focus();
+            }
+            // Visual pulse: briefly highlight the container so the user notices it
+            questionElement.style.transition = 'outline 0.15s ease, box-shadow 0.15s ease';
+            questionElement.style.outline = '3px solid #7c3aed';
+            questionElement.style.boxShadow = '0 0 0 6px rgba(124, 58, 237, 0.25)';
+            setTimeout(() => {
+              questionElement.style.outline = '';
+              questionElement.style.boxShadow = '';
+              questionElement.style.transition = '';
+            }, 1400);
+          }
+        }
+      }, 200);
+    }
+  };
+
+  // Toggle flag
+  const toggleFlag = (questionKey) => {
+    setFlaggedQuestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(questionKey)) {
+        newSet.delete(questionKey);
+      } else {
+        newSet.add(questionKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Divider resize handlers
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizing || !containerRef.current) return;
+    
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+    
+    // Limit between 20% and 80%
+    if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+      setLeftWidth(newLeftWidth);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const mediaQuery = window.matchMedia('(max-width: 1024px)');
+    const syncCompactState = () => {
+      setIsSignSplitCompact(mediaQuery.matches);
+    };
+
+    syncCompactState();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncCompactState);
+      return () => mediaQuery.removeEventListener('change', syncCompactState);
+    }
+
+    mediaQuery.addListener(syncCompactState);
+    return () => mediaQuery.removeListener(syncCompactState);
+  }, []);
+
+  useEffect(() => {
+    if (isSignSplitCompact && isResizing) {
+      setIsResizing(false);
+    }
+  }, [isResizing, isSignSplitCompact]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="cambridge-loading flex min-h-[60vh] flex-col items-center justify-center gap-3 text-slate-700">
+        <div><InlineIcon name="loading" size={42} style={{ color: '#475569' }} /></div>
+        <h2 className="text-lg font-semibold">Loading test...</h2>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="cambridge-error flex min-h-[60vh] flex-col items-center justify-center gap-3 text-slate-700">
+        <div><InlineIcon name="error" size={42} style={{ color: '#dc2626' }} /></div>
+        <h2 className="text-lg font-semibold">Error: {error}</h2>
+        <button onClick={() => navigate(-1)} className="cambridge-nav-button">
+          ← Go back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={annotationContentRef} className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}`} data-student-annotation-layout="true">
+      <ExtensionToast message={extensionToast} />
+      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
+      {/* Start Modal (only starts timer after click) */}
+      {!started && !submitted && !loading && !error && (
+        <TestStartModal
+          iconName="reading"
+          eyebrow={examType}
+          subtitle="Reading Test"
+          title={test?.title || localizedTestConfigName || 'Cambridge Reading'}
+          stats={[
+            { value: Math.round(effectiveDuration), label: 'Minutes', tone: 'sky' },
+            { value: totalQuestions, label: 'Questions', tone: 'green' },
+          ]}
+          extraContent={hasSavedProgress ? (
+            <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+              <div style={{ fontWeight: 700, color: '#92400e', fontSize: 13, marginBottom: 3 }}>Resume previous attempt</div>
+              <div style={{ fontSize: 13, color: '#b45309' }}>
+                Time remaining: <b>{timeRemaining !== null ? formatTime(timeRemaining) : '--:--'}</b>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.6 }}>
+              Your answers are <b>auto-saved</b>. You can leave and come back later to continue.
+            </p>
+          )}
+          secondaryLabel="Exit"
+          onSecondary={() => navigate(-1)}
+          extraActions={hasSavedProgress ? [
+            {
+              label: 'Start over',
+              variant: 'danger',
+              onClick: () => {
+                const ok = window.confirm(
+                  "Are you sure you want to start over? All saved progress will be removed."
+                );
+                if (!ok) return;
+
+                try {
+                  localStorage.removeItem(camReadTimeKey);
+                  localStorage.removeItem(camReadAnsKey);
+                  localStorage.removeItem(camReadStartKey);
+                  localStorage.removeItem(camReadSubmissionKey);
+                } catch {
+                  // ignore
+                }
+
+                setAnswers({});
+                setFlaggedQuestions(new Set());
+                setCurrentPartIndex(0);
+                setCurrentQuestionIndex(0);
+                setActiveQuestion(null);
+                setTimeRemaining(effectiveDuration * 60);
+                setGraceRemaining(0);
+                setHasSavedProgress(false);
+                setStarted(false);
+                autoSubmittingRef.current = false;
+                expiresAtRef.current = null;
+                submissionIdRef.current = null;
+              },
+            },
+          ] : []}
+          primaryLabel={hasSavedProgress ? 'Resume' : 'Start test'}
+          onPrimary={() => {
+            setStarted(true);
+            autoSubmittingRef.current = false;
+            const initialSeconds = effectiveDuration * 60;
+            try {
+              localStorage.setItem(camReadStartKey, "true");
+              const expiry = Date.now() + (timeRemaining ?? initialSeconds) * 1000;
+              syncTimingState(expiry, initialSeconds);
+              if (!localStorage.getItem(camReadAnsKey)) {
+                localStorage.setItem(camReadAnsKey, JSON.stringify(answers || {}));
+              }
+            } catch {
+              // ignore
+            }
+            if (timeRemaining === null) {
+              setTimeRemaining(initialSeconds);
+            }
+            // focus first question after small delay
+            setTimeout(() => {
+              const el = document.getElementById("question-1");
+              if (el && typeof el.scrollIntoView === "function") {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }, 250);
+          }}
+          maxWidth={480}
+        />
+      )}
+
+      {/* Header */}
+      <TestHeader
+        title={headerTitle}
+        classCode={test?.classCode}
+        teacherName={test?.teacherName}
+        timeRemaining={timeRemaining}
+        answeredCount={answeredCount}
+        totalQuestions={totalQuestions}
+        studentName={currentStudentName}
+        headerActions={(
+          <StudentAnnotations
+            containerRef={annotationContentRef}
+            layoutRef={annotationLayoutRef}
+            storageKey={annotationStorageKey}
+            scopeKey={`part:${currentPartIndex}`}
+            scopeLabel={currentPart?.title || `Part ${currentPartIndex + 1}`}
+            disabled={!started || submitted}
+          />
+        )}
+        onSubmit={handleSubmit}
+        submitted={submitted}
+        examType={examType}
+        timerWarning={timeRemaining > 0 && timeRemaining <= 300}
+        timerCritical={timeRemaining > 0 && timeRemaining <= 60}
+      />
+
+      {started && !submitted && timeRemaining === 0 && graceRemaining > 0 && (
+        <div
+          style={{
+            margin: "16px 24px 0",
+            borderRadius: 12,
+            padding: "12px 16px",
+            background: "#fff7ed",
+            border: "1px solid #fdba74",
+            color: "#9a3412",
+            fontSize: 14,
+            lineHeight: 1.5,
+            boxShadow: "0 10px 25px rgba(249, 115, 22, 0.08)",
+          }}
+        >
+          <strong>Official time is over.</strong> The system keeps your answers for another {formatTime(graceRemaining)} in case of power loss or page reload. Your teacher can extend the time if needed.
+        </div>
+      )}
+
+      <div ref={annotationLayoutRef} className="cambridge-student-content-shell">
+      {/* Main Content - Split View or Single Column based on question type */}
+      {currentQuestion && currentQuestion.section.questionType === 'sign-message' ? (
+        /* Part 1 (Sign & Message): instruction on top, sign left, options right */
+        <div className="cambridge-sign-container flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            {currentQuestion.part.instruction && (
+              <div
+                className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+                dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+              />
+            )}
+
+            <div
+              ref={containerRef}
+              className={`cambridge-sign-split ${isSignSplitCompact ? '' : 'cambridge-sign-split--resizable'}`}
+            >
+              <div
+                className="cambridge-sign-intro"
+                style={isSignSplitCompact ? undefined : {
+                  width: `${leftWidth}%`,
+                  flex: `0 0 ${leftWidth}%`,
+                  maxWidth: `${leftWidth}%`
+                }}
+              >
+                {(currentQuestion.question.imageUrl || currentQuestion.question.signText) && (
+                  <div className="cambridge-sign-card">
+                    {currentQuestion.question.imageUrl && (
+                      <img
+                        src={currentQuestion.question.imageUrl}
+                        alt={currentQuestion.question.imageAlt || 'Sign'}
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          border: '1px solid #ddd'
+                        }}
+                      />
+                    )}
+                    {currentQuestion.question.signText && (
+                      <div
+                        className="cambridge-sign-text"
+                        style={{
+                          marginTop: currentQuestion.question.imageUrl ? '12px' : '0',
+                          padding: '16px',
+                          border: '2px solid #333',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          background: 'white',
+                          lineHeight: '1.5'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.signText) }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!isSignSplitCompact && (
+                <div
+                  className="cambridge-divider cambridge-sign-divider"
+                  onMouseDown={handleMouseDown}
+                  style={{ left: `${leftWidth}%`, cursor: 'col-resize' }}
+                >
+                  <div className="cambridge-resize-handle">
+                    <i className="fa fa-arrows-h"></i>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="cambridge-sign-questions"
+                style={isSignSplitCompact ? undefined : {
+                  width: `${100 - leftWidth}%`,
+                  flex: `0 0 ${100 - leftWidth}%`,
+                  maxWidth: `${100 - leftWidth}%`
+                }}
+              >
+                <div
+                  className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} cambridge-sign-question-card p-3 sm:p-4`}
+                  style={{ position: 'relative' }}
+                >
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+
+                  <div className="mb-3">
+                    <span className="cambridge-question-number">
+                      {currentQuestion.questionNumber}
+                    </span>
+                    {currentQuestion.question.questionText && (
+                      <span style={{ fontSize: '15px', color: '#334155', marginLeft: '8px' }}>
+                        {currentQuestion.question.questionText}
+                      </span>
+                    )}
+                  </div>
+
+                  {currentQuestion.question.options && (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {currentQuestion.question.options.map((option, idx) => {
+                        const optionLetter = String.fromCharCode(65 + idx); // A, B, C
+                        const questionKey = currentQuestion.key;
+                        const isSelected = answers[questionKey] === optionLetter;
+                        const cleanOption = stripOptionLabel(option);
+
+                        return (
+                          <li key={idx} className="mb-1.5 sm:mb-2">
+                            <label
+                              className={`flex min-h-[44px] w-full items-start gap-3 rounded-lg px-3 py-2 text-left ${
+                                isSelected ? 'bg-indigo-50' : 'bg-white'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`question-${currentQuestion.questionNumber}`}
+                                value={optionLetter}
+                                checked={isSelected}
+                                onChange={() => handleAnswerChange(questionKey, optionLetter)}
+                                disabled={submitted}
+                                className="mt-1 h-5 w-5 cursor-pointer"
+                              />
+                              <span style={{
+                                minWidth: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                backgroundColor: '#0e276f',
+                                color: '#fff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                marginTop: '2px'
+                              }}>
+                                {optionLetter}
+                              </span>
+                              <span style={{ fontSize: '15px', lineHeight: '1.5' }}>
+                                {cleanOption}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : currentQuestion && currentQuestion.section.questionType === 'cloze-test' ? (
+        /* Part 5 (Open Cloze): Single column with inline text inputs */
+        <>
+          {/* Part Instruction - Fixed, doesn't scroll */}
+          {currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-4">
+            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+              {(() => {
+                const questionData = currentQuestion.question || currentQuestion.section.questions?.[0] || {};
+                const passageText = questionData.passageText || questionData.passage || '';
+                const passageTitle = questionData.passageTitle || '';
+                const blanks = normalizeClozeTestBlanks(questionData, currentQuestion.questionNumber);
+                
+                const renderPassageWithInputs = () => {
+                  if (!passageText) return null;
+
+                  const safeHtml = sanitizeQuillHtml(passageText);
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(safeHtml, 'text/html');
+
+                  const toCamelCase = (value) => value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+                  const allowedTags = new Set([
+                    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'span', 'div',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'ul', 'ol', 'li',
+                    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+                    'blockquote', 'code', 'pre',
+                    'a', 'img'
+                  ]);
+                  const allowedStyleProps = new Set([
+                    'textAlign', 'fontWeight', 'fontStyle', 'textDecoration',
+                    'color', 'backgroundColor',
+                    'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+                    'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+                    'lineHeight', 'letterSpacing', 'wordSpacing', 'whiteSpace',
+                    'width', 'minWidth', 'maxWidth', 'height',
+                    'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+                    'borderCollapse', 'borderSpacing', 'borderColor', 'borderWidth', 'borderStyle',
+                    'verticalAlign'
+                  ]);
+                  const safeHref = (value = '') => {
+                    const href = String(value).trim();
+                    if (!href) return '';
+                    if (/^javascript:/i.test(href)) return '';
+                    return href;
+                  };
+                  const parseStyle = (styleText) => {
+                    if (!styleText) return undefined;
+                    const style = {};
+                    styleText.split(';').forEach((rule) => {
+                      const [rawKey, rawValue] = rule.split(':');
+                      if (!rawKey || !rawValue) return;
+                      const key = toCamelCase(rawKey.trim().toLowerCase());
+                      const value = rawValue.trim();
+                      if (key && allowedStyleProps.has(key)) style[key] = value;
+                    });
+                    return Object.keys(style).length ? style : undefined;
+                  };
+
+                  const renderTextWithBlanks = (text, keyPrefix) => {
+                    if (!text) return null;
+                    const parts = [];
+                    const regex = /\((\d+)\)\s*(?:[_…]+)?|\[(\d+)\]\s*(?:[_…]+)?/g;
+                    let lastIndex = 0;
+                    let match;
+
+                    while ((match = regex.exec(text)) !== null) {
+                      const questionNumber = parseInt(match[1] || match[2], 10);
+                      const blankIndex = blanks.findIndex((blank) => Number(blank?.questionNum || blank?.number) === questionNumber);
+
+                      if (match.index > lastIndex) {
+                        parts.push(text.slice(lastIndex, match.index));
+                      }
+
+                      if (blankIndex >= 0 && blankIndex < blanks.length) {
+                        const questionKey = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}-${blankIndex}`;
+                        const userAnswer = answers[questionKey] || '';
+                        parts.push(
+                          <input
+                            key={`${keyPrefix}-input-${questionNumber}`}
+                            id={`question-${questionNumber}`}
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                            disabled={submitted}
+                            placeholder={`(${questionNumber})`}
+                            style={{
+                              display: 'inline-block',
+                              margin: '0 4px',
+                              padding: '6px 10px',
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              border: '2px solid #0284c7',
+                              borderRadius: '4px',
+                              backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                              color: '#0e7490',
+                              width: '160px',
+                              textAlign: 'center',
+                              scrollMarginTop: '100px'
+                            }}
+                          />
+                        );
+                      } else {
+                        parts.push(match[0]);
+                      }
+
+                      lastIndex = match.index + match[0].length;
+                    }
+
+                    if (lastIndex < text.length) {
+                      parts.push(text.slice(lastIndex));
+                    }
+
+                    return parts;
+                  };
+
+                  const renderNode = (node, keyPrefix) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                      return renderTextWithBlanks(node.nodeValue || '', keyPrefix);
+                    }
+
+                    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+                    const tag = node.tagName.toLowerCase();
+                    if (!allowedTags.has(tag)) {
+                      const fallbackChildren = [];
+                      node.childNodes.forEach((child, idx) => {
+                        const rendered = renderNode(child, `${keyPrefix}-${idx}`);
+                        if (Array.isArray(rendered)) fallbackChildren.push(...rendered);
+                        else if (rendered !== null && rendered !== undefined) fallbackChildren.push(rendered);
+                      });
+                      return fallbackChildren;
+                    }
+
+                    const props = { key: keyPrefix };
+
+                    Array.from(node.attributes || []).forEach((attr) => {
+                      const name = attr.name.toLowerCase();
+                      const value = attr.value;
+                      if (name === 'class') props.className = value;
+                      if (name === 'style') props.style = parseStyle(value);
+                      if (name === 'href') props.href = safeHref(value);
+                      if (name === 'target') props.target = value;
+                      if (name === 'rel') props.rel = value;
+                      if (name === 'src') props.src = value;
+                      if (name === 'alt') props.alt = value;
+                      if (name === 'width') props.width = value;
+                      if (name === 'height') props.height = value;
+                      if (name === 'colspan') props.colSpan = value;
+                      if (name === 'rowspan') props.rowSpan = value;
+                      if (name.startsWith('data-')) props[name] = value;
+                    });
+
+                    if (tag === 'a') {
+                      const href = safeHref(props.href || '');
+                      if (!href) {
+                        delete props.href;
+                      } else {
+                        props.href = href;
+                        if (props.target === '_blank') {
+                          props.rel = 'noopener noreferrer';
+                        }
+                      }
+                    }
+
+                    if (tag === 'img') {
+                      const src = String(props.src || '').trim();
+                      if (!src) return null;
+                    }
+
+                    const children = [];
+                    node.childNodes.forEach((child, idx) => {
+                      const rendered = renderNode(child, `${keyPrefix}-${idx}`);
+                      if (Array.isArray(rendered)) {
+                        children.push(...rendered);
+                      } else if (rendered !== null && rendered !== undefined) {
+                        children.push(rendered);
+                      }
+                    });
+
+                    if (tag === 'table') {
+                      return React.createElement(
+                        'div',
+                        {
+                          key: `${keyPrefix}-table-wrap`,
+                          style: { overflowX: 'auto', marginBottom: '12px' }
+                        },
+                        React.createElement(
+                          'table',
+                          {
+                            ...props,
+                            style: {
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              ...(props.style || {})
+                            }
+                          },
+                          children.length ? children : undefined
+                        )
+                      );
+                    }
+
+                    if ((tag === 'ul' || tag === 'ol') && !props.style) {
+                      props.style = {
+                        paddingLeft: '1.25rem',
+                        marginBottom: '0.75rem'
+                      };
+                    }
+
+                    return React.createElement(tag, props, children.length ? children : undefined);
+                  };
+
+                  const rootNodes = Array.from(doc.body.childNodes || []);
+                  const rendered = rootNodes.map((node, idx) => renderNode(node, `node-${idx}`));
+
+                  return rendered;
+                };
+                
+                return (
+                  <div
+                    className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} p-3 sm:p-4`}
+                    style={{ position: 'relative', width: '100%', maxWidth: '960px', margin: '0 auto' }}
+                  >
+                    {/* Flag Button */}
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+
+                    <PartIllustrationCard
+                      imageUrl={currentQuestion.part?.imageUrl}
+                      alt={passageTitle || currentQuestion.part?.title || 'Part illustration'}
+                    />
+
+                    {/* Passage Title */}
+                    {passageTitle && (
+                      <h3 
+                        style={{ 
+                          marginBottom: '16px',
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: '#0c4a6e'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(passageTitle) }}
+                      />
+                    )}
+                    
+                    {/* Passage with inline text inputs */}
+                    <div 
+                      className="cambridge-passage-content"
+                      style={{
+                        padding: '24px clamp(16px, 2vw, 24px)',
+                        background: 'linear-gradient(180deg, #f8fcff 0%, #eef6ff 100%)',
+                        border: '1px solid #93c5fd',
+                        boxShadow: '0 12px 28px rgba(14, 39, 111, 0.08)',
+                        borderRadius: '18px',
+                        fontSize: '15px',
+                        lineHeight: 2.02,
+                      }}
+                    >
+                      {renderPassageWithInputs()}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      ) : currentQuestion && currentQuestion.section.questionType === 'short-message' ? (
+        /* Part 6 (Writing Task): Split-view with divider (Instructions left | Textarea right) */
+        <>
+          {/* Part Instruction - Fixed, doesn't scroll */}
+          {currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column - Instructions/Requirements */}
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              {currentQuestion && (
+                <div className="cambridge-passage-container">
+                  {(() => {
+                    const q = currentQuestion.question || {};
+                    const situation = q.situation || '';
+                    const mediaUrls = Array.isArray(q.mediaUrls)
+                      ? q.mediaUrls.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
+                      : [];
+                    if (!mediaUrls.length && typeof q.mediaUrl === 'string' && q.mediaUrl.trim()) {
+                      mediaUrls.push(q.mediaUrl.trim());
+                    }
+                    const resolvedMediaUrls = mediaUrls
+                      .map((mediaUrl) => (/^https?:\/\//i.test(mediaUrl) ? mediaUrl : hostPath(mediaUrl)))
+                      .filter(Boolean);
+                    
+                    return (
+                      <>
+                        {/* Situation */}
+                        {(situation || resolvedMediaUrls.length > 0) && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ 
+                              margin: '0 0 12px', 
+                              fontSize: '16px', 
+                              fontWeight: 700, 
+                              color: '#1f2937' 
+                            }}>
+                              Situation:
+                            </h4>
+                            <div 
+                              style={{
+                                fontSize: '14px',
+                                lineHeight: '1.6',
+                                color: '#374151'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
+                              className="situation-content"
+                            />
+                            {resolvedMediaUrls.length > 0 && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                gap: '12px',
+                                marginTop: '14px',
+                              }}>
+                                {resolvedMediaUrls.map((resolvedMediaUrl, index) => (
+                                  <div key={`${resolvedMediaUrl}-${index}`} className="situation-content">
+                                    <img src={resolvedMediaUrl} alt={`Short message prompt media ${index + 1}`} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Draggable Divider */}
+            <div 
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ 
+                left: `${leftWidth}%`,
+                cursor: isResizing ? 'col-resize' : 'col-resize'
+              }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+
+            {/* Right Column - Writing Area */}
+            <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+              {currentQuestion && (
+                <div className="cambridge-content-wrapper">
+                  {(() => {
+                    const q = currentQuestion.question || {};
+                    const messageType = q.messageType || 'email';
+                    const wordLimit = q.wordLimit || { min: 25, max: 35 };
+                    const questionKey = currentQuestion.key;
+                    const userAnswer = answers[questionKey] || '';
+                    const wordCount = userAnswer.trim().split(/\s+/).filter(w => w).length;
+                    
+                    return (
+                      <div className={`cambridge-question-wrapper ${flaggedQuestions.has(currentQuestion.key) ? 'flagged-section' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`} style={{ position: 'relative' }}>
+                        {/* Flag Button */}
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(currentQuestion.key)}
+                          aria-label="Flag question"
+                          style={{ position: 'absolute', top: 0, right: 0 }}
+                        >
+                          <InlineIcon name="flag" size={14} />
+                        </button>
+
+                        {/* Writing Instructions */}
+                        <div className="mb-4 pr-4 sm:mb-5 sm:pr-12">
+                          <h3 style={{ 
+                            margin: '0 0 8px', 
+                            fontSize: '16px', 
+                            fontWeight: 600, 
+                            color: '#0c4a6e' 
+                          }}>
+                            Write your {messageType}:
+                          </h3>
+                          <p style={{ 
+                            margin: 0, 
+                            fontSize: '13px', 
+                            color: '#6b7280' 
+                          }}>
+                            {wordLimit.min} words or more
+                          </p>
+                        </div>
+
+                        {/* Textarea */}
+                        <textarea
+                          id={`question-${currentQuestion.questionNumber}`}
+                          value={userAnswer}
+                          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                          disabled={submitted}
+                          placeholder={`Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
+                          style={{
+                            width: '94%',
+                            minHeight: '400px',
+                            padding: '16px',
+                            fontSize: '15px',
+                            lineHeight: '1.6',
+                            border: '2px solid #0284c7',
+                            borderRadius: '6px',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            backgroundColor: userAnswer ? '#f0f9ff' : 'white',
+                            color: '#0c4a6e',
+                            marginBottom: '12px'
+                          }}
+                        />
+
+                        {/* Word Count */}
+                        <div className="flex justify-end pr-4 text-[13px] text-slate-500 sm:pr-12">
+                          <div>
+                            Words: <strong style={{
+                              color: wordCount < wordLimit.min ? '#dc2626' : 
+                                     wordCount > wordLimit.max ? '#dc2626' : '#16a34a'
+                            }}>
+                              {wordCount}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Part Instruction - Above split view */}
+          {currentQuestion && currentQuestion.part.instruction && (
+            <div 
+              className="cambridge-part-instruction px-4 py-2 text-[13px] leading-relaxed sm:text-sm"
+              dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.instruction) }}
+            />
+          )}
+
+          {currentQuestion && currentQuestion.section.questionType === 'matching' ? (
+            /* Matching: full-width single column with items left / options right */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'matching'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <QuestionDisplayFactory
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          questionType="matching"
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          examType={examType}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'preposition-gap-fill' ? (
+            /* Preposition gap fill: questions on the left, word bank on the right */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                {(() => {
+                  const sectionQuestions = allQuestions.filter(q =>
+                    q.partIndex === currentQuestion.partIndex &&
+                    q.sectionIndex === currentQuestion.sectionIndex &&
+                    q.section.questionType === 'preposition-gap-fill'
+                  );
+                  const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                  const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                  return (
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      {/* Left panel - questions */}
+                      <div
+                        className="cambridge-question-wrapper"
+                        style={{
+                          flex: '1 1 0',
+                          minWidth: '300px',
+                          position: 'relative',
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: 'sticky',
+                            top: 12,
+                            zIndex: 14,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: 8,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <button
+                            className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                            onClick={() => toggleFlag(currentQuestion.key)}
+                            aria-label="Flag question"
+                            style={{ position: 'static', pointerEvents: 'auto' }}
+                          >
+                            <InlineIcon name="flag" size={14} />
+                          </button>
+                        </div>
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="questions"
+                        />
+                      </div>
+
+                      {/* Right panel - word bank */}
+                      <div
+                        style={{
+                          flex: '0 0 320px',
+                          minWidth: '260px',
+                          maxWidth: '100%',
+                          position: 'sticky',
+                          top: '20px',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        <PrepositionGapFillDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                          renderMode="wordbank"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'odd-one-out' ? (
+            /* Odd one out: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'odd-one-out'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                      return (
+                        <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'sentence-correction' ? (
+            /* Sentence correction: full-width single panel */
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6">
+              <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                {currentQuestion.section.sectionTitle && (
+                  <h3 className="cambridge-section-title" style={{ marginBottom: 16 }}>
+                    {currentQuestion.section.sectionTitle}
+                  </h3>
+                )}
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 12,
+                      zIndex: 14,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginBottom: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <button
+                      className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                      onClick={() => toggleFlag(currentQuestion.key)}
+                      aria-label="Flag question"
+                      style={{ position: 'static', pointerEvents: 'auto' }}
+                    >
+                      <InlineIcon name="flag" size={14} />
+                    </button>
+                  </div>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'sentence-correction'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+                      return (
+                        <SentenceCorrectionDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: sectionId,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : currentQuestion && currentQuestion.section.questionType === 'reading-open-questions' ? (
+            /* Reading open questions: passage + answer panel */
+            (() => {
+              const sectionQuestions = allQuestions.filter(q =>
+                q.partIndex === currentQuestion.partIndex &&
+                q.sectionIndex === currentQuestion.sectionIndex &&
+                q.section.questionType === 'reading-open-questions'
+              );
+              const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+              const sectionId = `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`;
+              const displaySection = {
+                ...currentQuestion.section,
+                id: sectionId,
+                questions: [currentQuestion.question],
+              };
+
+              return (
+                <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+                  <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+                    {currentQuestion.section.sectionTitle && (
+                      <h3 className="cambridge-section-title">
+                        {currentQuestion.section.sectionTitle}
+                      </h3>
+                    )}
+                    <ReadingOpenQuestionsDisplay
+                      section={displaySection}
+                      startingNumber={startNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      renderMode="passage"
+                    />
+                  </div>
+
+                  <div
+                    className="cambridge-divider"
+                    onMouseDown={handleMouseDown}
+                    style={{
+                      left: `${leftWidth}%`,
+                      cursor: isResizing ? 'col-resize' : 'col-resize',
+                    }}
+                  >
+                    <div className="cambridge-resize-handle">
+                      <i className="fa fa-arrows-h"></i>
+                    </div>
+                  </div>
+
+                  <div className="cambridge-questions-column" style={{ width: `${100 - leftWidth}%` }}>
+                    <div className="cambridge-content-wrapper">
+                      <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} p-3 sm:p-4`} style={{ position: 'relative', width: '100%', maxWidth: '980px' }}>
+                        <div
+                          style={{
+                            position: 'sticky',
+                            top: 12,
+                            zIndex: 14,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: 8,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <button
+                            className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                            onClick={() => toggleFlag(currentQuestion.key)}
+                            aria-label="Flag question"
+                            style={{ position: 'static', pointerEvents: 'auto' }}
+                          >
+                            <InlineIcon name="flag" size={14} />
+                          </button>
+                        </div>
+                        <div className="pr-4 sm:pr-12">
+                          <ReadingOpenQuestionsDisplay
+                            section={displaySection}
+                            startingNumber={startNumber}
+                            onAnswerChange={handleAnswerChange}
+                            answers={answers}
+                            submitted={submitted}
+                            renderMode="questions"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+          <>
+          <div className="cambridge-main-content" ref={containerRef} style={{ position: 'relative' }}>
+            {/* Left Column - Passage */}
+            {!usesSinglePanelLayout && (
+            <div className="cambridge-passage-column" style={{ width: `${leftWidth}%` }}>
+              {currentQuestion && (
+                <>
+
+                  {/* Passage - check both part.passage and question.passage for long-text-mc */}
+                  {currentQuestion.part.passage ? (
+                    <div className="cambridge-passage-container">
+                      {currentQuestion.part.imageUrl ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <img
+                            src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
+                            alt={currentQuestion.part.title || 'Part illustration'}
+                            style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                          />
+                        </div>
+                      ) : null}
+                      {currentQuestion.part.title && (
+                        <h3 className="cambridge-passage-title">
+                          {currentQuestion.part.title}
+                        </h3>
+                      )}
+                      <div 
+                        className="cambridge-passage-content"
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.part.passage) }}
+                      />
+                    </div>
+                  ) : currentQuestion.question.passage && currentQuestion.question.passage !== '<p><br></p>' ? (
+                    /* For long-text-mc: passage is in question object */
+                    <div className="cambridge-passage-container">
+                      {currentQuestion.part.imageUrl ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <img
+                            src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
+                            alt={currentQuestion.question.passageTitle || currentQuestion.part.title || 'Part illustration'}
+                            style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                          />
+                        </div>
+                      ) : null}
+                      {currentQuestion.question.passageTitle && (
+                        <h3 className="cambridge-passage-title">
+                          {currentQuestion.question.passageTitle}
+                        </h3>
+                      )}
+                      <div 
+                        className="cambridge-passage-content"
+                        dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(currentQuestion.question.passage) }}
+                      />
+                    </div>
+                  ) : currentQuestion.part.imageUrl ? (
+                    /* Part scene image (e.g. Movers Part 2) */
+                    <div className="cambridge-passage-container" style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                        <img
+                          src={/^https?:\/\//i.test(currentQuestion.part.imageUrl) ? currentQuestion.part.imageUrl : hostPath(currentQuestion.part.imageUrl)}
+                          alt="Part illustration"
+                          style={{ maxWidth: '100%', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                        />
+                      </div>
+
+                      {/* Example block for abc-type sections under part image */}
+                      {currentQuestion.section.questionType === 'abc' && (currentQuestion.section.exampleText || currentQuestion.section.exampleAnswer) && currentQuestion.questionIndex === 0 && (
+                        <div style={{
+                          marginTop: '16px',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 16px rgba(234,179,8,0.18)',
+                          border: '2px solid #fde68a',
+                        }}>
+                          {/* Header */}
+                          <div style={{
+                            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                            padding: '8px 14px',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                          }}>
+                            <InlineIcon name="star" size={18} style={{ color: '#fff' }} />
+                            <span style={{ fontWeight: 800, color: '#fff', fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                              Ví dụ mẫu
+                            </span>
+                          </div>
+
+                          {/* Body */}
+                          <div style={{ background: '#fffbeb', padding: '12px 14px' }}>
+                            {currentQuestion.section.exampleText && (() => {
+                              const exAnswer = String(currentQuestion.section.exampleAnswer || '').trim().toUpperCase();
+                              const lines = currentQuestion.section.exampleText.split('\n');
+                              const optionRegex = /^([A-C])\.\s*(.*)/;
+                              const contextLines = lines.filter(l => !optionRegex.test(l.trim()));
+                              const optionLines = lines.filter(l => optionRegex.test(l.trim()));
+                              const OPTION_THEMES = [
+                                { grad: ['#3b82f6','#1d4ed8'], light: '#dbeafe', lightBorder: '#93c5fd' },
+                                { grad: ['#f97316','#ea580c'], light: '#ffedd5', lightBorder: '#fdba74' },
+                                { grad: ['#a855f7','#8b5cf6'], light: '#f3e8ff', lightBorder: '#d8b4fe' },
+                              ];
+                              return (
+                                <div style={{ marginBottom: currentQuestion.section.exampleAnswer ? 12 : 0 }}>
+                                  {/* Context text (non-option lines) */}
+                                  {contextLines.length > 0 && (
+                                    <div style={{ color: '#374151', lineHeight: 1.75, fontSize: 14, marginBottom: optionLines.length ? 10 : 0, whiteSpace: 'pre-wrap' }}>
+                                      {contextLines.join('\n')}
+                                    </div>
+                                  )}
+                                  {/* Styled A/B/C option cards */}
+                                  {optionLines.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                      {optionLines.map((line, idx) => {
+                                        const match = line.trim().match(optionRegex);
+                                        if (!match) return null;
+                                        const letter = match[1].toUpperCase();
+                                        const text = match[2].trim();
+                                        const isCorrect = letter === exAnswer;
+                                        const theme = OPTION_THEMES[idx] || OPTION_THEMES[0];
+                                        return (
+                                          <div key={letter} style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '9px 12px',
+                                            borderRadius: 12,
+                                            border: `2px solid ${isCorrect ? '#22c55e' : theme.lightBorder}`,
+                                            background: isCorrect ? '#f0fdf4' : theme.light,
+                                            boxShadow: isCorrect ? '0 4px 12px #22c55e30' : 'none',
+                                          }}>
+                                            <div style={{
+                                              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              background: isCorrect
+                                                ? 'linear-gradient(135deg,#22c55e,#16a34a)'
+                                                : `linear-gradient(135deg,${theme.grad[0]},${theme.grad[1]})`,
+                                              color: '#fff', fontWeight: 900, fontSize: 15,
+                                              boxShadow: isCorrect ? '0 3px 8px #22c55e50' : 'none',
+                                            }}>
+                                              {isCorrect ? <InlineIcon name="correct" size={15} style={{ color: '#fff' }} /> : letter}
+                                            </div>
+                                            <span style={{ fontSize: 14, fontWeight: isCorrect ? 700 : 500, color: isCorrect ? '#15803d' : '#1f2937', flex: 1 }}>
+                                              {text}
+                                            </span>
+
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {currentQuestion.section.exampleAnswer && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                                <span style={{ fontSize: 13, color: '#78350f', fontWeight: 600 }}>Đáp án đúng:</span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  width: 34, height: 34, borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                  color: 'white', fontWeight: 900, fontSize: 16,
+                                  boxShadow: '0 3px 10px #22c55e50',
+                                }}>
+                                  {currentQuestion.section.exampleAnswer}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Fallback */
+                    <div className="cambridge-passage-container">
+                      <div style={{ 
+                        padding: '40px', 
+                        textAlign: 'center', 
+                        color: '#999',
+                        fontSize: '14px'
+                      }}>
+                        No passage for this part
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            )}
+
+            {/* Draggable Divider */}
+            {!usesSinglePanelLayout && (
+            <div 
+              className="cambridge-divider"
+              onMouseDown={handleMouseDown}
+              style={{ 
+                left: `${leftWidth}%`,
+                cursor: isResizing ? 'col-resize' : 'col-resize'
+              }}
+            >
+              <div className="cambridge-resize-handle">
+                <i className="fa fa-arrows-h"></i>
+              </div>
+            </div>
+            )}
+
+            {/* Right Column - Questions */}
+            <div
+              className="cambridge-questions-column"
+              style={{
+                width: usesSinglePanelLayout ? '100%' : `${100 - leftWidth}%`,
+                maxWidth: usesSinglePanelLayout ? '980px' : undefined,
+                margin: usesSinglePanelLayout ? '0 auto' : undefined,
+              }}
+            >
+              {currentQuestion && (
+                <div className="cambridge-content-wrapper">
+                  {/* Section Title */}
+                  {currentQuestion.section.sectionTitle && (
+                    <h3 className="cambridge-section-title">
+                      {currentQuestion.section.sectionTitle}
+                    </h3>
+                  )}
+
+              {/* For long-text-mc: Show ALL questions in section */}
+              {currentQuestion.section.questionType === 'long-text-mc' && currentQuestion.question.questions ? (
+                <div>
+                  {/* Render all nested questions at once */}
+                  {allQuestions
+                    .filter(q => 
+                      q.partIndex === currentQuestion.partIndex && 
+                      q.sectionIndex === currentQuestion.sectionIndex &&
+                      q.section.questionType === 'long-text-mc'
+                    )
+                    .map((q) => (
+                      <div 
+                        key={q.key}
+                        id={`question-${q.questionNumber}`}
+                        className={`cambridge-question-wrapper ${answers[q.key] ? 'answered' : ''} ${q.key === currentQuestion.key ? 'active-question' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}
+                        style={{ marginBottom: '24px', scrollMarginTop: '20px' }}
+                      >
+                        {/* Flag Button */}
+                        <button
+                          className={`cambridge-flag-button ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                          onClick={() => toggleFlag(q.key)}
+                          aria-label={`Flag question ${q.questionNumber}`}
+                        >
+                          <InlineIcon name="flag" size={14} />
+                        </button>
+
+                        {/* Question Content */}
+                        <div className="pr-4 sm:pr-12">
+                          {/* Question Number + Text */}
+                          <div style={{ marginBottom: '12px'}}>
+                            <span className="cambridge-question-number">
+                              {q.questionNumber}
+                            </span>
+                            {q.nestedQuestion?.questionText && (
+                              <span style={{ 
+                                marginLeft: '12px', 
+                                fontSize: '15px', 
+                                fontWeight: '600',
+                                color: '#1a1a1a' 
+                              }}>
+                                {q.nestedQuestion.questionText}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Options */}
+                          {q.nestedQuestion?.options && (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                              {q.nestedQuestion.options.map((option, optIdx) => {
+                                const optionLetter = String.fromCharCode(65 + optIdx);
+                                const isSelected = answers[q.key] === optionLetter;
+                                const cleanOption = stripOptionLabel(option);
+
+                                return (
+                                  <li key={optIdx} className="mb-1.5 sm:mb-2">
+                                    <label
+                                      className={`flex min-h-[44px] w-full items-start gap-3 rounded-lg px-3 py-2 text-left ${
+                                        isSelected ? 'bg-indigo-50' : 'bg-white'
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`question-${q.questionNumber}`}
+                                        value={optionLetter}
+                                        checked={isSelected}
+                                        onChange={() => handleAnswerChange(q.key, optionLetter)}
+                                        disabled={submitted}
+                                        className="mt-1 h-5 w-5 cursor-pointer"
+                                      />
+                                      <span style={{
+                                        minWidth: '22px',
+                                        height: '22px',
+                                        borderRadius: '4px',
+                                        backgroundColor: '#0e276f',
+                                        color: '#fff',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        flexShrink: 0,
+                                        marginTop: '2px'
+                                      }}>
+                                        {optionLetter}
+                                      </span>
+                                      <span className="text-sm leading-6 sm:text-[15px]">
+                                        {cleanOption}
+                                      </span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              ) : currentQuestion.section.questionType === 'odd-one-out' ? (
+                <div className={`cambridge-question-wrapper ${isQuestionAnswered(currentQuestion) ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+                  <div className="pr-4 sm:pr-12">
+                    {(() => {
+                      const sectionQuestions = allQuestions.filter(q =>
+                        q.partIndex === currentQuestion.partIndex &&
+                        q.sectionIndex === currentQuestion.sectionIndex &&
+                        q.section.questionType === 'odd-one-out'
+                      );
+                      const startNumber = sectionQuestions[0]?.questionNumber ?? currentQuestion.questionNumber;
+                      return (
+                        <OddOneOutDisplay
+                          section={{
+                            ...currentQuestion.section,
+                            id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                            questions: [currentQuestion.question],
+                          }}
+                          startingNumber={startNumber}
+                          onAnswerChange={handleAnswerChange}
+                          answers={answers}
+                          submitted={submitted}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                /* Other question types: Show single question */
+                <div
+                  className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} ${usesSinglePanelLayout ? '!w-full p-4 sm:p-6' : '!w-full sm:!w-[80%] p-3 sm:p-4'}`}
+                  style={usesSinglePanelLayout ? {
+                    marginTop: 8,
+                    borderRadius: 24,
+                    border: '1px solid rgba(99, 102, 241, 0.18)',
+                    boxShadow: '0 18px 38px rgba(15, 23, 42, 0.08)',
+                    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+                  } : undefined}
+                >
+                  {/* Flag Button */}
+                  <button
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestion.key)}
+                    aria-label="Flag question"
+                  >
+                    <InlineIcon name="flag" size={14} />
+                  </button>
+
+                  {/* Question Content */}
+                  <div className="pr-4 sm:pr-12">
+                    <span className="cambridge-question-number">
+                      {Number.isFinite(currentQuestion.questionNumber) ? currentQuestion.questionNumber : (isWritingTaskQuestion ? 'W' : '')}
+                    </span>
+
+                    <QuestionDisplayFactory
+                      section={{ 
+                        ...currentQuestion.section,
+                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        questions: [currentQuestion.question],
+                      }}
+                      questionType={currentQuestion.section.questionType}
+                      startingNumber={currentQuestion.questionNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                      singleQuestionMode={true}
+                      questionIndex={currentQuestion.questionIndex}
+                      examType={examType}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+          </>
+      )}
+      </>)}
+      </div>
+
+      {/* Footer Navigation */}
+      <footer className="cambridge-footer">
+        {/* Floating arrows – positioned absolute above footer */}
+        <div className="cambridge-footer-arrows">
+          <button
+            className="cambridge-nav-arrow-btn"
+            onClick={() => goToQuestion(currentQuestionIndex - 1)}
+            disabled={currentQuestionIndex === 0}
+            aria-label="Previous"
+            title="Previous question"
+          >
+            <i className="fa fa-chevron-left"></i>
+          </button>
+          <button
+            className="cambridge-nav-arrow-btn"
+            onClick={() => goToQuestion(currentQuestionIndex + 1)}
+            disabled={currentQuestionIndex === allQuestions.length - 1}
+            aria-label="Next"
+            title="Next question"
+          >
+            <i className="fa fa-chevron-right"></i>
+          </button>
+        </div>
+
+        {/* Parts strip – horizontally scrollable */}
+        <div className="cambridge-parts-container">
+          {test?.parts?.map((part, idx) => {
+            /* eslint-disable-next-line no-unused-vars */
+            const range = getPartQuestionRange(idx);
+            const isActive = currentPartIndex === idx;
+            const partEntries = allQuestions.filter((q) => q.partIndex === idx);
+            const partQuestions = partEntries.filter(isNumberedQuestion);
+            const partWritingTasks = partEntries.filter((q) => !isNumberedQuestion(q));
+            const answeredInPart = partQuestions.filter((q) => isQuestionAnswered(q)).length;
+            const totalInPart = partQuestions.length;
+
+            return (
+              <div key={idx} className={`cambridge-part-wrapper ${isActive ? 'active' : ''}`}>
+                {/* Part chip */}
+                <button
+                  className={`cambridge-part-tab ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    const firstEntry = partEntries[0];
+                    const firstIndex = firstEntry ? (questionIndexByKey.get(firstEntry.key) ?? -1) : -1;
+                    if (firstIndex >= 0) goToQuestion(firstIndex);
+                  }}
+                  title={`Part ${idx + 1}`}
+                >
+                  <span className="cambridge-part-label">P</span>
+                  <span className="cambridge-part-number">{idx + 1}</span>
+                  {!isActive && totalInPart > 0 && (
+                    <span className="cambridge-part-badge">{answeredInPart}/{totalInPart}</span>
+                  )}
+                </button>
+
+                {/* Question bubbles – only when this part is active */}
+                {isActive && (
+                  <div className="cambridge-questions-inline">
+                    {(totalInPart > 0 || partWritingTasks.length > 0) ? (
+                      <>
+                        {partQuestions.map((q) => {
+                          const questionIndex = questionIndexByKey.get(q.key) ?? -1;
+                          const isActiveQuestion = currentQuestionIndex === questionIndex;
+
+                          return (
+                            <button
+                              key={q.key}
+                              className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                              onClick={() => goToQuestion(questionIndex)}
+                              title={`Question ${q.questionNumber}${isQuestionAnswered(q) ? ' answered' : ''}`}
+                            >
+                              {isQuestionAnswered(q) && !isActiveQuestion
+                                ? <i className="fa fa-check" style={{ fontSize: 10 }}></i>
+                                : q.questionNumber}
+                              {flaggedQuestions.has(q.key) && (
+                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {partWritingTasks.map((q, writingIdx) => {
+                          const questionIndex = questionIndexByKey.get(q.key) ?? -1;
+                          const isActiveQuestion = currentQuestionIndex === questionIndex;
+                          const label = partWritingTasks.length > 1 ? `W${writingIdx + 1}` : 'W';
+
+                          return (
+                            <button
+                              key={q.key}
+                              className={`cambridge-question-num-btn ${isQuestionAnswered(q) ? 'answered' : ''} ${isActiveQuestion ? 'active' : ''} ${flaggedQuestions.has(q.key) ? 'flagged' : ''}`}
+                              onClick={() => goToQuestion(questionIndex)}
+                              title={`Writing${isQuestionAnswered(q) ? ' answered' : ''}`}
+                            >
+                              {label}
+                              {flaggedQuestions.has(q.key) && (
+                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <span className="cambridge-writing-label">Writing</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Q counter */}
+        <div className="cambridge-footer-right">
+          <span className="cambridge-q-counter">
+            {currentCounterLabel}<span className="cambridge-q-counter-total">/{totalQuestions}</span>
+          </span>
+        </div>
+      </footer>
+
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmSubmit}
+        title={`Submit ${generalDisplayName} Reading & Writing?`}
+        message="Are you sure you want to submit your answers? After submission, you will not be able to edit them."
+        type="info"
+        iconName="reading"
+        confirmText="Submit now"
+        cancelText="Keep working"
+        extraContent={
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                {answeredCount}
+              </div>
+              <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Answered</div>
+            </div>
+            <div style={{ background: unansweredCount > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${unansweredCount > 0 ? '#fecaca' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: unansweredCount > 0 ? '#dc2626' : '#15803d', lineHeight: 1 }}>
+                {unansweredCount}
+              </div>
+              <div style={{ fontSize: 11, color: unansweredCount > 0 ? '#ef4444' : '#16a34a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>Unanswered</div>
+            </div>
+          </div>
+        }
+      />
+
+      {/* Results Modal */}
+      {results && submitted && (
+        <ExamCoreResultsModal
+          results={results}
+          testTitle={test?.title}
+          studentName={currentStudentName}
+          onClose={() => {
+            setResults(null);
+            setSubmitted(false);
+            navigate(getGeneralSelectTestPathForTestType(testType), { replace: true });
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default DoGeneralReadingTest;

@@ -1,6 +1,28 @@
 const { scoreQuestion, scoreTest } = require("../modules/cambridge/shared/scoring");
 
 describe("Cambridge fill-answer scoring", () => {
+  test("uses the General reading score profile", () => {
+    const test = {
+      testType: "general-reading-60",
+      parts: [
+        {
+          sections: [
+            {
+              questionType: "fill",
+              questions: [{ questionText: "Fill this blank", correctAnswer: "answer" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const generalResult = scoreTest(test, { "0-0-0": "answer" });
+    expect(generalResult.breakdown).toMatchObject({
+      profile: "general-reading-60",
+      overall: { score: 5, total: 60 },
+    });
+  });
+
   test("treats straight and typographic apostrophes as equivalent", () => {
     expect(scoreQuestion("'re making", "’re making | are making", "fill")).toBe(true);
     expect(scoreQuestion("’re making", "'re making | are making", "fill")).toBe(true);

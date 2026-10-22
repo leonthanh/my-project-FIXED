@@ -103,6 +103,10 @@ const extractRuntimeSyncRouteMeta = (req) => {
     return { scope: 'cambridge', endpoint, testId: null };
   }
 
+  if (/^\/api\/general\/submissions\//i.test(requestPath)) {
+    return { scope: 'general', endpoint, testId: null };
+  }
+
   return { scope: 'runtime', endpoint, testId: null };
 };
 
@@ -172,6 +176,7 @@ const runtimeSyncRoutePatterns = [
   /^\/api\/reading-submissions\/[^/]+\/(?:autosave|active)$/i,
   /^\/api\/listening-submissions\/[^/]+\/(?:autosave|active)$/i,
   /^\/api\/cambridge\/submissions\/(?:autosave|active)$/i,
+  /^\/api\/general\/submissions\/(?:autosave|active)$/i,
 ];
 
 const isRuntimeSyncRequest = (req) => {
@@ -374,13 +379,14 @@ require("./models/RefreshToken");
 const AppSetting = require("./models/AppSetting");
 
 // ✅ Initialize associations (models/index.js)
-require('./models');
+const models = require('./models');
 
 // ✅ Routes
 const authRoutes = require("./routes/auth");
 const aiRoutes = require("./routes/ai");
 const cambridgeRouter = require("./modules/cambridge/router"); // ✅ Cambridge tests
 const gatewayRouter = require("./modules/gateway/router");
+const generalRouter = require("./modules/general/router");
 const listeningRouter = require("./modules/listening/router");
 const readingRouter = require("./modules/reading/router");
 const writingRouter = require("./modules/writing/router");
@@ -388,6 +394,7 @@ const adminRoutes = require("./routes/admin"); // ✅ Admin user/submission mana
 const analyticsRoutes = require("./routes/analytics");
 const placementRoutes = require("./routes/placement");
 const settingsRoutes = require("./routes/settings");
+const examLevelRoutes = require("./routes/examLevels");
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -495,10 +502,12 @@ app.use('/api', listeningRouter);
 app.use('/api', readingRouter);
 app.use('/api/cambridge', cambridgeRouter); // ✅ Cambridge tests (KET, PET, etc.)
 app.use('/api/gateway', gatewayRouter);
+app.use('/api/general', generalRouter);
 app.use('/api/admin', adminRoutes);         // ✅ Admin: quản lý user & bài làm
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/placement', placementRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/exam-levels', examLevelRoutes);
 
 // Debug route: verify FRONTEND_URL (development only)
 if (process.env.NODE_ENV !== 'production') {
@@ -675,6 +684,16 @@ sequelize
     });
   })
   .then(() => syncSequelizeModels())
+  .then(() =>
+    Promise.all([
+      models.GeneralReading.sync(),
+      models.GeneralListening.sync(),
+      models.GeneralSubmission.sync(),
+      models.ExamLevel.sync(),
+      models.ExamLevelTest.sync(),
+      models.ExamLevelSubmission.sync(),
+    ])
+  )
   .then(async () => {
     const migrated = await require('./scripts/migrate-gateway-data')();
     if (migrated.readingTests || migrated.listeningTests || migrated.submissions) {

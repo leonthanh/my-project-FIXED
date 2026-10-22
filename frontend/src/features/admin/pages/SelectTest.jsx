@@ -31,20 +31,20 @@ import {
   matchesOrangeTestType,
 } from '../../../domains/cambridge/config/navigation';
 import {
-  DEFAULT_FCE_SKILL,
-  DEFAULT_FCE_TYPE,
-  FCE_LEVEL_META,
-  FCE_SKILL_META,
-  FCE_SKILLS,
-} from '../../../domains/fce/config';
+  DEFAULT_GENERAL_SKILL,
+  DEFAULT_GENERAL_TYPE,
+  GENERAL_LEVEL_META,
+  GENERAL_SKILL_META,
+  GENERAL_SKILLS,
+} from '../../../domains/general/config';
 import {
-  getFceCreatePath,
-  getFceEditPath,
-  getFceHubStateForTestType,
-  getFceStudentPath,
-  getFceTestConfig,
-  matchesFceTestType,
-} from '../../../domains/fce/config/navigation';
+  getGeneralCreatePath,
+  getGeneralEditPath,
+  getGeneralHubStateForTestType,
+  getGeneralStudentPath,
+  getGeneralTestConfig,
+  matchesGeneralTestType,
+} from '../../../domains/general/config/navigation';
 import {
   buildPlatformTabs,
   buildSelectTestPath,
@@ -126,14 +126,16 @@ const SelectTest = () => {
     listening: [],
     gateway: [],
     cambridge: [],
-    fce: [],
+    general: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
   const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
   const [activeGatewayTab, setActiveGatewayTab] = useState(DEFAULT_GATEWAY_SKILL);
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
-  const [activeFceTab, setActiveFceTab] = useState(DEFAULT_FCE_SKILL);
+  const [activeGeneralTab, setActiveGeneralTab] = useState(DEFAULT_GENERAL_SKILL);
+  const [registeredLevels, setRegisteredLevels] = useState([]);
+  const [registeredLevelError, setRegisteredLevelError] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -151,8 +153,32 @@ const SelectTest = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { displayLabels } = useDisplaySettings();
-  const fceDisplayName = String(displayLabels?.fceDisplayName || "FCE").trim() || "FCE";
+  const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
+
+  useEffect(() => {
+    let mounted = true;
+    authFetch(apiPath("exam-levels"))
+      .then(async (response) => {
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(payload.message || "Could not load configured exam levels.");
+        }
+        if (mounted) {
+          setRegisteredLevels(Array.isArray(payload) ? payload : []);
+          setRegisteredLevelError("");
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          setRegisteredLevelError(error.message);
+          setRegisteredLevels([]);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const applyPlacementPackage = useMemo(
     () => (placementPackage) => {
@@ -175,8 +201,8 @@ const SelectTest = () => {
       nextTab = next.tab || activeOrangeTab || DEFAULT_ORANGE_SKILL;
     } else if (nextPlatform === "gateway") {
       nextTab = next.tab || activeGatewayTab || DEFAULT_GATEWAY_SKILL;
-    } else if (nextPlatform === "fce") {
-      nextTab = next.tab || activeFceTab || DEFAULT_FCE_SKILL;
+    } else if (nextPlatform === "general") {
+      nextTab = next.tab || activeGeneralTab || DEFAULT_GENERAL_SKILL;
     } else {
       nextTab = next.tab || activeIxTab || DEFAULT_IX_SKILL;
     }
@@ -202,6 +228,12 @@ const SelectTest = () => {
         const gatewayListeningPath = isTeacher
           ? 'gateway/listening-tests?includeArchived=1'
           : 'gateway/listening-tests';
+        const generalReadingPath = isTeacher
+          ? 'general/reading-tests?includeArchived=1'
+          : 'general/reading-tests';
+        const generalListeningPath = isTeacher
+          ? 'general/listening-tests?includeArchived=1'
+          : 'general/listening-tests';
         const [
           writingRes,
           readingRes,
@@ -209,6 +241,8 @@ const SelectTest = () => {
           cambridgeRes,
           gatewayReadingRes,
           gatewayListeningRes,
+          generalReadingRes,
+          generalListeningRes,
         ] = await Promise.all([
           fetch(apiPath(writingPath)),
           fetch(apiPath(readingPath)),
@@ -216,6 +250,8 @@ const SelectTest = () => {
           fetch(apiPath(cambridgePath)),
           fetch(apiPath(gatewayReadingPath)),
           fetch(apiPath(gatewayListeningPath)),
+          fetch(apiPath(generalReadingPath)),
+          fetch(apiPath(generalListeningPath)),
         ]);
 
         const writingData = await writingRes.json();
@@ -224,6 +260,8 @@ const SelectTest = () => {
         const cambridgeData = cambridgeRes.ok ? await cambridgeRes.json() : [];
         const gatewayReadingData = gatewayReadingRes.ok ? await gatewayReadingRes.json() : [];
         const gatewayListeningData = gatewayListeningRes.ok ? await gatewayListeningRes.json() : [];
+        const generalReadingData = generalReadingRes.ok ? await generalReadingRes.json() : [];
+        const generalListeningData = generalListeningRes.ok ? await generalListeningRes.json() : [];
 
         const writingList = Array.isArray(writingData) ? writingData : [];
         const petWriting = writingList.filter((t) => t?.testType === "pet-writing");
@@ -244,10 +282,19 @@ const SelectTest = () => {
         }));
         const orangeCambridge = cambridgeWithWriting.filter((t) => {
           const rawTestType = String(t?.testType || "").toLowerCase();
-          if (matchesFceTestType(rawTestType)) return false;
+          if (matchesGeneralTestType(rawTestType)) return false;
           return true;
         });
-        const fceCambridge = cambridgeWithWriting.filter((t) => matchesFceTestType(t?.testType));
+        const generalCambridge = [
+          ...(Array.isArray(generalReadingData) ? generalReadingData : []),
+          ...(Array.isArray(generalListeningData) ? generalListeningData : []),
+        ].map((test) => ({
+          ...test,
+          skill: String(test?.testType || "").toLowerCase().includes("listening")
+            ? "listening"
+            : "reading",
+          category: "general",
+        }));
 
         setTests({
           writing: ieltsWriting,
@@ -255,7 +302,7 @@ const SelectTest = () => {
           listening: Array.isArray(listeningData) ? listeningData : [],
           gateway: gatewayCambridge,
           cambridge: orangeCambridge,
-          fce: fceCambridge,
+          general: generalCambridge,
         });
       } catch (err) {
         console.error("Failed to load tests:", err);
@@ -265,7 +312,7 @@ const SelectTest = () => {
           listening: [],
           gateway: [],
           cambridge: [],
-          fce: [],
+          general: [],
         });
       } finally {
         setLoading(false);
@@ -381,6 +428,7 @@ const SelectTest = () => {
         listeningSubmissions,
         cambridgeSubmissions,
         gatewaySubmissions,
+        generalSubmissions,
       ] =
         await Promise.all([
           fetchArray(apiPath(`writing/user/${encodedPhone}`)),
@@ -388,6 +436,7 @@ const SelectTest = () => {
           fetchArray(apiPath(`listening-submissions/user/${encodedPhone}`)),
           fetchArray(apiPath(`cambridge/submissions/user/${encodedPhone}`)),
           fetchArray(apiPath(`gateway/submissions/user/${encodedPhone}`)),
+          fetchArray(apiPath(`general/submissions/user/${encodedPhone}`)),
         ]);
 
       const countsByKey = {};
@@ -445,6 +494,19 @@ const SelectTest = () => {
           );
         });
 
+      generalSubmissions
+        .filter(FINALIZED_CAMBRIDGE_SUBMISSION)
+        .forEach((submission) => {
+          incrementAttemptKeyCount(
+            countsByKey,
+            buildAttemptScopeKey({
+              scope: "cambridge",
+              testId: submission?.testId,
+              testType: submission?.testType,
+            })
+          );
+        });
+
       if (!isMounted) return;
 
       setAttemptStatus({
@@ -474,14 +536,14 @@ const SelectTest = () => {
     setActiveGatewayTab(nextState.gatewayTab);
     setActiveOrangeType(nextState.orangeType);
     setActiveOrangeTab(nextState.orangeTab);
-    setActiveFceTab(nextState.fceTab);
+    setActiveGeneralTab(nextState.generalTab);
   }, [location.search]);
 
   useEffect(() => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeType, activeOrangeTab, activeFceTab]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeType, activeOrangeTab, activeGeneralTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -579,10 +641,10 @@ const SelectTest = () => {
     navigate(getOrangeStudentPath(type, tab, test.id));
   };
 
-  const handleSelectFce = (test) => {
-    const rawTestType = String(test.testType || 'fce-reading-60').toLowerCase();
-    const { tab } = getFceHubStateForTestType(rawTestType);
-    navigate(getFceStudentPath(tab, test.id));
+  const handleSelectGeneral = (test) => {
+    const rawTestType = String(test.testType || 'general-reading-60').toLowerCase();
+    const { tab } = getGeneralHubStateForTestType(rawTestType);
+    navigate(getGeneralStudentPath(tab, test.id));
   };
 
   const handleEdit = (testId, testType, test = null) => {
@@ -602,17 +664,17 @@ const SelectTest = () => {
         return;
       }
       const rawTestType = String(test.testType || '').toLowerCase();
-      if (matchesFceTestType(rawTestType)) {
-        const { tab } = getFceHubStateForTestType(rawTestType);
-        navigate(getFceEditPath(tab, testId));
+      if (matchesGeneralTestType(rawTestType)) {
+        const { tab } = getGeneralHubStateForTestType(rawTestType);
+        navigate(getGeneralEditPath(tab, testId));
         return;
       }
       const { type, tab } = getOrangeHubStateForTestType(rawTestType);
       navigate(getOrangeEditPath(type, tab, testId));
-    } else if (testType === "fce" && test) {
+    } else if (testType === "general" && test) {
       const rawTestType = String(test.testType || '').toLowerCase();
-      const { tab } = getFceHubStateForTestType(rawTestType);
-      navigate(getFceEditPath(tab, testId));
+      const { tab } = getGeneralHubStateForTestType(rawTestType);
+      navigate(getGeneralEditPath(tab, testId));
     } else if (testType === "gateway" && test?.skill) {
       navigate(`/admin/edit-gateway/${test.skill}/${testId}`);
     }
@@ -678,7 +740,7 @@ const SelectTest = () => {
       testType === "writing" ||
       testType === "reading" ||
       testType === "listening" ||
-      testType === "fce";
+      testType === "general";
 
     const sorted = [...filtered].sort((a, b) => {
       if (sortMode === "oldest") return getCreatedOrId(a) - getCreatedOrId(b);
@@ -728,19 +790,19 @@ const SelectTest = () => {
   const ixTotalCount = (tests.writing?.length || 0) + (tests.reading?.length || 0) + (tests.listening?.length || 0);
   const gatewayTotalCount = tests.gateway?.length || 0;
   const orangeTotalCount = tests.cambridge?.length || 0;
-  const fceTotalCount = tests.fce?.length || 0;
+  const generalTotalCount = tests.general?.length || 0;
 
-  const fceSkillTabs = useMemo(
-    () => FCE_SKILLS.map((skill) => ({
+  const generalSkillTabs = useMemo(
+    () => GENERAL_SKILLS.map((skill) => ({
       key: skill.key,
       label: skill.label,
-      count: (tests.fce || []).filter((test) => getCambridgeCategory(test) === skill.key).length,
+      count: (tests.general || []).filter((test) => getCambridgeCategory(test) === skill.key).length,
       icon: skill.icon,
     })),
-    [tests.fce]
+    [tests.general]
   );
 
-  const fceConfig = useMemo(() => getFceTestConfig(activeFceTab), [activeFceTab]);
+  const generalConfig = useMemo(() => getGeneralTestConfig(activeGeneralTab), [activeGeneralTab]);
 
   const currentContext = useMemo(() => {
     if (activePlatform === "ix") {
@@ -749,7 +811,7 @@ const SelectTest = () => {
         displayType: activeIxTab,
         categoryForPermission: activeIxTab,
         isOrange: false,
-        isFce: false,
+        isGeneral: false,
         isGateway: false,
       };
     }
@@ -761,20 +823,20 @@ const SelectTest = () => {
         displayType: "gateway",
         categoryForPermission: "gateway",
         isOrange: false,
-        isFce: false,
+        isGeneral: false,
         isGateway: true,
       };
     }
 
-    if (activePlatform === "fce") {
-      const selected = (tests.fce || []).filter((test) => getCambridgeCategory(test) === activeFceTab);
+    if (activePlatform === "general") {
+      const selected = (tests.general || []).filter((test) => getCambridgeCategory(test) === activeGeneralTab);
 
       return {
         list: selected,
-        displayType: "fce",
-        categoryForPermission: activeFceTab,
+        displayType: "general",
+        categoryForPermission: activeGeneralTab,
         isOrange: false,
-        isFce: true,
+        isGeneral: true,
         isGateway: false,
       };
     }
@@ -791,10 +853,10 @@ const SelectTest = () => {
       displayType: "cambridge",
       categoryForPermission: activeOrangeTab,
       isOrange: true,
-      isFce: false,
+      isGeneral: false,
       isGateway: false,
     };
-  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeTab, activeFceTab, tests, orangeFilteredByType]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeTab, activeGeneralTab, tests, orangeFilteredByType]);
 
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
@@ -812,37 +874,37 @@ const SelectTest = () => {
   );
   const activeOrangeLevel = getOrangeLevelMeta(activeOrangeType);
   const currentSkillInfo =
-    activePlatform === "fce"
-      ? FCE_SKILL_META[activeFceTab] || FCE_SKILL_META.reading
+    activePlatform === "general"
+      ? GENERAL_SKILL_META[activeGeneralTab] || GENERAL_SKILL_META.reading
       : activePlatform === "gateway"
         ? GATEWAY_SKILL_META[activeGatewayTab] || GATEWAY_SKILL_META[DEFAULT_GATEWAY_SKILL]
         : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = (() => {
     if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
     if (activePlatform === "gateway") return `Gateway ${currentSkillInfo.label}`;
-    if (activePlatform === "fce") return `${fceDisplayName} ${currentSkillInfo.label}`;
+    if (activePlatform === "general") return `${generalDisplayName} ${currentSkillInfo.label}`;
     return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   })();
   const orangeCreatePath = getOrangeCreatePath(activeOrangeType, activeOrangeTab);
   const orangeCreateLabel = `Create ${activeOrangeLevel.shortLabel} ${currentSkillInfo.label} Test`;
-  const fceCreatePath = getFceCreatePath(activeFceTab);
-  const fceCreateLabel = `Create ${fceDisplayName} ${currentSkillInfo.label} Test`;
+  const generalCreatePath = getGeneralCreatePath(activeGeneralTab);
+  const generalCreateLabel = `Create ${generalDisplayName} ${currentSkillInfo.label} Test`;
   const heroTags = [
     {
       icon: activePlatform === "orange"
         ? activeOrangeLevel.iconName || "orange"
         : activePlatform === "gateway"
           ? "document"
-        : activePlatform === "fce"
-          ? FCE_LEVEL_META.iconName || "tests"
+        : activePlatform === "general"
+          ? GENERAL_LEVEL_META.iconName || "tests"
           : "tests",
       label:
         activePlatform === "orange"
           ? activeOrangeLevel.shortLabel
           : activePlatform === "gateway"
             ? "Gateway"
-          : activePlatform === "fce"
-            ? fceDisplayName
+          : activePlatform === "general"
+            ? generalDisplayName
             : "IX",
     },
     { icon: currentSkillInfo.icon, label: currentSkillInfo.label },
@@ -919,21 +981,21 @@ const SelectTest = () => {
     });
   };
 
-  const buildFcePlacementSelection = (test, title, displayTitle) => {
+  const buildGeneralPlacementSelection = (test, title, displayTitle) => {
     return createPlacementSelection({
-      platform: "fce",
-      skill: activeFceTab,
+      platform: "general",
+      skill: activeGeneralTab,
       testId: test.id,
       testType: test.testType,
       title,
       subtitle: buildPlacementSubtitle(
-        fceDisplayName,
+        generalDisplayName,
         displayTitle,
         test.classCode || ""
       ),
-      badge: fceDisplayName,
-      questionsLabel: `${fceConfig.totalQuestions || "?"} Q`,
-      durationLabel: `${fceConfig.duration || "?"} min`,
+      badge: generalDisplayName,
+      questionsLabel: `${generalConfig.totalQuestions || "?"} Q`,
+      durationLabel: `${generalConfig.duration || "?"} min`,
     });
   };
 
@@ -1034,8 +1096,8 @@ const SelectTest = () => {
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
                             : tab.key === "gateway"
                               ? { platform: "gateway", tab: activeGatewayTab }
-                            : tab.key === "fce"
-                              ? { platform: "fce", type: DEFAULT_FCE_TYPE, tab: activeFceTab }
+                            : tab.key === "general"
+                              ? { platform: "general", type: DEFAULT_GENERAL_TYPE, tab: activeGeneralTab }
                               : { platform: "ix", tab: activeIxTab }
                         )
                       }
@@ -1051,7 +1113,7 @@ const SelectTest = () => {
                             ? "Writing, reading, listening"
                             : tab.key === "gateway"
                               ? "Reading-writing, listening"
-                            : tab.key === "fce"
+                            : tab.key === "general"
                               ? "Placement-style combined skills"
                               : "KET, PET, Flyers, Movers, Starters"}
                         </span>
@@ -1061,13 +1123,42 @@ const SelectTest = () => {
                           ? ixTotalCount
                           : tab.key === "gateway"
                             ? gatewayTotalCount
-                            : tab.key === "fce"
-                              ? fceTotalCount
+                            : tab.key === "general"
+                              ? generalTotalCount
                               : orangeTotalCount}
                       </span>
                     </button>
                   ))}
                 </div>
+
+                {registeredLevels.length > 0 || registeredLevelError ? (
+                  <div className="select-test-sidebarPanel">
+                    <div className="select-test-sidebarPanelHeader">
+                      <span className="select-test-sidebarPanelTitle">Configured levels</span>
+                    </div>
+                    {registeredLevelError ? (
+                      <p className="select-test-shelfMetaItem" role="alert">{registeredLevelError}</p>
+                    ) : null}
+                    {registeredLevels.map((level) => (
+                      <button
+                        key={level.id}
+                        type="button"
+                        className="select-test-sidePlatform select-test-sidePlatform--level"
+                        onClick={() => navigate(`/exam-levels/${encodeURIComponent(level.code)}`)}
+                      >
+                        <span className="select-test-sidePlatformIcon" aria-hidden="true">
+                          <LineIcon name="tests" size={18} />
+                        </span>
+                        <span className="select-test-sidePlatformCopy">
+                          <span className="select-test-sidePlatformLabel">{level.name}</span>
+                          <span className="select-test-sidePlatformHint">
+                            {(level.skills || []).map((skill) => skill[0].toUpperCase() + skill.slice(1)).join(" · ")}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
 
                 {activePlatform === "ix" ? (
                   <div className="select-test-sidebarPanel">
@@ -1119,20 +1210,20 @@ const SelectTest = () => {
                       ))}
                     </div>
                   </div>
-                ) : activePlatform === "fce" ? (
+                ) : activePlatform === "general" ? (
                   <div className="select-test-sidebarPanel">
                     <div className="select-test-sidebarPanelHeader">
-                      <span className="select-test-sidebarPanelTitle">{fceDisplayName} skills</span>
-                      <span className="select-test-sidebarPanelMeta">{fceTotalCount} tests</span>
+                      <span className="select-test-sidebarPanelTitle">{generalDisplayName} skills</span>
+                      <span className="select-test-sidebarPanelMeta">{generalTotalCount} tests</span>
                     </div>
 
                     <div className="select-test-pillRow select-test-pillRow--sidebar">
-                      {fceSkillTabs.map((skill) => (
+                      {generalSkillTabs.map((skill) => (
                         <button
                           key={skill.key}
                           type="button"
-                          onClick={() => updateSelectRoute({ platform: "fce", type: DEFAULT_FCE_TYPE, tab: skill.key })}
-                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeFceTab === skill.key ? "active" : ""}`}
+                          onClick={() => updateSelectRoute({ platform: "general", type: DEFAULT_GENERAL_TYPE, tab: skill.key })}
+                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${activeGeneralTab === skill.key ? "active" : ""}`}
                         >
                           <span className="select-test-skillIcon" aria-hidden="true">
                             <LineIcon name={skill.icon} size={16} />
@@ -1144,9 +1235,9 @@ const SelectTest = () => {
                     </div>
 
                     <div className="select-test-shelfMeta">
-                      <span className="select-test-shelfMetaItem">{fceDisplayName} placement</span>
-                      <span className="select-test-shelfMetaItem">{fceConfig.totalQuestions || "?"} Q</span>
-                      <span className="select-test-shelfMetaItem">{fceConfig.duration || "?"} min</span>
+                      <span className="select-test-shelfMetaItem">{generalDisplayName} placement</span>
+                      <span className="select-test-shelfMetaItem">{generalConfig.totalQuestions || "?"} Q</span>
+                      <span className="select-test-shelfMetaItem">{generalConfig.duration || "?"} min</span>
                     </div>
                   </div>
                 ) : (
@@ -1224,8 +1315,8 @@ const SelectTest = () => {
                         ? "Orange library"
                         : activePlatform === "gateway"
                           ? "Gateway library"
-                          : activePlatform === "fce"
-                            ? `${fceDisplayName} library`
+                          : activePlatform === "general"
+                            ? `${generalDisplayName} library`
                             : "IX library"}
                     </span>
                     <h2 className="select-test-toolbarTitle">{currentShelfTitle}</h2>
@@ -1250,14 +1341,14 @@ const SelectTest = () => {
                     </button>
                   ) : null}
 
-                  {currentContext.isFce && canManageCurrentSelection ? (
+                  {currentContext.isGeneral && canManageCurrentSelection ? (
                     <button
                       type="button"
                       className="select-test-create select-test-create--toolbar"
-                      onClick={() => navigate(fceCreatePath)}
+                      onClick={() => navigate(generalCreatePath)}
                     >
                       <LineIcon name="create" size={16} />
-                      <span>{fceCreateLabel}</span>
+                      <span>{generalCreateLabel}</span>
                     </button>
                   ) : null}
 
@@ -1388,15 +1479,15 @@ const SelectTest = () => {
                       </div>
                     ) : null}
 
-                    {currentContext.isFce && canManageCurrentSelection ? (
+                    {currentContext.isGeneral && canManageCurrentSelection ? (
                       <div className="select-test-adminActions">
                         <button
                           type="button"
                           className="select-test-create"
-                          onClick={() => navigate(fceCreatePath)}
+                          onClick={() => navigate(generalCreatePath)}
                         >
                           <LineIcon name="create" size={16} />
-                          <span>{fceCreateLabel}</span>
+                          <span>{generalCreateLabel}</span>
                         </button>
                       </div>
                     ) : null}
@@ -1520,13 +1611,13 @@ const SelectTest = () => {
                             </div>
                           );
                         })
-                      ) : currentContext.isFce ? (
+                      ) : currentContext.isGeneral ? (
                         visibleList.map((test, index) => {
                           const classCode = test.classCode || "N/A";
                           const teacherName = test.teacherName || "N/A";
-                          const displayTitle = FCE_SKILL_META[activeFceTab]?.label || fceDisplayName;
-                          const fceCardTitle = test.title || `${fceDisplayName} ${displayTitle}`;
-                          const titleNumberMatch = String(fceCardTitle || "").trim().match(/(\d+)\s*$/);
+                          const displayTitle = GENERAL_SKILL_META[activeGeneralTab]?.label || generalDisplayName;
+                          const generalCardTitle = test.title || `${generalDisplayName} ${displayTitle}`;
+                          const titleNumberMatch = String(generalCardTitle || "").trim().match(/(\d+)\s*$/);
                           const numericIndex = Number(test?.index || 0);
                           const descendingFallbackNumber = Math.max(1, activeList.length - index);
                           const titleBadgeValue = titleNumberMatch
@@ -1535,18 +1626,18 @@ const SelectTest = () => {
                             ? String(numericIndex)
                             : String(descendingFallbackNumber);
                           const { isComplete: isAttemptComplete } = resolveCambridgeAttemptState(test);
-                          const placementSelection = buildFcePlacementSelection(test, fceCardTitle, displayTitle);
+                          const placementSelection = buildGeneralPlacementSelection(test, generalCardTitle, displayTitle);
                           const placementEligible = isPlacementAdmin && isPlacementEligible({
-                            platform: "fce",
-                            skill: activeFceTab,
+                            platform: "general",
+                            skill: activeGeneralTab,
                             testType: test.testType,
                           });
                           const placementShown = placementEligible && placementSelectionKeys.has(placementSelection.key);
 
                           return (
                             <div
-                              key={`fce-${test.category || "unknown"}-${test.id}`}
-                              className={`select-test-card select-test-card--${activeFceTab} select-test-card--fce${isAttemptComplete ? " select-test-card--disabled" : ""}`}
+                              key={`general-${test.category || "unknown"}-${test.id}`}
+                              className={`select-test-card select-test-card--${activeGeneralTab} select-test-card--general${isAttemptComplete ? " select-test-card--disabled" : ""}`}
                             >
                               <button
                                 type="button"
@@ -1554,15 +1645,15 @@ const SelectTest = () => {
                                 disabled={isAttemptComplete}
                                 onClick={() => {
                                   if (isAttemptComplete) return;
-                                  handleSelectFce(test);
+                                  handleSelectGeneral(test);
                                 }}
                               >
                                 <div className="select-test-cardHeader">
-                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeFceTab}`}>
-                                    <LineIcon name={FCE_SKILL_META[activeFceTab]?.icon || "tests"} size={16} />
+                                  <span className={`select-test-cardBadge select-test-cardBadge--${activeGeneralTab}`}>
+                                    <LineIcon name={GENERAL_SKILL_META[activeGeneralTab]?.icon || "tests"} size={16} />
                                     <span>{displayTitle}</span>
                                   </span>
-                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeFceTab}`}>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activeGeneralTab}`}>
                                     {titleBadgeValue}
                                   </span>
                                 </div>
@@ -1577,7 +1668,7 @@ const SelectTest = () => {
 
                                 <div className="select-test-cardFooter">
                                   <span className="select-test-cardFootnote">
-                                    {fceConfig.totalQuestions || "?"} Q • {fceConfig.duration || "?"} min
+                                    {generalConfig.totalQuestions || "?"} Q • {generalConfig.duration || "?"} min
                                   </span>
                                   <div className="select-test-cardFooterMeta">
                                     {isAttemptComplete ? (
@@ -1600,8 +1691,8 @@ const SelectTest = () => {
                                   {canManageCurrentSelection ? (
                                     <button
                                       type="button"
-                                      className="select-test-edit select-test-edit--fce"
-                                      onClick={() => handleEdit(test.id, "fce", test)}
+                                      className="select-test-edit select-test-edit--general"
+                                      onClick={() => handleEdit(test.id, "general", test)}
                                     >
                                       <span>Edit Test</span>
                                     </button>
