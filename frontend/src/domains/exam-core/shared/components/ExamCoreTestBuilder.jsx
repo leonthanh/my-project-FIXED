@@ -27,6 +27,7 @@ import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import "./ExamCoreTestBuilder.css";
 import { computeQuestionStarts, getQuestionCountForSection } from "../utils/examQuestionNumbering";
+import renumberGatewayClozeQuestion from "../utils/gatewayClozeNumbering";
 import { normalizeQuillPromptHtml } from "../utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
@@ -267,17 +268,17 @@ const createGatewayGrammarBQuestionData = () => ({
   wordBank: ["Be", "get off", "hope", "leave", "travel"],
   passageText: `<p><strong>B. Complete the text with the correct past simple, past continuous or past perfect form of the verbs in the box.</strong></p>
 <p>I fell asleep on the train once and missed my stop.</p>
-<p>It was two years ago when I <strong>(1)</strong> ____________ college in London to go home.</p>
-<p>I <strong>(2)</strong> ____________ on a train from Kings Cross to Newark-on-Trent about 125 miles away.</p>
-<p>It <strong>(3)</strong> ____________ a long day in London, so I was very tired. I had done this journey many times but had never fallen asleep before. On this occasion, I woke up just as the train was stopping in Newark, so I got my bags and went to the door, but unfortunately, before I got there, the train set off again.</p>
-<p>I <strong>(4)</strong> ____________ to get off at the next stop, but the train didn’t stop there. Finally, the train arrived in Doncaster, 35 miles north of Newark where I <strong>(5)</strong> ____________. Luckily, I only had to wait ten minutes for a train going in the opposite direction, and I arrived back in Newark, only a little over an hour after I had missed my stop.</p>
+<p>It was two years ago when I <strong>(6)</strong> college in London to go home.</p>
+<p>I <strong>(7)</strong> on a train from Kings Cross to Newark-on-Trent about 125 miles away.</p>
+<p>It <strong>(8)</strong> a long day in London, so I was very tired. I had done this journey many times but had never fallen asleep before. On this occasion, I woke up just as the train was stopping in Newark, so I got my bags and went to the door, but unfortunately, before I got there, the train set off again.</p>
+<p>I <strong>(9)</strong> to get off at the next stop, but the train didn’t stop there. Finally, the train arrived in Doncaster, 35 miles north of Newark where I <strong>(10)</strong>. Luckily, I only had to wait ten minutes for a train going in the opposite direction, and I arrived back in Newark, only a little over an hour after I had missed my stop.</p>
 <p style="text-align:right;"><strong>_____/5</strong> (1 mark per answer)</p>`,
   answers: {
-    1: "",
-    2: "",
-    3: "",
-    4: "",
-    5: "",
+    6: "",
+    7: "",
+    8: "",
+    9: "",
+    10: "",
   },
 });
 
@@ -287,15 +288,15 @@ const createGatewayGrammarCQuestionData = () => ({
   instruction: "",
   scoreNote: "_____/5 (1 mark per answer)",
   passageText: `<p style="text-align:center;"><strong>My favourite person</strong></p>
-<p>My favourite person is my grandma. She is like a best friend to me. She doesn’t live far away. It’s a five-minute walk, so I often (1) __________ (go) and visit her.</p>
-<p>She’s a <u>really likeable</u> person. She’s always smiling. Even though she’s elderly, she’s very energetic and (2) __________ (love) trying new things. We (3) __________ (learn) Italian together <u>at the moment</u>. It’s hard, but we (4) __________ (make) good progress.</p>
-<p>She wants to take me to Italy next year. The best thing about my grandma is that she’s always there for me when I (5) __________ (have) a problem.</p>`,
+<p>My favourite person is my grandma. She is like a best friend to me. She doesn’t live far away. It’s a five-minute walk, so I often (11) (go) and visit her.</p>
+<p>She’s a <u>really likeable</u> person. She’s always smiling. Even though she’s elderly, she’s very energetic and (12) (love) trying new things. We (13) (learn) Italian together <u>at the moment</u>. It’s hard, but we (14) (make) good progress.</p>
+<p>She wants to take me to Italy next year. The best thing about my grandma is that she’s always there for me when I (15) (have) a problem.</p>`,
   answers: {
-    1: "",
-    2: "",
-    3: "",
-    4: "",
-    5: "",
+    11: "",
+    12: "",
+    13: "",
+    14: "",
+    15: "",
   },
 });
 
@@ -306,19 +307,19 @@ const createGatewayVocabularyAQuestionData = () => ({
   scoreNote: "_____/5 (1 mark per answer)",
   wordBank: ["arrivals", "delay", "information", "luggage", "platform", "service", "station", "taxi rank"],
   passageText: `<p><strong>Janet:</strong>&nbsp; What time does Lisa's train arrive?</p>
-<p><strong>Steve:</strong>&nbsp; I think it's about 10.30. Can you see it on the (1) screen?</p>
-<p><strong>Janet:</strong>&nbsp; Yes, there it is. 10.34. But there's a (2) of ten minutes, so that means 10.44.</p>
-<p><strong>Steve:</strong>&nbsp; OK, so we still have 15 minutes. Which (3) does the train come into?</p>
+<p><strong>Steve:</strong>&nbsp; I think it's about 10.30. Can you see it on the (16) screen?</p>
+<p><strong>Janet:</strong>&nbsp; Yes, there it is. 10.34. But there's a (17) of ten minutes, so that means 10.44.</p>
+<p><strong>Steve:</strong>&nbsp; OK, so we still have 15 minutes. Which (18) does the train come into?</p>
 <p><strong>Janet:</strong>&nbsp; Number eight. It's over there.</p>
-<p><strong>Steve:</strong>&nbsp; Lisa says she's bringing a lot of (4), so I don't think we should take the bus home. It's not easy carrying bags on the bus.</p>
-<p><strong>Janet:</strong>&nbsp; You're right. There's a (5) just outside the station, so we can go there when she arrives.</p>
+<p><strong>Steve:</strong>&nbsp; Lisa says she's bringing a lot of (19), so I don't think we should take the bus home. It's not easy carrying bags on the bus.</p>
+<p><strong>Janet:</strong>&nbsp; You're right. There's a (20) just outside the station, so we can go there when she arrives.</p>
 <p><strong>Steve:</strong>&nbsp; Great! Look, here comes the train!</p>`,
   answers: {
-    1: "information",
-    2: "delay",
-    3: "platform",
-    4: "luggage",
-    5: "taxi rank",
+    16: "information",
+    17: "delay",
+    18: "platform",
+    19: "luggage",
+    20: "taxi rank",
   },
 });
 
@@ -365,15 +366,15 @@ const createGatewayVocabularyCQuestionData = () => ({
   instruction: "",
   scoreNote: "_____/5 (1 mark per answer)",
   passageText: `<p>Hi Sophie,</p>
-<p>When weren't you at Lee's party on Friday? I missed you. It was <strong><em>Ex 1. difficult (hard)</em></strong> to find Lee's house at first, so I was late. Everyone was already there, and they were all talking to each other. Lee's friends are more (2) (sociable) than me and I felt a bit shy. I was so (3) (happy) to see Jason. He came over and talked to me as he could see I was nervous. He told me he's going to study engineering. He's so (4) (intelligent). Sometimes I don't understand what he's talking about! Jason introduced me to a friend of his, called Duncan, who's very (5) (handsome)! Hannah was there, too, being silly as usual. She's so (6) (immature) sometimes. She's a year older than us, but she doesn't seem it.</p>
+<p>When weren't you at Lee's party on Friday? I missed you. It was <strong><em>Ex 1. difficult (hard)</em></strong> to find Lee's house at first, so I was late. Everyone was already there, and they were all talking to each other. Lee's friends are more (26) (sociable) than me and I felt a bit shy. I was so (27) (happy) to see Jason. He came over and talked to me as he could see I was nervous. He told me he's going to study engineering. He's so (28) (intelligent). Sometimes I don't understand what he's talking about! Jason introduced me to a friend of his, called Duncan, who's very (29) (handsome)! Hannah was there, too, being silly as usual. She's so (30) (immature) sometimes. She's a year older than us, but she doesn't seem it.</p>
 <p>Let's get together soon.</p>
 <p>Love Thea</p>`,
   answers: {
-    2: "outgoing",
-    3: "glad | pleased",
-    4: "clever | smart",
-    5: "good-looking | attractive | gorgeous",
-    6: "childish",
+  26: "outgoing",
+  27: "glad | pleased",
+  28: "clever | smart",
+  29: "good-looking | attractive | gorgeous",
+  30: "childish",
   },
 });
 
@@ -970,7 +971,15 @@ const ensureGatewayReadingWritingSections = (partsData = []) => {
 
       return section;
     });
-    return { ...part, sections: nextSections };
+    const normalizedSections = nextSections.map((section) => {
+      if (String(section?.questionType || "").trim().toLowerCase() !== "cloze-test") return section;
+      const questions = Array.isArray(section.questions) ? section.questions : [];
+      const firstQuestion = questions[0];
+      const normalizedQuestion = renumberGatewayClozeQuestion(section.sectionTitle, firstQuestion);
+      if (normalizedQuestion === firstQuestion) return section;
+      return { ...section, questions: [normalizedQuestion, ...questions.slice(1)] };
+    });
+    return { ...part, sections: normalizedSections };
   });
 };
 
