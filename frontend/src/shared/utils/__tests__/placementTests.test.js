@@ -1,5 +1,6 @@
 import {
   filterPlacementGroups,
+  buildPlacementSelectionKey,
   buildPlacementAttemptItemRuntimePath,
   getPlacementItemSummaryCounts,
   groupPlacementItems,
@@ -130,6 +131,35 @@ describe("placementTests", () => {
     ).toBe(
       "/placement/general/reading/22?attempt=attempt_general_4&attemptItem=item_general_22"
     );
+  });
+
+  test("builds dynamic exam-level placement paths and keeps levels distinct", () => {
+    const prepareItem = {
+      platform: "exam-level",
+      levelCode: "prepare",
+      skill: "listening",
+      testId: 22,
+      testType: "prepare-listening",
+      title: "Prepare Listening 1",
+      badge: "Prepare",
+      attemptItemToken: "item_prepare_22",
+    };
+    const gatewayItem = {
+      ...prepareItem,
+      levelCode: "gateway",
+      platform: "exam-level",
+    };
+
+    expect(isPlacementEligible(prepareItem)).toBe(true);
+    expect(isPlacementEligible({ ...prepareItem, levelCode: "" })).toBe(false);
+    expect(buildPlacementAttemptItemRuntimePath(prepareItem, "attempt_prepare")).toBe(
+      "/placement/exam-level/prepare/listening/22?attempt=attempt_prepare&attemptItem=item_prepare_22"
+    );
+    expect(
+      buildPlacementSelectionKey(prepareItem)
+    ).not.toBe(buildPlacementSelectionKey(gatewayItem));
+    expect(groupPlacementItems([prepareItem])[0].title).toBe("Exam-level tests");
+    expect(getPlacementItemSummaryCounts([prepareItem]).examLevel).toBe(1);
   });
 
   test("groups placement items by platform with stable filtered numbering", () => {

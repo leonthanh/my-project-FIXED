@@ -4,6 +4,11 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../shared/components/StudentNavbar";
 import LineIcon from "../../../shared/components/LineIcon.jsx";
 import { apiPath, authFetch, getStoredUser } from "../../../shared/utils/api";
+import {
+  createPlacementSelection,
+  isPlacementEligible,
+  normalizePlacementSelections,
+} from "../../../shared/utils/placementTests";
 import "./ExamLevelHubPage.css";
 
 const SKILL_LABELS = {
@@ -22,6 +27,8 @@ const ExamLevelHubPage = () => {
   const [testsBySkill, setTestsBySkill] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [placementSelections, setPlacementSelections] = useState([]);
+  const [placementSaving, setPlacementSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -61,6 +68,64 @@ const ExamLevelHubPage = () => {
     };
   }, [code]);
 
+  useEffect(() => {
+    if (!isTeacher) return undefined;
+    let mounted = true;
+    authFetch(apiPath("placement/packages/current"))
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || "Could not load placement visibility.");
+        }
+        if (mounted) {
+          setPlacementSelections(normalizePlacementSelections(payload.items));
+        }
+      })
+      .catch((loadError) => {
+        if (mounted) setError(loadError.message);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isTeacher]);
+
+  const togglePlacement = async (skill, test) => {
+    const selection = createPlacementSelection({
+      platform: "exam-level",
+      levelCode: code,
+      skill,
+      testId: test.id,
+      testType: test.testType,
+      title: test.title,
+      badge: level?.name || code.toUpperCase(),
+      questionsLabel: `${test.totalQuestions || 0} questions`,
+      durationLabel: `${test.duration || 0} min`,
+    });
+    if (!isPlacementEligible(selection)) return;
+    const isShown = placementSelections.some((item) => item.key === selection.key);
+    const next = isShown
+      ? placementSelections.filter((item) => item.key !== selection.key)
+      : normalizePlacementSelections([...placementSelections, selection]);
+    setPlacementSaving(true);
+    setError("");
+    try {
+      const response = await authFetch(apiPath("placement/packages/current"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: next }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || "Could not update placement visibility.");
+      }
+      setPlacementSelections(normalizePlacementSelections(payload.items));
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setPlacementSaving(false);
+    }
+  };
+
   const archiveTest = async (skill, testId) => {
     setError("");
     try {
@@ -98,6 +163,15 @@ const ExamLevelHubPage = () => {
           <button type="button" className="exam-level-hub__back" onClick={() => navigate("/select-test")}>
             Back to tests
           </button>
+          {isTeacher && (
+            <button
+              type="button"
+              className="exam-level-hub__back"
+              onClick={() => navigate(`/exam-levels/${encodeURIComponent(code)}/submissions`)}
+            >
+              View submissions
+            </button>
+          )}
         </header>
         {error && <p className="exam-level-hub__error" role="alert">{error}</p>}
         {(level?.skills || []).map((skill) => (
@@ -120,7 +194,19 @@ const ExamLevelHubPage = () => {
             </div>
             {testsBySkill[skill]?.length ? (
               <div className="exam-level-hub__grid">
-                {testsBySkill[skill].map((test) => (
+                {testsBySkill[skill].map((test) => {
+                  const placementSelection = createPlacementSelection({
+                    platform: "exam-level",
+                    levelCode: code,
+                    skill,
+                    testId: test.id,
+                    testType: test.testType,
+                  });
+                  const placementShown = placementSelections.some(
+                    (item) => item.key === placementSelection.key
+                  );
+
+                  return (
                   <article className="exam-level-hub__card" key={test.id}>
                     <div className="exam-level-hub__cardTop">
                       <span>{SKILL_LABELS[skill] || skill}</span>
@@ -136,6 +222,14 @@ const ExamLevelHubPage = () => {
                         <>
                           <button
                             type="button"
+                            disabled={placementSaving || (test.status !== "published" && !placementShown)}
+                            aria-pressed={placementShown}
+                            onClick={() => void togglePlacement(skill, test)}
+                          >
+                            {placementShown ? "Hide from Placement" : "Show on Placement"}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => navigate(`/admin/exam-levels/${encodeURIComponent(code)}/${skill}/${test.id}/edit`)}
                           >
                             Edit
@@ -147,7 +241,8 @@ const ExamLevelHubPage = () => {
                       )}
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="exam-level-hub__empty">

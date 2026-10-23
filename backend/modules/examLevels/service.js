@@ -4,6 +4,7 @@ const { processTestParts } = require("../../utils/clozParser");
 const { normalizeStudentResultVisibility } = require("../../utils/studentResultVisibility");
 const { scoreTest } = require("../cambridge/shared/scoring");
 const { countTotalQuestionsFromParts } = require("../cambridge/shared/readingTestUtils");
+const placementService = require("../placement/service");
 
 const ALLOWED_SKILLS = new Set(["reading", "listening", "writing"]);
 
@@ -214,15 +215,32 @@ const getActiveSubmission = async ({ code, query = {}, user }) => {
     skill,
     id: testId,
   });
-  const submission = await ExamLevelSubmission.findOne({
-    where: {
-      levelId: level.id,
-      testId: test.id,
-      userId: Number(user?.id),
-      finished: false,
-    },
-    order: [["updatedAt", "DESC"]],
-  });
+  const placementItemToken = query.placementAttemptItemToken || query.attemptItemToken;
+  const placementContext = placementItemToken
+    ? await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementItemToken,
+        platform: "exam-level",
+        levelCode: level.code,
+        skill,
+        testId: test.id,
+      })
+    : null;
+  if (!placementContext && !Number(user?.id)) {
+    throw createServiceError(401, "Authentication or a valid placement attempt is required.");
+  }
+  const submission = placementContext
+    ? placementContext.attemptItem.status === "submitted"
+      ? null
+      : placementContext.submission
+    : await ExamLevelSubmission.findOne({
+        where: {
+          levelId: level.id,
+          testId: test.id,
+          userId: Number(user.id),
+          finished: false,
+        },
+        order: [["updatedAt", "DESC"]],
+      });
   return {
     submission: submission?.toJSON() || null,
     timing: { expiresAt: submission?.expiresAt || null },
@@ -240,10 +258,31 @@ const autosaveSubmission = async ({ code, body = {}, user }) => {
     throw createServiceError(400, "Missing or invalid testId or testType.");
   }
   const test = await getTest({ level, skill: normalizedSkill, id: testId });
-  const userId = Number(user?.id);
+  const placementItemToken = body.placementAttemptItemToken || body.attemptItemToken;
+  const placementContext = placementItemToken
+    ? await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementItemToken,
+        platform: "exam-level",
+        levelCode: level.code,
+        skill: normalizedSkill,
+        testId: test.id,
+      })
+    : null;
+  if (!placementContext && !Number(user?.id)) {
+    throw createServiceError(401, "Authentication or a valid placement attempt is required.");
+  }
+  if (placementContext?.attemptItem.status === "submitted") {
+    throw createServiceError(409, "This placement test has already been submitted.");
+  }
+  const userId = placementContext ? null : Number(user.id);
   const submissionId = Number(body.submissionId);
   let submission = null;
-  if (submissionId) {
+  if (placementContext) {
+    submission = placementContext.submission;
+    if (submissionId && Number(submission?.id) !== submissionId) {
+      throw createServiceError(404, "Active placement draft not found.");
+    }
+  } else if (submissionId) {
     submission = await ExamLevelSubmission.findOne({
       where: {
         id: submissionId,
@@ -275,8 +314,16 @@ const autosaveSubmission = async ({ code, body = {}, user }) => {
     skill: normalizedSkill,
     testType: test.testType,
     testTitle: test.title,
-    studentName: String(body.studentName || body.user?.name || body.user?.username || "Student").trim(),
-    studentPhone: String(body.studentPhone || body.user?.phone || "").trim() || null,
+    studentName: String(
+      placementContext?.attempt.studentName ||
+      body.studentName ||
+      body.user?.name ||
+      body.user?.username ||
+      "Student"
+    ).trim(),
+    studentPhone: String(
+      placementContext?.attempt.studentPhone || body.studentPhone || body.user?.phone || ""
+    ).trim() || null,
     studentEmail: String(body.studentEmail || body.user?.email || "").trim() || null,
     classCode: test.classCode,
     userId,
@@ -296,6 +343,18 @@ const autosaveSubmission = async ({ code, body = {}, user }) => {
   } else {
     submission = await ExamLevelSubmission.create(values);
   }
+  if (placementContext) {
+    await placementService.syncRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementItemToken,
+      platform: "exam-level",
+      levelCode: level.code,
+      skill: normalizedSkill,
+      testId: test.id,
+      runtimeSubmissionModel: "examlevel",
+      runtimeSubmissionId: submission.id,
+      status: "started",
+    });
+  }
   return {
     submission,
     timing: { expiresAt: submission.expiresAt },
@@ -313,14 +372,35 @@ const submitTest = async ({ code, skill, id, body = {}, user }) => {
   if (!body.answers || typeof body.answers !== "object" || Array.isArray(body.answers)) {
     throw createServiceError(400, "Answers are required.");
   }
-  const userId = Number(user?.id);
+  const placementItemToken = body.placementAttemptItemToken || body.attemptItemToken;
+  const placementContext = placementItemToken
+    ? await placementService.getRuntimeSubmissionForAttemptItem({
+        attemptItemToken: placementItemToken,
+        platform: "exam-level",
+        levelCode: level.code,
+        skill: normalizedSkill,
+        testId: test.id,
+      })
+    : null;
+  if (!placementContext && !Number(user?.id)) {
+    throw createServiceError(401, "Authentication or a valid placement attempt is required.");
+  }
+  if (placementContext?.attemptItem.status === "submitted") {
+    throw createServiceError(409, "This placement test has already been submitted.");
+  }
+  const userId = placementContext ? null : Number(user.id);
   const { score, total, percentage, detailedResults, breakdown } = scoreTest(
     test,
     body.answers
   );
   const submissionId = Number(body.submissionId);
   let submission = null;
-  if (submissionId) {
+  if (placementContext) {
+    submission = placementContext.submission;
+    if (submissionId && Number(submission?.id) !== submissionId) {
+      throw createServiceError(404, "Active placement draft not found.");
+    }
+  } else if (submissionId) {
     submission = await ExamLevelSubmission.findOne({
       where: {
         id: submissionId,
@@ -348,8 +428,16 @@ const submitTest = async ({ code, skill, id, body = {}, user }) => {
     skill: normalizedSkill,
     testType: test.testType,
     testTitle: test.title,
-    studentName: String(body.studentName || body.user?.name || body.user?.username || "Student").trim(),
-    studentPhone: String(body.studentPhone || body.user?.phone || "").trim() || null,
+    studentName: String(
+      placementContext?.attempt.studentName ||
+      body.studentName ||
+      body.user?.name ||
+      body.user?.username ||
+      "Student"
+    ).trim(),
+    studentPhone: String(
+      placementContext?.attempt.studentPhone || body.studentPhone || body.user?.phone || ""
+    ).trim() || null,
     studentEmail: String(body.studentEmail || body.user?.email || "").trim() || null,
     classCode: test.classCode,
     userId,
@@ -372,6 +460,21 @@ const submitTest = async ({ code, skill, id, body = {}, user }) => {
   } else {
     submission = await ExamLevelSubmission.create(values);
   }
+  if (placementContext) {
+    await placementService.syncRuntimeSubmissionForAttemptItem({
+      attemptItemToken: placementItemToken,
+      platform: "exam-level",
+      levelCode: level.code,
+      skill: normalizedSkill,
+      testId: test.id,
+      runtimeSubmissionModel: "examlevel",
+      runtimeSubmissionId: submission.id,
+      status: "submitted",
+      correct: score,
+      totalQuestions: total,
+      percentage,
+    });
+  }
   return {
     submission,
     score,
@@ -384,14 +487,88 @@ const submitTest = async ({ code, skill, id, body = {}, user }) => {
   };
 };
 
+const listSubmissions = async ({ code, skill, status }) => {
+  const level = await getLevel(code);
+  const where = { levelId: level.id, finished: true };
+  if (skill) {
+    const normalizedSkill = normalizeSkill(skill);
+    if (!ALLOWED_SKILLS.has(normalizedSkill)) {
+      throw createServiceError(400, "Invalid skill filter.");
+    }
+    where.skill = normalizedSkill;
+  }
+  if (status && ["submitted", "reviewed", "archived"].includes(status)) {
+    where.status = status;
+  } else {
+    where.status = { [Op.ne]: "archived" };
+  }
+  const submissions = await ExamLevelSubmission.findAll({
+    where,
+    order: [["submittedAt", "DESC"], ["id", "DESC"]],
+    limit: 500,
+  });
+  return submissions.map((submission) => submission.toJSON());
+};
+
+const getSubmissionForReview = async ({ code, submissionId, user }) => {
+  const level = await getLevel(code);
+  const submission = await ExamLevelSubmission.findOne({
+    where: { id: Number(submissionId), levelId: level.id, finished: true },
+  });
+  if (!submission) throw createServiceError(404, "Submission not found.");
+  if (!isTeacher(user) && Number(submission.userId) !== Number(user?.id)) {
+    throw createServiceError(403, "You cannot access this submission.");
+  }
+  const test = await ExamLevelTest.findOne({
+    where: { id: submission.testId, levelId: level.id, skill: submission.skill },
+  });
+  return {
+    submission: submission.toJSON(),
+    test: test
+      ? {
+          id: test.id,
+          title: test.title,
+          skill: test.skill,
+          parts: test.parts,
+        }
+      : null,
+    level: { code: level.code, name: level.name },
+  };
+};
+
+const saveSubmissionReview = async ({ code, submissionId, body = {}, user }) => {
+  const level = await getLevel(code);
+  const submission = await ExamLevelSubmission.findOne({
+    where: { id: Number(submissionId), levelId: level.id, finished: true },
+  });
+  if (!submission) throw createServiceError(404, "Submission not found.");
+  const feedback = String(body.feedback ?? "").trim();
+  const responseFeedback =
+    body.responseFeedback && typeof body.responseFeedback === "object" && !Array.isArray(body.responseFeedback)
+      ? body.responseFeedback
+      : null;
+  if (feedback.length > 10000) {
+    throw createServiceError(400, "Feedback must be 10,000 characters or fewer.");
+  }
+  await submission.update({
+    feedback: feedback || null,
+    responseFeedback,
+    status: "reviewed",
+  });
+  return submission.toJSON();
+};
+
 module.exports = {
   autosaveSubmission,
   createTest,
   deleteTest,
   getActiveSubmission,
   getLevelByCode,
+  getSubmissionForReview,
   getTestById,
   listTests,
+  listSubmissions,
+  saveSubmissionReview,
   submitTest,
   updateTest,
 };
