@@ -16,8 +16,19 @@ const send = (handler) => async (req, res, next) => {
 router.get("/:code", optionalAuth, send((req) => service.getLevelByCode(req.params.code)));
 
 router.get(
+  "/:code/submissions",
+  ...requireTeacher,
+  send((req) =>
+    service.listSubmissions({
+      code: req.params.code,
+      skill: req.query.skill,
+      status: req.query.status,
+    })
+  )
+);
+router.get(
   "/:code/submissions/active",
-  requireAuth,
+  optionalAuth,
   send((req) =>
     service.getActiveSubmission({
       code: req.params.code,
@@ -26,9 +37,33 @@ router.get(
     })
   )
 );
+router.get(
+  "/:code/submissions/:submissionId",
+  ...requireTeacher,
+  send((req) =>
+    service.getSubmissionForReview({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+      user: req.user,
+    })
+  )
+);
+router.put(
+  "/:code/submissions/:submissionId/review",
+  ...requireTeacher,
+  send((req) =>
+    service.saveSubmissionReview({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+      body: req.body,
+      user: req.user,
+    })
+  )
+);
+
 router.post(
   "/:code/submissions/autosave",
-  requireAuth,
+  optionalAuth,
   send((req) =>
     service.autosaveSubmission({
       code: req.params.code,
@@ -105,7 +140,7 @@ router.delete(
 );
 router.post(
   "/:code/:skill/tests/:id/submit",
-  requireAuth,
+  optionalAuth,
   async (req, res, next) => {
     try {
       const result = await service.submitTest({
@@ -115,7 +150,7 @@ router.post(
         body: req.body,
         user: req.user,
       });
-      const isStudent = req.user.role === "student";
+      const isStudent = req.user?.role === "student";
       if (isStudent && result.studentResultVisibility === "confirmation") {
         return res.status(201).json({
           message: "Submission received.",

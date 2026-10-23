@@ -11,6 +11,7 @@ const ListeningSubmission = require("../../models/ListeningSubmission");
 const CambridgeSubmission = require("../../models/CambridgeSubmission");
 const GatewaySubmission = require("../../models/GatewaySubmission");
 const GeneralSubmission = require("../../models/GeneralSubmission");
+const ExamLevelSubmission = require("../../models/ExamLevelSubmission");
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);
@@ -34,6 +35,7 @@ const RUNTIME_SUBMISSION_MODELS = {
   cambridge: CambridgeSubmission,
   general: GeneralSubmission,
   gateway: GatewaySubmission,
+  examlevel: ExamLevelSubmission,
 };
 
 const sortByOrder = (rows) =>
@@ -47,9 +49,13 @@ const normalizePlacementItem = (item, index = 0) => {
   const platform = normalizePlatform(item?.platform);
   const skill = normalizeLower(item?.skill);
   const testId = normalizeText(item?.testId);
+  const levelCode = normalizeLower(item?.levelCode);
   const title = normalizeText(item?.title);
 
   if (!platform || !skill || !testId || !title) {
+    return null;
+  }
+  if (platform === "exam-level" && !levelCode) {
     return null;
   }
 
@@ -57,6 +63,7 @@ const normalizePlacementItem = (item, index = 0) => {
     platform,
     skill,
     testId,
+    levelCode: levelCode || null,
     testType: normalizeTestType(item?.testType) || null,
     title,
     subtitle: normalizeText(item?.subtitle) || null,
@@ -90,6 +97,7 @@ const summarizeAttemptItems = (items = []) => {
       if (normalizePlatform(item?.platform) === "orange") summary.orange += 1;
       if (normalizePlatform(item?.platform) === "gateway") summary.gateway += 1;
       if (normalizePlatform(item?.platform) === "general") summary.general += 1;
+      if (normalizePlatform(item?.platform) === "exam-level") summary.examLevel += 1;
       return summary;
     },
     {
@@ -103,6 +111,7 @@ const summarizeAttemptItems = (items = []) => {
       orange: 0,
       gateway: 0,
       general: 0,
+      examLevel: 0,
     }
   );
 };
@@ -139,6 +148,9 @@ const buildAttemptItemUpdatePayload = (attemptItem, packageItem) => {
   }
   if (normalizeText(attemptItem?.testId) !== normalizeText(packageItem?.testId)) {
     nextValues.testId = String(packageItem.testId);
+  }
+  if (normalizeLower(attemptItem?.levelCode) !== normalizeLower(packageItem?.levelCode)) {
+    nextValues.levelCode = packageItem.levelCode || null;
   }
   if (normalizeLower(attemptItem?.testType) !== normalizeLower(packageItem?.testType)) {
     nextValues.testType = packageItem.testType || null;
@@ -222,6 +234,7 @@ const syncAttemptItemsFromPackage = async ({ attempt, packageItems = [] }) => {
         platform: item.platform,
         skill: item.skill,
         testId: String(item.testId),
+        levelCode: item.levelCode || null,
         testType: item.testType || null,
         title: item.title,
         subtitle: item.subtitle || null,
@@ -488,6 +501,7 @@ const createAttemptItemsFromPackage = async ({ attemptId, packageItems = [] }) =
       platform: item.platform,
       skill: item.skill,
       testId: String(item.testId),
+      levelCode: item.levelCode || null,
       testType: item.testType || null,
       title: item.title,
       subtitle: item.subtitle || null,
@@ -597,6 +611,7 @@ const ensureAttemptItemMatchesRuntime = async ({
   platform,
   skill,
   testId,
+  levelCode = null,
   testType = null,
 }) => {
   const attemptItem = await getAttemptItemByTokenRecord(attemptItemToken);
@@ -611,6 +626,10 @@ const ensureAttemptItemMatchesRuntime = async ({
 
   if (normalizeText(attemptItem.testId) !== normalizeText(testId)) {
     throw createServiceError(404, "Placement attempt item not found for this test.");
+  }
+
+  if (levelCode && normalizeLower(attemptItem.levelCode) !== normalizeLower(levelCode)) {
+    throw createServiceError(404, "Placement attempt item not found for this level.");
   }
 
   if (testType && normalizeTestType(attemptItem.testType) !== normalizeTestType(testType)) {
@@ -630,6 +649,7 @@ const getRuntimeSubmissionForAttemptItem = async ({
   platform,
   skill,
   testId,
+  levelCode = null,
   testType = null,
 }) => {
   const { attemptItem, attempt } = await ensureAttemptItemMatchesRuntime({
@@ -637,6 +657,7 @@ const getRuntimeSubmissionForAttemptItem = async ({
     platform,
     skill,
     testId,
+    levelCode,
     testType,
   });
 
@@ -674,6 +695,7 @@ const syncRuntimeSubmissionForAttemptItem = async ({
   platform,
   skill,
   testId,
+  levelCode = null,
   testType = null,
   runtimeSubmissionModel,
   runtimeSubmissionId,
@@ -688,6 +710,7 @@ const syncRuntimeSubmissionForAttemptItem = async ({
     platform,
     skill,
     testId,
+    levelCode,
     testType,
   });
 

@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import {
+  buildPlacementAttemptPath,
+  readPlacementRuntimeContext,
+} from "../../../shared/utils/placementTests";
 import ExamCoreListeningRuntimePage from "../../exam-core/shared/pages/ExamCoreListeningRuntimePage";
 import ExamCoreReadingRuntimePage from "../../exam-core/shared/pages/ExamCoreReadingRuntimePage";
 
@@ -12,14 +16,18 @@ const SKILL_LABELS = {
 
 const ExamLevelSkillRuntimePage = () => {
   const { code: rawCode, skill: rawSkill } = useParams();
+  const location = useLocation();
   const code = String(rawCode || "").trim().toLowerCase();
   const skill = String(rawSkill || "").trim().toLowerCase();
+  const placementContext = readPlacementRuntimeContext(location);
   const [level, setLevel] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}`))
+    (placementContext.isPlacementRuntime ? fetch : authFetch)(
+      apiPath(`exam-levels/${encodeURIComponent(code)}`)
+    )
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -36,7 +44,7 @@ const ExamLevelSkillRuntimePage = () => {
     return () => {
       mounted = false;
     };
-  }, [code, skill]);
+  }, [code, skill, placementContext.isPlacementRuntime]);
 
   if (error) return <div className="exam-level-page-state" role="alert">{error}</div>;
   if (!level) return <div className="exam-level-page-state">Loading exam level…</div>;
@@ -57,7 +65,9 @@ const ExamLevelSkillRuntimePage = () => {
     submissionBasePath: submissionPath,
     storageNamespace: `exam-level-${code}`,
     examDisplayName: level.name,
-    hubPath: `/exam-levels/${codePath}`,
+    hubPath: placementContext.isPlacementRuntime
+      ? buildPlacementAttemptPath(placementContext.placementAttemptToken)
+      : `/exam-levels/${codePath}`,
   };
 
   return skill === "listening" ? (

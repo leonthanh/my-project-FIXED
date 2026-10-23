@@ -55,8 +55,8 @@ import "./ExamCoreReadingRuntime.css";
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
-const requestSubmissionApi = (submissionBasePath, url, options) =>
-  String(submissionBasePath || "").startsWith("exam-levels/")
+const requestSubmissionApi = (submissionBasePath, url, options, isPlacementRuntime = false) =>
+  !isPlacementRuntime && String(submissionBasePath || "").startsWith("exam-levels/")
     ? authFetch(url, options)
     : fetch(url, options);
 
@@ -454,7 +454,9 @@ const ExamCoreReadingRuntimePage = ({
               submissionBasePath,
               apiPath(
                 `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(data.testType)}`
-              )
+              ),
+              undefined,
+              placementContext.isPlacementRuntime
             );
             if (activeRes.ok) {
               const payload = await activeRes.json().catch(() => null);
@@ -667,7 +669,8 @@ const ExamCoreReadingRuntimePage = ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-          }
+          },
+          placementContext.isPlacementRuntime
         );
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
@@ -765,7 +768,9 @@ const ExamCoreReadingRuntimePage = ({
       timingSyncInFlightRef.current = true;
       const res = await requestSubmissionApi(
         submissionBasePath,
-        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`),
+        undefined,
+        placementContext.isPlacementRuntime
       );
       recordRuntimeSyncRequestMetric({
         scope: "orange-reading",
@@ -850,7 +855,7 @@ const ExamCoreReadingRuntimePage = ({
       const localResults = calculateLocalResults();
 
       // Submit to backend
-      const res = await authFetch(apiPath(`${submitBasePath}/${id}/submit`), {
+      const res = await requestSubmissionApi(submissionBasePath, apiPath(`${submitBasePath}/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -870,7 +875,7 @@ const ExamCoreReadingRuntimePage = ({
           incorrect: localResults.incorrect,
           total: localResults.total,
         }),
-      });
+      }, placementContext.isPlacementRuntime);
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to submit the test");
