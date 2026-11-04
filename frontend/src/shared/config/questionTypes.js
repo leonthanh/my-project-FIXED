@@ -1214,6 +1214,18 @@ export const getQuestionTypesForTest = (testTypeId) => {
     .filter(Boolean);
 };
 
+export const getPrepareReadingWritingQuestionTypes = () => {
+  const typeIds = [
+    ...(TEST_CONFIGS['ket-reading']?.questionTypes || []),
+    ...(TEST_CONFIGS['pet-reading']?.questionTypes || []),
+    ...(TEST_CONFIGS['gateway-reading-writing']?.questionTypes || []),
+  ];
+  return [...new Set(typeIds)]
+    .filter((typeId) => typeId !== 'multiple-choice-pictures')
+    .map((typeId) => QUESTION_TYPES[typeId])
+    .filter(Boolean);
+};
+
 /**
  * Get default question data by type
  */

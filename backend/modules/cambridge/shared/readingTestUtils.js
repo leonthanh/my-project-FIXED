@@ -45,6 +45,9 @@ const safeParseParts = (rawParts) => {
 const countTotalQuestionsFromParts = (rawParts = []) => {
   const parts = safeParseParts(rawParts);
   const processedParts = processTestParts(parts);
+  const isPrepareReadingWriting = ['prepare-reading-writing-v1', 'prepare-reading-writing-v2']
+    .includes(processedParts[0]?.examFormat);
+  const isFlexiblePrepareReadingWriting = processedParts[0]?.examFormat === 'prepare-reading-writing-v2';
 
   let total = 0;
 
@@ -103,12 +106,14 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
         }
 
         if (sectionType === 'reading-open-questions' && Array.isArray(question.items)) {
-          total += question.items.length > 0 ? question.items.length : 1;
+          total += isFlexiblePrepareReadingWriting
+            ? question.items.reduce((itemTotal) => itemTotal + (question?.exerciseMode === 'two-blanks' ? 2 : 1), 0)
+            : question.items.length > 0 ? question.items.length : 1;
           return;
         }
 
-        if (sectionType === 'short-message') {
-          total += 1;
+        if (sectionType === 'short-message' || sectionType === 'story-writing') {
+          if (!isPrepareReadingWriting) total += 1;
           return;
         }
 

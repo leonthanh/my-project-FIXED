@@ -9,6 +9,7 @@ import {
 } from "../../../../shared/components/questions";
 import { 
   getQuestionTypesForTest,
+  getPrepareReadingWritingQuestionTypes,
   getDefaultQuestionData,
   getTestConfig,
   QUESTION_TYPES,
@@ -32,6 +33,19 @@ import { normalizeQuillPromptHtml } from "../utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 import GATEWAY_WRITING_RUBRIC from "../../../../shared/config/gatewayWritingRubric";
+import PrepareQuestionsEditor from "../../../exam-levels/prepare/PrepareQuestionsEditor";
+import {
+  buildPrepareReadingWritingParts,
+  countPrepareScoringUnitsForSection,
+  createFlexiblePrepareParts,
+  getFlexiblePrepareDraftParts,
+  getPrepareSectionPoints,
+  getPrepareTotalPoints,
+  markFlexiblePrepareParts,
+  PREPARE_WRITING_RUBRIC,
+  validateFlexiblePrepareReadingWritingParts,
+  validatePrepareReadingWritingParts,
+} from "../../../exam-levels/prepare/prepareReadingWriting";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span
@@ -1034,6 +1048,9 @@ const ExamCoreTestBuilder = ({
   successPathResolver = null,
   durationMinutes = null,
   displayName = null,
+  prepareReadingWriting = false,
+  prepareFlexibleReadingWriting = false,
+  draftStorageKey = null,
 }) => {
   const navigate = useNavigate();
   const user = getStoredUser();
@@ -1053,18 +1070,21 @@ const ExamCoreTestBuilder = ({
       }
     : null;
   const isGatewayTest = String(testType || '').startsWith('gateway-');
-  const isGatewayReadingWriting = String(testType || '').toLowerCase() === 'gateway-reading-writing';
+  const isGatewayReadingWriting = String(testType || '').toLowerCase() === 'gateway-reading-writing'
+    && !prepareFlexibleReadingWriting;
   const isGatewayListening = String(testType || '').toLowerCase() === 'gateway-listening';
+  const storageKey = draftStorageKey || `cambridgeTestDraft-${testType}`;
   const isListeningTest = testType.includes('listening');
   const youngLearnerSupportedTypeMap = {
     movers: ['matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'fill', 'abc', 'cloze-mc', 'word-form', 'short-message'],
   };
   const supportedTypeIds = youngLearnerSupportedTypeMap[testType] || null;
   const availableTypes = useMemo(() => {
+    if (prepareFlexibleReadingWriting) return getPrepareReadingWritingQuestionTypes();
     const baseTypes = getQuestionTypesForTest(testType);
     if (!supportedTypeIds) return baseTypes;
     return baseTypes.filter((type) => supportedTypeIds.includes(type.id));
-  }, [supportedTypeIds, testType]);
+  }, [prepareFlexibleReadingWriting, supportedTypeIds, testType]);
   const defaultQuestionType = availableTypes[0]?.id || 'fill';
   const builderDisplayName = useMemo(() => {
     if (testType === 'movers') return 'Orange Movers Reading & Writing';
@@ -1204,17 +1224,17 @@ const ExamCoreTestBuilder = ({
   useEffect(() => {
     if (!resetDraftOnLoad || didResetDraftRef.current) return;
     try {
-      localStorage.removeItem(`cambridgeTestDraft-${testType}`);
+      localStorage.removeItem(storageKey);
     } catch {
       // ignore
     }
     didResetDraftRef.current = true;
-  }, [resetDraftOnLoad, testType]);
+  }, [resetDraftOnLoad, storageKey]);
 
   // Load saved data from localStorage
   const loadSavedData = () => {
     try {
-      const savedData = localStorage.getItem(`cambridgeTestDraft-${testType}`);
+      const savedData = localStorage.getItem(storageKey);
       if (savedData) {
         return JSON.parse(savedData);
       }
@@ -1251,6 +1271,8 @@ const ExamCoreTestBuilder = ({
   // Initial parts from savedData or default
   const getInitialParts = () => {
     if (savedData?.parts && Array.isArray(savedData.parts)) {
+      if (prepareReadingWriting) return savedData.parts;
+      if (prepareFlexibleReadingWriting) return getFlexiblePrepareDraftParts(savedData.parts);
       if (isGatewayReadingWriting && isLegacyGatewayReadingDraft(savedData.parts)) {
         return buildGatewayReadingWritingTemplateParts();
       }
@@ -1267,6 +1289,8 @@ const ExamCoreTestBuilder = ({
       }
       return normalizedParts;
     }
+    if (prepareReadingWriting) return buildPrepareReadingWritingParts();
+    if (prepareFlexibleReadingWriting) return createFlexiblePrepareParts();
     if (isGatewayReadingWriting) {
       return buildGatewayReadingWritingTemplateParts();
     }
@@ -1284,6 +1308,7 @@ const ExamCoreTestBuilder = ({
           {
             sectionTitle: '',
             questionType: defaultQuestionType,
+            ...(prepareFlexibleReadingWriting ? { preparePointsPerAnswer: 1 } : {}),
             questions: [getDefaultQuestionData(defaultQuestionType)],
           }
         ]
@@ -1323,15 +1348,27 @@ const ExamCoreTestBuilder = ({
 
       if (Array.isArray(partsData)) {
         const normalizedParts = normalizePeopleMatchingIds(normalizeListeningPartsAudio(normalizeShortMessageParts(partsData)));
-        setParts(isGatewayReadingWriting ? ensureGatewayReadingWritingSections(normalizedParts) : normalizedParts);
+        setParts(prepareFlexibleReadingWriting
+          ? markFlexiblePrepareParts(normalizedParts)
+          : isGatewayReadingWriting && !prepareReadingWriting
+            ? ensureGatewayReadingWritingSections(normalizedParts)
+            : normalizedParts);
       }
     }
-  }, [defaultQuestionType, initialData, isGatewayReadingWriting, normalizePeopleMatchingIds, normalizeShortMessageParts]);
+  }, [defaultQuestionType, initialData, isGatewayReadingWriting, normalizePeopleMatchingIds, normalizeShortMessageParts, prepareFlexibleReadingWriting, prepareReadingWriting]);
 
   // State - Load from savedData if available
   const [parts, setParts] = useState(getInitialParts());
+  const prepareTotalPoints = useMemo(
+    () => prepareFlexibleReadingWriting ? getPrepareTotalPoints(parts) : 0,
+    [parts, prepareFlexibleReadingWriting]
+  );
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
+  const [editingPartIndex, setEditingPartIndex] = useState(null);
+  const [partNameDraft, setPartNameDraft] = useState('');
+  const [editingSectionIndex, setEditingSectionIndex] = useState(null);
+  const [sectionNameDraft, setSectionNameDraft] = useState('');
   
   // Collapse/Expand state
   const [collapsedQuestions, setCollapsedQuestions] = useState({});
@@ -1353,9 +1390,9 @@ const ExamCoreTestBuilder = ({
   const currentPart = parts[selectedPartIndex];
   const currentSection = currentPart?.sections?.[selectedSectionIndex];
   const currentGatewaySectionBlueprint = useMemo(() => {
-    if (!isGatewayReadingWriting || !currentSection) return null;
+    if (!isGatewayReadingWriting || prepareReadingWriting || !currentSection) return null;
     return getGatewayReadingWritingSectionBlueprint(currentSection.sectionTitle);
-  }, [isGatewayReadingWriting, currentSection]);
+  }, [isGatewayReadingWriting, currentSection, prepareReadingWriting]);
   const currentGatewayListeningSectionBlueprint = useMemo(() => {
     if (!isGatewayListening || !currentSection) return null;
     return getGatewayListeningSectionBlueprint(currentSection.sectionTitle);
@@ -1468,6 +1505,49 @@ const ExamCoreTestBuilder = ({
   const commitCurrentPartInstruction = useCallback(() => {
     setParts((prevParts) => syncCurrentPartInstructionInParts(prevParts));
   }, [syncCurrentPartInstructionInParts]);
+
+  const startPartRename = (event, partIndex) => {
+    event.stopPropagation();
+    commitCurrentPartInstruction();
+    setSelectedPartIndex(partIndex);
+    setSelectedSectionIndex(0);
+    setEditingSectionIndex(null);
+    setEditingPartIndex(partIndex);
+    setPartNameDraft(parts[partIndex]?.title || `Part ${partIndex + 1}`);
+  };
+
+  const commitPartRename = (partIndex) => {
+    const title = partNameDraft.trim();
+    if (title) {
+      updateParts((previous) => previous.map((part, index) => (
+        index === partIndex ? { ...part, title } : part
+      )));
+    }
+    setEditingPartIndex(null);
+  };
+
+  const startSectionRename = (event, sectionIndex) => {
+    event.stopPropagation();
+    setSelectedSectionIndex(sectionIndex);
+    setEditingPartIndex(null);
+    setEditingSectionIndex(sectionIndex);
+    setSectionNameDraft(currentPart?.sections?.[sectionIndex]?.sectionTitle || `Section ${sectionIndex + 1}`);
+  };
+
+  const commitSectionRename = (sectionIndex) => {
+    const sectionTitle = sectionNameDraft.trim();
+    if (sectionTitle) {
+      updateParts((previous) => previous.map((part, partIndex) => (
+        partIndex !== selectedPartIndex ? part : {
+          ...part,
+          sections: part.sections.map((section, index) => (
+            index === sectionIndex ? { ...section, sectionTitle } : section
+          )),
+        }
+      )));
+    }
+    setEditingSectionIndex(null);
+  };
 
   const getPartsSnapshotWithCurrentInstruction = useCallback(() => {
     return syncCurrentPartInstructionInParts(parts);
@@ -1627,10 +1707,20 @@ const ExamCoreTestBuilder = ({
       if (pIdx !== selectedPartIndex) return part;
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
+        const questions = [getDefaultQuestionData(newType)];
+        if (prepareFlexibleReadingWriting && ['short-message', 'story-writing'].includes(newType)) {
+          questions[0] = {
+            ...questions[0],
+            gatewayWritingMode: true,
+            prepareWritingMode: true,
+            writingRubric: PREPARE_WRITING_RUBRIC,
+          };
+        }
         return {
           ...section,
           questionType: newType,
-          questions: [getDefaultQuestionData(newType)],
+          preparePointsPerAnswer: 1,
+          questions,
         };
       });
       return { ...part, sections: nextSections };
@@ -1706,8 +1796,11 @@ const ExamCoreTestBuilder = ({
 
   const handleAddSection = () => {
     const nextSection = {
-      sectionTitle: isGatewayReadingWriting ? `New mục ${(currentPart?.sections?.length || 0) + 1}` : '',
+      sectionTitle: prepareFlexibleReadingWriting
+        ? `Section ${(currentPart?.sections?.length || 0) + 1}`
+        : isGatewayReadingWriting ? `New mục ${(currentPart?.sections?.length || 0) + 1}` : '',
       questionType: defaultQuestionType,
+      ...(prepareFlexibleReadingWriting ? { preparePointsPerAnswer: 1 } : {}),
       questions: [getDefaultQuestionData(defaultQuestionType)],
     };
 
@@ -1844,7 +1937,6 @@ const ExamCoreTestBuilder = ({
   }, []);
 
   const saveToLocalStorage = useCallback(() => {
-    const storageKey = `cambridgeTestDraft-${testType}`;
     try {
       setIsSaving(true);
       const normalizedParts = normalizeListeningPartsAudio(normalizeShortMessageParts(getPartsSnapshotWithCurrentInstruction()));
@@ -1855,7 +1947,7 @@ const ExamCoreTestBuilder = ({
         studentResultVisibility,
         showResultModal: studentResultVisibility !== 'confirmation',
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
-        parts: normalizedParts,
+        parts: prepareFlexibleReadingWriting ? markFlexiblePrepareParts(normalizedParts) : normalizedParts,
         testType,
       };
 
@@ -1883,7 +1975,7 @@ const ExamCoreTestBuilder = ({
     } finally {
       setIsSaving(false);
     }
-  }, [title, classCode, teacherName, studentResultVisibility, mainAudioUrl, testType, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction, normalizeShortMessageParts]);
+  }, [title, classCode, teacherName, studentResultVisibility, mainAudioUrl, testType, storageKey, sanitizeDraftData, getPartsSnapshotWithCurrentInstruction, normalizeShortMessageParts, prepareFlexibleReadingWriting]);
 
   const handleManualDraftSave = useCallback(() => {
     saveToLocalStorage();
@@ -1931,8 +2023,27 @@ const ExamCoreTestBuilder = ({
     };
 
     const partsSnapshot = getPartsSnapshotWithCurrentInstruction();
+    const preparePartsSnapshot = prepareFlexibleReadingWriting
+      ? markFlexiblePrepareParts(partsSnapshot)
+      : partsSnapshot;
+    if (prepareReadingWriting) {
+      const validationError = validatePrepareReadingWritingParts(preparePartsSnapshot);
+      if (validationError) {
+        setMessage({ type: 'error', text: validationError });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    if (prepareFlexibleReadingWriting) {
+      const validationError = validateFlexiblePrepareReadingWritingParts(preparePartsSnapshot);
+      if (validationError) {
+        setMessage({ type: 'error', text: validationError });
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
-    const cleanedParts = normalizeShortMessageParts(partsSnapshot.map((part) => ({
+    const cleanedParts = normalizeShortMessageParts(preparePartsSnapshot.map((part) => ({
       ...part,
       sections: (part.sections || []).map((section) => ({
         ...section,
@@ -1944,7 +2055,9 @@ const ExamCoreTestBuilder = ({
         }),
       })),
     })));
-    const normalizedCleanedParts = normalizeListeningPartsAudio(cleanedParts);
+    const normalizedCleanedParts = normalizeListeningPartsAudio(
+      prepareFlexibleReadingWriting ? markFlexiblePrepareParts(cleanedParts) : cleanedParts
+    );
 
     try {
       const payload = {
@@ -1958,7 +2071,11 @@ const ExamCoreTestBuilder = ({
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
         parts: normalizedCleanedParts,
         totalQuestions: normalizedCleanedParts.reduce(
-          (sum, part) => sum + part.sections.reduce((sSum, sec) => sSum + getQuestionCountForSection(sec), 0),
+          (sum, part) => sum + part.sections.reduce((sSum, sec) => (
+            sSum + (prepareFlexibleReadingWriting
+              ? countPrepareScoringUnitsForSection(sec)
+              : getQuestionCountForSection(sec))
+          ), 0),
           0
         ),
       };
@@ -1987,7 +2104,7 @@ const ExamCoreTestBuilder = ({
         }
         setMessage({ type: 'success', text: 'Cập nhật đề thành công!' });
         // Clear draft after successful save
-        localStorage.removeItem(`cambridgeTestDraft-${testType}`);
+        localStorage.removeItem(storageKey);
       } else {
         const response = await authFetch(apiPath(endpoint), {
           method: 'POST',
@@ -2010,12 +2127,12 @@ const ExamCoreTestBuilder = ({
         const result = await response.json();
         setMessage({ type: 'success', text: 'Tạo đề thành công!' });
         // Clear draft after successful save
-        localStorage.removeItem(`cambridgeTestDraft-${testType}`);
+        localStorage.removeItem(storageKey);
       }
 
       // Redirect after success
       setTimeout(() => {
-        if (isGatewayTest) {
+        if (isGatewayTest && typeof successPathResolver !== 'function') {
           const gatewayTab = testType.includes('listening') ? 'listening' : 'reading-writing';
           navigate(`/select-test?platform=gateway&tab=${gatewayTab}`);
           return;
@@ -2248,8 +2365,8 @@ const ExamCoreTestBuilder = ({
               {builderDisplayName}
             </h3>
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{testConfig.totalQuestions} câu hỏi</p>
-              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{testConfig.parts} parts</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="questions" size={14} />{prepareFlexibleReadingWriting ? `${prepareTotalPoints}/50 điểm tự chấm` : prepareReadingWriting ? '50 câu hỏi' : `${testConfig.totalQuestions} câu hỏi`}</p>
+              <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="reading" size={14} />{prepareFlexibleReadingWriting ? `${parts.length} Part · Writing W chấm riêng /10` : prepareReadingWriting ? '10 bài + Writing (W)' : `${testConfig.parts} parts`}</p>
               <p style={{ margin: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}><InlineIcon name="clock" size={14} />{testConfig.duration} phút</p>
             </div>
           </div>
@@ -2315,7 +2432,39 @@ const ExamCoreTestBuilder = ({
                   transition: 'all 0.2s',
                 }}
               >
-                <strong>{part.title}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {prepareFlexibleReadingWriting && editingPartIndex === idx ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={partNameDraft}
+                      aria-label={`Tên Part ${idx + 1}`}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setPartNameDraft(event.target.value)}
+                      onBlur={() => commitPartRename(idx)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 4, border: '1px solid #cbd5e1' }}
+                    />
+                  ) : (
+                    <strong style={{ flex: 1, minWidth: 0 }}>{part.title || `Part ${idx + 1}`}</strong>
+                  )}
+                  {prepareFlexibleReadingWriting && editingPartIndex !== idx && (
+                    <button
+                      type="button"
+                      title="Đổi tên Part"
+                      aria-label={`Đổi tên ${part.title || `Part ${idx + 1}`}`}
+                      onClick={(event) => startPartRename(event, idx)}
+                      style={{ padding: 4, border: 0, borderRadius: 4, background: 'transparent', color: 'white', cursor: 'pointer' }}
+                    >
+                      <InlineIcon name="edit" size={14} />
+                    </button>
+                  )}
+                </div>
                 <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '4px' }}>
                   {part.sections.length} section(s)
                 </div>
@@ -2349,7 +2498,11 @@ const ExamCoreTestBuilder = ({
           <div style={{ marginTop: '24px' }}>
             <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
               <InlineIcon name="document" size={14} />
-              {isGatewayReadingWriting
+              {prepareFlexibleReadingWriting
+                ? "Mục bài Prepare"
+                : prepareReadingWriting
+                ? "Mục bài Prepare"
+                : isGatewayReadingWriting
                 ? "Mục bài Gateway"
                 : isGatewayListening
                   ? `Sections trong ${currentPart.title || `Part ${selectedPartIndex + 1}`}`
@@ -2374,17 +2527,57 @@ const ExamCoreTestBuilder = ({
                   fontSize: '13px',
                 }}
               >
-                {isGatewayReadingWriting || isGatewayListening
-                  ? (sec.sectionTitle || `Mục ${idx + 1}`)
-                  : `Section ${idx + 1}: ${sec.questionType}`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {prepareFlexibleReadingWriting && editingSectionIndex === idx ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={sectionNameDraft}
+                      aria-label={`Tên Section ${idx + 1}`}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setSectionNameDraft(event.target.value)}
+                      onBlur={() => commitSectionRename(idx)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 4, border: '1px solid #cbd5e1' }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      {prepareFlexibleReadingWriting || isGatewayReadingWriting || isGatewayListening
+                        ? (sec.sectionTitle || `Mục ${idx + 1}`)
+                        : `Section ${idx + 1}: ${sec.questionType}`}
+                    </span>
+                  )}
+                  {prepareFlexibleReadingWriting && editingSectionIndex !== idx && (
+                    <button
+                      type="button"
+                      title="Đổi tên Section"
+                      aria-label={`Đổi tên ${sec.sectionTitle || `Section ${idx + 1}`}`}
+                      onClick={(event) => startSectionRename(event, idx)}
+                      style={{ padding: 4, border: 0, borderRadius: 4, background: 'transparent', color: isMoversReading ? '#334155' : 'white', cursor: 'pointer' }}
+                    >
+                      <InlineIcon name="edit" size={14} />
+                    </button>
+                  )}
+                </div>
                 <div style={{ fontSize: '11px', color: isMoversReading ? 'var(--ctb-sidebar-subtext, #6b7280)' : '#cbd5e1', marginTop: '2px' }}>
-                  {isGatewayReadingWriting
+                  {prepareFlexibleReadingWriting && ['short-message', 'story-writing'].includes(sec.questionType)
+                    ? 'W · giáo viên chấm /10'
+                    : prepareFlexibleReadingWriting
+                      ? `${countPrepareScoringUnitsForSection(sec)} câu · ${getPrepareSectionPoints(sec)} điểm`
+                      : prepareReadingWriting && sec.questionType === 'short-message'
+                    ? 'W'
+                    : isGatewayReadingWriting
                     ? (getQuestionCountForSection(sec) || sec.questions.length)
-                    : sec.questions.length} câu hỏi
+                    : sec.questions.length}{prepareReadingWriting && sec.questionType === 'short-message' ? ' · giáo viên chấm' : !prepareFlexibleReadingWriting ? ' câu hỏi' : ''}
                 </div>
               </div>
             ))}
-            {!isMoversReading && (
+            {!isMoversReading && !prepareReadingWriting && (
               <button
                 type="button"
                 onClick={handleAddSection}
@@ -3155,12 +3348,33 @@ const ExamCoreTestBuilder = ({
               }}>
                 <h3 style={{ margin: '0 0 16px', color: isMoversReading ? 'var(--builder-text, #1f2937)' : '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <InlineIcon name="writing" size={16} />
-                  {isGatewayReadingWriting || isGatewayListening
+                  {prepareFlexibleReadingWriting || isGatewayReadingWriting || isGatewayListening
                     ? (currentSection.sectionTitle || `Mục ${selectedSectionIndex + 1}`)
                     : `Section ${selectedSectionIndex + 1}`}
                 </h3>
+                {prepareFlexibleReadingWriting && (
+                  <label style={{ display: 'block', marginBottom: 16, fontWeight: 600, color: '#374151' }}>
+                    Tiêu đề Section:
+                    <input
+                      type="text"
+                      value={currentSection.sectionTitle || ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        updateParts((previous) => previous.map((part, partIndex) => (
+                          partIndex !== selectedPartIndex ? part : {
+                            ...part,
+                            sections: part.sections.map((section, sectionIndex) => (
+                              sectionIndex === selectedSectionIndex ? { ...section, sectionTitle: value } : section
+                            )),
+                          }
+                        )));
+                      }}
+                      style={{ width: '100%', display: 'block', marginTop: 6, padding: 8, border: '1px solid #cbd5e1', borderRadius: 6 }}
+                    />
+                  </label>
+                )}
 
-                {currentPart?.sections?.length > 1 ? (
+                {!prepareReadingWriting && currentPart?.sections?.length > 1 ? (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                     <button
                       type="button"
@@ -3195,7 +3409,9 @@ const ExamCoreTestBuilder = ({
                   }}>
                     Loại câu hỏi:
                   </label>
-                  {isGatewaySectionTypeLocked ? (
+                  {prepareReadingWriting ? (
+                    <div>Cố định theo mẫu Prepare: {currentSection.questionType}</div>
+                  ) : isGatewaySectionTypeLocked ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
                       <div
                         style={{
@@ -3238,6 +3454,44 @@ const ExamCoreTestBuilder = ({
                     />
                   )}
                 </div>
+                {prepareFlexibleReadingWriting && (
+                  <div style={{ marginBottom: 20, padding: 14, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
+                    {['short-message', 'story-writing'].includes(currentSection.questionType) ? (
+                      <strong>Writing (W): chấm riêng tối đa 10 điểm, không tính vào điểm tự chấm /50.</strong>
+                    ) : (
+                      <>
+                        <label style={{ display: 'block', fontWeight: 600, color: '#1e3a8a' }}>
+                          Điểm cho mỗi câu trả lời đúng:
+                          <input
+                            type="number"
+                            min="0.5"
+                            max="50"
+                            step="0.5"
+                            value={currentSection.preparePointsPerAnswer ?? 1}
+                            onChange={(event) => {
+                              const value = Number(event.target.value);
+                              updateParts((previous) => previous.map((part, partIndex) => (
+                                partIndex !== selectedPartIndex ? part : {
+                                  ...part,
+                                  sections: part.sections.map((section, sectionIndex) => (
+                                    sectionIndex === selectedSectionIndex
+                                      ? { ...section, preparePointsPerAnswer: Number.isFinite(value) ? value : 0 }
+                                      : section
+                                  )),
+                                }
+                              )));
+                            }}
+                            style={{ display: 'block', marginTop: 6, padding: 8, width: 140, border: '1px solid #94a3b8', borderRadius: 6 }}
+                          />
+                        </label>
+                        <p style={{ margin: '8px 0 0', color: '#334155', fontSize: 13 }}>
+                          {countPrepareScoringUnitsForSection(currentSection)} câu trả lời · {getPrepareSectionPoints(currentSection)} điểm
+                          {' · '}Tổng toàn đề: {prepareTotalPoints}/50
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Question Editor */}
                 <div style={{
@@ -3405,7 +3659,23 @@ const ExamCoreTestBuilder = ({
                             borderRadius: '6px',
                             border: '1px solid #e5e7eb',
                           }}>
-                            <QuestionEditorFactory
+                            {prepareReadingWriting && currentSection.questionType === 'reading-open-questions' ? (
+                              <PrepareQuestionsEditor
+                                question={question}
+                                startingNumber={sectionStartNum}
+                                onChange={(field, value) => updateParts(prevParts => prevParts.map((part, pIdx) => (
+                                  pIdx !== selectedPartIndex ? part : {
+                                    ...part,
+                                    sections: part.sections.map((section, sIdx) => (
+                                      sIdx !== selectedSectionIndex ? section : {
+                                        ...section,
+                                        questions: section.questions.map((q, idx) => idx === qIdx ? { ...q, [field]: value } : q),
+                                      }
+                                    )),
+                                  }
+                                )))}
+                              />
+                            ) : <QuestionEditorFactory
                               questionType={currentSection.questionType}
                               question={question}
                               testType={testType}
@@ -3441,14 +3711,14 @@ const ExamCoreTestBuilder = ({
                               questionIndex={qIdx}
                               startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'reading-open-questions', 'true-false-not-given'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
-                            />
+                            />}
                           </div>
                         )}
                       </div>
                     );
                   })}
                   
-                  <button
+                  {!prepareReadingWriting && <button
                     onClick={handleAddQuestion}
                     style={{
                       width: '100%',
@@ -3463,7 +3733,7 @@ const ExamCoreTestBuilder = ({
                     }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><InlineIcon name="create" size={14} style={{ color: 'white' }} />Thêm câu hỏi</span>
-                  </button>
+                  </button>}
                 </div>
               </div>
             )}

@@ -18,6 +18,7 @@ jest.mock("../modules/cambridge/shared/scoring", () => ({
 }));
 jest.mock("../modules/cambridge/shared/readingTestUtils", () => ({
   countTotalQuestionsFromParts: jest.fn(() => 3),
+  safeParseParts: jest.fn((parts) => typeof parts === "string" ? JSON.parse(parts) : parts),
 }));
 
 const { ExamLevel, ExamLevelTest } = require("../models");
@@ -134,6 +135,40 @@ describe("exam level skill test adapter", () => {
       message: "Test type does not match this level's configured skill template.",
     });
     expect(ExamLevelTest.create).not.toHaveBeenCalled();
+  });
+
+  test("rejects an invalid Prepare format rather than publishing it", async () => {
+      ExamLevel.findOne.mockResolvedValue({
+        ...level,
+        skills: ["reading-writing"],
+        skillConfig: { "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 } },
+      });
+      await expect(service.createTest({
+        code: "prepare",
+        skill: "reading-writing",
+        body: {
+          title: "Invalid",
+          classCode: "P1",
+          testType: "gateway-reading-writing",
+          parts: [{ examFormat: "prepare-reading-writing-v1", sections: [] }],
+        },
+      })).rejects.toMatchObject({ statusCode: 400, message: "Invalid Prepare Reading & Writing test structure." });
+      expect(ExamLevelTest.create).not.toHaveBeenCalled();
+  });
+
+  test("cannot remove Prepare format from an existing Prepare test", async () => {
+      ExamLevel.findOne.mockResolvedValue({
+        ...level,
+        skills: ["reading-writing"],
+        skillConfig: { "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 } },
+      });
+      ExamLevelTest.findOne.mockResolvedValue({ parts: [{ examFormat: "prepare-reading-writing-v1", sections: [] }] });
+      await expect(service.updateTest({
+        code: "prepare",
+        skill: "reading-writing",
+        id: 20,
+        body: { parts: [{ sections: [] }] },
+      })).rejects.toMatchObject({ statusCode: 400, message: "Invalid Prepare Reading & Writing test structure." });
   });
 
   test("does not expose non-published tests to students", async () => {

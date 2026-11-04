@@ -114,6 +114,7 @@ const ShortMessageEditor = ({
     : GATEWAY_WRITING_RUBRIC;
   const isGatewayWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
     && (question.gatewayWritingMode || String(sectionTitle || '').trim().toLowerCase() === 'writing');
+  const isPrepareWriting = Boolean(question.prepareWritingMode);
 
   const { quillRef, modules } = useQuillImageUpload();
 
@@ -160,10 +161,12 @@ const ShortMessageEditor = ({
           <InlineIcon name="mail" size={22} style={{ color: "white" }} />
           <div style={{ flex: 1 }}>
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              {isGatewayWriting ? "Gateway Writing Task" : `Part ${partIndex + 1} - Writing Task`}
+              {isPrepareWriting ? "Prepare Writing Task (W)" : isGatewayWriting ? "Gateway Writing Task" : `Part ${partIndex + 1} - Writing Task`}
             </h3>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
-              {isGatewayWriting
+              {isPrepareWriting
+                ? `About ${wordLimit.min} words`
+                : isGatewayWriting
                 ? `Blog post (${wordLimit.min}–${wordLimit.max} words)`
                 : `Short Message / Email (${wordLimit.min}-${wordLimit.max} words)`}
             </p>
@@ -192,7 +195,7 @@ const ShortMessageEditor = ({
 
       {/* Word Limit */}
       <div style={{ marginBottom: "16px" }}>
-        <label style={styles.label}>{isGatewayWriting ? "Giới hạn số từ bài viết" : "Giới hạn số từ"}</label>
+        <label style={styles.label}>{isPrepareWriting ? "Số từ dự kiến (khoảng)" : isGatewayWriting ? "Giới hạn số từ bài viết" : "Giới hạn số từ"}</label>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <input
             type="number"
@@ -200,12 +203,13 @@ const ShortMessageEditor = ({
             onChange={(e) => onChange('wordLimit', {
               ...wordLimit,
               min: parseInt(e.target.value, 10) || (isGatewayWriting ? wordLimit.min : 25),
+              ...(isPrepareWriting ? { max: parseInt(e.target.value, 10) || wordLimit.min } : {}),
             })}
             style={{ ...styles.input, width: "80px" }}
             min="10"
             max="200"
           />
-          <span style={{ color: "#6b7280" }}>đến</span>
+          {!isPrepareWriting && <><span style={{ color: "#6b7280" }}>đến</span>
           <input
             type="number"
             value={wordLimit.max}
@@ -216,7 +220,7 @@ const ShortMessageEditor = ({
             style={{ ...styles.input, width: "80px" }}
             min="15"
             max="250"
-          />
+          /></>}
           <span style={{ color: "#6b7280" }}>từ</span>
         </div>
       </div>
@@ -398,7 +402,9 @@ const ShortMessageEditor = ({
                         </tbody>
                       </table>
                       <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#475569" }}>
-                        Writing is graded separately by your teacher and contributes to the total test score of 60 points.
+                        {isPrepareWriting
+                          ? "Writing is graded separately by the teacher out of 10 and is not added on this website."
+                          : "Writing is graded separately by your teacher and contributes to the total test score of 60 points."}
                       </p>
                     </div>
                   )}
@@ -451,7 +457,9 @@ const ShortMessageEditor = ({
                     fontSize: "13px",
                     color: "#6b7280",
                   }}>
-                    {isGatewayWriting
+                    {isPrepareWriting
+                      ? `Write about ${wordLimit.min} words`
+                      : isGatewayWriting
                       ? `Write ${wordLimit.min}–${wordLimit.max} words`
                       : `${wordLimit.min} words or more`}
                   </p>
@@ -468,7 +476,9 @@ const ShortMessageEditor = ({
                   lineHeight: "1.6",
                   fontStyle: "italic",
                 }}>
-                  Write your {messageType} here ({wordLimit.min}-{wordLimit.max} words)...
+                  {isPrepareWriting
+                    ? `Write your ${messageType} here (about ${wordLimit.min} words)...`
+                    : `Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
                 </div>
 
                 <div style={{
