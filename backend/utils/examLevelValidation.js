@@ -40,7 +40,7 @@ const normalizeExamLevelPayload = (input, { isCreate = false } = {}) => {
   const unknownSkills = skills.filter((skill) => !SKILL_LABELS[skill]);
   if (unknownSkills.length > 0 || skills.length !== input.skills.length) {
     throw createValidationError(
-      "Skills must be unique values from reading, listening, and writing."
+      "Skills must be unique values from reading, listening, writing, or reading-writing."
     );
   }
 

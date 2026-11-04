@@ -20,6 +20,13 @@ const EXAM_SKILL_TEMPLATES = Object.freeze([
     templateName: "Writing task template",
     defaultDurationMinutes: 45,
   }),
+  Object.freeze({
+    skill: "reading-writing",
+    label: "Reading & Writing",
+    templateId: "gateway-reading-writing",
+    templateName: "Reading & writing template",
+    defaultDurationMinutes: 60,
+  }),
 ]);
 
 const SUPPORTED_SKILL_TEMPLATES = Object.freeze(

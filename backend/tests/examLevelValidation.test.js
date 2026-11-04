@@ -24,6 +24,44 @@ describe("exam level registry validation", () => {
     });
   });
 
+  test("accepts a combined Reading and Writing skill using the Gateway template", () => {
+    const combinedLevel = {
+      ...validLevel,
+      skills: ["reading-writing", "listening"],
+      skillConfig: {
+        "reading-writing": {
+          templateId: "gateway-reading-writing",
+          weight: 1,
+          durationMinutes: 60,
+        },
+        listening: validLevel.skillConfig.listening,
+      },
+    };
+
+    expect(
+      normalizeExamLevelPayload(combinedLevel, { isCreate: true })
+    ).toEqual({ ...combinedLevel, isActive: true });
+  });
+
+  test("rejects a template that does not match the combined Reading and Writing skill", () => {
+    expect(() =>
+      normalizeExamLevelPayload(
+        {
+          ...validLevel,
+          skills: ["reading-writing"],
+          skillConfig: {
+            "reading-writing": {
+              templateId: "exam-reading-v1",
+              weight: 1,
+              durationMinutes: 60,
+            },
+          },
+        },
+        { isCreate: true }
+      )
+    ).toThrow("Unsupported Reading & Writing template.");
+  });
+
   test("rejects duplicate or unsupported skills", () => {
     expect(() =>
       normalizeExamLevelPayload({ ...validLevel, skills: ["reading", "reading"] }, {
@@ -67,11 +105,13 @@ describe("exam level registry validation", () => {
       "reading",
       "listening",
       "writing",
+      "reading-writing",
     ]);
     expect(EXAM_SKILL_TEMPLATES.map(({ templateId }) => templateId)).toEqual([
       "exam-reading-v1",
       "exam-listening-v1",
       "writing-task-v1",
+      "gateway-reading-writing",
     ]);
   });
 });

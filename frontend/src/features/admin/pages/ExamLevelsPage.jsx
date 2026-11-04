@@ -29,7 +29,9 @@ const createEmptyForm = (skills = []) => ({
   code: "",
   name: "",
   description: "",
-  skills: skills.map(({ id }) => id),
+  skills: skills
+    .filter(({ id }) => id !== "reading-writing")
+    .map(({ id }) => id),
   skillConfig: Object.fromEntries(
     skills.map((skill) => [skill.id, createSkillConfig(skill)])
   ),
@@ -108,9 +110,20 @@ const ExamLevelsPage = () => {
   const toggleSkill = (skillId) => {
     setForm((current) => {
       const enabled = current.skills.includes(skillId);
-      const skills = enabled
-        ? current.skills.filter((skill) => skill !== skillId)
-        : [...current.skills, skillId];
+      let skills = current.skills;
+      if (enabled) {
+        skills = skills.filter((skill) => skill !== skillId);
+      } else if (skillId === "reading-writing") {
+        skills = [
+          ...skills.filter((skill) => skill !== "reading" && skill !== "writing"),
+          skillId,
+        ];
+      } else {
+        skills = [
+          ...skills.filter((skill) => skill !== "reading-writing"),
+          skillId,
+        ];
+      }
       return { ...current, skills };
     });
   };
@@ -269,6 +282,9 @@ const ExamLevelsPage = () => {
 
             <fieldset className="exam-levels-page__skills">
               <legend>Included skills and templates</legend>
+              <p className="exam-levels-page__skills-hint">
+                Reading &amp; Writing is one combined exam and replaces the separate Reading and Writing options. Listening remains independent.
+              </p>
               <div className="exam-levels-page__skill-grid">
                 {skillOptions.map((skill) => {
                   const enabled = form.skills.includes(skill.id);

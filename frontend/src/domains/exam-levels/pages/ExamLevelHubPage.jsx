@@ -15,6 +15,7 @@ const SKILL_LABELS = {
   reading: "Reading",
   listening: "Listening",
   writing: "Writing",
+  "reading-writing": "Reading & Writing",
 };
 
 const ExamLevelHubPage = () => {

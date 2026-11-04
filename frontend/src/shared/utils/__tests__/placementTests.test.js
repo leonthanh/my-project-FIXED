@@ -3,6 +3,7 @@ import {
   buildPlacementSelectionKey,
   buildPlacementAttemptItemRuntimePath,
   getPlacementItemSummaryCounts,
+  getPlacementSkillLabel,
   groupPlacementItems,
   isPlacementEligible,
 } from "../placementTests";
@@ -43,6 +44,24 @@ describe("placementTests", () => {
         testType: "gateway-listening",
       })
     ).toBe(true);
+  });
+
+  test("treats combined exam-level Reading and Writing tests as placement eligible", () => {
+    const item = {
+      platform: "exam-level",
+      levelCode: "prepare",
+      skill: "reading-writing",
+      testType: "gateway-reading-writing",
+    };
+
+    expect(isPlacementEligible(item)).toBe(true);
+    expect(getPlacementSkillLabel(item.skill)).toBe("Reading & Writing");
+    expect(getPlacementItemSummaryCounts([item])).toMatchObject({
+      reading: 1,
+      writing: 1,
+      examLevel: 1,
+      total: 1,
+    });
   });
 
   test("builds General placement runtime paths and groups", () => {

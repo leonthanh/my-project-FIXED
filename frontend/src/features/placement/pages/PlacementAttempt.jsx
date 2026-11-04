@@ -7,6 +7,7 @@ import {
   buildPlacementAttemptItemRuntimePath,
   buildPlacementSharePath,
   filterPlacementGroups,
+  getPlacementSkillLabel,
   getPlacementItemSummaryCounts,
   groupPlacementItems,
 } from "../../../shared/utils/placementTests";
@@ -284,7 +285,7 @@ const PlacementAttempt = () => {
                               <div className="placement-entry-testMeta">
                                 <span>{getPlatformLabel(item.platform, generalDisplayName)}</span>
                                 {item.badge ? <span>{item.badge}</span> : null}
-                                <span>{item.skill}</span>
+                                <span>{getPlacementSkillLabel(item.skill)}</span>
                                 {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                                 {item.durationLabel ? <span>{item.durationLabel}</span> : null}
                               </div>

@@ -440,7 +440,6 @@ router.post("/:testId/autosave", async (req, res) => {
       timing: buildTimingPayload(created.expiresAt),
     });
   } catch (error) {
-    console.error("Error autosaving reading draft:", error);
     const statusCode = getClientErrorStatus(error);
     if (statusCode) {
       return res.status(statusCode).json({
@@ -450,6 +449,7 @@ router.post("/:testId/autosave", async (req, res) => {
         usedAttempts: error?.usedAttempts,
       });
     }
+    console.error("Error autosaving reading draft:", error);
     return res.status(500).json({
       message: "Failed to autosave reading draft.",
       error: error.message,

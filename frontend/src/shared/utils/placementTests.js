@@ -123,11 +123,16 @@ export const isPlacementEligible = ({ platform, skill, testType, levelCode }) =>
 
   if (normalizedPlatform === "exam-level") {
     return Boolean(normalizeText(levelCode)) &&
-      ["reading", "listening", "writing"].includes(normalizedSkill);
+      ["reading", "listening", "writing", "reading-writing"].includes(normalizedSkill);
   }
 
   return false;
 };
+
+export const getPlacementSkillLabel = (skill) =>
+  normalizeText(skill).toLowerCase() === "reading-writing"
+    ? "Reading & Writing"
+    : skill;
 
 export const readPlacementLeadDraft = () => {
   if (!canUseStorage()) return { name: "", phone: "" };
@@ -156,6 +161,7 @@ const normalizePlacementGroupValue = (value) => String(value || "").trim().toLow
 const SKILL_ORDER = {
   writing: 0,
   reading: 1,
+  "reading-writing": 1,
   listening: 2,
 };
 
@@ -320,6 +326,10 @@ export const getPlacementItemSummaryCounts = (items) => {
       if (normalizePlacementPlatform(item?.platform) === "exam-level") acc.examLevel += 1;
       if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
+      if (item?.skill === "reading-writing") {
+        acc.reading += 1;
+        acc.writing += 1;
+      }
       if (item?.skill === "listening") acc.listening += 1;
       if (item?.status === "started") acc.started += 1;
       if (item?.status === "submitted") acc.submitted += 1;

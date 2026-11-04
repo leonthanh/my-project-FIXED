@@ -4,6 +4,13 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import "./ExamLevelSubmissionsPage.css";
 
+const skillLabel = (value) => ({
+  reading: "Reading",
+  listening: "Listening",
+  writing: "Writing",
+  "reading-writing": "Reading & Writing",
+}[value] || value);
+
 const ExamLevelSubmissionsPage = () => {
   const { code: rawCode } = useParams();
   const code = String(rawCode || "").trim().toLowerCase();
@@ -63,7 +70,7 @@ const ExamLevelSubmissionsPage = () => {
             <select value={skill} onChange={(event) => setSkill(event.target.value)}>
               <option value="">All skills</option>
               {(level?.skills || []).map((item) => (
-                <option key={item} value={item}>{item[0].toUpperCase() + item.slice(1)}</option>
+                <option key={item} value={item}>{skillLabel(item)}</option>
               ))}
             </select>
           </label>
@@ -82,7 +89,7 @@ const ExamLevelSubmissionsPage = () => {
             >
               <div>
                 <strong>{submission.studentName || "Student"}</strong>
-                <span>{submission.testTitle || `${submission.skill} test`} · {submission.skill}</span>
+                <span>{submission.testTitle || `${skillLabel(submission.skill)} test`} · {skillLabel(submission.skill)}</span>
               </div>
               <div className="exam-level-submissions__score">
                 <strong>

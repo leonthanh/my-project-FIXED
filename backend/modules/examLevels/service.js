@@ -6,7 +6,12 @@ const { scoreTest } = require("../cambridge/shared/scoring");
 const { countTotalQuestionsFromParts } = require("../cambridge/shared/readingTestUtils");
 const placementService = require("../placement/service");
 
-const ALLOWED_SKILLS = new Set(["reading", "listening", "writing"]);
+const ALLOWED_SKILLS = new Set([
+  "reading",
+  "listening",
+  "writing",
+  "reading-writing",
+]);
 
 const createServiceError = (statusCode, message) => {
   const error = new Error(message);

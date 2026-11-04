@@ -163,6 +163,7 @@ const DoReadingTest = () => {
   const [answers, setAnswers] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [attemptLimitReached, setAttemptLimitReached] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [activeQuestion, setActiveQuestion] = useState(null);
@@ -799,9 +800,10 @@ const DoReadingTest = () => {
 
   useEffect(() => {
     if (!runtimeLimitToast) return;
+    if (attemptLimitReached) return;
     const timeoutId = setTimeout(() => setRuntimeLimitToast(""), 6500);
     return () => clearTimeout(timeoutId);
-  }, [runtimeLimitToast]);
+  }, [attemptLimitReached, runtimeLimitToast]);
 
   // Load saved answers from localStorage
   useEffect(() => {
@@ -853,10 +855,17 @@ const DoReadingTest = () => {
   const lastServerSaveAtRef = useRef(0);
   const autosaveBlockedUntilRef = useRef(0);
   const autosaveInFlightRef = useRef(false);
+  const attemptLimitReachedRef = useRef(false);
   const timingSyncBlockedUntilRef = useRef(0);
   const timingSyncInFlightRef = useRef(false);
   useEffect(() => {
-    if (!started || submitted || timeRemaining === null) return;
+    if (
+      !started ||
+      submitted ||
+      attemptLimitReached ||
+      attemptLimitReachedRef.current ||
+      timeRemaining === null
+    ) return;
 
     const user = getStoredUser();
     if (
@@ -911,6 +920,14 @@ const DoReadingTest = () => {
           status: res.status,
         });
         if (!res.ok) {
+          if (json?.code === "ATTEMPT_LIMIT_REACHED") {
+            attemptLimitReachedRef.current = true;
+            setAttemptLimitReached(true);
+            setRuntimeLimitToast(
+              json.message || "You have reached the attempt limit for this test."
+            );
+            return;
+          }
           const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, json || {});
           if (runtimeMessage) {
             setRuntimeLimitToast(runtimeMessage);
@@ -977,10 +994,11 @@ const DoReadingTest = () => {
     started,
     submitted,
     timeRemaining,
+    attemptLimitReached,
   ]);
 
   const reconcileServerTiming = useCallback(async () => {
-    if (!started || submitted) return;
+    if (!started || submitted || attemptLimitReachedRef.current) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
 
@@ -1036,7 +1054,7 @@ const DoReadingTest = () => {
   }, [announceExtension, id, placementContext.placementAttemptItemToken, started, submitted, syncTimingState]);
 
   useEffect(() => {
-    if (!started || submitted) return;
+    if (!started || submitted || attemptLimitReached) return;
 
     reconcileServerTiming();
     const intervalId = setInterval(
@@ -1057,7 +1075,7 @@ const DoReadingTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [reconcileServerTiming, started, submitted]);
+  }, [attemptLimitReached, reconcileServerTiming, started, submitted]);
 
   // Fetch test data
   useEffect(() => {
@@ -1288,7 +1306,12 @@ const DoReadingTest = () => {
 
   // Timer countdown (runs only when started)
   useEffect(() => {
-    if (submitted || !started || !Number.isFinite(expiresAtRef.current)) return;
+    if (
+      submitted ||
+      attemptLimitReached ||
+      !started ||
+      !Number.isFinite(expiresAtRef.current)
+    ) return;
 
     const tick = () => {
       const expiresAtMs = expiresAtRef.current;
@@ -1314,12 +1337,13 @@ const DoReadingTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [submitted, started]);
+  }, [attemptLimitReached, submitted, started]);
 
   useEffect(() => {
     if (
       !started ||
       submitted ||
+      attemptLimitReached ||
       timeRemaining === null ||
       timeRemaining > 0 ||
       graceRemaining > 0
@@ -1334,7 +1358,7 @@ const DoReadingTest = () => {
     setTimeUp(true);
     setShowConfirm(false);
     confirmSubmitRef.current();
-  }, [started, submitted, timeRemaining, graceRemaining]);
+  }, [attemptLimitReached, started, submitted, timeRemaining, graceRemaining]);
 
   // Format time
   const formatTime = (seconds) => {
@@ -1739,10 +1763,12 @@ const DoReadingTest = () => {
 
   // Validate and submit
   const handleSubmit = () => {
+    if (attemptLimitReachedRef.current) return;
     setShowConfirm(true);
   };
 
   const confirmSubmit = async () => {
+    if (attemptLimitReachedRef.current) return;
     try {
       const user = (() => {
         try {
@@ -1767,6 +1793,14 @@ const DoReadingTest = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (data?.code === "ATTEMPT_LIMIT_REACHED") {
+          attemptLimitReachedRef.current = true;
+          setAttemptLimitReached(true);
+          setRuntimeLimitToast(
+            data.message || "You have reached the attempt limit for this test."
+          );
+          return;
+        }
         throw new Error(data?.message || "Failed to submit");
       }
       setSubmitted(true);
@@ -3259,7 +3293,12 @@ const DoReadingTest = () => {
   return (
     <div className="reading-test-container" data-student-annotation-layout="true">
       <ExtensionToast message={extensionToast} />
-      <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
+      <ExtensionToast
+        message={runtimeLimitToast}
+        label={attemptLimitReached ? "Attempt limit" : "Autosave"}
+        tone="warning"
+        top={152}
+      />
       {/* Enhanced Header */}
       <header className="reading-test-header">
         <div className="header-left">
@@ -3341,10 +3380,12 @@ const DoReadingTest = () => {
           <button
             data-testid="submit-button"
             onClick={handleSubmit}
-            disabled={submitted}
+            disabled={submitted || attemptLimitReached}
             className="submit-button"
           >
-            {submitted ? (
+            {attemptLimitReached ? (
+              <>Attempt limit reached</>
+            ) : submitted ? (
               <>
                 <LineIcon name="correct" size={16} strokeWidth={2.2} /> Submitted
               </>

@@ -6,6 +6,7 @@ import {
   buildPlacementAttemptPath,
   buildPlacementSharePath,
   filterPlacementGroups,
+  getPlacementSkillLabel,
   getPlacementItemSummaryCounts,
   groupPlacementItems,
   readPlacementLeadDraft,
@@ -398,7 +399,7 @@ const PlacementEntry = () => {
 
                             <div className="placement-entry-testMeta">
                               <span>{getPlatformLabel(item.platform, generalDisplayName)}</span>
-                              <span>{item.skill}</span>
+                              <span>{getPlacementSkillLabel(item.skill)}</span>
                               {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                               {item.durationLabel ? <span>{item.durationLabel}</span> : null}
                             </div>

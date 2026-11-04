@@ -430,6 +430,42 @@ describe('DoReadingTest integration - part navigation and focus', () => {
     window.confirm.mockRestore();
   });
 
+  it('disables further submissions when the attempt limit is reached', async () => {
+    const mockFetch = jest.spyOn(global, 'fetch').mockImplementation((url) => {
+      if (String(url).endsWith('/submit')) {
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          json: () =>
+            Promise.resolve({
+              code: 'ATTEMPT_LIMIT_REACHED',
+              message: 'You have reached the limit of 1 attempt for this test.',
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(simpleTest) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reading/1"]}>
+        <Routes>
+          <Route path="/reading/:id" element={<DoReadingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('PASSAGE 1');
+    const submitButton = screen.getByTestId('submit-button');
+    fireEvent.click(submitButton);
+    fireEvent.click(await screen.findByText('Submit answers'));
+
+    expect(await screen.findByText(/limit of 1 attempt/i)).toBeInTheDocument();
+    expect(submitButton).toBeDisabled();
+    expect(mockFetch.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(1);
+
+    mockFetch.mockRestore();
+  });
+
   it('uses questionNumber instead of stale startQuestion for cloze table numbering and navigation', async () => {
     jest.spyOn(global, 'fetch').mockImplementation(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(clozeLegacyStartTest) });

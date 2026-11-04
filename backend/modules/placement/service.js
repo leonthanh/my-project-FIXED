@@ -92,6 +92,10 @@ const summarizeAttemptItems = (items = []) => {
       if (item?.status === "submitted") summary.submitted += 1;
       if (item?.skill === "writing") summary.writing += 1;
       if (item?.skill === "reading") summary.reading += 1;
+      if (item?.skill === "reading-writing") {
+        summary.reading += 1;
+        summary.writing += 1;
+      }
       if (item?.skill === "listening") summary.listening += 1;
       if (normalizePlatform(item?.platform) === "ix") summary.ix += 1;
       if (normalizePlatform(item?.platform) === "orange") summary.orange += 1;

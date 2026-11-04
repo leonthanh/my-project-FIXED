@@ -108,6 +108,82 @@ describe('WritingTest autosave runtime limit', () => {
     expect(screen.getByText(/saved on this machine/i)).toBeInTheDocument();
   });
 
+  test('stops autosave retries after the attempt limit is reached', async () => {
+    const fetchMock = jest.fn((url, options = {}) => {
+      if (String(url).includes('/writing/draft/active')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ submission: null }) });
+      }
+
+      if (String(url).includes('/writing-tests/detail/7') && (!options.method || options.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 7,
+              title: 'Writing Test 7',
+              task1: '<p>Task 1 prompt</p>',
+              task2: '<p>Task 2 prompt</p>',
+            }),
+        });
+      }
+
+      if (String(url).includes('/writing/draft/autosave')) {
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          json: () =>
+            Promise.resolve({
+              code: 'ATTEMPT_LIMIT_REACHED',
+              message: 'You have reached the limit of 1 attempt for this test.',
+            }),
+        });
+      }
+
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+
+    jest.spyOn(window, 'fetch').mockImplementation(fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/writing']}>
+        <Routes>
+          <Route path="/writing" element={<WritingTest />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /start test/i }));
+    fireEvent.change(await screen.findByRole('textbox'), {
+      target: { value: 'draft paragraph' },
+    });
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    });
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes('/writing/draft/autosave')
+      )).toHaveLength(1);
+    });
+    expect(await screen.findByText(/limit of 1 attempt/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /attempt limit reached/i })).toBeDisabled();
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    expect(fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes('/writing/draft/autosave')
+    )).toHaveLength(1);
+  });
+
   test('prefers fresher local draft content over older server draft content', async () => {
     const now = Date.now();
     localStorage.setItem(
