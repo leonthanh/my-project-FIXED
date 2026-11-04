@@ -136,6 +136,7 @@ const WritingTest = () => {
     return readLocalStorageValue(writingStartedKey, readLocalStorageValue(legacyWritingStartedKey, "false")) === "true";
   });
   const [submitted, setSubmitted] = useState(false);
+  const [attemptLimitReached, setAttemptLimitReached] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [activeTask, setActiveTask] = useState("task1");
@@ -152,6 +153,7 @@ const WritingTest = () => {
   const lastServerDraftFingerprintRef = useRef("");
   const autosaveBlockedUntilRef = useRef(0);
   const autosaveInFlightRef = useRef(false);
+  const attemptLimitReachedRef = useRef(false);
   const timingSyncBlockedUntilRef = useRef(0);
   const timingSyncInFlightRef = useRef(false);
 
@@ -453,7 +455,7 @@ const WritingTest = () => {
   );
 
   const saveDraftToServer = useCallback(async ({ force = false, keepalive = false } = {}) => {
-    if (isHydratingDraft || submitted) return;
+    if (isHydratingDraft || submitted || attemptLimitReachedRef.current) return;
     if (!isPlacementRuntime && !user?.id) return;
     if (autosaveInFlightRef.current) return;
     if (!force && Date.now() < autosaveBlockedUntilRef.current) return;
@@ -515,6 +517,14 @@ const WritingTest = () => {
         status: res.status,
       });
       if (!res.ok) {
+        if (data?.code === "ATTEMPT_LIMIT_REACHED") {
+          attemptLimitReachedRef.current = true;
+          setAttemptLimitReached(true);
+          setMessage(
+            data.message || "You have reached the attempt limit for this test."
+          );
+          return;
+        }
         const runtimeMessage = getRuntimeSyncRateLimitMessage(res.status, data || {});
         if (runtimeMessage) {
           setRuntimeLimitToast(runtimeMessage);
@@ -566,7 +576,12 @@ const WritingTest = () => {
   ]);
 
   const reconcileServerTiming = useCallback(async () => {
-    if (isHydratingDraft || submitted || !started) return;
+    if (
+      isHydratingDraft ||
+      submitted ||
+      attemptLimitReachedRef.current ||
+      !started
+    ) return;
     if (!isPlacementRuntime && !user?.id) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (timingSyncInFlightRef.current || Date.now() < timingSyncBlockedUntilRef.current) return;
@@ -637,7 +652,7 @@ const WritingTest = () => {
   ]);
 
   useEffect(() => {
-    if (isHydratingDraft || submitted) return;
+    if (isHydratingDraft || submitted || attemptLimitReached) return;
     if ((!isPlacementRuntime && !user?.id) || !selectedTestId) return;
 
     const intervalId = setInterval(() => {
@@ -661,10 +676,10 @@ const WritingTest = () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, [isHydratingDraft, isPlacementRuntime, saveDraftToServer, selectedTestId, submitted, user?.id]);
+  }, [attemptLimitReached, isHydratingDraft, isPlacementRuntime, saveDraftToServer, selectedTestId, submitted, user?.id]);
 
   useEffect(() => {
-    if (isHydratingDraft || submitted || !started) return;
+    if (isHydratingDraft || submitted || attemptLimitReached || !started) return;
     if ((!isPlacementRuntime && !user?.id) || !selectedTestId) return;
 
     reconcileServerTiming();
@@ -686,10 +701,10 @@ const WritingTest = () => {
       window.removeEventListener("focus", onCheck);
       document.removeEventListener("visibilitychange", onCheck);
     };
-  }, [isHydratingDraft, isPlacementRuntime, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
+  }, [attemptLimitReached, isHydratingDraft, isPlacementRuntime, reconcileServerTiming, selectedTestId, started, submitted, user?.id]);
 
   const handleSubmit = useCallback(async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || attemptLimitReachedRef.current) return;
 
     const numericTestId = parseInt(selectedTestId || routeTestId, 10);
     if (!numericTestId || isNaN(numericTestId)) {
@@ -703,6 +718,7 @@ const WritingTest = () => {
     } catch (_err) {
       // Ignore: submit can still proceed; autosave retry exists.
     }
+    if (attemptLimitReachedRef.current) return;
 
     setIsSubmitting(true);
 
@@ -731,6 +747,10 @@ const WritingTest = () => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (data?.code === "ATTEMPT_LIMIT_REACHED") {
+          attemptLimitReachedRef.current = true;
+          setAttemptLimitReached(true);
+        }
         throw new Error(data?.message || "The server did not confirm the submission.");
       }
 
@@ -765,10 +785,14 @@ const WritingTest = () => {
 
       navigate(exitPath, { replace: true });
     } catch (err) {
-      console.error("Submit writing failed:", err);
+      if (!attemptLimitReachedRef.current) {
+        console.error("Submit writing failed:", err);
+      }
       setSubmitted(false);
       setMessage(`Could not submit: ${err?.message || "Submission failed."}`);
-      await saveDraftToServer();
+      if (!attemptLimitReachedRef.current) {
+        await saveDraftToServer();
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -824,7 +848,7 @@ const WritingTest = () => {
 
   // TIMER: dựa trên endAt, không phụ thuộc timeLeft (tránh reset interval khi re-render do typing)
   useEffect(() => {
-    if (!started || submitted || isSubmitting || !endAt) return;
+    if (!started || submitted || attemptLimitReached || isSubmitting || !endAt) return;
 
     const tick = () => {
       const remain = getRemainingSeconds(endAt);
@@ -845,7 +869,7 @@ const WritingTest = () => {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
     // CHÚ Ý: không thêm timeLeft/handleSubmit vào dependency!
-  }, [started, submitted, isSubmitting, endAt]);
+  }, [attemptLimitReached, started, submitted, isSubmitting, endAt]);
 
   const formatTime = (seconds) => formatClock(seconds);
 
@@ -998,9 +1022,13 @@ const WritingTest = () => {
           <button
             onClick={handleSubmit}
             className="writing-test-submit-btn"
-            disabled={isSubmitting}
+            disabled={isSubmitting || attemptLimitReached}
           >
-            {isSubmitting ? "Submitting..." : "Submit"}
+            {attemptLimitReached
+              ? "Attempt limit reached"
+              : isSubmitting
+                ? "Submitting..."
+                : "Submit"}
           </button>
         </div>
       </header>

@@ -49,8 +49,8 @@ import './ExamCoreReadingRuntime.css';
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
-const requestSubmissionApi = (submissionBasePath, url, options) =>
-  String(submissionBasePath || "").startsWith("exam-levels/")
+const requestSubmissionApi = (submissionBasePath, url, options, isPlacementRuntime = false) =>
+  !isPlacementRuntime && String(submissionBasePath || "").startsWith("exam-levels/")
     ? authFetch(url, options)
     : fetch(url, options);
 
@@ -347,7 +347,9 @@ const ExamCoreListeningRuntimePage = ({
               submissionBasePath,
               apiPath(
                 `${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(parsedData.testType)}`
-              )
+              ),
+              undefined,
+              placementContext.isPlacementRuntime
             );
             if (activeRes.ok) {
               const payload = await activeRes.json().catch(() => null);
@@ -765,7 +767,8 @@ const ExamCoreListeningRuntimePage = ({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
-          }
+            },
+            placementContext.isPlacementRuntime
         );
         const json = await res.json().catch(() => null);
         recordRuntimeSyncRequestMetric({
@@ -875,7 +878,9 @@ const ExamCoreListeningRuntimePage = ({
       timingSyncInFlightRef.current = true;
       const res = await requestSubmissionApi(
         submissionBasePath,
-        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`)
+        apiPath(`${submissionBasePath}/active${query}&testId=${id}&testType=${encodeURIComponent(test.testType)}`),
+        undefined,
+        placementContext.isPlacementRuntime
       );
       recordRuntimeSyncRequestMetric({
         scope: "orange-listening",
@@ -1904,7 +1909,7 @@ const ExamCoreListeningRuntimePage = ({
       const initialTime = (testConfig.duration || 30) * 60;
       const timeSpent = initialTime - timeRemaining;
 
-      const res = await authFetch(apiPath(`${submitBasePath}/${id}/submit`), {
+      const res = await requestSubmissionApi(submissionBasePath, apiPath(`${submitBasePath}/${id}/submit`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -1920,7 +1925,7 @@ const ExamCoreListeningRuntimePage = ({
           timeRemaining,
           timeSpent
         }),
-      });
+      }, placementContext.isPlacementRuntime);
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to submit the test");

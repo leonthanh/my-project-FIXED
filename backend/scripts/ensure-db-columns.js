@@ -70,6 +70,10 @@ async function ensureDbColumns(sequelize) {
       'INT NOT NULL DEFAULT 1'
     );
 
+    // --- dynamic exam-level placement items ---
+    await addColumnIfMissing(sequelize, 'placement_package_items', 'levelCode', 'VARCHAR(40) NULL');
+    await addColumnIfMissing(sequelize, 'placement_attempt_items', 'levelCode', 'VARCHAR(40) NULL');
+
     console.log('✅ DB column check complete.');
   } catch (err) {
     // Non-fatal: log and continue so server can still start

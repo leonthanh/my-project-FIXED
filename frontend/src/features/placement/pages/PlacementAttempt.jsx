@@ -7,6 +7,7 @@ import {
   buildPlacementAttemptItemRuntimePath,
   buildPlacementSharePath,
   filterPlacementGroups,
+  getPlacementSkillLabel,
   getPlacementItemSummaryCounts,
   groupPlacementItems,
 } from "../../../shared/utils/placementTests";
@@ -28,6 +29,7 @@ const getPlatformLabel = (platform, generalDisplayName) => {
   if (normalizedPlatform === "orange") return "Orange";
   if (normalizedPlatform === "ix") return "IX";
   if (normalizedPlatform === "general") return generalDisplayName;
+  if (normalizedPlatform === "exam-level") return "Exam level";
   return normalizedPlatform ? normalizedPlatform.toUpperCase() : "IX";
 };
 
@@ -100,7 +102,8 @@ const PlacementAttempt = () => {
           group.platform === "ix" ||
           group.platform === "orange" ||
           group.platform === "gateway" ||
-          group.platform === "general"
+          group.platform === "general" ||
+          group.platform === "exam-level"
       ),
     [groupedItems]
   );
@@ -129,9 +132,12 @@ const PlacementAttempt = () => {
     if (summary.gateway > 0) {
       summaryParts.push(`${summary.gateway} Gateway`);
     }
+    if (summary.examLevel > 0) {
+      summaryParts.push(`${summary.examLevel} exam-level`);
+    }
 
     return summaryParts.join(" • ");
-  }, [generalDisplayName, summary.general, summary.gateway, summary.ix, summary.orange]);
+  }, [generalDisplayName, summary.examLevel, summary.general, summary.gateway, summary.ix, summary.orange]);
 
   return (
     <div className="placement-entry-page">
@@ -257,6 +263,8 @@ const PlacementAttempt = () => {
                               ? "gateway"
                               : item.platform === "general"
                                 ? "general"
+                                : item.platform === "exam-level"
+                                  ? "general"
                               : "ix";
                           return (
                             <div
@@ -276,7 +284,8 @@ const PlacementAttempt = () => {
 
                               <div className="placement-entry-testMeta">
                                 <span>{getPlatformLabel(item.platform, generalDisplayName)}</span>
-                                <span>{item.skill}</span>
+                                {item.badge ? <span>{item.badge}</span> : null}
+                                <span>{getPlacementSkillLabel(item.skill)}</span>
                                 {item.questionsLabel ? <span>{item.questionsLabel}</span> : null}
                                 {item.durationLabel ? <span>{item.durationLabel}</span> : null}
                               </div>

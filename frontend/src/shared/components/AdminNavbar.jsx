@@ -339,6 +339,7 @@ const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(() => getStoredUser());
+  const [examLevels, setExamLevels] = useState([]);
 
   const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationDropdownVisible, setNotificationDropdownVisible] =
@@ -391,6 +392,22 @@ const AdminNavbar = () => {
     return () => {
       window.removeEventListener("storage", syncUser);
       window.removeEventListener("auth:changed", syncUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    authFetch(apiPath("exam-levels"))
+      .then(async (response) => {
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) throw new Error("Could not load exam-level navigation.");
+        if (mounted) setExamLevels(Array.isArray(payload) ? payload : []);
+      })
+      .catch((error) => {
+        console.error("Failed to load exam-level navigation:", error);
+      });
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -1503,6 +1520,7 @@ const AdminNavbar = () => {
     pathname.startsWith("/admin/display-settings") ||
     pathname.startsWith("/admin/exam-levels") ||
     pathname.startsWith("/admin/runtime-sync-metrics");
+  const isExamLevelCurrent = pathname.startsWith("/exam-levels/");
 
   const mobileDrawerTabs = [
     {
@@ -1971,6 +1989,14 @@ const AdminNavbar = () => {
         <div className="adminNavbar__mobileQuickGrid">
           {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "review")}
           {renderMobileQuickLink("/select-test", "Test List", "Browse and edit available tests", "tests")}
+          {examLevels.map((level) =>
+            renderMobileQuickLink(
+              `/exam-levels/${encodeURIComponent(level.code)}`,
+              level.name,
+              `Open ${level.name} tests and submissions`,
+              "tests"
+            )
+          )}
         </div>
 
         <div className="adminNavbar__mobileSectionTitle">Account</div>
@@ -2302,6 +2328,18 @@ const AdminNavbar = () => {
             <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
           </span>
         </div>
+
+        {examLevels.map((level) => (
+          <Link
+            key={level.code}
+            to={`/exam-levels/${encodeURIComponent(level.code)}`}
+            className={`adminNavbar__link${isExamLevelCurrent && pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`) ? " adminNavbar__link--active" : ""}`}
+            title={level.name}
+          >
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+            <span className="adminNavbar__label">{level.name}</span>
+          </Link>
+        ))}
 
         <Link to="/select-test" className={`adminNavbar__link${isTestListCurrent ? " adminNavbar__link--active" : ""}`} title="Test list">
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>

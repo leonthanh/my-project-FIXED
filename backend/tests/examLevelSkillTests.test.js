@@ -78,6 +78,44 @@ describe("exam level skill test adapter", () => {
     );
   });
 
+  test("creates a combined Reading and Writing test using the Gateway template", async () => {
+    ExamLevel.findOne.mockResolvedValue({
+      ...level,
+      skills: ["reading-writing", "listening"],
+      skillConfig: {
+        "reading-writing": {
+          templateId: "gateway-reading-writing",
+          durationMinutes: 60,
+        },
+        listening: level.skillConfig.listening,
+      },
+    });
+    const createdTest = { id: 20, title: "Prepare Reading and Writing 1" };
+    ExamLevelTest.create.mockResolvedValue(createdTest);
+
+    const result = await service.createTest({
+      code: "prepare",
+      skill: "reading-writing",
+      user: { id: 8, role: "teacher" },
+      body: {
+        title: "Prepare Reading and Writing 1",
+        classCode: "P1",
+        testType: "gateway-reading-writing",
+        parts: [{ sections: [] }],
+      },
+    });
+
+    expect(result).toBe(createdTest);
+    expect(ExamLevelTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: "reading-writing",
+        templateId: "gateway-reading-writing",
+        testType: "gateway-reading-writing",
+        duration: 60,
+      })
+    );
+  });
+
   test("rejects skill templates not configured for the selected level", async () => {
     await expect(
       service.createTest({

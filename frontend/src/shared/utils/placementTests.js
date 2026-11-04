@@ -28,9 +28,10 @@ const appendSearchParams = (path, params) => {
   return query ? `${path}?${query}` : path;
 };
 
-export const buildPlacementSelectionKey = ({ platform, skill, testId, testType }) => {
+export const buildPlacementSelectionKey = ({ platform, skill, testId, testType, levelCode }) => {
   return [
     normalizePlacementPlatform(platform),
+    normalizeText(levelCode).toLowerCase(),
     normalizeText(skill).toLowerCase(),
     normalizePlacementTestType(testType) || "generic",
     normalizeText(testId),
@@ -39,6 +40,7 @@ export const buildPlacementSelectionKey = ({ platform, skill, testId, testType }
 
 export const createPlacementSelection = ({
   platform,
+  levelCode = "",
   skill,
   testId,
   testType = "",
@@ -55,11 +57,13 @@ export const createPlacementSelection = ({
   return {
     key: buildPlacementSelectionKey({
       platform: normalizedPlatform,
+      levelCode,
       skill: normalizedSkill,
       testId: normalizedTestId,
       testType,
     }),
     platform: normalizedPlatform,
+    levelCode: normalizeText(levelCode).toLowerCase(),
     skill: normalizedSkill,
     testId: normalizedTestId,
     testType: normalizePlacementTestType(testType),
@@ -88,7 +92,7 @@ export const normalizePlacementSelections = (items) => {
     .filter(Boolean);
 };
 
-export const isPlacementEligible = ({ platform, skill, testType }) => {
+export const isPlacementEligible = ({ platform, skill, testType, levelCode }) => {
   const normalizedPlatform = normalizePlacementPlatform(platform);
   const normalizedSkill = normalizeText(skill).toLowerCase();
   const normalizedTestType = normalizeText(testType).toLowerCase();
@@ -117,8 +121,18 @@ export const isPlacementEligible = ({ platform, skill, testType }) => {
     return normalizedSkill === "reading" || normalizedSkill === "listening";
   }
 
+  if (normalizedPlatform === "exam-level") {
+    return Boolean(normalizeText(levelCode)) &&
+      ["reading", "listening", "writing", "reading-writing"].includes(normalizedSkill);
+  }
+
   return false;
 };
+
+export const getPlacementSkillLabel = (skill) =>
+  normalizeText(skill).toLowerCase() === "reading-writing"
+    ? "Reading & Writing"
+    : skill;
 
 export const readPlacementLeadDraft = () => {
   if (!canUseStorage()) return { name: "", phone: "" };
@@ -147,6 +161,7 @@ const normalizePlacementGroupValue = (value) => String(value || "").trim().toLow
 const SKILL_ORDER = {
   writing: 0,
   reading: 1,
+  "reading-writing": 1,
   listening: 2,
 };
 
@@ -220,13 +235,20 @@ export const groupPlacementItems = (items) => {
     orange: [],
     gateway: [],
     general: [],
+    "exam-level": [],
   };
   const extraBuckets = new Map();
 
   (Array.isArray(items) ? items : []).forEach((item) => {
     const platform = normalizePlacementGroupValue(item?.platform);
 
-    if (platform === "ix" || platform === "orange" || platform === "gateway" || platform === "general") {
+    if (
+      platform === "ix" ||
+      platform === "orange" ||
+      platform === "gateway" ||
+      platform === "general" ||
+      platform === "exam-level"
+    ) {
       buckets[platform].push(item);
       return;
     }
@@ -243,6 +265,7 @@ export const groupPlacementItems = (items) => {
     ["orange", buckets.orange],
     ["gateway", buckets.gateway],
     ["general", buckets.general],
+    ["exam-level", buckets["exam-level"]],
     ...Array.from(extraBuckets.entries()),
   ]
     .filter(([, groupItems]) => groupItems.length > 0)
@@ -265,6 +288,8 @@ export const groupPlacementItems = (items) => {
               ? "Gateway tests"
               : platform === "general"
                 ? "General tests"
+                : platform === "exam-level"
+                  ? "Exam-level tests"
             : `${platform.toUpperCase()} tests`,
       items: [...groupItems].sort((left, right) => comparePlacementItems(platform, left, right)),
     }));
@@ -298,8 +323,13 @@ export const getPlacementItemSummaryCounts = (items) => {
       if (item?.platform === "orange") acc.orange += 1;
       if (item?.platform === "gateway") acc.gateway += 1;
       if (normalizePlacementPlatform(item?.platform) === "general") acc.general += 1;
+      if (normalizePlacementPlatform(item?.platform) === "exam-level") acc.examLevel += 1;
       if (item?.skill === "writing") acc.writing += 1;
       if (item?.skill === "reading") acc.reading += 1;
+      if (item?.skill === "reading-writing") {
+        acc.reading += 1;
+        acc.writing += 1;
+      }
       if (item?.skill === "listening") acc.listening += 1;
       if (item?.status === "started") acc.started += 1;
       if (item?.status === "submitted") acc.submitted += 1;
@@ -311,6 +341,7 @@ export const getPlacementItemSummaryCounts = (items) => {
       orange: 0,
       gateway: 0,
       general: 0,
+      examLevel: 0,
       writing: 0,
       reading: 0,
       listening: 0,
@@ -361,7 +392,9 @@ export const buildPlacementAttemptItemRuntimePath = (item, attemptToken = "") =>
 
   let basePath = buildPlacementAttemptPath(attemptToken);
 
-  if (platform === "ix" && skill === "writing") {
+  if (platform === "exam-level" && item?.levelCode) {
+    basePath = `/placement/exam-level/${encodeURIComponent(normalizeText(item.levelCode).toLowerCase())}/${encodeURIComponent(skill)}/${testId}`;
+  } else if (platform === "ix" && skill === "writing") {
     basePath = `/placement/ix/writing/${testId}`;
   } else if (platform === "ix" && skill === "reading") {
     basePath = `/placement/ix/reading/${testId}`;

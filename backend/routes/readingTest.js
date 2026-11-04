@@ -527,7 +527,6 @@ router.post("/:id/submit", optionalAuth, async (req, res) => {
           : undefined;
       return res.json({ submissionId: sub.id, ...result, ...(details ? { details } : {}) });
     } catch (e) {
-      console.error("Error saving submission:", e);
       const statusCode = getClientErrorStatus(e);
       if (statusCode) {
         return res.status(statusCode).json({
@@ -537,6 +536,7 @@ router.post("/:id/submit", optionalAuth, async (req, res) => {
           usedAttempts: e?.usedAttempts,
         });
       }
+      console.error("Error saving submission:", e);
       // Still return result if DB save fails
       return res.json(result);
     }

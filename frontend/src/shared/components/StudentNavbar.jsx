@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiPath, hostPath, logoutAuthSession } from "../utils/api";
+import { apiPath, authFetch, hostPath, logoutAuthSession } from "../utils/api";
 import { hasAnyVisibleCambridgeFeedback } from "../utils/cambridgeFeedback";
 import {
   IX_HUB_PATH,
@@ -103,6 +103,7 @@ const StudentNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
+  const [examLevels, setExamLevels] = useState([]);
 
   const [writingFeedbackCount, setWritingFeedbackCount] = useState(0);
   const [readingFeedbackCount, setReadingFeedbackCount] = useState(0);
@@ -135,6 +136,22 @@ const StudentNavbar = () => {
       navigate("/login");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    let mounted = true;
+    authFetch(apiPath("exam-levels"))
+      .then(async (response) => {
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) throw new Error("Could not load exam-level navigation.");
+        if (mounted) setExamLevels(Array.isArray(payload) ? payload : []);
+      })
+      .catch((error) => {
+        console.error("Failed to load exam-level navigation:", error);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.phone) return;
@@ -581,6 +598,14 @@ const StudentNavbar = () => {
             `Open ${generalDisplayName} practice tests`,
             "tests"
           )}
+          {examLevels.map((level) =>
+            renderMobileQuickLink(
+              `/exam-levels/${encodeURIComponent(level.code)}`,
+              level.name,
+              `Open ${level.name} tests`,
+              "tests"
+            )
+          )}
           {renderMobileQuickLink(
             "/my-feedback",
             "My Feedback",
@@ -871,6 +896,17 @@ const StudentNavbar = () => {
           <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
           <span className="studentNavbar__label">{generalDisplayName}</span>
         </Link>
+        {examLevels.map((level) => (
+          <Link
+            key={level.code}
+            to={`/exam-levels/${encodeURIComponent(level.code)}`}
+            className={`studentNavbar__link${pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`) ? " studentNavbar__link--active" : ""}`}
+            title={level.name}
+          >
+            <span className="studentNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+            <span className="studentNavbar__label">{level.name}</span>
+          </Link>
+        ))}
 
         <button
           type="button"
@@ -936,6 +972,17 @@ const StudentNavbar = () => {
                 <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
                 <span>{generalDisplayName}</span>
               </Link>
+              {examLevels.map((level) => (
+                <Link
+                  key={level.code}
+                  to={`/exam-levels/${encodeURIComponent(level.code)}`}
+                  className="studentNavbar__menuItem"
+                  onClick={() => setMoreDropdownVisible(false)}
+                >
+                  <span className="studentNavbar__menuItemIcon" aria-hidden="true"><NavIcon name="tests" /></span>
+                  <span>{level.name}</span>
+                </Link>
+              ))}
               <Link
                 to="/my-feedback"
                 className="studentNavbar__menuItem"

@@ -153,6 +153,12 @@
   font-weight: 800;
 }
 
+.exam-levels-page__skills-hint {
+  margin: -4px 0 12px;
+  color: #728096;
+  font-size: 12px;
+}
+
 .exam-levels-page__skill-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -317,11 +317,16 @@ router.post('/draft/autosave', async (req, res) => {
       timing: buildTimingPayload(created.draftEndAt),
     });
   } catch (err) {
-    console.error('Draft autosave error:', err);
     const statusCode = getClientErrorStatus(err);
     if (statusCode) {
-      return res.status(statusCode).json({ message: err?.message || 'Failed to autosave draft.' });
+      return res.status(statusCode).json({
+        message: err?.message || 'Failed to autosave draft.',
+        code: err?.code,
+        allowedAttempts: err?.allowedAttempts,
+        usedAttempts: err?.usedAttempts,
+      });
     }
+    console.error('Draft autosave error:', err);
     return res.status(500).json({ message: 'Failed to autosave draft.' });
   }
 });
@@ -631,11 +636,16 @@ router.post('/submit', async (req, res) => {
       warning: emailWarning,
     });
   } catch (err) {
-    console.error('Submit writing error:', err);
     const statusCode = getClientErrorStatus(err);
     if (statusCode) {
-      return res.status(statusCode).json({ message: err?.message || 'Server error while saving submission.' });
+      return res.status(statusCode).json({
+        message: err?.message || 'Server error while saving submission.',
+        code: err?.code,
+        allowedAttempts: err?.allowedAttempts,
+        usedAttempts: err?.usedAttempts,
+      });
     }
+    console.error('Submit writing error:', err);
     return res.status(500).json({ message: 'Server error while saving submission.' });
   }
 });

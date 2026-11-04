@@ -25,6 +25,10 @@ const PlacementPackageItem = sequelize.define(
       type: DataTypes.STRING(64),
       allowNull: false,
     },
+    levelCode: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+    },
     testType: {
       type: DataTypes.STRING(80),
       allowNull: true,
