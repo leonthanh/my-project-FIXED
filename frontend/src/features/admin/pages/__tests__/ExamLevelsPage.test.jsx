@@ -91,4 +91,38 @@ describe("ExamLevelsPage", () => {
     expect(readingWriting).not.toBeChecked();
     expect(listening).toBeChecked();
   });
+
+  test("renders and edits an existing combined-skills level", async () => {
+    const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+    const defaultFetch = authFetch.getMockImplementation();
+    authFetch.mockImplementation((path) => path === "exam-levels/admin"
+      ? Promise.resolve({
+          ok: true,
+          json: async () => [{
+            id: 1,
+            code: "prepare",
+            name: "Prepare",
+            skills: ["listening", "reading-writing"],
+            skillConfig: {
+              listening: { templateId: "exam-listening-v1", weight: 1.01, durationMinutes: 30 },
+              "reading-writing": { templateId: "gateway-reading-writing", weight: 1.01, durationMinutes: 60 },
+            },
+            isActive: true,
+          }],
+        })
+      : defaultFetch(path));
+
+    render(
+      <MemoryRouter>
+        <ExamLevelsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Prepare" })).toBeInTheDocument();
+    expect(screen.getByText("Reading & Writing · weight 1.01")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("checkbox", { name: "Listening" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Reading & Writing" })).toBeChecked();
+    scrollTo.mockRestore();
+  });
 });

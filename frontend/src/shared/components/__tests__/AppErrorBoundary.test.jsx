@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import AppErrorBoundary from '../AppErrorBoundary';
 
 const AUTO_RECOVERY_KEY = 'app-error-boundary:auto-recovery';
@@ -17,7 +17,6 @@ describe('AppErrorBoundary', () => {
     localStorage.clear();
 
     reloadSpy = jest.spyOn(AppErrorBoundary, 'performAppReload').mockImplementation(() => undefined);
-    jest.spyOn(AppErrorBoundary, 'resetAuthAndRedirectToLogin').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -42,7 +41,9 @@ describe('AppErrorBoundary', () => {
     expect(screen.queryByText(/Trang gap loi tam thoi/i)).toBeNull();
   });
 
-  test('redirects to login after repeated crashes inside the retry window', () => {
+  test('preserves the session and offers recovery after repeated crashes', () => {
+    localStorage.setItem('user', '{"id":1,"role":"admin"}');
+    localStorage.setItem('accessToken', 'existing-token');
     sessionStorage.setItem(
       AUTO_RECOVERY_KEY,
       JSON.stringify({ count: 2, firstAt: Date.now() })
@@ -59,6 +60,11 @@ describe('AppErrorBoundary', () => {
     });
 
     expect(reloadSpy).not.toHaveBeenCalled();
-    expect(AppErrorBoundary.resetAuthAndRedirectToLogin).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('accessToken')).toBe('existing-token');
+    expect(localStorage.getItem('user')).toBe('{"id":1,"role":"admin"}');
+    expect(screen.getByRole('alert')).toHaveTextContent('Phiên đăng nhập của bạn vẫn được giữ');
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(AUTO_RECOVERY_KEY)).toBeNull();
   });
 });

@@ -1,5 +1,4 @@
 import React from "react";
-import { clearAuth, redirectToLogin } from "../utils/api";
 
 const AUTO_RECOVERY_KEY = "app-error-boundary:auto-recovery";
 const AUTO_RECOVERY_LIMIT = 2;
@@ -42,15 +41,9 @@ class AppErrorBoundary extends React.Component {
     }
   }
 
-  static resetAuthAndRedirectToLogin() {
-    clearAutoRecoveryState();
-    clearAuth();
-    redirectToLogin({ replace: true });
-  }
-
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, recoveryFailed: false };
     this.recoveryTimer = null;
     this.stableTimer = null;
   }
@@ -105,12 +98,18 @@ class AppErrorBoundary extends React.Component {
         return;
       }
 
-      AppErrorBoundary.resetAuthAndRedirectToLogin();
+      this.setState({ recoveryFailed: true });
     }, AUTO_RECOVERY_DELAY_MS);
   }
 
-  handleResetToLogin = () => {
-    AppErrorBoundary.resetAuthAndRedirectToLogin();
+  handleRetry = () => {
+    clearAutoRecoveryState();
+    AppErrorBoundary.performAppReload();
+  };
+
+  handleHome = () => {
+    clearAutoRecoveryState();
+    window.location.assign("/");
   };
 
   render() {
@@ -124,23 +123,17 @@ class AppErrorBoundary extends React.Component {
             placeItems: "center",
           }}
           aria-live="polite"
-          aria-busy="true"
+          aria-busy={!this.state.recoveryFailed}
         >
-          <span
-            style={{
-              position: "absolute",
-              width: 1,
-              height: 1,
-              padding: 0,
-              margin: -1,
-              overflow: "hidden",
-              clip: "rect(0, 0, 0, 0)",
-              whiteSpace: "nowrap",
-              border: 0,
-            }}
-          >
-            Dang tai lai trang.
-          </span>
+          {this.state.recoveryFailed ? (
+            <div role="alert" style={{ textAlign: "center", padding: 24 }}>
+              <p>Trang gặp lỗi và không thể tự khôi phục. Phiên đăng nhập của bạn vẫn được giữ.</p>
+              <button type="button" onClick={this.handleRetry}>Thử lại</button>{" "}
+              <button type="button" onClick={this.handleHome}>Về trang chủ</button>
+            </div>
+          ) : (
+            <span>Đang tải lại trang...</span>
+          )}
         </div>
       );
     }

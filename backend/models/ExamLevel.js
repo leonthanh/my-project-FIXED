@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../db");
+const { jsonFieldGetter } = require("./examLevelJson");
 
 const ExamLevel = sequelize.define(
   "ExamLevel",
@@ -26,10 +27,12 @@ const ExamLevel = sequelize.define(
     skills: {
       type: DataTypes.JSON,
       allowNull: false,
+      get: jsonFieldGetter("skills", "array"),
     },
     skillConfig: {
       type: DataTypes.JSON,
       allowNull: false,
+      get: jsonFieldGetter("skillConfig", "object"),
     },
     isActive: {
       type: DataTypes.BOOLEAN,
