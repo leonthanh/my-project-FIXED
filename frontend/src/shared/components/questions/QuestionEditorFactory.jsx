@@ -33,6 +33,9 @@ import {
   OddOneOutEditor,
   SentenceCorrectionEditor,
   ReadingOpenQuestionsEditor,
+  WordBankCompletionEditor,
+  DefinitionCompletionEditor,
+  WordBankAdjectiveFormationEditor,
 } from "./editors";
 
 /**
@@ -135,6 +138,15 @@ const QuestionEditorFactory = ({
 
     case 'reading-open-questions':
       return <ReadingOpenQuestionsEditor {...commonProps} />;
+
+    case 'word-bank-completion':
+      return <WordBankCompletionEditor {...commonProps} />;
+
+    case 'definition-completion':
+      return <DefinitionCompletionEditor {...commonProps} />;
+
+    case 'word-bank-adjective-formation':
+      return <WordBankAdjectiveFormationEditor {...commonProps} />;
 
     case 'short-message':
       return <ShortMessageEditor {...commonProps} />;

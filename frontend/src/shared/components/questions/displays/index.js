@@ -20,6 +20,9 @@ export { default as TrueFalseNotGivenDisplay } from './TrueFalseNotGivenDisplay'
 export { default as SentenceTransformationDisplay } from './SentenceTransformationDisplay';
 export { default as SentenceCorrectionDisplay } from './SentenceCorrectionDisplay';
 export { default as ReadingOpenQuestionsDisplay } from './ReadingOpenQuestionsDisplay';
+export { default as WordBankCompletionDisplay } from './WordBankCompletionDisplay';
+export { default as DefinitionCompletionDisplay } from './DefinitionCompletionDisplay';
+export { default as WordBankAdjectiveFormationDisplay } from './WordBankAdjectiveFormationDisplay';
 export { default as StoryWritingDisplay } from './StoryWritingDisplay';
 export { default as PrepositionGapFillDisplay } from './PrepositionGapFillDisplay';
 export { default as OddOneOutDisplay } from './OddOneOutDisplay';

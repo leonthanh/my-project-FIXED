@@ -11,6 +11,7 @@ import {
   validateFlexiblePrepareReadingWritingParts,
   validatePrepareReadingWritingParts,
 } from "./prepareReadingWriting";
+import { getPrepareReadingWritingQuestionTypes } from "../../../shared/config/questionTypes";
 import { getQuestionCountForSection } from "../../exam-core/shared/utils/examQuestionNumbering";
 
 test("Prepare blueprint has 50 numbered questions and a separate W rubric", () => {
@@ -50,6 +51,91 @@ test("flexible Prepare weights answer units to 50 and keeps writing separate", (
   expect(validateFlexiblePrepareReadingWritingParts(markedParts)).toBe("");
   markedParts[0].sections[0].preparePointsPerAnswer = 0.5;
   expect(validateFlexiblePrepareReadingWritingParts(markedParts)).toMatch(/50/);
+});
+
+test("two-word-bank completion is reusable and counts each blank as a scoring unit", () => {
+  const wordBankType = getPrepareReadingWritingQuestionTypes().find((type) => type.id === "word-bank-completion");
+  expect(wordBankType).toBeTruthy();
+
+  const parts = createFlexiblePrepareParts();
+  const section = parts[0].sections[0];
+  section.questionType = wordBankType.id;
+  section.preparePointsPerAnswer = 0.5;
+  section.questions = [JSON.parse(JSON.stringify(wordBankType.defaultData))];
+  expect(getPrepareTotalPoints(parts)).toBe(5);
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toMatch(/50/);
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true })).toBe("");
+
+  parts[0].sections.push({
+    sectionTitle: "Other questions",
+    questionType: "fill",
+    preparePointsPerAnswer: 1,
+    questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+  });
+
+  expect(getQuestionCountForSection(section)).toBe(5);
+  expect(countPrepareScoringUnitsForSection(section)).toBe(10);
+  expect(getPrepareTotalPoints(parts)).toBe(50);
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toBe("");
+
+  section.questions[0].items[0].questionText = "Now {1} these numbers.";
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toMatch(/hai danh sách từ/i);
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true })).toMatch(/hai danh sách từ/i);
+});
+
+test("definition completion counts each given-first-letter word as one scoring unit", () => {
+  const definitionType = getPrepareReadingWritingQuestionTypes().find((type) => type.id === "definition-completion");
+  expect(definitionType).toBeTruthy();
+
+  const parts = createFlexiblePrepareParts();
+  const section = parts[0].sections[0];
+  section.questionType = definitionType.id;
+  section.preparePointsPerAnswer = 1;
+  section.questions = [{
+    ...JSON.parse(JSON.stringify(definitionType.defaultData)),
+    items: [
+      { questionText: "a piece of art made from stone or wood", correctAnswer: "sculpture" },
+      { questionText: "a book about imaginary people", correctAnswer: "novel" },
+      { questionText: "a building for showing works of art", correctAnswer: "gallery" },
+      { questionText: "a room where an artist works", correctAnswer: "studio" },
+      { questionText: "people who watch a performance", correctAnswer: "audience" },
+    ],
+  }];
+
+  expect(getQuestionCountForSection(section)).toBe(5);
+  expect(countPrepareScoringUnitsForSection(section)).toBe(5);
+  expect(getPrepareTotalPoints(parts)).toBe(5);
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toMatch(/50/);
+
+  parts[0].sections.push({
+    sectionTitle: "Other questions",
+    questionType: "fill",
+    preparePointsPerAnswer: 1,
+    questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+  });
+  expect(getPrepareTotalPoints(parts)).toBe(50);
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toBe("");
+});
+
+test("adjective formation uses one extra word and scores each item once", () => {
+  const adjectiveType = getPrepareReadingWritingQuestionTypes().find(
+    (type) => type.id === "word-bank-adjective-formation"
+  );
+  expect(adjectiveType).toBeTruthy();
+
+  const parts = createFlexiblePrepareParts();
+  const section = parts[0].sections[0];
+  section.questionType = adjectiveType.id;
+  section.preparePointsPerAnswer = 1;
+  section.questions = [JSON.parse(JSON.stringify(adjectiveType.defaultData))];
+
+  expect(getQuestionCountForSection(section)).toBe(5);
+  expect(countPrepareScoringUnitsForSection(section)).toBe(5);
+  expect(getPrepareTotalPoints(parts)).toBe(5);
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true })).toBe("");
+
+  section.questions[0].wordBank.pop();
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true })).toMatch(/từ thừa/i);
 });
 
 test("new Prepare drafts replace the abandoned fixed template with a clean flexible Part", () => {

@@ -16,6 +16,9 @@ import {
   SentenceTransformationDisplay,
   SentenceCorrectionDisplay,
   ReadingOpenQuestionsDisplay,
+  WordBankCompletionDisplay,
+  DefinitionCompletionDisplay,
+  WordBankAdjectiveFormationDisplay,
   StoryWritingDisplay,
   PrepositionGapFillDisplay,
   OddOneOutDisplay,
@@ -547,6 +550,39 @@ const QuestionDisplayFactory = ({
           answers={answers}
           submitted={submitted}
           gatewayQuestionNumbers={gatewayQuestionNumbers}
+        />
+      );
+
+    case 'word-bank-completion':
+      return (
+        <WordBankCompletionDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'definition-completion':
+      return (
+        <DefinitionCompletionDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'word-bank-adjective-formation':
+      return (
+        <WordBankAdjectiveFormationDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
         />
       );
 

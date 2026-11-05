@@ -223,6 +223,8 @@ const getQuestionCount = (question, sectionType) => {
   if (sectionType === 'odd-one-out' && Array.isArray(q.groups)) return q.groups.length;
   if (sectionType === 'sentence-correction' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'reading-open-questions' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'word-bank-completion' && Array.isArray(q.items)) return q.items.length;
+  if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
     return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
@@ -542,6 +544,48 @@ const scoreTest = (test, answers) => {
               correctAnswer,
               questionType: 'sentence-correction',
               questionText: item?.sentence || '',
+            };
+          });
+          return;
+        }
+
+        if (sectionType === 'word-bank-completion' && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            (item?.blankAnswers || []).slice(0, 2).forEach((correctAnswer, blankIndex) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}-${blankIndex}`;
+              const userAnswer = pickAnswer(key);
+              const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+              total++;
+              if (isCorrect) score++;
+              detailedResults[key] = {
+                isCorrect,
+                questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
+                userAnswer: userAnswer || null,
+                correctAnswer,
+                questionType: 'word-bank-completion',
+                questionText: item?.questionText || '',
+                answerIndex: blankIndex + 1,
+              };
+            });
+          });
+          return;
+        }
+
+        if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key);
+            const correctAnswer = item?.correctAnswer;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            total++;
+            if (isCorrect) score++;
+            detailedResults[key] = {
+              isCorrect,
+              questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: 'fill',
+              questionText: item?.questionText || '',
             };
           });
           return;

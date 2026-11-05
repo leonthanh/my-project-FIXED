@@ -1363,6 +1363,8 @@ const ExamCoreTestBuilder = ({
     () => prepareFlexibleReadingWriting ? getPrepareTotalPoints(parts) : 0,
     [parts, prepareFlexibleReadingWriting]
   );
+  const isIncompletePrepareDraft = prepareFlexibleReadingWriting &&
+    Math.abs(prepareTotalPoints - 50) > 0.001;
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [editingPartIndex, setEditingPartIndex] = useState(null);
@@ -1719,7 +1721,7 @@ const ExamCoreTestBuilder = ({
         return {
           ...section,
           questionType: newType,
-          preparePointsPerAnswer: 1,
+          preparePointsPerAnswer: prepareFlexibleReadingWriting && newType === 'word-bank-completion' ? 0.5 : 1,
           questions,
         };
       });
@@ -2026,6 +2028,8 @@ const ExamCoreTestBuilder = ({
     const preparePartsSnapshot = prepareFlexibleReadingWriting
       ? markFlexiblePrepareParts(partsSnapshot)
       : partsSnapshot;
+    const hasIncompletePrepareScore = prepareFlexibleReadingWriting &&
+      Math.abs(getPrepareTotalPoints(preparePartsSnapshot) - 50) > 0.001;
     if (prepareReadingWriting) {
       const validationError = validatePrepareReadingWritingParts(preparePartsSnapshot);
       if (validationError) {
@@ -2035,7 +2039,9 @@ const ExamCoreTestBuilder = ({
       }
     }
     if (prepareFlexibleReadingWriting) {
-      const validationError = validateFlexiblePrepareReadingWritingParts(preparePartsSnapshot);
+      const validationError = validateFlexiblePrepareReadingWritingParts(preparePartsSnapshot, {
+        allowIncompleteScoring: hasIncompletePrepareScore,
+      });
       if (validationError) {
         setMessage({ type: 'error', text: validationError });
         setIsSubmitting(false);
@@ -2067,6 +2073,9 @@ const ExamCoreTestBuilder = ({
         studentResultVisibility,
         showResultModal: studentResultVisibility !== 'confirmation',
         testType,
+        ...(prepareFlexibleReadingWriting
+          ? { status: hasIncompletePrepareScore ? 'draft' : 'published' }
+          : {}),
         duration: testConfig.duration || 60,
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
         parts: normalizedCleanedParts,
@@ -2102,7 +2111,12 @@ const ExamCoreTestBuilder = ({
           const err = await res.json().catch(() => ({}));
           throw new Error(err?.message || 'Lỗi khi cập nhật đề');
         }
-        setMessage({ type: 'success', text: 'Cập nhật đề thành công!' });
+        setMessage({
+          type: 'success',
+          text: hasIncompletePrepareScore
+            ? 'Đã lưu bản nháp. Bạn có thể tiếp tục chỉnh sửa đề trong danh sách Prepare.'
+            : 'Cập nhật đề thành công!',
+        });
         // Clear draft after successful save
         localStorage.removeItem(storageKey);
       } else {
@@ -2125,7 +2139,12 @@ const ExamCoreTestBuilder = ({
 
         /* eslint-disable-next-line no-unused-vars */
         const result = await response.json();
-        setMessage({ type: 'success', text: 'Tạo đề thành công!' });
+        setMessage({
+          type: 'success',
+          text: hasIncompletePrepareScore
+            ? 'Đã lưu bản nháp. Bạn có thể tiếp tục chỉnh sửa đề trong danh sách Prepare.'
+            : 'Tạo đề thành công!',
+        });
         // Clear draft after successful save
         localStorage.removeItem(storageKey);
       }
@@ -2183,7 +2202,11 @@ const ExamCoreTestBuilder = ({
   }
 
   const showMoversReadingSectionNav = !isMoversReading || (currentPart?.sections?.length || 0) > 1;
-  const saveButtonLabel = editId ? 'Cập nhật đề' : 'Lưu đề';
+  const saveButtonLabel = isIncompletePrepareDraft
+    ? 'Lưu bản nháp'
+    : editId
+      ? 'Cập nhật đề'
+      : 'Lưu đề';
   const sidebarFooterBackground = isMoversReading ? 'var(--ctb-sidebar-bg, #f6f8fc)' : '#1e293b';
   const sidebarFooterBorder = isMoversReading ? 'var(--ctb-sidebar-border, #dbe3ef)' : 'rgba(148, 163, 184, 0.25)';
   const sidebarStatusColor = isSubmitting
@@ -3542,7 +3565,7 @@ const ExamCoreTestBuilder = ({
                             flex: 1,
                           }}>
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -3709,7 +3732,7 @@ const ExamCoreTestBuilder = ({
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'reading-open-questions', 'true-false-not-given'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />}
                           </div>

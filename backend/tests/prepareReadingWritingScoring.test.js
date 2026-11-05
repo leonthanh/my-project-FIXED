@@ -122,6 +122,154 @@ test("flexible Prepare applies section weights and partial blank points", () => 
   expect(result.detailedResults["0-2-0"].isCorrect).toBeNull();
 });
 
+test("flexible Prepare scores both word-bank blanks independently and excludes the example", () => {
+  const wordBankQuestion = {
+    instruction: "Complete each sentence with a word from list A and a word from list B.",
+    wordBanks: [
+      { label: "A", words: ["add", "blow", "carry", "cut", "take", "work"] },
+      { label: "B", words: ["away", "out", "up"] },
+    ],
+    example: {
+      questionText: "We can't {1} {2} how to do it.",
+      blankAnswers: ["work", "out"],
+    },
+    items: [
+      { questionText: "Now {1} {2} these numbers.", blankAnswers: ["add", "up"] },
+      { questionText: "Can you {1} {2} this?", blankAnswers: ["take", "away"] },
+      { questionText: "We need to {1} {2} the paper.", blankAnswers: ["cut", "up"] },
+      { questionText: "How do you {1} {2} the experiment?", blankAnswers: ["carry", "out"] },
+      { questionText: "It might {1} {2}.", blankAnswers: ["blow", "up"] },
+    ],
+  };
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Vocabulary",
+    sections: [
+      {
+        questionType: "word-bank-completion",
+        preparePointsPerAnswer: 0.5,
+        questions: [wordBankQuestion],
+      },
+      {
+        questionType: "fill",
+        preparePointsPerAnswer: 1,
+        questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+      },
+    ],
+  }];
+  const answers = {};
+  wordBankQuestion.items.forEach((item, itemIndex) => {
+    item.blankAnswers.forEach((answer, blankIndex) => {
+      answers[`0-0-0-${itemIndex}-${blankIndex}`] = answer;
+    });
+  });
+  answers["0-0-0-0-1"] = "wrong";
+  for (let index = 0; index < 45; index += 1) answers[`0-1-${index}`] = "yes";
+
+  expect(validatePrepareParts(parts)).toBe(true);
+  expect(countTotalQuestionsFromParts(parts)).toBe(55);
+  const result = scoreTest({ testType: "gateway-reading-writing", parts }, answers);
+  expect(result.total).toBe(50);
+  expect(result.score).toBe(49.5);
+  expect(result.detailedResults["0-0-0-0-0"].earnedPoints).toBe(0.5);
+  expect(result.detailedResults["0-0-0-0-1"].earnedPoints).toBe(0);
+  expect(Object.keys(result.detailedResults)).toHaveLength(55);
+});
+
+test("flexible Prepare scores first-letter definition answers individually", () => {
+  const definitionItems = [
+    { questionText: "a piece of art made from stone or wood", correctAnswer: "sculpture" },
+    { questionText: "a book about imaginary people", correctAnswer: "novel" },
+    { questionText: "a building for showing works of art", correctAnswer: "gallery" },
+    { questionText: "a room where an artist works", correctAnswer: "studio" },
+    { questionText: "people who watch a performance", correctAnswer: "audience" },
+  ];
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Vocabulary",
+    sections: [
+      {
+        questionType: "definition-completion",
+        preparePointsPerAnswer: 1,
+        questions: [{
+          instruction: "Read the phrases and write the words. The first letter is given.",
+          items: definitionItems,
+        }],
+      },
+      {
+        questionType: "fill",
+        preparePointsPerAnswer: 1,
+        questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+      },
+    ],
+  }];
+  const answers = {};
+  definitionItems.forEach((item, index) => {
+    answers[`0-0-0-${index}`] = item.correctAnswer;
+  });
+  answers["0-0-0-0"] = "statue";
+  for (let index = 0; index < 45; index += 1) answers[`0-1-${index}`] = "yes";
+
+  expect(validatePrepareParts(parts)).toBe(true);
+  expect(countTotalQuestionsFromParts(parts)).toBe(50);
+  const result = scoreTest({ testType: "gateway-reading-writing", parts }, answers);
+  expect(result.total).toBe(50);
+  expect(result.score).toBe(49);
+  expect(result.detailedResults["0-0-0-0"].correctAnswer).toBe("sculpture");
+  expect(result.detailedResults["0-0-0-0"].earnedPoints).toBe(0);
+
+  parts[0].sections[0].questions[0].items[0].correctAnswer = "sculpture|animal";
+  expect(validatePrepareParts(parts)).toBe(false);
+});
+
+test("flexible Prepare scores adjective formation and requires one extra word", () => {
+  const adjectiveItems = [
+    { questionText: "Doing exams every day for a month is very {1}.", correctAnswer: "stressful" },
+    { questionText: "I like finding out about {1} events.", correctAnswer: "historical" },
+    { questionText: "I couldn't think of an {1} idea.", correctAnswer: "original" },
+    { questionText: "He isn't a {1} performer.", correctAnswer: "natural" },
+    { questionText: "It's still quite {1}.", correctAnswer: "painful" },
+  ];
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Vocabulary",
+    sections: [
+      {
+        questionType: "word-bank-adjective-formation",
+        preparePointsPerAnswer: 1,
+        questions: [{
+          instruction: "Complete each sentence with the correct adjective form. There is one extra word.",
+          wordBank: ["history", "stress", "colour", "pain", "origin", "nature"],
+          items: adjectiveItems,
+        }],
+      },
+      {
+        questionType: "fill",
+        preparePointsPerAnswer: 1,
+        questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+      },
+    ],
+  }];
+  const answers = {};
+  adjectiveItems.forEach((item, index) => {
+    answers[`0-0-0-${index}`] = item.correctAnswer;
+  });
+  answers["0-0-0-0"] = "stressfull";
+  for (let index = 0; index < 45; index += 1) answers[`0-1-${index}`] = "yes";
+
+  expect(validatePrepareParts(parts)).toBe(true);
+  expect(countTotalQuestionsFromParts(parts)).toBe(50);
+  const result = scoreTest({ testType: "gateway-reading-writing", parts }, answers);
+  expect(result.total).toBe(50);
+  expect(result.score).toBe(49);
+  expect(result.detailedResults["0-0-0-0"].correctAnswer).toBe("stressful");
+  expect(result.detailedResults["0-0-0-0"].questionNumber).toBe(1);
+  expect(result.detailedResults["0-0-0-4"].questionNumber).toBe(5);
+
+  parts[0].sections[0].questions[0].wordBank.pop();
+  expect(validatePrepareParts(parts)).toBe(false);
+});
+
 test("flexible Prepare rejects a weighted total other than 50 and empty writing prompts", () => {
   const parts = [{
     examFormat: "prepare-reading-writing-v2",
@@ -137,6 +285,23 @@ test("flexible Prepare rejects a weighted total other than 50 and empty writing 
     questionType: "short-message",
     questions: [{ situation: "" }],
   });
+  expect(validatePrepareParts(parts)).toBe(false);
+});
+
+test("flexible Prepare rejects malformed word-bank question data", () => {
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Vocabulary",
+    sections: [{
+      questionType: "word-bank-completion",
+      preparePointsPerAnswer: 1,
+      questions: [{
+        wordBanks: [{ label: "A", words: ["add"] }, { label: "B", words: ["up"] }],
+        example: { questionText: "work {1} {2}", blankAnswers: ["work", "out"] },
+        items: [{ questionText: "Complete {1}", blankAnswers: ["add", "up"] }],
+      }],
+    }],
+  }];
   expect(validatePrepareParts(parts)).toBe(false);
 });
 

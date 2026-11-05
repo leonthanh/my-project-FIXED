@@ -1039,6 +1039,33 @@ const ExamCoreReadingRuntimePage = ({
         });
         return;
       }
+      if (isFlexiblePrepareReadingWriting && questionType === 'word-bank-completion') {
+        (q.question.items || []).forEach((item, itemIndex) => {
+          (item.blankAnswers || []).slice(0, 2).forEach((expected, blankIndex) => {
+            const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}-${blankIndex}`];
+            scorableCount++;
+            if (answer && explode(expected).some((value) => normalize(value) === normalize(answer))) {
+              addCorrect(q);
+            } else {
+              incorrect++;
+            }
+          });
+        });
+        return;
+      }
+      if (isFlexiblePrepareReadingWriting &&
+          ['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+        (q.question.items || []).forEach((item, itemIndex) => {
+          const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`];
+          scorableCount++;
+          if (answer && explode(item.correctAnswer).some((value) => normalize(value) === normalize(answer))) {
+            addCorrect(q);
+          } else {
+            incorrect++;
+          }
+        });
+        return;
+      }
       if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
         const person = q.question.people[q.personIndex] || {};
         const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
@@ -1695,7 +1722,10 @@ const ExamCoreReadingRuntimePage = ({
             });
           } else if (
             isGatewayReadingWriting &&
-            (section.questionType === 'reading-open-questions' || section.questionType === 'true-false-not-given')
+            (section.questionType === 'reading-open-questions' ||
+              section.questionType === 'true-false-not-given' ||
+            (isFlexiblePrepareReadingWriting &&
+              ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)))
           ) {
             questions.push({
               partIndex: pIdx,
@@ -1707,7 +1737,9 @@ const ExamCoreReadingRuntimePage = ({
               section,
               part,
             });
-            qNum += getQuestionCountForSection(section);
+            qNum += section.questionType === 'word-bank-completion'
+              ? (q.items?.length || 0)
+              : getQuestionCountForSection(section);
           } else if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
             // Free-writing tasks still need their real paper numbers for footer navigation.
             questions.push({
@@ -1791,7 +1823,7 @@ const ExamCoreReadingRuntimePage = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [examType, getStructuredSectionPrimaryQuestionIndex, isGatewayReadingWriting, resolveExplicitQuestionNumber, routeTestType, test?.parts, test?.testType]);
+  }, [examType, getStructuredSectionPrimaryQuestionIndex, isFlexiblePrepareReadingWriting, isGatewayReadingWriting, resolveExplicitQuestionNumber, routeTestType, test?.parts, test?.testType]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
@@ -1846,6 +1878,11 @@ const ExamCoreReadingRuntimePage = ({
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
     }
+    if (['definition-completion', 'word-bank-adjective-formation'].includes(q.section?.questionType)) {
+      return (q.question?.items || []).every((_, itemIndex) => (
+        String(answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`] || '').trim()
+      ));
+    }
     if (q.section?.questionType === 'word-drag-cloze') {
       // WDC stores answers as `${partIdx}-${sectionIdx}-blank-${blank.number}`
       const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
@@ -1864,6 +1901,20 @@ const ExamCoreReadingRuntimePage = ({
     if (isGatewayReadingWriting) {
       return numberedQuestions.reduce((count, question) => {
         const questionType = question.section?.questionType;
+        if (questionType === 'word-bank-completion') {
+          const items = Array.isArray(question.question?.items) ? question.question.items : [];
+          return count + items.filter((_, itemIndex) => (
+            [0, 1].every((blankIndex) => String(
+              answers[`${question.partIndex}-${question.sectionIndex}-${question.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+            ).trim())
+          )).length;
+        }
+        if (['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+          const items = Array.isArray(question.question?.items) ? question.question.items : [];
+          return count + items.filter((_, itemIndex) => (
+            String(answers[`${question.partIndex}-${question.sectionIndex}-${question.questionIndex}-${itemIndex}`] || '').trim()
+          )).length;
+        }
         if (questionType === 'reading-open-questions') {
           const items = Array.isArray(question.question?.items) ? question.question.items : [];
           return count + items.filter((_, index) => (
@@ -1905,7 +1956,10 @@ const ExamCoreReadingRuntimePage = ({
   const isGatewayOpenQuestionSection = isGatewayReadingWriting
     && currentQuestion?.section?.questionType === 'reading-open-questions';
   const isGatewaySinglePanelSection = isGatewayReadingWriting
-    && ((isLegacyPrepareReadingWriting && isGatewayOpenQuestionSection) || ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
+    && ((isLegacyPrepareReadingWriting && isGatewayOpenQuestionSection) ||
+      (isFlexiblePrepareReadingWriting &&
+        ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion?.section?.questionType)) ||
+      ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
       String(currentQuestion?.section?.sectionTitle || '').trim().toLowerCase().replace(/\s+/g, '')
     ));
   useEffect(() => {
@@ -4465,7 +4519,9 @@ const ExamCoreReadingRuntimePage = ({
                     />) : <QuestionDisplayFactory
                       section={{
                         ...currentQuestion.section,
-                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        id: ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion.section.questionType)
+                          ? `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`
+                          : `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
                         questions: [currentQuestion.question],
                       }}
                       questionType={currentQuestion.section.questionType}
@@ -4535,6 +4591,24 @@ const ExamCoreReadingRuntimePage = ({
                 ));
                 const getGroupAnsweredCount = (group) => {
                   const questionType = group.section.questionType;
+                  if (['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+                    return group.entries.reduce((count, entry) => (
+                      count + (entry.question?.items || []).filter((_, itemIndex) => (
+                        Boolean(String(
+                          answers[`${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`] || ''
+                        ).trim())
+                      )).length
+                    ), 0);
+                  }
+                  if (questionType === 'word-bank-completion') {
+                    return group.entries.reduce((count, entry) => (
+                      count + (entry.question?.items || []).filter((_, itemIndex) => (
+                        [0, 1].every((blankIndex) => Boolean(String(
+                          answers[`${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+                        ).trim()))
+                      )).length
+                    ), 0);
+                  }
                   const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
                   if (groupedType) {
                     const itemCount = getQuestionCountForSection(group.section);
@@ -4591,7 +4665,45 @@ const ExamCoreReadingRuntimePage = ({
                           const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
                           const groupedCount = groupedType ? getQuestionCountForSection(activeGroup.section) : 0;
                           const hasIndividualGroupedItems = groupedCount > 1 && activeGroup.entries.length === 1;
-                          const questionButtons = hasIndividualGroupedItems
+                          const questionButtons = ['definition-completion', 'word-bank-adjective-formation'].includes(questionType)
+                            ? activeGroup.entries.flatMap((entry) => (
+                              (entry.question?.items || []).map((_, itemIndex) => {
+                                const questionNumber = entry.questionNumber + itemIndex;
+                                const questionIndex = questionIndexByKey.get(entry.key) ?? -1;
+                                const answerKey = `${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`;
+                                return {
+                                  key: `${entry.key}-item-${itemIndex}`,
+                                  entry,
+                                  questionIndex,
+                                  questionNumber,
+                                  targetQuestionNumber: questionNumber,
+                                  isAnswered: Boolean(String(answers[answerKey] || '').trim()),
+                                  isActive: currentQuestionIndex === questionIndex
+                                    && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
+                                };
+                              })
+                            ))
+                            : questionType === 'word-bank-completion'
+                            ? activeGroup.entries.flatMap((entry) => (
+                              (entry.question?.items || []).map((_, itemIndex) => {
+                                const questionNumber = entry.questionNumber + itemIndex;
+                                const questionIndex = questionIndexByKey.get(entry.key) ?? -1;
+                                const answerKey = `${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`;
+                                return {
+                                  key: `${entry.key}-item-${itemIndex}`,
+                                  entry,
+                                  questionIndex,
+                                  questionNumber,
+                                  targetQuestionNumber: questionNumber,
+                                  isAnswered: [0, 1].every((blankIndex) => Boolean(String(
+                                    answers[`${answerKey}-${blankIndex}`] || ''
+                                  ).trim())),
+                                  isActive: currentQuestionIndex === questionIndex
+                                    && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
+                                };
+                              })
+                            ))
+                            : hasIndividualGroupedItems
                             ? Array.from({ length: groupedCount }, (_, itemIndex) => {
                               const entry = activeGroup.entries[0];
                               const questionNumber = entry.questionNumber + itemIndex;

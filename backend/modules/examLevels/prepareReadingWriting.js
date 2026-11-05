@@ -22,12 +22,18 @@ const QUESTION_TYPE_IDS = new Set([
   "true-false-not-given",
   "reading-open-questions",
   "story-writing",
+  "word-bank-completion",
+  "definition-completion",
+  "word-bank-adjective-formation",
 ]);
 
 const isLegacyPrepareFormat = (parts) => Array.isArray(parts) && parts[0]?.examFormat === LEGACY_FORMAT;
 const isFlexiblePrepareFormat = (parts) => Array.isArray(parts) && parts[0]?.examFormat === FLEXIBLE_FORMAT;
 const isPrepareFormat = (parts) => isLegacyPrepareFormat(parts) || isFlexiblePrepareFormat(parts);
 const hasText = (value) => Boolean(String(value || "").replace(/<[^>]*>/g, "").trim());
+const hasTwoBlankMarkers = (value) =>
+  (String(value || "").match(/\{1\}/g) || []).length === 1 &&
+  (String(value || "").match(/\{2\}/g) || []).length === 1;
 
 const validateLegacyPrepareParts = (parts) => {
   const sections = parts?.[0]?.sections;
@@ -80,7 +86,7 @@ const getFlexiblePrepareTotalPoints = (parts) =>
     return sectionTotal + getScorableUnitCount(section) * Number(section.preparePointsPerAnswer || 0);
   }, 0), 0);
 
-const validateFlexiblePrepareParts = (parts) => {
+const validateFlexiblePrepareParts = (parts, { allowIncompleteScoring = false } = {}) => {
   if (!Array.isArray(parts) || parts.length === 0 || !isFlexiblePrepareFormat(parts) ||
       parts.some((part) => !Array.isArray(part.sections) || part.sections.length === 0)) return false;
   for (const part of parts) {
@@ -94,17 +100,57 @@ const validateFlexiblePrepareParts = (parts) => {
       if (section.questionType === "story-writing" && section.questions.some((question) => (
         !hasText(question?.openingSentence) && !hasText(question?.prompt)
       ))) return false;
+      if (section.questionType === "word-bank-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.wordBanks) ||
+        question.wordBanks.length !== 2 ||
+        question.wordBanks.some((bank) => !Array.isArray(bank?.words) || !bank.words.some(hasText)) ||
+        !question.example ||
+        !hasTwoBlankMarkers(question.example.questionText) ||
+        !Array.isArray(question.example.blankAnswers) ||
+        question.example.blankAnswers.length !== 2 ||
+        question.example.blankAnswers.some((answer) => !hasText(answer)) ||
+        !Array.isArray(question.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasTwoBlankMarkers(item?.questionText) ||
+          !Array.isArray(item.blankAnswers) ||
+          item.blankAnswers.length !== 2 ||
+          item.blankAnswers.some((answer) => !hasText(answer))
+        ))
+      ))) return false;
+      if (section.questionType === "definition-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => {
+          const answers = String(item?.correctAnswer || "").split(/[|/]/).map((answer) => answer.trim()).filter(Boolean);
+          return !hasText(item?.questionText) ||
+            !answers.length ||
+            answers.some((answer) => answer[0].toLowerCase() !== answers[0][0].toLowerCase());
+        })
+      ))) return false;
+      if (section.questionType === "word-bank-adjective-formation" && section.questions.some((question) => (
+        !Array.isArray(question?.wordBank) ||
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.wordBank.length !== question.items.length + 1 ||
+        question.wordBank.some((word) => !hasText(word)) ||
+        question.items.some((item) => (
+          (String(item?.questionText || "").match(/\{1\}/g) || []).length !== 1 ||
+          !hasText(item?.questionText) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some((answer) => hasText(answer))
+        ))
+      ))) return false;
       if (["short-message", "story-writing"].includes(section.questionType)) continue;
       const pointsPerAnswer = Number(section.preparePointsPerAnswer);
       if (!Number.isFinite(pointsPerAnswer) || pointsPerAnswer <= 0) return false;
     }
   }
-  return Math.abs(getFlexiblePrepareTotalPoints(parts) - 50) <= 0.001;
+  return allowIncompleteScoring || Math.abs(getFlexiblePrepareTotalPoints(parts) - 50) <= 0.001;
 };
 
-const validatePrepareParts = (parts) => {
+const validatePrepareParts = (parts, options) => {
   if (isLegacyPrepareFormat(parts)) return validateLegacyPrepareParts(parts);
-  if (isFlexiblePrepareFormat(parts)) return validateFlexiblePrepareParts(parts);
+  if (isFlexiblePrepareFormat(parts)) return validateFlexiblePrepareParts(parts, options);
   return false;
 };
 

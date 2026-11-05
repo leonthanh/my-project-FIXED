@@ -156,6 +156,54 @@ describe("exam level skill test adapter", () => {
       expect(ExamLevelTest.create).not.toHaveBeenCalled();
   });
 
+  test("saves a valid incomplete flexible Prepare test as a draft", async () => {
+    ExamLevel.findOne.mockResolvedValue({
+      ...level,
+      skills: ["reading-writing"],
+      skillConfig: {
+        "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 },
+      },
+    });
+    const parts = [{
+      examFormat: "prepare-reading-writing-v2",
+      title: "Vocabulary",
+      sections: [{
+        sectionTitle: "Vocabulary - Exercise 1",
+        questionType: "word-bank-completion",
+        preparePointsPerAnswer: 0.5,
+        questions: [{
+          wordBanks: [
+            { label: "A", words: ["went"] },
+            { label: "B", words: ["out"] },
+          ],
+          example: { questionText: "We {1} {2}.", blankAnswers: ["went", "out"] },
+          items: Array.from({ length: 5 }, (_, index) => ({
+            questionText: `Sentence ${index + 1} {1} {2}.`,
+            blankAnswers: ["went", "out"],
+          })),
+        }],
+      }],
+    }];
+    ExamLevelTest.create.mockResolvedValue({ id: 21, status: "draft" });
+
+    await service.createTest({
+      code: "prepare",
+      skill: "reading-writing",
+      user: { id: 8, role: "teacher" },
+      body: {
+        title: "Prepare Vocabulary",
+        classCode: "P1",
+        testType: "gateway-reading-writing",
+        status: "draft",
+        parts,
+      },
+    });
+
+    expect(ExamLevelTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "draft", parts })
+    );
+  });
+
   test("cannot remove Prepare format from an existing Prepare test", async () => {
       ExamLevel.findOne.mockResolvedValue({
         ...level,

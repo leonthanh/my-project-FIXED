@@ -224,6 +224,18 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.items) ? q0.items.length : 0;
   }
+  if (section.questionType === 'word-bank-completion') {
+    return (section.questions || []).reduce(
+      (total, question) => total + (Array.isArray(question?.items) ? question.items.length : 0),
+      0
+    );
+  }
+  if (['definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)) {
+    return (section.questions || []).reduce(
+      (total, question) => total + (Array.isArray(question?.items) ? question.items.length : 0),
+      0
+    );
+  }
   if (section.questionType === 'true-false-not-given') {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.statements) ? q0.statements.length : section.questions.length;

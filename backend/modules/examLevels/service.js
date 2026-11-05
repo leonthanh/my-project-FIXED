@@ -114,7 +114,11 @@ const createTest = async ({ code, skill, body = {}, user }) => {
   if (String(body.testType || "") !== config.templateId) {
     throw createServiceError(400, "Test type does not match this level's configured skill template.");
   }
-  if (isPrepareFormat(parts) && (normalizeCode(code) !== "prepare" || normalizedSkill !== "reading-writing" || !validatePrepareParts(parts))) {
+  if (isPrepareFormat(parts) && (
+    normalizeCode(code) !== "prepare" ||
+    normalizedSkill !== "reading-writing" ||
+    !validatePrepareParts(parts, { allowIncompleteScoring: body.status === "draft" })
+  )) {
     throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
   }
 
@@ -171,9 +175,11 @@ const updateTest = async ({ code, skill, id, body = {} }) => {
     if (!Array.isArray(body.parts) || body.parts.length === 0) {
       throw createServiceError(400, "At least one part is required.");
     }
+    const statusForValidation = body.status === undefined ? test.status : body.status;
     if ((isPrepareFormat(body.parts) || isPrepareFormat(safeParseParts(test.parts))) &&
         (normalizeCode(code) !== "prepare" || normalizedSkill !== "reading-writing" ||
-         !isPrepareFormat(body.parts) || !validatePrepareParts(body.parts))) {
+         !isPrepareFormat(body.parts) ||
+         !validatePrepareParts(body.parts, { allowIncompleteScoring: statusForValidation === "draft" }))) {
       throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
     }
     updates.parts = processTestParts(body.parts);

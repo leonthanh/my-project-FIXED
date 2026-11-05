@@ -36,6 +36,12 @@ export const countPrepareScoringUnitsForSection = (section) =>
   (section?.questions || []).reduce((total, question) => {
     const singleQuestionSection = { ...section, questions: [question] };
     const count = getQuestionCountForSection(singleQuestionSection);
+    if (section.questionType === "word-bank-completion") {
+      return total + count * 2;
+    }
+    if (["definition-completion", "word-bank-adjective-formation"].includes(section.questionType)) {
+      return total + count;
+    }
     return total + (section.questionType === "reading-open-questions" && question?.exerciseMode === "two-blanks"
       ? count * 2
       : count);
@@ -220,7 +226,7 @@ export const validatePrepareReadingWritingParts = (parts) => {
   return "";
 };
 
-export const validateFlexiblePrepareReadingWritingParts = (parts) => {
+export const validateFlexiblePrepareReadingWritingParts = (parts, { allowIncompleteScoring = false } = {}) => {
   if (!isFlexiblePrepareReadingWriting(parts) || !parts.length ||
       parts.some((part) => !Array.isArray(part.sections) || !part.sections.length)) {
     return "Prepare cần có ít nhất một Part và một Section trong mỗi Part.";
@@ -242,6 +248,46 @@ export const validateFlexiblePrepareReadingWritingParts = (parts) => {
         String(question?.openingSentence || "").replace(/<[^>]*>/g, "").trim() ||
         String(question?.prompt || "").replace(/<[^>]*>/g, "").trim()
       )) return `${label}: nhập câu mở đầu hoặc yêu cầu Writing.`;
+      if (section.questionType === "word-bank-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.wordBanks) ||
+        question.wordBanks.length !== 2 ||
+        question.wordBanks.some((bank) => !Array.isArray(bank?.words) || !bank.words.some((word) => String(word || "").trim())) ||
+        !question.example ||
+        !hasTwoBlankMarkers(question.example.questionText) ||
+        !Array.isArray(question.example.blankAnswers) ||
+        question.example.blankAnswers.length !== 2 ||
+        question.example.blankAnswers.some((answer) => !String(answer || "").trim()) ||
+        !Array.isArray(question.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasTwoBlankMarkers(item?.questionText) ||
+          !Array.isArray(item.blankAnswers) ||
+          item.blankAnswers.length !== 2 ||
+          item.blankAnswers.some((answer) => !String(answer || "").trim())
+        ))
+      ))) return `${label}: cần hai danh sách từ, một ví dụ và câu hỏi có đủ {1}, {2} cùng đáp án.`;
+      if (section.questionType === "definition-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => {
+          const answers = String(item?.correctAnswer || "").split(/[|/]/).map((answer) => answer.trim()).filter(Boolean);
+          return !String(item?.questionText || "").replace(/<[^>]*>/g, "").trim() ||
+            !answers.length ||
+            answers.some((answer) => answer[0].toLowerCase() !== answers[0][0].toLowerCase());
+        })
+      ))) return `${label}: nhập định nghĩa và đáp án có cùng chữ cái đầu cho từng câu.`;
+      if (section.questionType === "word-bank-adjective-formation" && section.questions.some((question) => (
+        !Array.isArray(question?.wordBank) ||
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.wordBank.length !== question.items.length + 1 ||
+        question.wordBank.some((word) => !String(word || "").trim()) ||
+        question.items.some((item) => (
+          (String(item?.questionText || "").match(/\{1\}/g) || []).length !== 1 ||
+          !String(item?.questionText || "").replace(/<[^>]*>/g, "").trim() ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some((answer) => answer.trim())
+        ))
+      ))) return `${label}: cần word bank có một từ thừa và mỗi câu có đúng một {1} cùng đáp án.`;
       if (["short-message", "story-writing"].includes(section.questionType)) continue;
       const pointsPerAnswer = Number(section.preparePointsPerAnswer);
       if (!Number.isFinite(pointsPerAnswer) || pointsPerAnswer <= 0) {
@@ -249,8 +295,12 @@ export const validateFlexiblePrepareReadingWritingParts = (parts) => {
       }
     }
   }
-  if (Math.abs(getPrepareTotalPoints(parts) - 50) > 0.001) {
+  if (!allowIncompleteScoring && Math.abs(getPrepareTotalPoints(parts) - 50) > 0.001) {
     return `Tổng điểm các câu tự chấm phải bằng 50 (hiện tại ${getPrepareTotalPoints(parts)} điểm).`;
   }
   return "";
 };
+
+const hasTwoBlankMarkers = (value) =>
+  (String(value || "").match(/\{1\}/g) || []).length === 1 &&
+  (String(value || "").match(/\{2\}/g) || []).length === 1;

@@ -90,6 +90,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question.items)) {
+          total += question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
         if (sectionType === 'preposition-gap-fill' && Array.isArray(question.items)) {
           total += question.items.length > 0 ? question.items.length : 1;
           return;
@@ -102,6 +107,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
 
         if (sectionType === 'sentence-correction' && Array.isArray(question.items)) {
           total += question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
+        if (sectionType === 'word-bank-completion' && Array.isArray(question.items)) {
+          total += question.items.length * 2;
           return;
         }
 

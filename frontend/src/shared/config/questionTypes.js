@@ -485,6 +485,78 @@ export const QUESTION_TYPES = {
     supportedTests: ['general-reading', 'general-reading-60'],
   },
 
+  'word-bank-completion': {
+    id: 'word-bank-completion',
+    label: 'Two Word Banks - Sentence Completion',
+    labelVi: 'Hoàn thành câu với hai nhóm từ',
+    iconName: 'fill',
+    description: 'Chọn một từ từ mỗi nhóm A/B để hoàn thành từng câu',
+    editor: 'WordBankCompletionEditor',
+    defaultData: {
+      instruction: 'Complete each sentence with a word from list A and a word from list B.',
+      wordBanks: [
+        { label: 'A', words: ['add', 'blow', 'carry', 'cut', 'take', 'work'] },
+        { label: 'B', words: ['away', 'out', 'up'] },
+      ],
+      example: {
+        questionText: "Can you help us, please? We can't {1} {2} how to do the next part of the experiment.",
+        blankAnswers: ['work', 'out'],
+      },
+      items: [
+        { questionText: 'Now {1} {2} these two numbers.', blankAnswers: ['add', 'up'] },
+        { questionText: 'Can you {1} {2} 3174 from 5629 without a calculator?', blankAnswers: ['take', 'away'] },
+        { questionText: 'First, we need to {1} {2} this paper into little pieces.', blankAnswers: ['cut', 'up'] },
+        { questionText: 'Do you know how to {1} {2} this experiment?', blankAnswers: ['carry', 'out'] },
+        { questionText: "I hope this doesn't {1} {2}. I don't like loud noises.", blankAnswers: ['blow', 'up'] },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'definition-completion': {
+    id: 'definition-completion',
+    label: 'Definition Completion with First Letter',
+    labelVi: 'Điền từ theo định nghĩa (cho chữ cái đầu)',
+    iconName: 'fill',
+    description: 'Đọc định nghĩa và điền từ; chữ cái đầu cùng độ dài từ được gợi ý',
+    editor: 'DefinitionCompletionEditor',
+    defaultData: {
+      instruction: 'Read the phrases and write the words. The first letter is given.',
+      items: [
+        { questionText: 'a piece of art made from stone or wood', correctAnswer: 'sculpture' },
+        { questionText: 'a book that tells a story about imaginary people', correctAnswer: 'novel' },
+        { questionText: 'a room or a building which is used for showing works of art', correctAnswer: 'gallery' },
+        { questionText: 'a room where an artist or photographer works', correctAnswer: 'studio' },
+        { questionText: 'the people who sit and watch a performance at a theatre, cinema, etc.', correctAnswer: 'audience' },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'word-bank-adjective-formation': {
+    id: 'word-bank-adjective-formation',
+    label: 'Word Bank - Adjective Formation',
+    labelVi: 'Biến đổi từ: tính từ từ word bank',
+    iconName: 'fill',
+    description: 'Chọn từ gốc trong word bank và biến đổi thành tính từ để hoàn thành câu',
+    editor: 'WordBankAdjectiveFormationEditor',
+    defaultData: {
+      instruction: 'Complete the sentences with the correct adjective form (-al or -ful) of these words. There is one extra word.',
+      wordBank: ['history', 'stress', 'colour', 'pain', 'origin', 'nature'],
+      items: [
+        { questionText: 'Doing exams every day for a month is very {1}.', correctAnswer: 'stressful' },
+        { questionText: 'I like finding out about {1} events.', correctAnswer: 'historical' },
+        { questionText: "I wanted to enter the writing competition but I couldn't think of an {1} idea.", correctAnswer: 'original' },
+        { questionText: "My brother's very shy but he's in the school play. He isn't a {1} performer.", correctAnswer: 'natural' },
+        { questionText: "I hurt my elbow when I was playing tennis and it's still quite {1}.", correctAnswer: 'painful' },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
   // =========== KET/PET WRITING ===========
   'short-message': {
     id: 'short-message',
@@ -1221,6 +1293,8 @@ export const getPrepareReadingWritingQuestionTypes = () => {
     ...(TEST_CONFIGS['gateway-reading-writing']?.questionTypes || []),
   ];
   return [...new Set(typeIds)]
+    .concat('word-bank-completion', 'definition-completion', 'word-bank-adjective-formation')
+    .filter((typeId, index, allTypeIds) => allTypeIds.indexOf(typeId) === index)
     .filter((typeId) => typeId !== 'multiple-choice-pictures')
     .map((typeId) => QUESTION_TYPES[typeId])
     .filter(Boolean);
