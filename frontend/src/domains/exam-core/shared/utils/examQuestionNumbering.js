@@ -124,7 +124,7 @@ const getExplicitQuestionNumbersFromText = (text) => {
 };
 
 const getQuestionCountForSection = (section) => {
-  if (section.questionType === 'long-text-mc' && section.questions[0]?.questions) {
+  if (['long-text-mc', 'prepare-reading-comprehension'].includes(section.questionType) && section.questions[0]?.questions) {
     return section.questions[0].questions.length;
   }
   // draw-lines: đếm số tên không rỗng từ index 1 trở đi (index 0 = example, không tính điểm)
@@ -224,13 +224,13 @@ const getQuestionCountForSection = (section) => {
     const q0 = section.questions?.[0] || {};
     return Array.isArray(q0.items) ? q0.items.length : 0;
   }
-  if (section.questionType === 'word-bank-completion') {
+  if (['word-bank-completion', 'conditional-sentence-completion'].includes(section.questionType)) {
     return (section.questions || []).reduce(
       (total, question) => total + (Array.isArray(question?.items) ? question.items.length : 0),
       0
     );
   }
-  if (['definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)) {
+  if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)) {
     return (section.questions || []).reduce(
       (total, question) => total + (Array.isArray(question?.items) ? question.items.length : 0),
       0

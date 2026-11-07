@@ -17,6 +17,11 @@ import {
   SentenceCorrectionDisplay,
   ReadingOpenQuestionsDisplay,
   WordBankCompletionDisplay,
+  ConditionalSentenceCompletionDisplay,
+  ReportedCommandCompletionDisplay,
+  ReportedSpeechTransformationDisplay,
+  PastSimplePassiveTransformationDisplay,
+  ReportedSpeechVerbChoiceDisplay,
   DefinitionCompletionDisplay,
   WordBankAdjectiveFormationDisplay,
   StoryWritingDisplay,
@@ -380,6 +385,7 @@ const QuestionDisplayFactory = ({
       );
 
     case 'long-text-mc':
+    case 'prepare-reading-comprehension':
       // Part 3: Passage + 5-7 multiple choice questions
       return (
         <LongTextMCDisplay
@@ -556,6 +562,61 @@ const QuestionDisplayFactory = ({
     case 'word-bank-completion':
       return (
         <WordBankCompletionDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'conditional-sentence-completion':
+      return (
+        <ConditionalSentenceCompletionDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'reported-command-completion':
+      return (
+        <ReportedCommandCompletionDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'reported-speech-transformation':
+      return (
+        <ReportedSpeechTransformationDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'past-simple-passive-transformation':
+      return (
+        <PastSimplePassiveTransformationDisplay
+          section={section}
+          startingNumber={startingNumber}
+          onAnswerChange={onAnswerChange}
+          answers={answers}
+          submitted={submitted}
+        />
+      );
+
+    case 'reported-speech-verb-choice':
+      return (
+        <ReportedSpeechVerbChoiceDisplay
           section={section}
           startingNumber={startingNumber}
           onAnswerChange={onAnswerChange}

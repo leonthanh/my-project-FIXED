@@ -21,6 +21,11 @@ export { default as SentenceTransformationDisplay } from './SentenceTransformati
 export { default as SentenceCorrectionDisplay } from './SentenceCorrectionDisplay';
 export { default as ReadingOpenQuestionsDisplay } from './ReadingOpenQuestionsDisplay';
 export { default as WordBankCompletionDisplay } from './WordBankCompletionDisplay';
+export { default as ConditionalSentenceCompletionDisplay } from './ConditionalSentenceCompletionDisplay';
+export { default as ReportedCommandCompletionDisplay } from './ReportedCommandCompletionDisplay';
+export { default as ReportedSpeechTransformationDisplay } from './ReportedSpeechTransformationDisplay';
+export { default as PastSimplePassiveTransformationDisplay } from './PastSimplePassiveTransformationDisplay';
+export { default as ReportedSpeechVerbChoiceDisplay } from './ReportedSpeechVerbChoiceDisplay';
 export { default as DefinitionCompletionDisplay } from './DefinitionCompletionDisplay';
 export { default as WordBankAdjectiveFormationDisplay } from './WordBankAdjectiveFormationDisplay';
 export { default as StoryWritingDisplay } from './StoryWritingDisplay';

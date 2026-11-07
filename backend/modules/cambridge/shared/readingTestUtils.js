@@ -65,7 +65,7 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
       const questions = section.questions || [];
 
       questions.forEach((question) => {
-        if (sectionType === 'long-text-mc' && Array.isArray(question.questions)) {
+        if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && Array.isArray(question.questions)) {
           total += question.questions.length;
           return;
         }
@@ -90,7 +90,7 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
-        if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question.items)) {
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question.items)) {
           total += question.items.length > 0 ? question.items.length : 1;
           return;
         }
@@ -110,7 +110,7 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
-        if (sectionType === 'word-bank-completion' && Array.isArray(question.items)) {
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(sectionType) && Array.isArray(question.items)) {
           total += question.items.length * 2;
           return;
         }

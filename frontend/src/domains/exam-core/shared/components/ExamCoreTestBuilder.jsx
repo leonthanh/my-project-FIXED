@@ -1721,7 +1721,8 @@ const ExamCoreTestBuilder = ({
         return {
           ...section,
           questionType: newType,
-          preparePointsPerAnswer: prepareFlexibleReadingWriting && newType === 'word-bank-completion' ? 0.5 : 1,
+          preparePointsPerAnswer: prepareFlexibleReadingWriting &&
+            ['word-bank-completion', 'conditional-sentence-completion'].includes(newType) ? 0.5 : 1,
           questions,
         };
       });
@@ -3565,7 +3566,7 @@ const ExamCoreTestBuilder = ({
                             flex: 1,
                           }}>
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) && (
+                            {!['long-text-mc', 'prepare-reading-comprehension', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',
@@ -3732,7 +3733,7 @@ const ExamCoreTestBuilder = ({
                                 }));
                               }}
                               questionIndex={qIdx}
-                              startingNumber={['long-text-mc', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) ? sectionStartNum : startNum}
+                              startingNumber={['long-text-mc', 'prepare-reading-comprehension', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'story-completion', 'look-read-write', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) ? sectionStartNum : startNum}
                               partIndex={selectedPartIndex}
                             />}
                           </div>

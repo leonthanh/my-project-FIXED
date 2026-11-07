@@ -34,6 +34,11 @@ import {
   SentenceCorrectionEditor,
   ReadingOpenQuestionsEditor,
   WordBankCompletionEditor,
+  ConditionalSentenceCompletionEditor,
+  ReportedCommandCompletionEditor,
+  ReportedSpeechTransformationEditor,
+  PastSimplePassiveTransformationEditor,
+  ReportedSpeechVerbChoiceEditor,
   DefinitionCompletionEditor,
   WordBankAdjectiveFormationEditor,
 } from "./editors";
@@ -142,6 +147,21 @@ const QuestionEditorFactory = ({
     case 'word-bank-completion':
       return <WordBankCompletionEditor {...commonProps} />;
 
+    case 'conditional-sentence-completion':
+      return <ConditionalSentenceCompletionEditor {...commonProps} />;
+
+    case 'reported-command-completion':
+      return <ReportedCommandCompletionEditor {...commonProps} />;
+
+    case 'reported-speech-transformation':
+      return <ReportedSpeechTransformationEditor {...commonProps} />;
+
+    case 'past-simple-passive-transformation':
+      return <PastSimplePassiveTransformationEditor {...commonProps} />;
+
+    case 'reported-speech-verb-choice':
+      return <ReportedSpeechVerbChoiceEditor {...commonProps} />;
+
     case 'definition-completion':
       return <DefinitionCompletionEditor {...commonProps} />;
 
@@ -162,6 +182,7 @@ const QuestionEditorFactory = ({
       return <GapMatchEditor {...commonProps} />;
 
     case 'long-text-mc':
+    case 'prepare-reading-comprehension':
       return <LongTextMCEditor {...commonProps} />;
 
     case 'cloze-mc':

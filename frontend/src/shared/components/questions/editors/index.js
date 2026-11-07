@@ -21,6 +21,11 @@ export { default as SentenceTransformationEditor } from './SentenceTransformatio
 export { default as SentenceCorrectionEditor } from './SentenceCorrectionEditor';
 export { default as ReadingOpenQuestionsEditor } from './ReadingOpenQuestionsEditor';
 export { default as WordBankCompletionEditor } from './WordBankCompletionEditor';
+export { default as ConditionalSentenceCompletionEditor } from './ConditionalSentenceCompletionEditor';
+export { default as ReportedCommandCompletionEditor } from './ReportedCommandCompletionEditor';
+export { default as ReportedSpeechTransformationEditor } from './ReportedSpeechTransformationEditor';
+export { default as PastSimplePassiveTransformationEditor } from './PastSimplePassiveTransformationEditor';
+export { default as ReportedSpeechVerbChoiceEditor } from './ReportedSpeechVerbChoiceEditor';
 export { default as DefinitionCompletionEditor } from './DefinitionCompletionEditor';
 export { default as WordBankAdjectiveFormationEditor } from './WordBankAdjectiveFormationEditor';
 export { default as ShortMessageEditor } from './ShortMessageEditor';

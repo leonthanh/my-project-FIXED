@@ -8,6 +8,7 @@ const QUESTION_TYPE_IDS = new Set([
   "sign-message",
   "people-matching",
   "long-text-mc",
+  "prepare-reading-comprehension",
   "cloze-mc",
   "cloze-test",
   "word-form",
@@ -23,6 +24,11 @@ const QUESTION_TYPE_IDS = new Set([
   "reading-open-questions",
   "story-writing",
   "word-bank-completion",
+  "conditional-sentence-completion",
+  "reported-command-completion",
+  "reported-speech-transformation",
+  "past-simple-passive-transformation",
+  "reported-speech-verb-choice",
   "definition-completion",
   "word-bank-adjective-formation",
 ]);
@@ -116,6 +122,79 @@ const validateFlexiblePrepareParts = (parts, { allowIncompleteScoring = false } 
           !Array.isArray(item.blankAnswers) ||
           item.blankAnswers.length !== 2 ||
           item.blankAnswers.some((answer) => !hasText(answer))
+        ))
+      ))) return false;
+      if (section.questionType === "conditional-sentence-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasTwoBlankMarkers(item?.questionText) ||
+          !Array.isArray(item.blankAnswers) ||
+          item.blankAnswers.length !== 2 ||
+          item.blankAnswers.some((answer) => !hasText(answer))
+        ))
+      ))) return false;
+      if (section.questionType === "reported-command-completion" && section.questions.some((question) => (
+        !question?.example ||
+        !hasText(question.example.sourceText) ||
+        !hasText(question.example.sentenceStarter) ||
+        !hasText(question.example.reportingVerb) ||
+        !hasText(question.example.correctAnswer) ||
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasText(item?.sourceText) ||
+          !hasText(item?.sentenceStarter) ||
+          !hasText(item?.reportingVerb) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some(hasText)
+        ))
+      ))) return false;
+      if (section.questionType === "reported-speech-transformation" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasText(item?.sourceText) ||
+          (!hasText(item?.targetPrefix) && !hasText(item?.targetSuffix)) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some(hasText)
+        ))
+      ))) return false;
+      if (section.questionType === "past-simple-passive-transformation" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasText(item?.sourceText) ||
+          (!hasText(item?.targetPrefix) && !hasText(item?.targetSuffix)) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some(hasText)
+        ))
+      ))) return false;
+      if (section.questionType === "reported-speech-verb-choice" && section.questions.some((question) => {
+        const options = Array.isArray(question?.options) ? question.options : [];
+        const isValidAnswer = (answer) => options.some((option) => (
+          String(option || "").trim().toLowerCase() === String(answer || "").trim().toLowerCase()
+        ));
+        return options.length !== 2 ||
+          options.some((option) => !hasText(option)) ||
+          String(options[0] || "").trim().toLowerCase() === String(options[1] || "").trim().toLowerCase() ||
+          !question.example ||
+          (!hasText(question.example.sentencePrefix) && !hasText(question.example.sentenceSuffix)) ||
+          !isValidAnswer(question.example.correctAnswer) ||
+          !Array.isArray(question.items) ||
+          !question.items.length ||
+          question.items.some((item) => (
+            (!hasText(item?.sentencePrefix) && !hasText(item?.sentenceSuffix)) ||
+            !isValidAnswer(item?.correctAnswer)
+          ));
+      })) return false;
+      if (section.questionType === "prepare-reading-comprehension" && section.questions.some((question) => (
+        !hasText(question?.passage) ||
+        !Array.isArray(question?.questions) ||
+        !question.questions.length ||
+        question.questions.some((item) => (
+          !hasText(item?.questionText) ||
+          !Array.isArray(item?.options) ||
+          item.options.length !== 4 ||
+          item.options.some((option) => !hasText(String(option || "").replace(/^[A-D]\.\s*/i, ""))) ||
+          !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
         ))
       ))) return false;
       if (section.questionType === "definition-completion" && section.questions.some((question) => (

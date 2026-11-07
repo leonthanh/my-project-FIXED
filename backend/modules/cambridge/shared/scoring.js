@@ -189,7 +189,7 @@ const countNotesCompletionBlanks = (notesText) => {
 
 const getQuestionCount = (question, sectionType) => {
   const q = question || {};
-  if (sectionType === 'long-text-mc' && Array.isArray(q.questions)) return q.questions.length;
+  if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && Array.isArray(q.questions)) return q.questions.length;
   if (sectionType === 'cloze-mc' && Array.isArray(q.blanks)) return q.blanks.length;
   if (sectionType === 'notes-completion') {
     const blankCount = countNotesCompletionBlanks(q.notesText);
@@ -224,7 +224,8 @@ const getQuestionCount = (question, sectionType) => {
   if (sectionType === 'sentence-correction' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'reading-open-questions' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'word-bank-completion' && Array.isArray(q.items)) return q.items.length;
-  if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'conditional-sentence-completion' && Array.isArray(q.items)) return q.items.length;
+  if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
     return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
@@ -549,7 +550,7 @@ const scoreTest = (test, answers) => {
           return;
         }
 
-        if (sectionType === 'word-bank-completion' && Array.isArray(question?.items)) {
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(sectionType) && Array.isArray(question?.items)) {
           question.items.forEach((item, itemIdx) => {
             (item?.blankAnswers || []).slice(0, 2).forEach((correctAnswer, blankIndex) => {
               const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}-${blankIndex}`;
@@ -562,7 +563,7 @@ const scoreTest = (test, answers) => {
                 questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
                 userAnswer: userAnswer || null,
                 correctAnswer,
-                questionType: 'word-bank-completion',
+                questionType: sectionType,
                 questionText: item?.questionText || '',
                 answerIndex: blankIndex + 1,
               };
@@ -571,7 +572,7 @@ const scoreTest = (test, answers) => {
           return;
         }
 
-        if (['definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question?.items)) {
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question?.items)) {
           question.items.forEach((item, itemIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
             const userAnswer = pickAnswer(key);
@@ -584,8 +585,8 @@ const scoreTest = (test, answers) => {
               questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
               userAnswer: userAnswer || null,
               correctAnswer,
-              questionType: 'fill',
-              questionText: item?.questionText || '',
+              questionType: ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice'].includes(sectionType) ? sectionType : 'fill',
+              questionText: item?.questionText || item?.sourceText || `${item?.sentencePrefix || ''}${item?.sentenceSuffix || ''}`,
             };
           });
           return;
@@ -780,7 +781,7 @@ const scoreTest = (test, answers) => {
           return;
         }
 
-        if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+        if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && question.questions && Array.isArray(question.questions)) {
           question.questions.forEach((nestedQ, nestedIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;

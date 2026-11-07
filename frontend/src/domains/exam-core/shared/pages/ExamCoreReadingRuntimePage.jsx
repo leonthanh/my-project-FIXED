@@ -1039,7 +1039,8 @@ const ExamCoreReadingRuntimePage = ({
         });
         return;
       }
-      if (isFlexiblePrepareReadingWriting && questionType === 'word-bank-completion') {
+      if (isFlexiblePrepareReadingWriting &&
+          ['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
         (q.question.items || []).forEach((item, itemIndex) => {
           (item.blankAnswers || []).slice(0, 2).forEach((expected, blankIndex) => {
             const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}-${blankIndex}`];
@@ -1054,11 +1055,17 @@ const ExamCoreReadingRuntimePage = ({
         return;
       }
       if (isFlexiblePrepareReadingWriting &&
-          ['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+          ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
         (q.question.items || []).forEach((item, itemIndex) => {
           const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`];
           scorableCount++;
-          if (answer && explode(item.correctAnswer).some((value) => normalize(value) === normalize(answer))) {
+          const normalizeReportedAnswer = (value) => normalize(
+            String(value || '').replace(/[\u2018\u2019\u201B\u02BC]/g, "'")
+          ).replace(/[.]+$/, '').trim();
+          const normalizeAnswer = ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation'].includes(questionType)
+            ? normalizeReportedAnswer
+            : normalize;
+          if (answer && explode(item.correctAnswer).some((value) => normalizeAnswer(value) === normalizeAnswer(answer))) {
             addCorrect(q);
           } else {
             incorrect++;
@@ -1278,7 +1285,7 @@ const ExamCoreReadingRuntimePage = ({
 
       const checkAnswer = () => {
         // MC types: case-insensitive letter compare
-        if (questionType === 'abc' || questionType === 'abcd' || questionType === 'long-text-mc' || questionType === 'cloze-mc') {
+        if (questionType === 'abc' || questionType === 'abcd' || ['long-text-mc', 'prepare-reading-comprehension'].includes(questionType) || questionType === 'cloze-mc') {
           return normalize(userAnswer) === normalize(resolvedCorrect);
         }
 
@@ -1355,7 +1362,7 @@ const ExamCoreReadingRuntimePage = ({
     const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
     if (sectionQuestions.length <= 1) return 0;
 
-    if (section?.questionType === 'long-text-mc') {
+    if (['long-text-mc', 'prepare-reading-comprehension'].includes(section?.questionType)) {
       const matchIndex = sectionQuestions.findIndex(
         (question) => Array.isArray(question?.questions) && question.questions.length > 0
       );
@@ -1453,7 +1460,7 @@ const ExamCoreReadingRuntimePage = ({
 
         section.questions?.forEach((q, qIdx) => {
           const shouldRestrictToPrimaryStructuredQuestion =
-            section.questionType === 'long-text-mc' ||
+            ['long-text-mc', 'prepare-reading-comprehension'].includes(section.questionType) ||
             section.questionType === 'cloze-mc' ||
             section.questionType === 'inline-choice' ||
             section.questionType === 'cloze-test' ||
@@ -1472,7 +1479,7 @@ const ExamCoreReadingRuntimePage = ({
           }
 
           // Check if this is long-text-mc with nested questions
-          if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
+          if (['long-text-mc', 'prepare-reading-comprehension'].includes(section.questionType) && q.questions && Array.isArray(q.questions)) {
             // For long-text-mc: create separate entries for each nested question
             q.questions.forEach((nestedQ, nestedIdx) => {
               questions.push({
@@ -1725,7 +1732,7 @@ const ExamCoreReadingRuntimePage = ({
             (section.questionType === 'reading-open-questions' ||
               section.questionType === 'true-false-not-given' ||
             (isFlexiblePrepareReadingWriting &&
-              ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)))
+              ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)))
           ) {
             questions.push({
               partIndex: pIdx,
@@ -1878,7 +1885,14 @@ const ExamCoreReadingRuntimePage = ({
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
     }
-    if (['definition-completion', 'word-bank-adjective-formation'].includes(q.section?.questionType)) {
+    if (q.section?.questionType === 'conditional-sentence-completion') {
+      return (q.question?.items || []).every((_, itemIndex) => (
+        [0, 1].every((blankIndex) => String(
+          answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+        ).trim())
+      ));
+    }
+    if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(q.section?.questionType)) {
       return (q.question?.items || []).every((_, itemIndex) => (
         String(answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`] || '').trim()
       ));
@@ -1901,7 +1915,7 @@ const ExamCoreReadingRuntimePage = ({
     if (isGatewayReadingWriting) {
       return numberedQuestions.reduce((count, question) => {
         const questionType = question.section?.questionType;
-        if (questionType === 'word-bank-completion') {
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
           const items = Array.isArray(question.question?.items) ? question.question.items : [];
           return count + items.filter((_, itemIndex) => (
             [0, 1].every((blankIndex) => String(
@@ -1909,7 +1923,7 @@ const ExamCoreReadingRuntimePage = ({
             ).trim())
           )).length;
         }
-        if (['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
           const items = Array.isArray(question.question?.items) ? question.question.items : [];
           return count + items.filter((_, itemIndex) => (
             String(answers[`${question.partIndex}-${question.sectionIndex}-${question.questionIndex}-${itemIndex}`] || '').trim()
@@ -1958,7 +1972,7 @@ const ExamCoreReadingRuntimePage = ({
   const isGatewaySinglePanelSection = isGatewayReadingWriting
     && ((isLegacyPrepareReadingWriting && isGatewayOpenQuestionSection) ||
       (isFlexiblePrepareReadingWriting &&
-        ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion?.section?.questionType)) ||
+        ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion?.section?.questionType)) ||
       ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
       String(currentQuestion?.section?.sectionTitle || '').trim().toLowerCase().replace(/\s+/g, '')
     ));
@@ -3842,7 +3856,7 @@ const ExamCoreReadingRuntimePage = ({
                 {currentQuestion.section.sectionTitle || currentQuestion.section.title}
               </h3>
           )}
-          {isGatewayReadingWriting && currentQuestion?.section?.questionType === 'long-text-mc' && (
+          {isGatewayReadingWriting && ['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion?.section?.questionType) && (
             <h3 className="cambridge-section-title">
               {currentQuestion.section.sectionTitle || currentQuestion.section.title || 'Reading'}
             </h3>
@@ -4091,7 +4105,7 @@ const ExamCoreReadingRuntimePage = ({
                 <div className="cambridge-content-wrapper">
                   {/* Section Title */}
                   {!(isGatewaySinglePanelSection
-                    || (isGatewayReadingWriting && currentQuestion.section.questionType === 'long-text-mc'))
+                    || (isGatewayReadingWriting && ['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion.section.questionType)))
                     && (currentQuestion.section.sectionTitle || currentQuestion.section.title) && (
                     <h3 className="cambridge-section-title">
                       {currentQuestion.section.sectionTitle || currentQuestion.section.title}
@@ -4099,14 +4113,14 @@ const ExamCoreReadingRuntimePage = ({
                   )}
 
               {/* For long-text-mc: Show ALL questions in section */}
-              {currentQuestion.section.questionType === 'long-text-mc' && currentQuestion.question.questions ? (
+              {['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion.section.questionType) && currentQuestion.question.questions ? (
                 <div>
                   {/* Render all nested questions at once */}
                   {allQuestions
                     .filter(q => 
                       q.partIndex === currentQuestion.partIndex && 
                       q.sectionIndex === currentQuestion.sectionIndex &&
-                      q.section.questionType === 'long-text-mc'
+                      ['long-text-mc', 'prepare-reading-comprehension'].includes(q.section.questionType)
                     )
                     .map((q) => {
                       const nestedQuestions = Array.isArray(q.question?.questions) ? q.question.questions : [];
@@ -4519,7 +4533,7 @@ const ExamCoreReadingRuntimePage = ({
                     />) : <QuestionDisplayFactory
                       section={{
                         ...currentQuestion.section,
-                        id: ['word-bank-completion', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion.section.questionType)
+                        id: ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion.section.questionType)
                           ? `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`
                           : `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
                         questions: [currentQuestion.question],
@@ -4591,7 +4605,7 @@ const ExamCoreReadingRuntimePage = ({
                 ));
                 const getGroupAnsweredCount = (group) => {
                   const questionType = group.section.questionType;
-                  if (['definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+                  if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
                     return group.entries.reduce((count, entry) => (
                       count + (entry.question?.items || []).filter((_, itemIndex) => (
                         Boolean(String(
@@ -4600,7 +4614,7 @@ const ExamCoreReadingRuntimePage = ({
                       )).length
                     ), 0);
                   }
-                  if (questionType === 'word-bank-completion') {
+                  if (['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
                     return group.entries.reduce((count, entry) => (
                       count + (entry.question?.items || []).filter((_, itemIndex) => (
                         [0, 1].every((blankIndex) => Boolean(String(
@@ -4665,7 +4679,7 @@ const ExamCoreReadingRuntimePage = ({
                           const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
                           const groupedCount = groupedType ? getQuestionCountForSection(activeGroup.section) : 0;
                           const hasIndividualGroupedItems = groupedCount > 1 && activeGroup.entries.length === 1;
-                          const questionButtons = ['definition-completion', 'word-bank-adjective-formation'].includes(questionType)
+                          const questionButtons = ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)
                             ? activeGroup.entries.flatMap((entry) => (
                               (entry.question?.items || []).map((_, itemIndex) => {
                                 const questionNumber = entry.questionNumber + itemIndex;
@@ -4683,7 +4697,7 @@ const ExamCoreReadingRuntimePage = ({
                                 };
                               })
                             ))
-                            : questionType === 'word-bank-completion'
+                            : ['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)
                             ? activeGroup.entries.flatMap((entry) => (
                               (entry.question?.items || []).map((_, itemIndex) => {
                                 const questionNumber = entry.questionNumber + itemIndex;

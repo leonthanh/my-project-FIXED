@@ -36,10 +36,10 @@ export const countPrepareScoringUnitsForSection = (section) =>
   (section?.questions || []).reduce((total, question) => {
     const singleQuestionSection = { ...section, questions: [question] };
     const count = getQuestionCountForSection(singleQuestionSection);
-    if (section.questionType === "word-bank-completion") {
+    if (["word-bank-completion", "conditional-sentence-completion"].includes(section.questionType)) {
       return total + count * 2;
     }
-    if (["definition-completion", "word-bank-adjective-formation"].includes(section.questionType)) {
+    if (["reported-command-completion", "reported-speech-transformation", "past-simple-passive-transformation", "reported-speech-verb-choice", "definition-completion", "word-bank-adjective-formation"].includes(section.questionType)) {
       return total + count;
     }
     return total + (section.questionType === "reading-open-questions" && question?.exerciseMode === "two-blanks"
@@ -266,6 +266,79 @@ export const validateFlexiblePrepareReadingWritingParts = (parts, { allowIncompl
           item.blankAnswers.some((answer) => !String(answer || "").trim())
         ))
       ))) return `${label}: cần hai danh sách từ, một ví dụ và câu hỏi có đủ {1}, {2} cùng đáp án.`;
+      if (section.questionType === "conditional-sentence-completion" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !hasTwoBlankMarkers(item?.questionText) ||
+          !Array.isArray(item.blankAnswers) ||
+          item.blankAnswers.length !== 2 ||
+          item.blankAnswers.some((answer) => !String(answer || "").trim())
+        ))
+      ))) return `${label}: cần câu hỏi có đủ {1}, {2} và đáp án cho cả hai chỗ trống.`;
+      if (section.questionType === "reported-command-completion" && section.questions.some((question) => (
+        !question?.example ||
+        !String(question.example.sourceText || "").trim() ||
+        !String(question.example.sentenceStarter || "").trim() ||
+        !String(question.example.reportingVerb || "").trim() ||
+        !String(question.example.correctAnswer || "").trim() ||
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !String(item?.sourceText || "").trim() ||
+          !String(item?.sentenceStarter || "").trim() ||
+          !String(item?.reportingVerb || "").trim() ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some((answer) => answer.trim())
+        ))
+      ))) return `${label}: cần câu gốc, phần đầu câu, reporting verb và đáp án cho ví dụ cùng mỗi câu hỏi.`;
+      if (section.questionType === "reported-speech-transformation" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !String(item?.sourceText || "").replace(/<[^>]*>/g, "").trim() ||
+          (!String(item?.targetPrefix || "").trim() && !String(item?.targetSuffix || "").trim()) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some((answer) => answer.trim())
+        ))
+      ))) return `${label}: cần câu gốc, khung câu trả lời và đáp án cho từng câu.`;
+      if (section.questionType === "past-simple-passive-transformation" && section.questions.some((question) => (
+        !Array.isArray(question?.items) ||
+        !question.items.length ||
+        question.items.some((item) => (
+          !String(item?.sourceText || "").replace(/<[^>]*>/g, "").trim() ||
+          (!String(item?.targetPrefix || "").trim() && !String(item?.targetSuffix || "").trim()) ||
+          !String(item?.correctAnswer || "").split(/[|/]/).some((answer) => answer.trim())
+        ))
+      ))) return `${label}: cần câu chủ động, khung câu bị động và đáp án cho từng câu.`;
+      if (section.questionType === "reported-speech-verb-choice" && section.questions.some((question) => {
+        const options = Array.isArray(question?.options) ? question.options : [];
+        const isValidAnswer = (answer) => options.some((option) => (
+          String(option || "").trim().toLowerCase() === String(answer || "").trim().toLowerCase()
+        ));
+        return options.length !== 2 ||
+          options.some((option) => !String(option || "").trim()) ||
+          String(options[0] || "").trim().toLowerCase() === String(options[1] || "").trim().toLowerCase() ||
+          !question.example ||
+          (!String(question.example.sentencePrefix || "").trim() && !String(question.example.sentenceSuffix || "").trim()) ||
+          !isValidAnswer(question.example.correctAnswer) ||
+          !Array.isArray(question.items) ||
+          !question.items.length ||
+          question.items.some((item) => (
+            (!String(item?.sentencePrefix || "").trim() && !String(item?.sentenceSuffix || "").trim()) ||
+            !isValidAnswer(item?.correctAnswer)
+          ));
+      })) return `${label}: nhập hai lựa chọn khác nhau, câu ví dụ, nội dung từng câu và đáp án hợp lệ.`;
+      if (section.questionType === "prepare-reading-comprehension" && section.questions.some((question) => (
+        !String(question?.passage || "").replace(/<[^>]*>/g, "").trim() ||
+        !Array.isArray(question?.questions) ||
+        !question.questions.length ||
+        question.questions.some((item) => (
+          !String(item?.questionText || "").replace(/<[^>]*>/g, "").trim() ||
+          !Array.isArray(item?.options) ||
+          item.options.length !== 4 ||
+          item.options.some((option) => !String(option || "").replace(/^[A-D]\.\s*/i, "").trim()) ||
+          !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
+        ))
+      ))) return `${label}: cần bài đọc và câu hỏi trắc nghiệm có đủ 4 lựa chọn cùng đáp án A-D.`;
       if (section.questionType === "definition-completion" && section.questions.some((question) => (
         !Array.isArray(question?.items) ||
         !question.items.length ||
