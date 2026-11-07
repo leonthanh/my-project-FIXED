@@ -226,7 +226,10 @@ export const validatePrepareReadingWritingParts = (parts) => {
   return "";
 };
 
-export const validateFlexiblePrepareReadingWritingParts = (parts, { allowIncompleteScoring = false } = {}) => {
+export const validateFlexiblePrepareReadingWritingParts = (
+  parts,
+  { allowIncompleteScoring = false, allowIncompleteContent = false } = {}
+) => {
   if (!isFlexiblePrepareReadingWriting(parts) || !parts.length ||
       parts.some((part) => !Array.isArray(part.sections) || !part.sections.length)) {
     return "Prepare cần có ít nhất một Part và một Section trong mỗi Part.";
@@ -327,18 +330,21 @@ export const validateFlexiblePrepareReadingWritingParts = (parts, { allowIncompl
             !isValidAnswer(item?.correctAnswer)
           ));
       })) return `${label}: nhập hai lựa chọn khác nhau, câu ví dụ, nội dung từng câu và đáp án hợp lệ.`;
-      if (section.questionType === "prepare-reading-comprehension" && section.questions.some((question) => (
-        !String(question?.passage || "").replace(/<[^>]*>/g, "").trim() ||
-        !Array.isArray(question?.questions) ||
-        !question.questions.length ||
-        question.questions.some((item) => (
-          !String(item?.questionText || "").replace(/<[^>]*>/g, "").trim() ||
-          !Array.isArray(item?.options) ||
-          item.options.length !== 4 ||
-          item.options.some((option) => !String(option || "").replace(/^[A-D]\.\s*/i, "").trim()) ||
-          !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
-        ))
-      ))) return `${label}: cần bài đọc và câu hỏi trắc nghiệm có đủ 4 lựa chọn cùng đáp án A-D.`;
+      if (section.questionType === "prepare-reading-comprehension") {
+        if (section.questions.some((question) => (
+          !Array.isArray(question?.questions) || !question.questions.length
+        ))) return `${label}: cần có danh sách câu hỏi trắc nghiệm.`;
+        if (!allowIncompleteContent && section.questions.some((question) => (
+          !String(question?.passage || "").replace(/<[^>]*>/g, "").trim() ||
+          question.questions.some((item) => (
+            !String(item?.questionText || "").replace(/<[^>]*>/g, "").trim() ||
+            !Array.isArray(item?.options) ||
+            item.options.length !== 4 ||
+            item.options.some((option) => !String(option || "").replace(/^[A-D]\.\s*/i, "").trim()) ||
+            !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
+          ))
+        ))) return `${label}: cần bài đọc và câu hỏi trắc nghiệm có đủ 4 lựa chọn cùng đáp án A-D.`;
+      }
       if (section.questionType === "definition-completion" && section.questions.some((question) => (
         !Array.isArray(question?.items) ||
         !question.items.length ||

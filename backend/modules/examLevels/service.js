@@ -117,7 +117,10 @@ const createTest = async ({ code, skill, body = {}, user }) => {
   if (isPrepareFormat(parts) && (
     normalizeCode(code) !== "prepare" ||
     normalizedSkill !== "reading-writing" ||
-    !validatePrepareParts(parts, { allowIncompleteScoring: body.status === "draft" })
+    !validatePrepareParts(parts, {
+      allowIncompleteScoring: body.status === "draft",
+      allowIncompleteContent: body.status === "draft",
+    })
   )) {
     throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
   }
@@ -179,7 +182,10 @@ const updateTest = async ({ code, skill, id, body = {} }) => {
     if ((isPrepareFormat(body.parts) || isPrepareFormat(safeParseParts(test.parts))) &&
         (normalizeCode(code) !== "prepare" || normalizedSkill !== "reading-writing" ||
          !isPrepareFormat(body.parts) ||
-         !validatePrepareParts(body.parts, { allowIncompleteScoring: statusForValidation === "draft" }))) {
+         !validatePrepareParts(body.parts, {
+           allowIncompleteScoring: statusForValidation === "draft",
+           allowIncompleteContent: statusForValidation === "draft",
+         }))) {
       throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
     }
     updates.parts = processTestParts(body.parts);

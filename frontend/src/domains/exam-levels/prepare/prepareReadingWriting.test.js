@@ -380,3 +380,37 @@ test("Prepare reading comprehension reuses the 4-option long-text structure at o
   section.questions[0].questions[0].options.pop();
   expect(validateFlexiblePrepareReadingWritingParts(parts)).toMatch(/4 lựa chọn/i);
 });
+
+test("incomplete Prepare Reading can be saved as a draft while empty numbered questions remain", () => {
+  const readingType = getPrepareReadingWritingQuestionTypes().find(
+    (type) => type.id === "prepare-reading-comprehension"
+  );
+  const parts = createFlexiblePrepareParts();
+  const section = parts[0].sections[0];
+  section.sectionTitle = "Reading";
+  section.questionType = readingType.id;
+  section.preparePointsPerAnswer = 1;
+  section.questions = [JSON.parse(JSON.stringify(readingType.defaultData))];
+  section.questions[0].passage = "A passage in progress.";
+  section.questions[0].questions[0] = {
+    questionText: "Question 46",
+    options: ["A. first", "B. second", "C. third", "D. fourth"],
+    correctAnswer: "B",
+  };
+  parts[0].sections.push({
+    sectionTitle: "Other questions",
+    questionType: "fill",
+    preparePointsPerAnswer: 1,
+    questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+  });
+
+  expect(getPrepareTotalPoints(parts)).toBe(50);
+  expect(validateFlexiblePrepareReadingWritingParts(parts)).toMatch(/4 lựa chọn/i);
+  expect(validateFlexiblePrepareReadingWritingParts(parts, {
+    allowIncompleteScoring: true,
+    allowIncompleteContent: true,
+  })).toBe("");
+  expect(validateFlexiblePrepareReadingWritingParts(parts, {
+    allowIncompleteScoring: true,
+  })).toMatch(/4 lựa chọn/i);
+});

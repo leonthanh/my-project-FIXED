@@ -92,7 +92,10 @@ const getFlexiblePrepareTotalPoints = (parts) =>
     return sectionTotal + getScorableUnitCount(section) * Number(section.preparePointsPerAnswer || 0);
   }, 0), 0);
 
-const validateFlexiblePrepareParts = (parts, { allowIncompleteScoring = false } = {}) => {
+const validateFlexiblePrepareParts = (
+  parts,
+  { allowIncompleteScoring = false, allowIncompleteContent = false } = {}
+) => {
   if (!Array.isArray(parts) || parts.length === 0 || !isFlexiblePrepareFormat(parts) ||
       parts.some((part) => !Array.isArray(part.sections) || part.sections.length === 0)) return false;
   for (const part of parts) {
@@ -185,18 +188,21 @@ const validateFlexiblePrepareParts = (parts, { allowIncompleteScoring = false } 
             !isValidAnswer(item?.correctAnswer)
           ));
       })) return false;
-      if (section.questionType === "prepare-reading-comprehension" && section.questions.some((question) => (
-        !hasText(question?.passage) ||
-        !Array.isArray(question?.questions) ||
-        !question.questions.length ||
-        question.questions.some((item) => (
-          !hasText(item?.questionText) ||
-          !Array.isArray(item?.options) ||
-          item.options.length !== 4 ||
-          item.options.some((option) => !hasText(String(option || "").replace(/^[A-D]\.\s*/i, ""))) ||
-          !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
-        ))
-      ))) return false;
+      if (section.questionType === "prepare-reading-comprehension") {
+        if (section.questions.some((question) => (
+          !Array.isArray(question?.questions) || !question.questions.length
+        ))) return false;
+        if (!allowIncompleteContent && section.questions.some((question) => (
+          !hasText(question?.passage) ||
+          question.questions.some((item) => (
+            !hasText(item?.questionText) ||
+            !Array.isArray(item?.options) ||
+            item.options.length !== 4 ||
+            item.options.some((option) => !hasText(String(option || "").replace(/^[A-D]\.\s*/i, ""))) ||
+            !["A", "B", "C", "D"].includes(String(item?.correctAnswer || "").trim().toUpperCase())
+          ))
+        ))) return false;
+      }
       if (section.questionType === "definition-completion" && section.questions.some((question) => (
         !Array.isArray(question?.items) ||
         !question.items.length ||

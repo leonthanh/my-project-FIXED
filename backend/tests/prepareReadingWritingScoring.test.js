@@ -687,3 +687,50 @@ test("flexible Prepare scores reading comprehension with four choices at one poi
   parts[0].sections[0].questions[0].questions[0].correctAnswer = "E";
   expect(validatePrepareParts(parts)).toBe(false);
 });
+
+test("Prepare Reading permits incomplete question content only for drafts", () => {
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Reading",
+    sections: [
+      {
+        sectionTitle: "Reading",
+        questionType: "prepare-reading-comprehension",
+        preparePointsPerAnswer: 1,
+        questions: [{
+          passage: "A passage in progress.",
+          questions: [
+            {
+              questionText: "Question 46",
+              options: ["A. first", "B. second", "C. third", "D. fourth"],
+              correctAnswer: "B",
+            },
+            ...Array.from({ length: 4 }, () => ({
+              questionText: "",
+              options: ["A. ", "B. ", "C. ", "D. "],
+              correctAnswer: "",
+            })),
+          ],
+        }],
+      },
+      {
+        questionType: "fill",
+        preparePointsPerAnswer: 1,
+        questions: Array.from({ length: 45 }, () => ({ questionText: "Question", correctAnswer: "yes" })),
+      },
+    ],
+  }];
+
+  expect(validatePrepareParts(parts)).toBe(false);
+  expect(validatePrepareParts(parts, { allowIncompleteScoring: true })).toBe(false);
+  expect(validatePrepareParts(parts, {
+    allowIncompleteScoring: true,
+    allowIncompleteContent: true,
+  })).toBe(true);
+
+  parts[0].sections[0].questions[0].questions = [];
+  expect(validatePrepareParts(parts, {
+    allowIncompleteScoring: true,
+    allowIncompleteContent: true,
+  })).toBe(false);
+});

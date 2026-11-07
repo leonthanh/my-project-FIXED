@@ -2031,6 +2031,7 @@ const ExamCoreTestBuilder = ({
       : partsSnapshot;
     const hasIncompletePrepareScore = prepareFlexibleReadingWriting &&
       Math.abs(getPrepareTotalPoints(preparePartsSnapshot) - 50) > 0.001;
+    let hasIncompletePrepareContent = false;
     if (prepareReadingWriting) {
       const validationError = validatePrepareReadingWritingParts(preparePartsSnapshot);
       if (validationError) {
@@ -2044,9 +2045,16 @@ const ExamCoreTestBuilder = ({
         allowIncompleteScoring: hasIncompletePrepareScore,
       });
       if (validationError) {
-        setMessage({ type: 'error', text: validationError });
-        setIsSubmitting(false);
-        return;
+        const draftValidationError = validateFlexiblePrepareReadingWritingParts(preparePartsSnapshot, {
+          allowIncompleteScoring: true,
+          allowIncompleteContent: true,
+        });
+        if (draftValidationError) {
+          setMessage({ type: 'error', text: draftValidationError });
+          setIsSubmitting(false);
+          return;
+        }
+        hasIncompletePrepareContent = true;
       }
     }
 
@@ -2075,7 +2083,7 @@ const ExamCoreTestBuilder = ({
         showResultModal: studentResultVisibility !== 'confirmation',
         testType,
         ...(prepareFlexibleReadingWriting
-          ? { status: hasIncompletePrepareScore ? 'draft' : 'published' }
+          ? { status: hasIncompletePrepareScore || hasIncompletePrepareContent ? 'draft' : 'published' }
           : {}),
         duration: testConfig.duration || 60,
         mainAudioUrl: normalizeAudioReference(mainAudioUrl),
