@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import ExamCoreTestBuilder from "../../exam-core/shared/components/ExamCoreTestBuilder";
+import { isPrepareReadingWriting } from "../prepare/prepareReadingWriting";
 
 const SKILL_LABELS = {
   reading: "Reading",
@@ -82,10 +82,15 @@ const ExamLevelSkillBuilderPage = () => {
   const skillName = SKILL_LABELS[skill] || skill;
   const apiBasePath = `exam-levels/${encodeURIComponent(code)}/${encodeURIComponent(skill)}/tests`;
   const successPath = `/exam-levels/${encodeURIComponent(code)}`;
+  const isPrepareSkill = code === "prepare" && skill === "reading-writing";
+  if (isPrepareSkill && !id && templateId !== "gateway-reading-writing") {
+    return <div className="exam-level-page-state" role="alert">Prepare Reading & Writing cần cấu hình mẫu tương thích gateway-reading-writing.</div>;
+  }
+  const useLegacyPrepareFormat = isPrepareSkill && isPrepareReadingWriting(initialData?.parts);
+  const useFlexiblePrepareFormat = isPrepareSkill && !useLegacyPrepareFormat;
 
   return (
     <>
-      <AdminNavbar />
       <ExamCoreTestBuilder
         testType={templateId}
         editId={id ? Number(id) : null}
@@ -94,7 +99,10 @@ const ExamLevelSkillBuilderPage = () => {
         durationMinutes={level.skillConfig[skill].durationMinutes}
         displayName={`${level.name} ${skillName}`}
         successPathResolver={() => successPath}
-        resetDraftOnLoad={!id}
+        resetDraftOnLoad={!id && !isPrepareSkill}
+        prepareReadingWriting={useLegacyPrepareFormat}
+        prepareFlexibleReadingWriting={useFlexiblePrepareFormat}
+        draftStorageKey={isPrepareSkill ? `examLevelDraft-${code}-${skill}-${id || "new"}` : undefined}
       />
     </>
   );

@@ -125,6 +125,7 @@ const ExamCoreResultsModal = ({
   const showDetails = displayMode === 'details';
   const detailRows = showDetails
     ? Object.entries(answers)
+        .filter(([, detail]) => !results.externalWritingGrade || detail?.isCorrect !== null)
         .map(([questionKey, detail]) => {
           const questionNumber = Number(detail?.questionNumber);
           const displayOrder = Number.isFinite(questionNumber) ? questionNumber : Number.MAX_SAFE_INTEGER;
@@ -135,6 +136,8 @@ const ExamCoreResultsModal = ({
             isCorrect: detail?.isCorrect === true,
             userAnswer: detail?.userAnswer,
             correctAnswer: detail?.correctAnswer,
+            earnedPoints: detail?.earnedPoints,
+            maxPoints: detail?.maxPoints,
           };
         })
         .sort((left, right) =>
@@ -437,7 +440,7 @@ const ExamCoreResultsModal = ({
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Correct items
+                {results.externalWritingGrade ? 'Fully correct questions' : 'Correct items'}
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.correctText }}>
                 {correct}
@@ -453,7 +456,7 @@ const ExamCoreResultsModal = ({
               }}
             >
               <div style={{ fontSize: 11, color: colors.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Incorrect items
+                {results.externalWritingGrade ? 'Not fully correct questions' : 'Incorrect items'}
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: colors.wrongText }}>
                 {incorrect}
@@ -483,7 +486,9 @@ const ExamCoreResultsModal = ({
                 </h4>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: isDarkMode ? '#fcd34d' : '#b45309' }}>
-                Waiting for teacher grading. The score above covers Parts 1-8 only; writing will be added after manual grading.
+                {results.externalWritingGrade
+                  ? 'The score above is the automatically graded Reading & Writing objective section out of 50. Writing (W) is graded separately by your teacher out of 10 and is not added on this website.'
+                  : 'Waiting for teacher grading. The score above covers Parts 1-8 only; writing will be added after manual grading.'}
               </p>
             </div>
           )}
@@ -536,6 +541,7 @@ const ExamCoreResultsModal = ({
                     }}
                   >
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>{row.label}</div>
+                    {row.maxPoints != null && <div>Points: {formatScore(row.earnedPoints)}/{formatScore(row.maxPoints)}</div>}
                     <div>Your answer: {formatAnswerValue(row.userAnswer)}</div>
                     {!row.isCorrect && (
                       <div>Correct answer: {formatAnswerValue(row.correctAnswer)}</div>

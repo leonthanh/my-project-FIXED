@@ -3,7 +3,8 @@ const { ExamLevel, ExamLevelSubmission, ExamLevelTest } = require("../../models"
 const { processTestParts } = require("../../utils/clozParser");
 const { normalizeStudentResultVisibility } = require("../../utils/studentResultVisibility");
 const { scoreTest } = require("../cambridge/shared/scoring");
-const { countTotalQuestionsFromParts } = require("../cambridge/shared/readingTestUtils");
+const { countTotalQuestionsFromParts, safeParseParts } = require("../cambridge/shared/readingTestUtils");
+const { isPrepareFormat, validatePrepareParts } = require("./prepareReadingWriting");
 const placementService = require("../placement/service");
 
 const ALLOWED_SKILLS = new Set([
@@ -113,6 +114,13 @@ const createTest = async ({ code, skill, body = {}, user }) => {
   if (String(body.testType || "") !== config.templateId) {
     throw createServiceError(400, "Test type does not match this level's configured skill template.");
   }
+  if (isPrepareFormat(parts) && (
+    normalizeCode(code) !== "prepare" ||
+    normalizedSkill !== "reading-writing" ||
+    !validatePrepareParts(parts, { allowIncompleteScoring: body.status === "draft" })
+  )) {
+    throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
+  }
 
   const studentResultVisibility = normalizeStudentResultVisibility(
     body.studentResultVisibility,
@@ -166,6 +174,13 @@ const updateTest = async ({ code, skill, id, body = {} }) => {
   if (body.parts !== undefined) {
     if (!Array.isArray(body.parts) || body.parts.length === 0) {
       throw createServiceError(400, "At least one part is required.");
+    }
+    const statusForValidation = body.status === undefined ? test.status : body.status;
+    if ((isPrepareFormat(body.parts) || isPrepareFormat(safeParseParts(test.parts))) &&
+        (normalizeCode(code) !== "prepare" || normalizedSkill !== "reading-writing" ||
+         !isPrepareFormat(body.parts) ||
+         !validatePrepareParts(body.parts, { allowIncompleteScoring: statusForValidation === "draft" }))) {
+      throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
     }
     updates.parts = processTestParts(body.parts);
     updates.totalQuestions = countTotalQuestionsFromParts(updates.parts);

@@ -27,6 +27,7 @@ import OddOneOutDisplay from "../../../../shared/components/questions/displays/O
 import ClozeMCDisplay from "../../../../shared/components/questions/displays/ClozeMCDisplay";
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
 import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
+import PrepareQuestionsDisplay from "../../../exam-levels/prepare/PrepareQuestionsDisplay";
 import {
   computeQuestionStarts,
   getQuestionCountForSection,
@@ -194,6 +195,9 @@ const ExamCoreReadingRuntimePage = ({
 
   // States
   const [test, setTest] = useState(null);
+  const isLegacyPrepareReadingWriting = test?.parts?.[0]?.examFormat === 'prepare-reading-writing-v1';
+  const isFlexiblePrepareReadingWriting = test?.parts?.[0]?.examFormat === 'prepare-reading-writing-v2';
+  const isPrepareReadingWriting = isLegacyPrepareReadingWriting || isFlexiblePrepareReadingWriting;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -279,9 +283,10 @@ const ExamCoreReadingRuntimePage = ({
 
   // For young-learner tests the section name is more informative than the full program name
   const headerTitle = useMemo(() => {
+    if (isPrepareReadingWriting) return 'Prepare Reading & Writing';
     if (['MOVERS', 'FLYERS', 'STARTERS'].includes(examType)) return 'Reading & Writing';
     return localizedTestConfigName || testConfig.name || 'Reading & Writing';
-  }, [examType, localizedTestConfigName, testConfig.name]);
+  }, [examType, isPrepareReadingWriting, localizedTestConfigName, testConfig.name]);
 
   const currentStudentName = useMemo(() => {
     const user = getStoredUser();
@@ -306,14 +311,15 @@ const ExamCoreReadingRuntimePage = ({
   }, [isStudent, test?.showResultModal, test?.studentResultVisibility]);
 
   const effectiveDuration = useMemo(() => {
+    const fromTest = Number(test?.duration);
+    if (isPrepareReadingWriting && Number.isFinite(fromTest) && fromTest > 0) return fromTest;
     // Prefer the authoritative config duration for the test's type (avoids DB default of 60
     // being used for tests that never had duration saved explicitly).
     const fromConfig = Number(testConfig.duration);
     if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
-    const fromTest = Number(test?.duration);
     if (Number.isFinite(fromTest) && fromTest > 0) return fromTest;
     return 60;
-  }, [test?.duration, testConfig.duration]);
+  }, [isPrepareReadingWriting, test?.duration, testConfig.duration]);
 
   const syncTimingState = useCallback(
     (expiresAtValue, fallbackSeconds = null) => {
@@ -443,7 +449,9 @@ const ExamCoreReadingRuntimePage = ({
         // Prefer testType config duration over the DB value (DB defaults to 60 for all types)
         const configDuration = Number(TEST_CONFIGS[data.testType]?.duration);
         const rawDuration = Number(data.duration);
-        const resolvedDuration = Number.isFinite(configDuration) && configDuration > 0
+        const resolvedDuration = parsedParts?.[0]?.examFormat === 'prepare-reading-writing-v1' && Number.isFinite(rawDuration) && rawDuration > 0
+          ? rawDuration
+          : Number.isFinite(configDuration) && configDuration > 0
           ? configDuration
           : (Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : (testConfig.duration || 60));
         const durationSeconds = resolvedDuration * 60;
@@ -908,10 +916,10 @@ const ExamCoreReadingRuntimePage = ({
         if (studentResultDisplayMode === "confirmation") {
           setResults({ mode: "confirmation" });
         } else {
-          const manualScoredTotal = isGatewayReadingWriting
+          const manualScoredTotal = isGatewayReadingWriting && !isPrepareReadingWriting
             ? Number(testConfig?.manualScoredTotal) || 0
             : 0;
-          const totalScore = localResults.total + manualScoredTotal;
+          const totalScore = isPrepareReadingWriting ? Number(data.total) : localResults.total + manualScoredTotal;
           // Show results modal using backend score (more accurate than local calculation)
           setResults({
             score: data.score,
@@ -925,6 +933,7 @@ const ExamCoreReadingRuntimePage = ({
             incorrect: backendIncorrect,
             writingQuestions: localResults.writingQuestions || [],
             writingCount: localResults.writingCount || 0,
+            externalWritingGrade: isPrepareReadingWriting,
             answers: data.answers || data.detailedResults || {},
             breakdown: data.breakdown || null,
           });
@@ -934,9 +943,9 @@ const ExamCoreReadingRuntimePage = ({
       }
     } catch (err) {
       console.error("Error submitting:", err);
-      if (isPlacementRuntime) {
+      if (isPlacementRuntime || isPrepareReadingWriting) {
         setShowConfirm(false);
-        alert(err?.message || "Could not submit this placement test. Please try again.");
+        alert(err?.message || "Could not submit this test. Please try again.");
       } else {
         // Calculate locally and show results even if backend fails
         const localResults = calculateLocalResults();
@@ -971,6 +980,14 @@ const ExamCoreReadingRuntimePage = ({
     let scorableCount = 0;
 
     const normalize = (val) => String(val).trim().toLowerCase();
+    const pointsForQuestion = (question) => (
+      isFlexiblePrepareReadingWriting
+        ? Number(question.section?.preparePointsPerAnswer) || 0
+        : 1
+    );
+    const addCorrect = (question, points = pointsForQuestion(question)) => {
+      correct += points;
+    };
 
     const explode = (val) => {
       if (Array.isArray(val)) return val;
@@ -996,6 +1013,66 @@ const ExamCoreReadingRuntimePage = ({
         });
         return;
       }
+      if (isPrepareReadingWriting && questionType === 'reading-open-questions') {
+        (q.question.items || []).forEach((item, index) => {
+          const key = `${q.partIndex}-${q.sectionIndex}-${index}`;
+          const points = pointsForQuestion(q);
+          if (q.question.exerciseMode === 'two-blanks') {
+            const blankAnswers = item.blankAnswers || [];
+            scorableCount += isFlexiblePrepareReadingWriting ? blankAnswers.length : 1;
+            const earned = blankAnswers.reduce((sum, expected, blankIndex) => {
+              const answer = answers[`${key}-${blankIndex}`];
+              const isCorrect = answer && explode(expected).some((value) => normalize(value) === normalize(answer));
+              if (!isFlexiblePrepareReadingWriting && isCorrect) return sum + 0.5;
+              if (isFlexiblePrepareReadingWriting && isCorrect) return sum + points;
+              if (!isCorrect) incorrect++;
+              return sum;
+            }, 0);
+            correct += earned;
+            if (!isFlexiblePrepareReadingWriting && earned < 1) incorrect++;
+          } else {
+            scorableCount++;
+            const answer = answers[key];
+            if (answer && explode(item.correctAnswer).some((value) => normalize(value) === normalize(answer))) addCorrect(q);
+            else incorrect++;
+          }
+        });
+        return;
+      }
+      if (isFlexiblePrepareReadingWriting &&
+          ['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
+        (q.question.items || []).forEach((item, itemIndex) => {
+          (item.blankAnswers || []).slice(0, 2).forEach((expected, blankIndex) => {
+            const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}-${blankIndex}`];
+            scorableCount++;
+            if (answer && explode(expected).some((value) => normalize(value) === normalize(answer))) {
+              addCorrect(q);
+            } else {
+              incorrect++;
+            }
+          });
+        });
+        return;
+      }
+      if (isFlexiblePrepareReadingWriting &&
+          ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+        (q.question.items || []).forEach((item, itemIndex) => {
+          const answer = answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`];
+          scorableCount++;
+          const normalizeReportedAnswer = (value) => normalize(
+            String(value || '').replace(/[\u2018\u2019\u201B\u02BC]/g, "'")
+          ).replace(/[.]+$/, '').trim();
+          const normalizeAnswer = ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation'].includes(questionType)
+            ? normalizeReportedAnswer
+            : normalize;
+          if (answer && explode(item.correctAnswer).some((value) => normalizeAnswer(value) === normalizeAnswer(answer))) {
+            addCorrect(q);
+          } else {
+            incorrect++;
+          }
+        });
+        return;
+      }
       if (questionType === 'people-matching' && Array.isArray(q.question?.people)) {
         const person = q.question.people[q.personIndex] || {};
         const personId = person?.id ? String(person.id).trim() : String.fromCharCode(65 + (q.personIndex || 0));
@@ -1014,7 +1091,7 @@ const ExamCoreReadingRuntimePage = ({
         if (!userAnswer) return;
 
         if (normalize(userAnswer) === normalize(correctAnswer)) {
-          correct++;
+          addCorrect(q);
         } else {
           incorrect++;
         }
@@ -1037,7 +1114,7 @@ const ExamCoreReadingRuntimePage = ({
         if (!userAnswer) return;
 
         if (normalize(userAnswer) === normalize(correctAnswer)) {
-          correct++;
+          addCorrect(q);
         } else {
           incorrect++;
         }
@@ -1054,7 +1131,7 @@ const ExamCoreReadingRuntimePage = ({
           }
           scorableCount++;
           if (!userAnswer) return;
-          if (normalize(userAnswer) === normalize(correctAnswer)) correct++;
+          if (normalize(userAnswer) === normalize(correctAnswer)) addCorrect(q);
           else incorrect++;
         } else {
           const correctImgId = q.question?.answers?.[String(q.blankNum)];
@@ -1064,7 +1141,7 @@ const ExamCoreReadingRuntimePage = ({
           }
           scorableCount++;
           if (!userAnswer) return;
-          if (userAnswer === correctImgId) correct++;
+          if (userAnswer === correctImgId) addCorrect(q);
           else incorrect++;
         }
         return;
@@ -1082,7 +1159,7 @@ const ExamCoreReadingRuntimePage = ({
         scorableCount++;
         if (!ua) return;
         const accepted = explode(ca);
-        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        if (accepted.some((a) => normalize(a) === normalize(ua))) addCorrect(q);
         else incorrect++;
         return;
       }
@@ -1098,7 +1175,7 @@ const ExamCoreReadingRuntimePage = ({
         scorableCount++;
         if (!ua) return;
         const accepted = explode(ca);
-        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        if (accepted.some((a) => normalize(a) === normalize(ua))) addCorrect(q);
         else incorrect++;
         return;
       }
@@ -1109,9 +1186,9 @@ const ExamCoreReadingRuntimePage = ({
         const ca = (q.item.answer ?? q.item.correctAnswer ?? '').trim();
         scorableCount++;
         if (!ua || !ua.trim()) return;
-        if (!ca) { correct++; return; } // free-write: any answer accepted
+        if (!ca) { addCorrect(q); return; } // free-write: any answer accepted
         const accepted = explode(ca);
-        if (accepted.some((a) => normalize(a) === normalize(ua))) correct++;
+        if (accepted.some((a) => normalize(a) === normalize(ua))) addCorrect(q);
         else incorrect++;
         return;
       }
@@ -1136,7 +1213,7 @@ const ExamCoreReadingRuntimePage = ({
         scorableCount++;
         const ua = answers[q.key];
         if (!ua) return;
-        if (normalize(ua) === normalize(correctAnswer)) correct++;
+        if (normalize(ua) === normalize(correctAnswer)) addCorrect(q);
         else incorrect++;
         return;
       }
@@ -1160,7 +1237,7 @@ const ExamCoreReadingRuntimePage = ({
           const accepted = explode(correctAnswer);
           const isCorrect = accepted.some((ans) => normalize(ans) === normalize(userAnswer));
           if (isCorrect) {
-            correct++;
+            addCorrect(q);
           } else {
             incorrect++;
           }
@@ -1208,7 +1285,7 @@ const ExamCoreReadingRuntimePage = ({
 
       const checkAnswer = () => {
         // MC types: case-insensitive letter compare
-        if (questionType === 'abc' || questionType === 'abcd' || questionType === 'long-text-mc' || questionType === 'cloze-mc') {
+        if (questionType === 'abc' || questionType === 'abcd' || ['long-text-mc', 'prepare-reading-comprehension'].includes(questionType) || questionType === 'cloze-mc') {
           return normalize(userAnswer) === normalize(resolvedCorrect);
         }
 
@@ -1217,7 +1294,7 @@ const ExamCoreReadingRuntimePage = ({
       };
 
       if (checkAnswer()) {
-        correct++;
+        addCorrect(q);
       } else {
         incorrect++;
         debugInfo.push(
@@ -1228,10 +1305,11 @@ const ExamCoreReadingRuntimePage = ({
 
     const scorableQuestions = scorableCount; // Only count questions with an answer key
     const score = correct;
-    const manualScoredTotal = isGatewayReadingWriting
+    const manualScoredTotal = isGatewayReadingWriting && !isPrepareReadingWriting
       ? Number(testConfig?.manualScoredTotal) || 0
       : 0;
-    const totalScore = scorableQuestions + manualScoredTotal;
+    const autoScoredTotal = isFlexiblePrepareReadingWriting ? 50 : scorableQuestions;
+    const totalScore = autoScoredTotal + manualScoredTotal;
 
     // Log debug info if there are issues
     if (debugInfo.length > 0) {
@@ -1242,7 +1320,7 @@ const ExamCoreReadingRuntimePage = ({
       score,
       correct,
       incorrect,
-      autoScoredTotal: scorableQuestions,
+      autoScoredTotal,
       manualScoredTotal,
       total: totalScore,
       percentage: totalScore > 0
@@ -1250,6 +1328,7 @@ const ExamCoreReadingRuntimePage = ({
         : 0,
       writingQuestions,
       writingCount: writingQuestions.length,
+      externalWritingGrade: isPrepareReadingWriting,
     };
   };
 
@@ -1283,7 +1362,7 @@ const ExamCoreReadingRuntimePage = ({
     const sectionQuestions = Array.isArray(section?.questions) ? section.questions : [];
     if (sectionQuestions.length <= 1) return 0;
 
-    if (section?.questionType === 'long-text-mc') {
+    if (['long-text-mc', 'prepare-reading-comprehension'].includes(section?.questionType)) {
       const matchIndex = sectionQuestions.findIndex(
         (question) => Array.isArray(question?.questions) && question.questions.length > 0
       );
@@ -1381,7 +1460,7 @@ const ExamCoreReadingRuntimePage = ({
 
         section.questions?.forEach((q, qIdx) => {
           const shouldRestrictToPrimaryStructuredQuestion =
-            section.questionType === 'long-text-mc' ||
+            ['long-text-mc', 'prepare-reading-comprehension'].includes(section.questionType) ||
             section.questionType === 'cloze-mc' ||
             section.questionType === 'inline-choice' ||
             section.questionType === 'cloze-test' ||
@@ -1400,7 +1479,7 @@ const ExamCoreReadingRuntimePage = ({
           }
 
           // Check if this is long-text-mc with nested questions
-          if (section.questionType === 'long-text-mc' && q.questions && Array.isArray(q.questions)) {
+          if (['long-text-mc', 'prepare-reading-comprehension'].includes(section.questionType) && q.questions && Array.isArray(q.questions)) {
             // For long-text-mc: create separate entries for each nested question
             q.questions.forEach((nestedQ, nestedIdx) => {
               questions.push({
@@ -1650,7 +1729,10 @@ const ExamCoreReadingRuntimePage = ({
             });
           } else if (
             isGatewayReadingWriting &&
-            (section.questionType === 'reading-open-questions' || section.questionType === 'true-false-not-given')
+            (section.questionType === 'reading-open-questions' ||
+              section.questionType === 'true-false-not-given' ||
+            (isFlexiblePrepareReadingWriting &&
+              ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(section.questionType)))
           ) {
             questions.push({
               partIndex: pIdx,
@@ -1662,7 +1744,9 @@ const ExamCoreReadingRuntimePage = ({
               section,
               part,
             });
-            qNum += getQuestionCountForSection(section);
+            qNum += section.questionType === 'word-bank-completion'
+              ? (q.items?.length || 0)
+              : getQuestionCountForSection(section);
           } else if (section.questionType === 'short-message' || section.questionType === 'story-writing') {
             // Free-writing tasks still need their real paper numbers for footer navigation.
             questions.push({
@@ -1746,7 +1830,7 @@ const ExamCoreReadingRuntimePage = ({
       nextFallbackNumber += 1;
       return normalizedEntries;
     }, []);
-  }, [examType, getStructuredSectionPrimaryQuestionIndex, isGatewayReadingWriting, resolveExplicitQuestionNumber, routeTestType, test?.parts, test?.testType]);
+  }, [examType, getStructuredSectionPrimaryQuestionIndex, isFlexiblePrepareReadingWriting, isGatewayReadingWriting, resolveExplicitQuestionNumber, routeTestType, test?.parts, test?.testType]);
 
   const isNumberedQuestion = useCallback((q) => Number.isFinite(q?.questionNumber), []);
 
@@ -1801,6 +1885,18 @@ const ExamCoreReadingRuntimePage = ({
       if (typeof val === 'string') return val.trim().length > 0;
       return Boolean(val);
     }
+    if (q.section?.questionType === 'conditional-sentence-completion') {
+      return (q.question?.items || []).every((_, itemIndex) => (
+        [0, 1].every((blankIndex) => String(
+          answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+        ).trim())
+      ));
+    }
+    if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(q.section?.questionType)) {
+      return (q.question?.items || []).every((_, itemIndex) => (
+        String(answers[`${q.partIndex}-${q.sectionIndex}-${q.questionIndex}-${itemIndex}`] || '').trim()
+      ));
+    }
     if (q.section?.questionType === 'word-drag-cloze') {
       // WDC stores answers as `${partIdx}-${sectionIdx}-blank-${blank.number}`
       const wdcPrefix = `${q.partIndex}-${q.sectionIndex}`;
@@ -1819,10 +1915,26 @@ const ExamCoreReadingRuntimePage = ({
     if (isGatewayReadingWriting) {
       return numberedQuestions.reduce((count, question) => {
         const questionType = question.section?.questionType;
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
+          const items = Array.isArray(question.question?.items) ? question.question.items : [];
+          return count + items.filter((_, itemIndex) => (
+            [0, 1].every((blankIndex) => String(
+              answers[`${question.partIndex}-${question.sectionIndex}-${question.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+            ).trim())
+          )).length;
+        }
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+          const items = Array.isArray(question.question?.items) ? question.question.items : [];
+          return count + items.filter((_, itemIndex) => (
+            String(answers[`${question.partIndex}-${question.sectionIndex}-${question.questionIndex}-${itemIndex}`] || '').trim()
+          )).length;
+        }
         if (questionType === 'reading-open-questions') {
           const items = Array.isArray(question.question?.items) ? question.question.items : [];
           return count + items.filter((_, index) => (
-            String(answers[`${question.partIndex}-${question.sectionIndex}-${index}`] || '').trim()
+            isPrepareReadingWriting && question.question.exerciseMode === 'two-blanks'
+              ? [0, 1].every((blank) => String(answers[`${question.partIndex}-${question.sectionIndex}-${index}-${blank}`] || '').trim())
+              : String(answers[`${question.partIndex}-${question.sectionIndex}-${index}`] || '').trim()
           )).length;
         }
         if (questionType === 'true-false-not-given') {
@@ -1836,7 +1948,7 @@ const ExamCoreReadingRuntimePage = ({
     }
 
     return numberedQuestions.filter((q) => isQuestionAnswered(q)).length;
-  }, [answers, isGatewayReadingWriting, isQuestionAnswered, numberedQuestions]);
+  }, [answers, isGatewayReadingWriting, isPrepareReadingWriting, isQuestionAnswered, numberedQuestions]);
 
   const totalQuestions = isGatewayReadingWriting
     ? (test?.parts || []).reduce(
@@ -1858,9 +1970,12 @@ const ExamCoreReadingRuntimePage = ({
   const isGatewayOpenQuestionSection = isGatewayReadingWriting
     && currentQuestion?.section?.questionType === 'reading-open-questions';
   const isGatewaySinglePanelSection = isGatewayReadingWriting
-    && ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
+    && ((isLegacyPrepareReadingWriting && isGatewayOpenQuestionSection) ||
+      (isFlexiblePrepareReadingWriting &&
+        ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion?.section?.questionType)) ||
+      ['grammar-a', 'vocabulary-b', 'useofenglish-a'].includes(
       String(currentQuestion?.section?.sectionTitle || '').trim().toLowerCase().replace(/\s+/g, '')
-    );
+    ));
   useEffect(() => {
     if (
       !isGatewayReadingWriting
@@ -2185,8 +2300,8 @@ const ExamCoreReadingRuntimePage = ({
       {!started && !submitted && !loading && !error && (
         <TestStartModal
           iconName="reading"
-          eyebrow={examType === generalDisplayName ? generalDisplayName : `Cambridge ${examType}`}
-          subtitle="Reading Test"
+          eyebrow={isPrepareReadingWriting ? 'Prepare' : examType === generalDisplayName ? generalDisplayName : `Cambridge ${examType}`}
+          subtitle={isPrepareReadingWriting ? 'Reading & Writing' : 'Reading Test'}
           title={test?.title || localizedTestConfigName || 'Cambridge Reading'}
           stats={[
             { value: Math.round(effectiveDuration), label: 'Minutes', tone: 'sky' },
@@ -3159,7 +3274,9 @@ const ExamCoreReadingRuntimePage = ({
                                   </tbody>
                                 </table>
                                 <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#475569' }}>
-                                  Writing is graded separately by your teacher and contributes to the total test score of 60 points.
+                                  {isPrepareReadingWriting
+                                    ? 'Writing is graded separately by your teacher (up to 10 points); the website does not add this score.'
+                                    : 'Writing is graded separately by your teacher and contributes to the total test score of 60 points.'}
                                 </p>
                               </div>
                             )}
@@ -3240,7 +3357,9 @@ const ExamCoreReadingRuntimePage = ({
                             fontSize: '13px', 
                             color: '#6b7280' 
                           }}>
-                            {isGatewayWriting
+                            {isPrepareReadingWriting
+                              ? `Write about ${wordLimit.min} words`
+                              : isGatewayWriting
                               ? `Write ${wordLimit.min}–${wordLimit.max} words`
                               : `${wordLimit.min} words or more`}
                           </p>
@@ -3252,7 +3371,9 @@ const ExamCoreReadingRuntimePage = ({
                           value={userAnswer}
                           onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
                           disabled={submitted}
-                          placeholder={`Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
+                          placeholder={isPrepareReadingWriting
+                            ? `Write your ${messageType} here (about ${wordLimit.min} words)...`
+                            : `Write your ${messageType} here (${wordLimit.min}-${wordLimit.max} words)...`}
                           style={{
                             width: '100%',
                             maxWidth: '100%',
@@ -3275,7 +3396,7 @@ const ExamCoreReadingRuntimePage = ({
                         <div className="flex justify-end pr-4 text-[13px] text-slate-500 sm:pr-12">
                           <div>
                             Words: <strong style={{
-                              color: wordCount < wordLimit.min ? '#dc2626' : 
+                              color: isPrepareReadingWriting ? '#475569' : wordCount < wordLimit.min ? '#dc2626' :
                                      wordCount > wordLimit.max ? '#dc2626' : '#16a34a'
                             }}>
                               {wordCount}
@@ -3735,7 +3856,7 @@ const ExamCoreReadingRuntimePage = ({
                 {currentQuestion.section.sectionTitle || currentQuestion.section.title}
               </h3>
           )}
-          {isGatewayReadingWriting && currentQuestion?.section?.questionType === 'long-text-mc' && (
+          {isGatewayReadingWriting && ['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion?.section?.questionType) && (
             <h3 className="cambridge-section-title">
               {currentQuestion.section.sectionTitle || currentQuestion.section.title || 'Reading'}
             </h3>
@@ -3984,7 +4105,7 @@ const ExamCoreReadingRuntimePage = ({
                 <div className="cambridge-content-wrapper">
                   {/* Section Title */}
                   {!(isGatewaySinglePanelSection
-                    || (isGatewayReadingWriting && currentQuestion.section.questionType === 'long-text-mc'))
+                    || (isGatewayReadingWriting && ['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion.section.questionType)))
                     && (currentQuestion.section.sectionTitle || currentQuestion.section.title) && (
                     <h3 className="cambridge-section-title">
                       {currentQuestion.section.sectionTitle || currentQuestion.section.title}
@@ -3992,14 +4113,14 @@ const ExamCoreReadingRuntimePage = ({
                   )}
 
               {/* For long-text-mc: Show ALL questions in section */}
-              {currentQuestion.section.questionType === 'long-text-mc' && currentQuestion.question.questions ? (
+              {['long-text-mc', 'prepare-reading-comprehension'].includes(currentQuestion.section.questionType) && currentQuestion.question.questions ? (
                 <div>
                   {/* Render all nested questions at once */}
                   {allQuestions
                     .filter(q => 
                       q.partIndex === currentQuestion.partIndex && 
                       q.sectionIndex === currentQuestion.sectionIndex &&
-                      q.section.questionType === 'long-text-mc'
+                      ['long-text-mc', 'prepare-reading-comprehension'].includes(q.section.questionType)
                     )
                     .map((q) => {
                       const nestedQuestions = Array.isArray(q.question?.questions) ? q.question.questions : [];
@@ -4402,10 +4523,19 @@ const ExamCoreReadingRuntimePage = ({
                       </span>
                     )}
 
-                    <QuestionDisplayFactory
-                      section={{ 
+                    {isLegacyPrepareReadingWriting && isGatewayOpenQuestionSection ? (
+                    <PrepareQuestionsDisplay
+                      section={{ ...currentQuestion.section, id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`, questions: [currentQuestion.question] }}
+                      startingNumber={currentQuestion.questionNumber}
+                      onAnswerChange={handleAnswerChange}
+                      answers={answers}
+                      submitted={submitted}
+                    />) : <QuestionDisplayFactory
+                      section={{
                         ...currentQuestion.section,
-                        id: `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
+                        id: ['word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentQuestion.section.questionType)
+                          ? `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}-${currentQuestion.questionIndex}`
+                          : `${currentQuestion.partIndex}-${currentQuestion.sectionIndex}`,
                         questions: [currentQuestion.question],
                       }}
                       questionType={currentQuestion.section.questionType}
@@ -4420,7 +4550,7 @@ const ExamCoreReadingRuntimePage = ({
                       gatewayQuestionNumbers={isGatewayReadingWriting}
                       gatewayMetadata={currentQuestion.section.questions?.[0] || {}}
                       sectionQuestionCount={currentQuestion.section.questions?.length || 1}
-                    />
+                    />}
                   </div>
                 </div>
               )}
@@ -4475,11 +4605,31 @@ const ExamCoreReadingRuntimePage = ({
                 ));
                 const getGroupAnsweredCount = (group) => {
                   const questionType = group.section.questionType;
+                  if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)) {
+                    return group.entries.reduce((count, entry) => (
+                      count + (entry.question?.items || []).filter((_, itemIndex) => (
+                        Boolean(String(
+                          answers[`${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`] || ''
+                        ).trim())
+                      )).length
+                    ), 0);
+                  }
+                  if (['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)) {
+                    return group.entries.reduce((count, entry) => (
+                      count + (entry.question?.items || []).filter((_, itemIndex) => (
+                        [0, 1].every((blankIndex) => Boolean(String(
+                          answers[`${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}-${blankIndex}`] || ''
+                        ).trim()))
+                      )).length
+                    ), 0);
+                  }
                   const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
                   if (groupedType) {
                     const itemCount = getQuestionCountForSection(group.section);
                     return Array.from({ length: itemCount }, (_, index) => (
-                      String(answers[`${group.partIndex}-${group.sectionIndex}-${index}`] || '').trim()
+                      isPrepareReadingWriting && group.section.questions?.[0]?.exerciseMode === 'two-blanks'
+                        ? [0, 1].every((blank) => String(answers[`${group.partIndex}-${group.sectionIndex}-${index}-${blank}`] || '').trim())
+                        : String(answers[`${group.partIndex}-${group.sectionIndex}-${index}`] || '').trim()
                     )).filter(Boolean).length;
                   }
                   return group.entries.reduce((count, entry) => count + Number(isQuestionAnswered(entry)), 0);
@@ -4529,7 +4679,45 @@ const ExamCoreReadingRuntimePage = ({
                           const groupedType = questionType === 'reading-open-questions' || questionType === 'true-false-not-given';
                           const groupedCount = groupedType ? getQuestionCountForSection(activeGroup.section) : 0;
                           const hasIndividualGroupedItems = groupedCount > 1 && activeGroup.entries.length === 1;
-                          const questionButtons = hasIndividualGroupedItems
+                          const questionButtons = ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(questionType)
+                            ? activeGroup.entries.flatMap((entry) => (
+                              (entry.question?.items || []).map((_, itemIndex) => {
+                                const questionNumber = entry.questionNumber + itemIndex;
+                                const questionIndex = questionIndexByKey.get(entry.key) ?? -1;
+                                const answerKey = `${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`;
+                                return {
+                                  key: `${entry.key}-item-${itemIndex}`,
+                                  entry,
+                                  questionIndex,
+                                  questionNumber,
+                                  targetQuestionNumber: questionNumber,
+                                  isAnswered: Boolean(String(answers[answerKey] || '').trim()),
+                                  isActive: currentQuestionIndex === questionIndex
+                                    && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
+                                };
+                              })
+                            ))
+                            : ['word-bank-completion', 'conditional-sentence-completion'].includes(questionType)
+                            ? activeGroup.entries.flatMap((entry) => (
+                              (entry.question?.items || []).map((_, itemIndex) => {
+                                const questionNumber = entry.questionNumber + itemIndex;
+                                const questionIndex = questionIndexByKey.get(entry.key) ?? -1;
+                                const answerKey = `${entry.partIndex}-${entry.sectionIndex}-${entry.questionIndex}-${itemIndex}`;
+                                return {
+                                  key: `${entry.key}-item-${itemIndex}`,
+                                  entry,
+                                  questionIndex,
+                                  questionNumber,
+                                  targetQuestionNumber: questionNumber,
+                                  isAnswered: [0, 1].every((blankIndex) => Boolean(String(
+                                    answers[`${answerKey}-${blankIndex}`] || ''
+                                  ).trim())),
+                                  isActive: currentQuestionIndex === questionIndex
+                                    && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
+                                };
+                              })
+                            ))
+                            : hasIndividualGroupedItems
                             ? Array.from({ length: groupedCount }, (_, itemIndex) => {
                               const entry = activeGroup.entries[0];
                               const questionNumber = entry.questionNumber + itemIndex;
@@ -4541,7 +4729,9 @@ const ExamCoreReadingRuntimePage = ({
                                 questionIndex,
                                 questionNumber,
                                 targetQuestionNumber: questionNumber,
-                                isAnswered: Boolean(String(answers[answerKey] || '').trim()),
+                                isAnswered: isPrepareReadingWriting && activeGroup.section.questions?.[0]?.exerciseMode === 'two-blanks'
+                                  ? [0, 1].every((blank) => Boolean(String(answers[`${answerKey}-${blank}`] || '').trim()))
+                                  : Boolean(String(answers[answerKey] || '').trim()),
                                 isActive: currentQuestionIndex === questionIndex
                                   && (gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber) === questionNumber,
                               };

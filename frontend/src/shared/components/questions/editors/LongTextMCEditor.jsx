@@ -36,6 +36,7 @@ const LongTextMCEditor = ({
   const passage = safeQuestion?.passage || '';
   const passageValue = typeof passage === 'string' ? passage : '';
   const isGatewayReading = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
+    && !safeQuestion.prepareReadingMode
     && (safeQuestion.gatewayReadingMode || String(sectionTitle || '').trim().toLowerCase() === 'reading');
   const isPet = String(testType || '').toLowerCase().includes('pet');
   const defaultOptionCount = isPet ? 4 : 3;
@@ -446,7 +447,7 @@ const LongTextMCEditor = ({
           <h3 style={{ margin: 0, fontSize: "14px", color: "#374151" }}>
             {questions.length} Câu hỏi Multiple Choice
           </h3>
-          <button
+          {!safeQuestion.prepareReadingMode && <button
             type="button"
             onClick={handleAddQuestion}
             style={{
@@ -464,7 +465,7 @@ const LongTextMCEditor = ({
             }}
           >
             Thêm câu hỏi
-          </button>
+          </button>}
         </div>
 
         {questions.map((q, qIdx) => (
@@ -477,7 +478,7 @@ const LongTextMCEditor = ({
             position: "relative",
           }}>
             {/* Delete button */}
-            {questions.length > 1 && (
+            {!safeQuestion.prepareReadingMode && questions.length > 1 && (
               <button
                 type="button"
                 onClick={() => handleDeleteQuestion(qIdx)}

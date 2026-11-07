@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import { isPrepareReadingWriting } from "../prepare/prepareReadingWriting";
 import "./ExamLevelSubmissionsPage.css";
 
 const formatValue = (value) => {
@@ -69,6 +70,7 @@ const ExamLevelSubmissionReviewPage = () => {
   };
 
   const submission = data?.submission;
+  const isPrepare = isPrepareReadingWriting(data?.test?.parts);
   const results = Object.entries(submission?.detailedResults || {}).sort(([left], [right]) =>
     left.localeCompare(right, undefined, { numeric: true })
   );
@@ -93,6 +95,7 @@ const ExamLevelSubmissionReviewPage = () => {
               <div className="exam-level-submissions__score">
                 <strong>{Number(submission.score || 0)} / {Number(submission.totalQuestions || 0)}</strong>
                 <span>{Number(submission.percentage || 0).toFixed(1)}% · {submission.status}</span>
+                {isPrepare && <span>Điểm tự chấm /50; Writing (W) chấm riêng /10 ngoài website.</span>}
               </div>
             </header>
             <section className="exam-level-submissions__details">
@@ -106,10 +109,12 @@ const ExamLevelSubmissionReviewPage = () => {
                     <tbody>
                       {results.map(([key, result]) => (
                         <tr key={key}>
-                          <th>{key}</th>
+                          <th>{isPrepare ? (result?.questionNumber ?? (result?.questionType === "short-message" ? "W" : key)) : key}</th>
                           <td>{formatValue(result?.userAnswer ?? result?.answer)}</td>
                           <td>{formatValue(result?.correctAnswer ?? result?.expectedAnswer)}</td>
-                          <td>{result?.isCorrect === true ? "Correct" : result?.isCorrect === false ? "Incorrect" : "Manual review"}</td>
+                          <td>{result?.maxPoints != null
+                            ? `${result.earnedPoints}/${result.maxPoints}`
+                            : result?.isCorrect === true ? "Correct" : result?.isCorrect === false ? "Incorrect" : "Manual review"}</td>
                         </tr>
                       ))}
                     </tbody>

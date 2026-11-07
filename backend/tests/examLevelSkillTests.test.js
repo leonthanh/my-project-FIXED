@@ -18,6 +18,7 @@ jest.mock("../modules/cambridge/shared/scoring", () => ({
 }));
 jest.mock("../modules/cambridge/shared/readingTestUtils", () => ({
   countTotalQuestionsFromParts: jest.fn(() => 3),
+  safeParseParts: jest.fn((parts) => typeof parts === "string" ? JSON.parse(parts) : parts),
 }));
 
 const { ExamLevel, ExamLevelTest } = require("../models");
@@ -134,6 +135,88 @@ describe("exam level skill test adapter", () => {
       message: "Test type does not match this level's configured skill template.",
     });
     expect(ExamLevelTest.create).not.toHaveBeenCalled();
+  });
+
+  test("rejects an invalid Prepare format rather than publishing it", async () => {
+      ExamLevel.findOne.mockResolvedValue({
+        ...level,
+        skills: ["reading-writing"],
+        skillConfig: { "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 } },
+      });
+      await expect(service.createTest({
+        code: "prepare",
+        skill: "reading-writing",
+        body: {
+          title: "Invalid",
+          classCode: "P1",
+          testType: "gateway-reading-writing",
+          parts: [{ examFormat: "prepare-reading-writing-v1", sections: [] }],
+        },
+      })).rejects.toMatchObject({ statusCode: 400, message: "Invalid Prepare Reading & Writing test structure." });
+      expect(ExamLevelTest.create).not.toHaveBeenCalled();
+  });
+
+  test("saves a valid incomplete flexible Prepare test as a draft", async () => {
+    ExamLevel.findOne.mockResolvedValue({
+      ...level,
+      skills: ["reading-writing"],
+      skillConfig: {
+        "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 },
+      },
+    });
+    const parts = [{
+      examFormat: "prepare-reading-writing-v2",
+      title: "Vocabulary",
+      sections: [{
+        sectionTitle: "Vocabulary - Exercise 1",
+        questionType: "word-bank-completion",
+        preparePointsPerAnswer: 0.5,
+        questions: [{
+          wordBanks: [
+            { label: "A", words: ["went"] },
+            { label: "B", words: ["out"] },
+          ],
+          example: { questionText: "We {1} {2}.", blankAnswers: ["went", "out"] },
+          items: Array.from({ length: 5 }, (_, index) => ({
+            questionText: `Sentence ${index + 1} {1} {2}.`,
+            blankAnswers: ["went", "out"],
+          })),
+        }],
+      }],
+    }];
+    ExamLevelTest.create.mockResolvedValue({ id: 21, status: "draft" });
+
+    await service.createTest({
+      code: "prepare",
+      skill: "reading-writing",
+      user: { id: 8, role: "teacher" },
+      body: {
+        title: "Prepare Vocabulary",
+        classCode: "P1",
+        testType: "gateway-reading-writing",
+        status: "draft",
+        parts,
+      },
+    });
+
+    expect(ExamLevelTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "draft", parts })
+    );
+  });
+
+  test("cannot remove Prepare format from an existing Prepare test", async () => {
+      ExamLevel.findOne.mockResolvedValue({
+        ...level,
+        skills: ["reading-writing"],
+        skillConfig: { "reading-writing": { templateId: "gateway-reading-writing", durationMinutes: 60 } },
+      });
+      ExamLevelTest.findOne.mockResolvedValue({ parts: [{ examFormat: "prepare-reading-writing-v1", sections: [] }] });
+      await expect(service.updateTest({
+        code: "prepare",
+        skill: "reading-writing",
+        id: 20,
+        body: { parts: [{ sections: [] }] },
+      })).rejects.toMatchObject({ statusCode: 400, message: "Invalid Prepare Reading & Writing test structure." });
   });
 
   test("does not expose non-published tests to students", async () => {

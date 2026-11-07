@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../db");
+const { jsonFieldGetter } = require("./examLevelJson");
 
 module.exports = sequelize.define(
   "ExamLevelSubmission",
@@ -52,6 +53,7 @@ module.exports = sequelize.define(
     answers: {
       type: DataTypes.JSON,
       allowNull: false,
+      get: jsonFieldGetter("answers", "object"),
     },
     score: {
       type: DataTypes.FLOAT,
@@ -71,6 +73,7 @@ module.exports = sequelize.define(
     detailedResults: {
       type: DataTypes.JSON,
       allowNull: true,
+      get: jsonFieldGetter("detailedResults", "object"),
     },
     timeSpent: {
       type: DataTypes.INTEGER,
@@ -87,6 +90,7 @@ module.exports = sequelize.define(
     responseFeedback: {
       type: DataTypes.JSON,
       allowNull: true,
+      get: jsonFieldGetter("responseFeedback", "object"),
     },
     status: {
       type: DataTypes.ENUM("submitted", "reviewed", "archived"),
@@ -109,6 +113,7 @@ module.exports = sequelize.define(
     progressMeta: {
       type: DataTypes.JSON,
       allowNull: true,
+      get: jsonFieldGetter("progressMeta", "object"),
     },
     submittedAt: {
       type: DataTypes.DATE,
