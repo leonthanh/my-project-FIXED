@@ -1552,7 +1552,10 @@ export const getPrepareReadingWritingQuestionTypes = () => {
     .filter((typeId, index, allTypeIds) => allTypeIds.indexOf(typeId) === index)
     .filter((typeId) => typeId !== 'multiple-choice-pictures')
     .map((typeId) => QUESTION_TYPES[typeId])
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((questionType) => questionType.id === 'story-writing'
+      ? { ...questionType, scopeLabel: 'PET/General/PP' }
+      : questionType);
 };
 
 /**

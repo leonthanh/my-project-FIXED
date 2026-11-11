@@ -8,6 +8,7 @@ import {
 } from "../../../../shared/utils/placementTests";
 import TestHeader from "../../../../shared/components/TestHeader";
 import GATEWAY_WRITING_RUBRIC from "../../../../shared/config/gatewayWritingRubric";
+import PREPARE_WRITING_RUBRIC from "../../../../shared/config/prepareWritingRubric";
 import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
@@ -25,6 +26,7 @@ import PrepositionGapFillDisplay from "../../../../shared/components/questions/d
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
 /* eslint-disable-next-line no-unused-vars */
 import ClozeMCDisplay from "../../../../shared/components/questions/displays/ClozeMCDisplay";
+
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
 import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
 import PrepareQuestionsDisplay from "../../../exam-levels/prepare/PrepareQuestionsDisplay";
@@ -53,6 +55,29 @@ import {
   useDisplaySettings,
 } from "../../../../shared/contexts/DisplaySettingsContext";
 import "./ExamCoreReadingRuntime.css";
+
+const escapeWritingPromptText = (value) => String(value || "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
+
+const buildPrepareStoryWritingPrompt = (question) => {
+  const title = String(question?.title || "").trim();
+  const instructions = String(question?.instructions || "").trim();
+  const story = String(question?.story || "").trim();
+  const formattedStory = story
+    ? (/^\s*</.test(story)
+      ? story
+      : `<p>${escapeWritingPromptText(story).replace(/\r?\n/g, "<br>")}</p>`)
+    : "";
+  return [
+    title ? `<h3>${escapeWritingPromptText(title)}</h3>` : "",
+    instructions ? `<p><strong>${escapeWritingPromptText(instructions)}</strong></p>` : "",
+    formattedStory,
+  ].filter(Boolean).join("");
+};
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
@@ -3223,8 +3248,15 @@ const ExamCoreReadingRuntimePage = ({
                 <div className="cambridge-passage-container">
                   {(() => {
                     const q = currentQuestion.question || {};
-                    const isGatewayWriting = isGatewayReadingWriting && q.gatewayWritingMode;
-                    const situation = q.situation || '';
+                    const isPrepareWriting = isPrepareReadingWriting && (
+                      q.prepareWritingMode || q.gatewayWritingMode
+                    );
+                    const isGatewayWriting = !isPrepareWriting && isGatewayReadingWriting && q.gatewayWritingMode;
+                    const isPrepareStoryWriting = isPrepareWriting &&
+                      currentQuestion.section.questionType === 'story-writing';
+                    const situation = q.situation || (
+                      isPrepareStoryWriting ? buildPrepareStoryWritingPrompt(q) : ''
+                    );
                     const mediaUrls = Array.isArray(q.mediaUrls)
                       ? q.mediaUrls.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 3)
                       : [];
@@ -3246,7 +3278,7 @@ const ExamCoreReadingRuntimePage = ({
                               fontWeight: 700, 
                               color: '#1f2937' 
                             }}>
-                              {isGatewayWriting ? 'Writing task:' : 'Situation:'}
+                              {isPrepareWriting || isGatewayWriting ? 'Writing task:' : 'Situation:'}
                             </h4>
                             <div 
                               style={{
@@ -3257,14 +3289,14 @@ const ExamCoreReadingRuntimePage = ({
                               dangerouslySetInnerHTML={{ __html: sanitizeQuillHtml(situation) }}
                               className="situation-content"
                             />
-                            {isGatewayWriting && (
+                            {(isPrepareWriting || isGatewayWriting) && (
                               <div style={{ marginTop: '18px', padding: '14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#1f2937' }}>
-                                <strong>Writing assessment: 10 points</strong>
+                                <strong>{isPrepareWriting ? 'Prepare Writing rubric: 10 points' : 'Writing assessment: 10 points'}</strong>
                                 <table style={{ width: '100%', marginTop: '8px', borderCollapse: 'collapse', fontSize: '13px' }}>
                                   <tbody>
                                     {(Array.isArray(q.writingRubric) && q.writingRubric.length
                                       ? q.writingRubric
-                                      : GATEWAY_WRITING_RUBRIC
+                                      : isPrepareWriting ? PREPARE_WRITING_RUBRIC : GATEWAY_WRITING_RUBRIC
                                     ).map((criterion) => (
                                       <tr key={criterion.criterion}>
                                         <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0' }}>{criterion.criterion}</td>
@@ -3275,7 +3307,7 @@ const ExamCoreReadingRuntimePage = ({
                                 </table>
                                 <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#475569' }}>
                                   {isPrepareReadingWriting
-                                    ? 'Writing is graded separately by your teacher (up to 10 points); the website does not add this score.'
+                                    ? 'Writing is graded separately by your teacher (up to 10 points); it is not included in the website score out of 50.'
                                     : 'Writing is graded separately by your teacher and contributes to the total test score of 60 points.'}
                                 </p>
                               </div>
@@ -3323,9 +3355,16 @@ const ExamCoreReadingRuntimePage = ({
                 <div className="cambridge-content-wrapper">
                   {(() => {
                     const q = currentQuestion.question || {};
-                    const messageType = q.messageType || 'email';
-                    const wordLimit = q.wordLimit || { min: 25, max: 35 };
-                    const isGatewayWriting = isGatewayReadingWriting && q.gatewayWritingMode;
+                    const isPrepareWriting = isPrepareReadingWriting && (
+                      q.prepareWritingMode || q.gatewayWritingMode
+                    );
+                    const messageType = q.messageType || (isPrepareWriting ? 'letter' : 'email');
+                    const hasDefaultMessageWordLimit = Number(q.wordLimit?.min) === 25 &&
+                      Number(q.wordLimit?.max) === 35;
+                    const wordLimit = isPrepareWriting && (!q.wordLimit || hasDefaultMessageWordLimit)
+                      ? { min: 80, max: 80 }
+                      : q.wordLimit || { min: 25, max: 35 };
+                    const isGatewayWriting = !isPrepareWriting && isGatewayReadingWriting && q.gatewayWritingMode;
                     const questionKey = currentQuestion.key;
                     const userAnswer = answers[questionKey] || '';
                     const wordCount = userAnswer.trim().split(/\s+/).filter(w => w).length;

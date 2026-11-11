@@ -7,6 +7,7 @@ test('question type options show concise supported-level suffixes', () => {
   const onChange = jest.fn();
   const questionTypes = [
     { id: 'prepare-type', labelVi: 'Prepare question', supportedTests: ['prepare-reading-writing'] },
+    { id: 'prepare-story', labelVi: 'Viết truyện ngắn', scopeLabel: 'PET/General/PP' },
     QUESTION_TYPES['reported-command-completion'],
     { id: 'ket-pet-type', labelVi: 'Cambridge question', supportedTests: ['ket-reading', 'pet-reading'] },
     {
@@ -25,6 +26,7 @@ test('question type options show concise supported-level suffixes', () => {
   );
 
   expect(screen.getByRole('option', { name: 'Prepare question - PP' })).toBeTruthy();
+  expect(screen.getByRole('option', { name: 'Viết truyện ngắn - PET/General/PP' })).toBeTruthy();
   expect(screen.getByRole('option', { name: 'Viết lại câu mệnh lệnh gián tiếp - PP' })).toBeTruthy();
   expect(screen.getByRole('option', { name: 'Cambridge question - KET/PET' })).toBeTruthy();
   expect(screen.getByRole('option', { name: 'Shared question - Dùng chung' })).toBeTruthy();

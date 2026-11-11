@@ -134,4 +134,26 @@ describe('ShortMessageEditor', () => {
     expect(screen.getByText('Cohesion/Coherence')).toBeInTheDocument();
     expect(screen.getByText('Write 100–120 words')).toBeInTheDocument();
   });
+
+  test('shows the Prepare rubric and 80-word target without using the Gateway rubric', () => {
+    render(
+      <Harness
+        testType="gateway-reading-writing"
+        sectionTitle="Writing"
+        initialQuestion={buildQuestion({
+          prepareWritingMode: true,
+          messageType: 'letter',
+          wordLimit: { min: 80, max: 80 },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Prepare Writing rubric: 10 points')).toBeInTheDocument();
+    expect(screen.getByText('Content')).toBeInTheDocument();
+    expect(screen.getByText('Communicative Achievement')).toBeInTheDocument();
+    expect(screen.getByText('Organisation')).toBeInTheDocument();
+    expect(screen.getByText('Language')).toBeInTheDocument();
+    expect(screen.queryByText('Task Achievement')).not.toBeInTheDocument();
+    expect(screen.getByText('Write about 80 words')).toBeInTheDocument();
+  });
 });

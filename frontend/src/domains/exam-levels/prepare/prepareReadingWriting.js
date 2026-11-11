@@ -1,15 +1,22 @@
 import { getDefaultQuestionData, getPrepareReadingWritingQuestionTypes } from "../../../shared/config/questionTypes";
+import PREPARE_WRITING_RUBRIC from "../../../shared/config/prepareWritingRubric";
 import { getQuestionCountForSection } from "../../exam-core/shared/utils/examQuestionNumbering";
 
 export const PREPARE_READING_WRITING_FORMAT = "prepare-reading-writing-v1";
 export const PREPARE_FLEXIBLE_READING_WRITING_FORMAT = "prepare-reading-writing-v2";
 
-export const PREPARE_WRITING_RUBRIC = [
-  { criterion: "Content", points: 2.5 },
-  { criterion: "Communicative Achievement", points: 2.5 },
-  { criterion: "Organisation", points: 2.5 },
-  { criterion: "Language", points: 2.5 },
-];
+export { PREPARE_WRITING_RUBRIC };
+
+export const PREPARE_WRITING_PROMPT = `<p><strong>Read part of a letter from your English friend Katie. Then write a reply to Katie's letter answering her questions. Write about 80 words.</strong></p><p><em>I don't know what to do this weekend. All my friends are going away. What kinds of things do you like doing in your free time? Have you done anything amazing lately? Have you got plans for next weekend? If you were me, what would you do?</em></p>`;
+
+export const createPrepareWritingQuestionData = () => ({
+  ...getDefaultQuestionData("short-message"),
+  prepareWritingMode: true,
+  situation: PREPARE_WRITING_PROMPT,
+  messageType: "letter",
+  wordLimit: { min: 80, max: 80 },
+  writingRubric: PREPARE_WRITING_RUBRIC,
+});
 
 const EXERCISES = [
   { title: "Vocabulary - Exercise 1", mode: "two-blanks", banks: 2 },
@@ -92,10 +99,14 @@ export const markFlexiblePrepareParts = (parts) => {
         : 1,
       questions: (section.questions || []).map((question) => {
         if (!["short-message", "story-writing"].includes(section.questionType)) return question;
+        const defaultWordLimit = Number(question?.wordLimit?.min) === 25 &&
+          Number(question?.wordLimit?.max) === 35;
         return {
           ...question,
-          gatewayWritingMode: true,
           prepareWritingMode: true,
+          ...(section.questionType === "short-message" && (!question?.wordLimit || defaultWordLimit)
+            ? { wordLimit: { min: 80, max: 80 } }
+            : {}),
           writingRubric: Array.isArray(question.writingRubric) && question.writingRubric.length
             ? question.writingRubric
             : PREPARE_WRITING_RUBRIC,
@@ -162,12 +173,8 @@ export const buildPrepareReadingWritingParts = () => [{
       sectionTitle: "Writing",
       questionType: "short-message",
       questions: [{
-        ...getDefaultQuestionData("short-message"),
+        ...createPrepareWritingQuestionData(),
         gatewayWritingMode: true,
-        prepareWritingMode: true,
-        messageType: "email",
-        wordLimit: { min: 80, max: 80 },
-        writingRubric: PREPARE_WRITING_RUBRIC,
       }],
     },
   ],
@@ -247,10 +254,12 @@ export const validateFlexiblePrepareReadingWritingParts = (
         [question?.mediaUrl, ...(Array.isArray(question?.mediaUrls) ? question.mediaUrls : [])]
           .some((url) => String(url || "").trim())
       )) return `${label}: nhập yêu cầu Writing hoặc thêm hình minh họa.`;
-      if (section.questionType === "story-writing" && !section.questions.every((question) =>
+      if (section.questionType === "story-writing" && !section.questions.every((question) => (
         String(question?.openingSentence || "").replace(/<[^>]*>/g, "").trim() ||
-        String(question?.prompt || "").replace(/<[^>]*>/g, "").trim()
-      )) return `${label}: nhập câu mở đầu hoặc yêu cầu Writing.`;
+        String(question?.prompt || "").replace(/<[^>]*>/g, "").trim() ||
+        String(question?.instructions || "").replace(/<[^>]*>/g, "").trim() ||
+        String(question?.story || "").replace(/<[^>]*>/g, "").trim()
+      ))) return `${label}: nhập hướng dẫn hoặc nội dung cho đề Writing.`;
       if (section.questionType === "word-bank-completion" && section.questions.some((question) => (
         !Array.isArray(question?.wordBanks) ||
         question.wordBanks.length !== 2 ||

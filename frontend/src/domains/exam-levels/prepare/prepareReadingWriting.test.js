@@ -2,6 +2,7 @@ import {
   buildPrepareReadingWritingParts,
   countPrepareScoringUnitsForSection,
   createFlexiblePrepareParts,
+  createPrepareWritingQuestionData,
   getFlexiblePrepareDraftParts,
   getPrepareTotalPoints,
   isPrepareReadingWriting,
@@ -21,12 +22,39 @@ test("Prepare blueprint has 50 numbered questions and a separate W rubric", () =
   expect(sections).toHaveLength(11);
   expect(sections.map(getQuestionCountForSection)).toEqual([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0]);
   expect(sections[10].questions[0].writingRubric).toEqual(PREPARE_WRITING_RUBRIC);
+  expect(sections[10].questions[0].messageType).toBe("letter");
+  expect(sections[10].questions[0].wordLimit).toEqual({ min: 80, max: 80 });
   expect(PREPARE_WRITING_RUBRIC.reduce((sum, item) => sum + item.points, 0)).toBe(10);
   expect(validatePrepareReadingWritingParts(parts)).toMatch(/nhập nội dung/i);
 });
 
 test("legacy gateway is not classified as Prepare", () => {
   expect(isPrepareReadingWriting([{ sections: [] }])).toBe(false);
+});
+
+test("Prepare marks the reusable PET story-writing option with a PP scope label", () => {
+  const storyWriting = getPrepareReadingWritingQuestionTypes().find((type) => type.id === "story-writing");
+
+  expect(storyWriting.scopeLabel).toBe("PET/General/PP");
+});
+
+test("Prepare story-writing accepts the title, instructions, and source text from its editor", () => {
+  const parts = createFlexiblePrepareParts();
+  const section = parts[0].sections[0];
+  section.questionType = "story-writing";
+  section.questions = [{
+    prepareWritingMode: true,
+    title: "Katie's letter",
+    instructions: "Write a reply to Katie's letter. Write about 80 words.",
+    story: "I don't know what to do this weekend.",
+    questions: [],
+  }];
+
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true })).toBe("");
+  section.questions[0].instructions = "";
+  section.questions[0].story = "";
+  expect(validateFlexiblePrepareReadingWritingParts(parts, { allowIncompleteScoring: true }))
+    .toMatch(/hướng dẫn hoặc nội dung/i);
 });
 
 test("flexible Prepare weights answer units to 50 and keeps writing separate", () => {
@@ -48,9 +76,27 @@ test("flexible Prepare weights answer units to 50 and keeps writing separate", (
   })).toBe(4);
   expect(getPrepareTotalPoints(markedParts)).toBe(50);
   expect(markedParts[0].sections[1].questions[0].writingRubric).toEqual(PREPARE_WRITING_RUBRIC);
+  expect(markedParts[0].sections[1].questions[0].prepareWritingMode).toBe(true);
+  expect(markedParts[0].sections[1].questions[0].gatewayWritingMode).toBeUndefined();
+  expect(markedParts[0].sections[1].questions[0].wordLimit).toEqual({ min: 80, max: 80 });
   expect(validateFlexiblePrepareReadingWritingParts(markedParts)).toBe("");
   markedParts[0].sections[0].preparePointsPerAnswer = 0.5;
   expect(validateFlexiblePrepareReadingWritingParts(markedParts)).toMatch(/50/);
+});
+
+test("Prepare Writing starts with the editable letter prompt and its separate 10-point rubric", () => {
+  const question = createPrepareWritingQuestionData();
+
+  expect(question.situation).toContain("Katie");
+  expect(question.situation).toContain("about 80 words");
+  expect(question.messageType).toBe("letter");
+  expect(question.wordLimit).toEqual({ min: 80, max: 80 });
+  expect(question.writingRubric).toEqual([
+    { criterion: "Content", points: 2.5 },
+    { criterion: "Communicative Achievement", points: 2.5 },
+    { criterion: "Organisation", points: 2.5 },
+    { criterion: "Language", points: 2.5 },
+  ]);
 });
 
 test("two-word-bank completion is reusable and counts each blank as a scoring unit", () => {

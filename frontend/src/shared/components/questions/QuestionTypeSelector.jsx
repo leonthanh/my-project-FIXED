@@ -16,6 +16,9 @@ const getTestFamilyLabel = (testTypeId) => {
 };
 
 export const getQuestionTypeScopeLabel = (questionType) => {
+  if (typeof questionType?.scopeLabel === "string" && questionType.scopeLabel.trim()) {
+    return questionType.scopeLabel.trim();
+  }
   const labels = [...new Set(
     (Array.isArray(questionType?.supportedTests) ? questionType.supportedTests : [])
       .map(getTestFamilyLabel)

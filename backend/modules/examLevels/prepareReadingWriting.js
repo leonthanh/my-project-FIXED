@@ -107,7 +107,10 @@ const validateFlexiblePrepareParts = (
         ![question?.mediaUrl, ...(Array.isArray(question?.mediaUrls) ? question.mediaUrls : [])].some(hasText)
       ))) return false;
       if (section.questionType === "story-writing" && section.questions.some((question) => (
-        !hasText(question?.openingSentence) && !hasText(question?.prompt)
+        !hasText(question?.openingSentence) &&
+        !hasText(question?.prompt) &&
+        !hasText(question?.instructions) &&
+        !hasText(question?.story)
       ))) return false;
       if (section.questionType === "word-bank-completion" && section.questions.some((question) => (
         !Array.isArray(question?.wordBanks) ||

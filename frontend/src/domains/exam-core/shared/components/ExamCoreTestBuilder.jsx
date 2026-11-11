@@ -37,6 +37,7 @@ import PrepareQuestionsEditor from "../../../exam-levels/prepare/PrepareQuestion
 import {
   buildPrepareReadingWritingParts,
   countPrepareScoringUnitsForSection,
+  createPrepareWritingQuestionData,
   createFlexiblePrepareParts,
   getFlexiblePrepareDraftParts,
   getPrepareSectionPoints,
@@ -1710,11 +1711,14 @@ const ExamCoreTestBuilder = ({
       const nextSections = (part.sections || []).map((section, sIdx) => {
         if (sIdx !== selectedSectionIndex) return section;
         const questions = [getDefaultQuestionData(newType)];
-        if (prepareFlexibleReadingWriting && ['short-message', 'story-writing'].includes(newType)) {
+        if (prepareFlexibleReadingWriting && newType === 'short-message') {
+          questions[0] = createPrepareWritingQuestionData();
+        } else if (prepareFlexibleReadingWriting && newType === 'story-writing') {
           questions[0] = {
             ...questions[0],
-            gatewayWritingMode: true,
             prepareWritingMode: true,
+            messageType: 'response',
+            wordLimit: { min: 80, max: 80 },
             writingRubric: PREPARE_WRITING_RUBRIC,
           };
         }
@@ -3574,7 +3578,15 @@ const ExamCoreTestBuilder = ({
                             flex: 1,
                           }}>
                             {/* Chỉ hiện số câu hỏi cho question types đơn giản, không hiện cho multi-question types */}
-                            {!['long-text-mc', 'prepare-reading-comprehension', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) && (
+                            {prepareFlexibleReadingWriting && ['short-message', 'story-writing'].includes(currentSection.questionType) ? (
+                              <span style={{
+                                fontWeight: 600,
+                                color: '#6366f1',
+                                fontSize: '14px',
+                              }}>
+                                Prepare writing
+                              </span>
+                            ) : !['long-text-mc', 'prepare-reading-comprehension', 'cloze-mc', 'cloze-test', 'short-message', 'people-matching', 'gap-match', 'matching', 'word-form', 'matching-pictures', 'image-cloze', 'word-drag-cloze', 'reading-open-questions', 'true-false-not-given', 'word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(currentSection.questionType) && (
                               <span style={{ 
                                 fontWeight: 600, 
                                 color: '#6366f1',

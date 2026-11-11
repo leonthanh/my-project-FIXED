@@ -5,6 +5,7 @@ import useQuillImageUpload from "../../../hooks/useQuillImageUpload";
 import { hostPath } from "../../../utils/api";
 import InlineIcon from "../../InlineIcon.jsx";
 import GATEWAY_WRITING_RUBRIC from "../../../config/gatewayWritingRubric";
+import PREPARE_WRITING_RUBRIC from "../../../config/prepareWritingRubric";
 
 const normalizeSituationHtml = (source = '') => {
   const html = String(source || '').trim();
@@ -104,17 +105,22 @@ const ShortMessageEditor = ({
     () => mediaUrls.map((value) => resolveShortMessageMediaUrl(value)).filter(Boolean),
     [mediaUrls]
   );
+  const isPrepareWriting = Boolean(question.prepareWritingMode);
   const messageType = typeof question.messageType === 'string' && question.messageType.trim()
     ? question.messageType.trim()
-    : 'email';
-  const wordLimit = question.wordLimit || { min: 25, max: 35 };
+    : isPrepareWriting ? 'letter' : 'email';
+  const hasDefaultMessageWordLimit = Number(question.wordLimit?.min) === 25 &&
+    Number(question.wordLimit?.max) === 35;
+  const wordLimit = isPrepareWriting && (!question.wordLimit || hasDefaultMessageWordLimit)
+    ? { min: 80, max: 80 }
+    : question.wordLimit || { min: 25, max: 35 };
   const sampleAnswer = question.sampleAnswer || '';
   const writingRubric = Array.isArray(question.writingRubric) && question.writingRubric.length
     ? question.writingRubric
-    : GATEWAY_WRITING_RUBRIC;
-  const isGatewayWriting = String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
+    : isPrepareWriting ? PREPARE_WRITING_RUBRIC : GATEWAY_WRITING_RUBRIC;
+  const isGatewayWriting = !isPrepareWriting &&
+    String(testType || '').trim().toLowerCase() === 'gateway-reading-writing'
     && (question.gatewayWritingMode || String(sectionTitle || '').trim().toLowerCase() === 'writing');
-  const isPrepareWriting = Boolean(question.prepareWritingMode);
 
   const { quillRef, modules } = useQuillImageUpload();
 
@@ -227,7 +233,7 @@ const ShortMessageEditor = ({
 
       {/* Situation */}
       <div style={{ marginBottom: "16px" }} className="short-message-editor">
-        <label style={styles.label}>{isGatewayWriting ? "Đề bài và gợi ý viết *" : "Tình huống (Situation) *"}</label>
+        <label style={styles.label}>{isPrepareWriting || isGatewayWriting ? "Đề bài và gợi ý viết *" : "Tình huống (Situation) *"}</label>
         <div style={{
           border: "1px solid #d1d5db",
           borderRadius: "6px",
@@ -238,7 +244,9 @@ const ShortMessageEditor = ({
             theme="snow"
             value={normalizedSituationValue}
             onChange={handleSituationChange}
-            placeholder={isGatewayWriting
+            placeholder={isPrepareWriting
+              ? "Nhập đề bài viết của Prepare."
+              : isGatewayWriting
               ? "Nhập đề bài blog post, các ý cần triển khai và cụm từ gợi ý."
               : "VD: You want to go to the cinema with your English friend Sam."}
             modules={modules}
@@ -250,7 +258,9 @@ const ShortMessageEditor = ({
           />
         </div>
         <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>
-          {isGatewayWriting
+          {isPrepareWriting
+            ? "Nhập đề bài cho học sinh; rubric được hiển thị trên bài thi và giáo viên chấm riêng."
+            : isGatewayWriting
             ? "Có thể sửa đề bài, gợi ý nội dung, định dạng chữ và danh sách ngay trong trình soạn thảo."
             : "Mô tả tình huống học sinh cần viết. Có thể thêm hình, định dạng text..."}
         </p>
@@ -359,7 +369,7 @@ const ShortMessageEditor = ({
               fontSize: "14px",
               fontWeight: 600,
             }}>
-              {isGatewayWriting ? sectionTitle : `Part ${partIndex + 1}`}
+              {isPrepareWriting ? sectionTitle || "Writing" : isGatewayWriting ? sectionTitle : `Part ${partIndex + 1}`}
             </div>
 
             <div style={{
@@ -378,7 +388,7 @@ const ShortMessageEditor = ({
                     fontWeight: 700,
                     color: "#1f2937",
                   }}>
-                    {isGatewayWriting ? "Writing task:" : "Situation:"}
+                    {isPrepareWriting || isGatewayWriting ? "Writing task:" : "Situation:"}
                   </h4>
                   <div
                     style={{
@@ -388,9 +398,9 @@ const ShortMessageEditor = ({
                     }}
                     dangerouslySetInnerHTML={{ __html: normalizedSituationValue || '<em style="color: #9ca3af;">(Tình huống sẽ hiển thị ở đây)</em>' }}
                   />
-                  {isGatewayWriting && (
+                  {(isPrepareWriting || isGatewayWriting) && (
                     <div style={{ marginTop: "18px", padding: "14px", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", color: "#1f2937" }}>
-                      <strong>Writing assessment: 10 points</strong>
+                      <strong>{isPrepareWriting ? "Prepare Writing rubric: 10 points" : "Writing assessment: 10 points"}</strong>
                       <table style={{ width: "100%", marginTop: "8px", borderCollapse: "collapse", fontSize: "13px" }}>
                         <tbody>
                           {writingRubric.map((criterion) => (
@@ -403,7 +413,7 @@ const ShortMessageEditor = ({
                       </table>
                       <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#475569" }}>
                         {isPrepareWriting
-                          ? "Writing is graded separately by the teacher out of 10 and is not added on this website."
+                          ? "Giáo viên chấm riêng tối đa 10 điểm; điểm này không cộng vào điểm tự chấm /50 trên website."
                           : "Writing is graded separately by your teacher and contributes to the total test score of 60 points."}
                       </p>
                     </div>

@@ -734,3 +734,27 @@ test("Prepare Reading permits incomplete question content only for drafts", () =
     allowIncompleteContent: true,
   })).toBe(false);
 });
+
+test("Prepare story-writing validates editor prompt fields", () => {
+  const parts = [{
+    examFormat: "prepare-reading-writing-v2",
+    title: "Part 4",
+    sections: [{
+      sectionTitle: "Writing",
+      questionType: "story-writing",
+      preparePointsPerAnswer: 1,
+      questions: [{
+        prepareWritingMode: true,
+        title: "Katie's letter",
+        instructions: "Write a reply to Katie's letter. Write about 80 words.",
+        story: "I don't know what to do this weekend.",
+        questions: [],
+      }],
+    }],
+  }];
+
+  expect(validatePrepareParts(parts, { allowIncompleteScoring: true })).toBe(true);
+  parts[0].sections[0].questions[0].instructions = "";
+  parts[0].sections[0].questions[0].story = "";
+  expect(validatePrepareParts(parts, { allowIncompleteScoring: true })).toBe(false);
+});
