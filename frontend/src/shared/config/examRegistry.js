@@ -18,6 +18,17 @@ import {
   normalizeGeneralSkill,
 } from '../../domains/general/config';
 
+export const PREPARE_SKILLS = [
+  { key: 'reading-writing', label: 'Reading & Writing', icon: 'reading' },
+  { key: 'listening', label: 'Listening', icon: 'listening' },
+];
+export const DEFAULT_PREPARE_SKILL = 'reading-writing';
+
+const normalizePrepareSkill = (skill) =>
+  PREPARE_SKILLS.some((item) => item.key === String(skill || '').trim().toLowerCase())
+    ? String(skill).trim().toLowerCase()
+    : DEFAULT_PREPARE_SKILL;
+
 export const PLATFORM_TABS = [
   { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
   { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
@@ -75,6 +86,13 @@ export function normalizeSelectTestState({ platform, type, tab }) {
     };
   }
 
+  if (normalizedPlatform === 'prepare') {
+    return {
+      platform: 'prepare',
+      prepareTab: normalizePrepareSkill(tab),
+    };
+  }
+
   return {
     platform: 'ix',
     ixTab: normalizeIxSkill(tab),
@@ -103,6 +121,9 @@ export function buildSelectTestPath({ platform = 'ix', type = DEFAULT_ORANGE_TYP
     params.set('platform', 'orange');
     params.set('type', normalized.orangeType);
     params.set('tab', normalized.orangeTab);
+  } else if (normalized.platform === 'prepare') {
+    params.set('platform', 'prepare');
+    params.set('tab', normalized.prepareTab);
   } else if (normalized.platform === 'gateway') {
     params.set('platform', 'gateway');
     params.set('tab', normalized.gatewayTab);
