@@ -159,7 +159,26 @@ const SelectTest = () => {
   const location = useLocation();
   const { displayLabels } = useDisplaySettings();
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
-  const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
+  const platformTabs = useMemo(() => {
+    const tabs = buildPlatformTabs(displayLabels);
+    const prepareLevel = registeredLevels.find(
+      (level) => String(level.code || "").toLowerCase() === "prepare"
+    );
+    if (!prepareLevel) return tabs;
+
+    const orangeIndex = tabs.findIndex((tab) => tab.key === "orange");
+    const prepareTab = {
+      key: "prepare",
+      label: prepareLevel.name || "Prepare",
+      icon: "reading",
+      hint: "Reading & Writing, Listening",
+    };
+    const insertionIndex = orangeIndex < 0 ? tabs.length : orangeIndex;
+    return [...tabs.slice(0, insertionIndex), prepareTab, ...tabs.slice(insertionIndex)];
+  }, [displayLabels, registeredLevels]);
+  const otherConfiguredLevels = registeredLevels.filter(
+    (level) => String(level.code || "").toLowerCase() !== "prepare"
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -1161,7 +1180,9 @@ const SelectTest = () => {
                       type="button"
                       onClick={() =>
                         updateSelectRoute(
-                          tab.key === "orange"
+                          tab.key === "prepare"
+                            ? { platform: "prepare", tab: activePrepareTab }
+                            : tab.key === "orange"
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
                             : tab.key === "gateway"
                               ? { platform: "gateway", tab: activeGatewayTab }
@@ -1182,6 +1203,8 @@ const SelectTest = () => {
                             ? "Writing, reading, listening"
                             : tab.key === "gateway"
                               ? "Reading-writing, listening"
+                            : tab.key === "prepare"
+                              ? "Reading & Writing, Listening"
                             : tab.key === "general"
                               ? "Placement-style combined skills"
                               : "KET, PET, Flyers, Movers, Starters"}
@@ -1192,6 +1215,8 @@ const SelectTest = () => {
                           ? ixTotalCount
                           : tab.key === "gateway"
                             ? gatewayTotalCount
+                            : tab.key === "prepare"
+                              ? prepareTotalCount
                             : tab.key === "general"
                               ? generalTotalCount
                               : orangeTotalCount}
@@ -1200,35 +1225,17 @@ const SelectTest = () => {
                   ))}
                 </div>
 
-                {registeredLevels.length > 0 || registeredLevelError ? (
+                {otherConfiguredLevels.length > 0 || registeredLevelError ? (
                   <div className="select-test-sidebarPanel">
-                    <div className="select-test-sidebarPanelHeader">
-                      <span className="select-test-sidebarPanelTitle">Configured levels</span>
-                    </div>
                     {registeredLevelError ? (
                       <p className="select-test-shelfMetaItem" role="alert">{registeredLevelError}</p>
                     ) : null}
-                    {registeredLevels.map((level) => (
+                    {otherConfiguredLevels.map((level) => (
                       <button
                         key={level.id}
                         type="button"
-                        aria-pressed={
-                          String(level.code || "").toLowerCase() === "prepare" &&
-                          activePlatform === "prepare"
-                        }
-                        className={`select-test-sidePlatform select-test-sidePlatform--level${
-                          String(level.code || "").toLowerCase() === "prepare" &&
-                          activePlatform === "prepare"
-                            ? " is-active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          if (String(level.code || "").toLowerCase() === "prepare") {
-                            updateSelectRoute({ platform: "prepare", tab: activePrepareTab });
-                            return;
-                          }
-                          navigate(`/exam-levels/${encodeURIComponent(level.code)}`);
-                        }}
+                        className="select-test-sidePlatform select-test-sidePlatform--level"
+                        onClick={() => navigate(`/exam-levels/${encodeURIComponent(level.code)}`)}
                       >
                         <span className="select-test-sidePlatformIcon" aria-hidden="true">
                           <LineIcon name="tests" size={18} />
@@ -1236,9 +1243,7 @@ const SelectTest = () => {
                         <span className="select-test-sidePlatformCopy">
                           <span className="select-test-sidePlatformLabel">{level.name}</span>
                           <span className="select-test-sidePlatformHint">
-                            {String(level.code || "").toLowerCase() === "prepare"
-                              ? PREPARE_SKILLS.map((skill) => skill.label).join(" · ")
-                              : (level.skills || []).map((skill) => skill[0].toUpperCase() + skill.slice(1)).join(" · ")}
+                            {(level.skills || []).map((skill) => skill[0].toUpperCase() + skill.slice(1)).join(" · ")}
                           </span>
                         </span>
                       </button>
