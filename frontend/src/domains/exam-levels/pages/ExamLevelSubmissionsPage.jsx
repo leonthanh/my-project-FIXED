@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
+import InlineIcon from "../../../shared/components/InlineIcon";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -16,6 +17,10 @@ import {
   getSubmissionTone,
   SubmissionStatCards,
 } from "../../../features/admin/components/SubmissionCardList";
+import AttemptExtensionControls from "../../../features/admin/components/AttemptExtensionControls";
+import {
+  getAttemptTimingMeta,
+} from "../../../features/admin/utils/attemptTiming";
 import "./ExamLevelSubmissionsPage.css";
 
 const PREPARE_SKILLS = ["listening", "reading-writing"];
@@ -44,7 +49,11 @@ const hasReview = (submission) =>
 
 const getSubmissionTimestamp = (submission) => {
   const timestamp = new Date(
-    submission?.submittedAt || submission?.createdAt || submission?.updatedAt || 0
+    submission?.lastSavedAt
+      || submission?.submittedAt
+      || submission?.updatedAt
+      || submission?.createdAt
+      || 0
   ).getTime();
   return Number.isFinite(timestamp) ? timestamp : null;
 };
@@ -59,10 +68,31 @@ const getDayBoundaryTimestamp = (value, endOfDay = false) => {
 };
 
 const formatSubmissionDate = (submission) => {
-  const value = submission?.submittedAt || submission?.createdAt;
+  const value = submission?.finished === false
+    ? submission?.lastSavedAt || submission?.updatedAt || submission?.createdAt
+    : submission?.submittedAt || submission?.createdAt;
   if (!value) return "Date unavailable";
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date.toLocaleString() : "Date unavailable";
+};
+
+const formatTimeSpent = (value) => {
+  const totalSeconds = Number(value);
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "--:--";
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+};
+
+const extensionButtonStyle = {
+  padding: "7px 12px",
+  border: "none",
+  borderRadius: 6,
+  background: "#0284c7",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
 };
 
 const ExamLevelSubmissionsPage = () => {
@@ -79,6 +109,8 @@ const ExamLevelSubmissionsPage = () => {
   const [sortOrder, setSortOrder] = useState("newest");
   const [expandedItems, setExpandedItems] = useState(() => new Set());
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("prepare");
+  const [extendingId, setExtendingId] = useState(null);
+  const [extensionErrors, setExtensionErrors] = useState({});
 
   const requestedSkill = String(searchParams.get("skill") || "all").toLowerCase();
   const activeSkill = PREPARE_SKILLS.includes(requestedSkill) ? requestedSkill : "all";
@@ -91,7 +123,7 @@ const ExamLevelSubmissionsPage = () => {
       try {
         const [levelResponse, submissionsResponse] = await Promise.all([
           authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}`)),
-          authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}/submissions`)),
+          authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}/submissions?includeActive=1`)),
         ]);
         const [levelPayload, submissionPayload] = await Promise.all([
           levelResponse.json().catch(() => ({})),
@@ -236,6 +268,44 @@ const ExamLevelSubmissionsPage = () => {
     });
   };
 
+  const handleExtendTime = async (submission, extraMinutes) => {
+    setExtendingId(submission.id);
+    setExtensionErrors((current) => ({ ...current, [submission.id]: "" }));
+    try {
+      const response = await authFetch(apiPath(
+        `exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(submission.id)}/extend-time`
+      ), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraMinutes }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || "Could not extend time.");
+      }
+
+      setSubmissions((current) => current.map((item) => (
+        item.id === submission.id
+          ? {
+              ...item,
+              finished: false,
+              expiresAt: payload.expiresAt || item.expiresAt,
+              lastSavedAt: new Date().toISOString(),
+            }
+          : item
+      )));
+      return true;
+    } catch (extendError) {
+      setExtensionErrors((current) => ({
+        ...current,
+        [submission.id]: extendError.message || "Could not extend time.",
+      }));
+      return false;
+    } finally {
+      setExtendingId(null);
+    }
+  };
+
   const filterFields = [
     {
       key: "studentName",
@@ -339,7 +409,7 @@ const ExamLevelSubmissionsPage = () => {
               <AdminSidebarPanel eyebrow="Summary" title="Result queue" meta="All statuses">
                 <AdminSidebarMetricList items={sidebarStats} />
                 <p className="admin-side-layout__panelText">
-                  Filter by skill, student, test, or date, then open a submission to review answers and leave feedback.
+                  Filter by skill, student, test, or date; expand active attempts to manage their time.
                 </p>
               </AdminSidebarPanel>
             </>
@@ -406,7 +476,7 @@ const ExamLevelSubmissionsPage = () => {
                 filteredCount={filteredSubmissions.length}
                 totalCount={submissions.length}
                 summaryLabel="submissions"
-                summaryHint="Click a row to expand it, then open the submission review."
+                summaryHint="Expand an active attempt to extend its time, or open a completed submission for review."
               />
             )}
           />
@@ -417,7 +487,7 @@ const ExamLevelSubmissionsPage = () => {
             <p className="prepare-submissions-page__empty">
               {submissions.length
                 ? "No submissions match the current filters."
-                : "No completed submissions yet."}
+                : "No submissions yet."}
             </p>
           ) : null}
           {!loading && filteredSubmissions.length > 0 ? (
@@ -425,12 +495,16 @@ const ExamLevelSubmissionsPage = () => {
               items={filteredSubmissions}
               expandedItems={expandedItems}
               onToggle={toggleExpanded}
-              getTone={(submission) => getSubmissionTone(hasReview(submission) ? "reviewed" : "pending")}
+              getTone={(submission) => getSubmissionTone(
+                submission.finished === false
+                  ? "active"
+                  : hasReview(submission) ? "reviewed" : "pending"
+              )}
               renderHeader={({ item, index }) => (
                 <>
                   <span className="prepare-submissions-page__index">#{index + 1}</span>
-                  <span className={`prepare-submissions-page__status ${hasReview(item) ? "is-reviewed" : "is-pending"}`}>
-                    {hasReview(item) ? "Reviewed" : "Pending"}
+                  <span className={`prepare-submissions-page__status ${item.finished === false ? "is-active" : hasReview(item) ? "is-reviewed" : "is-pending"}`}>
+                    {item.finished === false ? "In Progress" : hasReview(item) ? "Reviewed" : "Pending"}
                   </span>
                   <span className={`prepare-submissions-page__skill is-${item.skill === "listening" ? "listening" : "reading"}`}>
                     {skillLabel(item.skill)}
@@ -443,33 +517,151 @@ const ExamLevelSubmissionsPage = () => {
                     {item.testTitle || `${skillLabel(item.skill)} test`}
                   </span>
                   <span className="prepare-submissions-page__score">
-                    <strong>{Number(item.score || 0)}/{Number(item.totalQuestions || 0)}</strong>
-                    <small>{Number(item.percentage || 0).toFixed(0)}%</small>
+                    {item.finished === false ? (
+                      <>
+                        <strong>In Progress</strong>
+                        <small>{getAttemptTimingMeta(item.expiresAt)?.label || "Timer unavailable"}</small>
+                      </>
+                    ) : (
+                      <>
+                        <strong>{Number(item.score || 0)}/{Number(item.totalQuestions || 0)}</strong>
+                        <small>{Number(item.percentage || 0).toFixed(0)}%</small>
+                      </>
+                    )}
                   </span>
                   <time className="prepare-submissions-page__date">
                     {formatSubmissionDate(item)}
                   </time>
                 </>
               )}
-              renderExpanded={({ item }) => (
-                <div className="prepare-submissions-page__expanded">
-                  <div>
-                    <strong>Test:</strong> {item.testTitle || `${skillLabel(item.skill)} test`}
+              renderExpanded={({ item }) => {
+                const isActive = item.finished === false;
+                const timingMeta = isActive ? getAttemptTimingMeta(item.expiresAt) : null;
+                const feedback = String(item.feedback || "").trim();
+                const isReviewed = hasReview(item);
+                const summaryStats = [
+                  {
+                    label: "Type",
+                    value: `Prepare ${skillLabel(item.skill)}`,
+                    className: "is-type",
+                  },
+                  {
+                    label: "Score",
+                    value: isActive
+                      ? "In Progress"
+                      : `${Number(item.score || 0)}/${Number(item.totalQuestions || 0)}`,
+                    className: isActive ? "is-active" : "",
+                  },
+                  {
+                    label: "Accuracy",
+                    value: isActive ? "--" : `${Number(item.percentage || 0)}%`,
+                    className: "",
+                  },
+                  {
+                    label: "Time Spent",
+                    value: isActive ? "--:--" : formatTimeSpent(item.timeSpent),
+                    className: "",
+                  },
+                ];
+                const detailItems = [
+                  { label: "Test Title", value: item.testTitle || `${skillLabel(item.skill)} test` },
+                  { label: "Skill", value: skillLabel(item.skill) },
+                  { label: "Student", value: item.studentName || "--" },
+                  { label: "Phone", value: item.studentPhone || "--" },
+                  { label: "Class Code", value: item.classCode || "--" },
+                  {
+                    label: isActive ? "Last saved" : "Submitted",
+                    value: formatSubmissionDate(item),
+                  },
+                ];
+
+                return (
+                  <div className="prepare-submissions-page__expanded">
+                    {isActive ? (
+                      <div className="prepare-submissions-page__active">
+                        <div className="prepare-submissions-page__activeMessage">
+                          <strong>This attempt is still open.</strong>{" "}
+                          The student has not submitted it yet.
+                        </div>
+                        <div className="prepare-submissions-page__activeActions">
+                          {timingMeta ? (
+                            <strong
+                              className="prepare-submissions-page__timing"
+                              style={{ color: timingMeta.color }}
+                            >
+                              {timingMeta.label}
+                            </strong>
+                          ) : null}
+                          <span className="prepare-submissions-page__saved">
+                            Saved: {formatSubmissionDate(item)}
+                          </span>
+                          <AttemptExtensionControls
+                            isLoading={extendingId === item.id}
+                            onExtend={(minutes) => handleExtendTime(item, minutes)}
+                            buttonStyle={extensionButtonStyle}
+                            submitButtonStyle={{ ...extensionButtonStyle, background: "#0369a1" }}
+                          />
+                        </div>
+                        {extensionErrors[item.id] ? (
+                          <p className="prepare-submissions-page__error" role="alert">
+                            {extensionErrors[item.id]}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="prepare-submissions-page__stats">
+                      {summaryStats.map((stat) => (
+                        <div
+                          key={stat.label}
+                          className={`prepare-submissions-page__stat ${stat.className}`}
+                        >
+                          {stat.label === "Type" ? (
+                            <span
+                              className={`prepare-submissions-page__typeBadge ${item.skill === "listening" ? "is-listening" : ""}`}
+                            >
+                              {stat.value}
+                            </span>
+                          ) : (
+                            <strong>{stat.value}</strong>
+                          )}
+                          <span>{stat.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="prepare-submissions-page__details">
+                      {detailItems.map((detail) => (
+                        <div key={detail.label} className="prepare-submissions-page__detail">
+                          <strong>{detail.label}</strong>
+                          <span>{detail.value}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {isReviewed ? (
+                      <div className="prepare-submissions-page__feedback is-reviewed">
+                        <strong>Reviewed</strong>
+                        <p>{feedback || "Teacher feedback has been saved."}</p>
+                      </div>
+                    ) : (
+                      <p className="prepare-submissions-page__noFeedback">No teacher feedback yet.</p>
+                    )}
+
+                    {!isActive ? (
+                      <div className="prepare-submissions-page__actions">
+                        <Link
+                          className="prepare-submissions-page__open"
+                          to={`/exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(item.id)}`}
+                        >
+                          <InlineIcon name="eye" size={15} />
+                          <span>Open submission review</span>
+                        </Link>
+                      </div>
+                    ) : null}
                   </div>
-                  <div>
-                    <strong>Class code:</strong> {item.classCode || "—"}
-                  </div>
-                  <div>
-                    <strong>Submitted:</strong> {formatSubmissionDate(item)}
-                  </div>
-                  <Link
-                    className="prepare-submissions-page__open"
-                    to={`/exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(item.id)}`}
-                  >
-                    Open submission review
-                  </Link>
-                </div>
-              )}
+                );
+              }}
               emptyState={null}
               compact
             />

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import { buildSelectTestPath } from "../../../shared/config/examRegistry";
 import ExamCoreTestBuilder from "../../exam-core/shared/components/ExamCoreTestBuilder";
 import { isPrepareReadingWriting } from "../prepare/prepareReadingWriting";
 
@@ -9,6 +10,14 @@ const SKILL_LABELS = {
   listening: "Listening",
   writing: "Writing",
   "reading-writing": "Reading & Writing",
+};
+
+export const getExamLevelSkillBuilderSuccessPath = (code, skill) => {
+  const normalizedCode = String(code || "").trim().toLowerCase();
+  if (normalizedCode === "prepare") {
+    return buildSelectTestPath({ platform: "prepare", tab: skill });
+  }
+  return `/exam-levels/${encodeURIComponent(normalizedCode)}`;
 };
 
 const ExamLevelSkillBuilderPage = () => {
@@ -81,7 +90,7 @@ const ExamLevelSkillBuilderPage = () => {
 
   const skillName = SKILL_LABELS[skill] || skill;
   const apiBasePath = `exam-levels/${encodeURIComponent(code)}/${encodeURIComponent(skill)}/tests`;
-  const successPath = `/exam-levels/${encodeURIComponent(code)}`;
+  const successPath = getExamLevelSkillBuilderSuccessPath(code, skill);
   const isPrepareSkill = code === "prepare" && skill === "reading-writing";
   if (isPrepareSkill && !id && templateId !== "gateway-reading-writing") {
     return <div className="exam-level-page-state" role="alert">Prepare Reading & Writing cần cấu hình mẫu tương thích gateway-reading-writing.</div>;

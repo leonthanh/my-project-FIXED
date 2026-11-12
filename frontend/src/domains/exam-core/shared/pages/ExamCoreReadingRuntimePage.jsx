@@ -81,6 +81,48 @@ const buildPrepareStoryWritingPrompt = (question) => {
 
 const SERVER_AUTOSAVE_INTERVAL_MS = 30000;
 const SERVER_TIMING_RECONCILE_INTERVAL_MS = 25000;
+const PREPARE_GROUPED_QUESTION_TYPES = new Set([
+  'reading-open-questions',
+  'true-false-not-given',
+  'word-bank-completion',
+  'conditional-sentence-completion',
+  'reported-command-completion',
+  'reported-speech-transformation',
+  'past-simple-passive-transformation',
+  'reported-speech-verb-choice',
+  'definition-completion',
+  'word-bank-adjective-formation',
+]);
+const getPrepareSectionTitle = (group) => (
+  group.section.sectionTitle || group.section.title || ''
+);
+const isPrepareWritingSection = (group) => (
+  ['short-message', 'story-writing'].includes(group.section.questionType)
+  || /\bwriting\b/i.test(getPrepareSectionTitle(group))
+);
+const isPrepareReadingSection = (group) => {
+  const title = getPrepareSectionTitle(group);
+  if (/\breading\b/i.test(title)) return true;
+  if (/\bexercise\s*\d+\b/i.test(title)) return false;
+  return [
+    'reading-open-questions',
+    'true-false-not-given',
+    'prepare-reading-comprehension',
+    'long-text-mc',
+  ].includes(group.section.questionType);
+};
+const getPrepareFooterSectionLabel = (group, groupIndex, groups) => {
+  if (isPrepareWritingSection(group)) return 'Writing';
+  if (isPrepareReadingSection(group)) return 'Reading';
+
+  const exerciseNumber = getPrepareSectionTitle(group).match(/\bExercise\s*(\d+)\b/i)?.[1];
+  const precedingExercises = groups
+    .slice(0, groupIndex)
+    .filter((previousGroup) => (
+      !isPrepareWritingSection(previousGroup) && !isPrepareReadingSection(previousGroup)
+    )).length;
+  return `Exercise ${exerciseNumber || precedingExercises + 1}`;
+};
 const requestSubmissionApi = (submissionBasePath, url, options, isPlacementRuntime = false) =>
   !isPlacementRuntime && String(submissionBasePath || "").startsWith("exam-levels/")
     ? authFetch(url, options)
@@ -1871,6 +1913,23 @@ const ExamCoreReadingRuntimePage = ({
     return indexMap;
   }, [allQuestions]);
 
+  const prepareQuestionNavigationTargets = useMemo(() => {
+    if (!isPrepareReadingWriting) return [];
+
+    return allQuestions.flatMap((entry, questionIndex) => {
+      if (!Number.isFinite(entry.questionNumber)) return [];
+      const questionCount = PREPARE_GROUPED_QUESTION_TYPES.has(entry.section?.questionType)
+        ? Math.max(getQuestionCountForSection(entry.section), 1)
+        : 1;
+
+      return Array.from({ length: questionCount }, (_, questionOffset) => ({
+        entry,
+        questionIndex,
+        questionNumber: entry.questionNumber + questionOffset,
+      }));
+    });
+  }, [allQuestions, isPrepareReadingWriting]);
+
   const getPeopleMatchingAnswerKey = useCallback((q) => {
     const person = q.question?.people?.[q.personIndex] || {};
     const personId = person?.id
@@ -1990,6 +2049,11 @@ const ExamCoreReadingRuntimePage = ({
   const currentQuestion = useMemo(() => {
     return allQuestions[currentQuestionIndex] || null;
   }, [allQuestions, currentQuestionIndex]);
+  const currentPrepareQuestionNumber = gatewayFocusedQuestionNumber ?? currentQuestion?.questionNumber;
+  const currentPrepareQuestionNavigationIndex = prepareQuestionNavigationTargets.findIndex((target) => (
+    target.entry.key === currentQuestion?.key
+    && target.questionNumber === currentPrepareQuestionNumber
+  ));
   const currentQuestionPartIndex = currentQuestion?.partIndex;
   const currentQuestionSectionIndex = currentQuestion?.sectionIndex;
   const isGatewayOpenQuestionSection = isGatewayReadingWriting
@@ -2103,12 +2167,18 @@ const ExamCoreReadingRuntimePage = ({
             questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
           
-          if (typeof questionElement.focus === 'function') {
+          if (isPrepareReadingWriting) {
+            const focusTarget = questionElement.matches('input, select, textarea')
+              ? questionElement
+              : questionElement.querySelector('input:not([type="hidden"]), select, textarea');
+            if (focusTarget) focusTarget.focus();
+            else if (typeof questionElement.focus === 'function') questionElement.focus();
+          } else if (typeof questionElement.focus === 'function') {
             questionElement.focus();
           }
           
           // If it's a select element (cloze-mc), focus and trigger open
-          if (questionElement.tagName === 'SELECT') {
+          if (!isPrepareReadingWriting && questionElement.tagName === 'SELECT') {
             questionElement.focus();
             
             // Try modern API first (Chrome 99+, Firefox 97+, Safari 16+)
@@ -2130,11 +2200,11 @@ const ExamCoreReadingRuntimePage = ({
               });
               questionElement.dispatchEvent(keyEvent);
             }
-          } else if (questionElement.tagName === 'INPUT') {
+          } else if (!isPrepareReadingWriting && questionElement.tagName === 'INPUT') {
             // For cloze-test text inputs
             questionElement.focus();
             questionElement.select(); // Select all text to show cursor and highlight
-          } else {
+          } else if (!isPrepareReadingWriting) {
             // For container elements (e.g. image-cloze title question), focus first radio inside
             const firstRadio = questionElement.querySelector('input[type="radio"]');
             if (firstRadio) {
@@ -2153,6 +2223,43 @@ const ExamCoreReadingRuntimePage = ({
         }
       }, 200);
     }
+  };
+
+  const getQuestionFlagKey = (entry, questionNumber = entry?.questionNumber) => {
+    if (!isPrepareReadingWriting || !entry?.key) return entry?.key;
+    const parsedQuestionNumber = Number(questionNumber);
+    if (
+      !Number.isFinite(parsedQuestionNumber)
+      || parsedQuestionNumber === Number(entry.questionNumber)
+    ) {
+      return entry.key;
+    }
+    return `${entry.key}-${parsedQuestionNumber}`;
+  };
+  const currentQuestionFlagKey = getQuestionFlagKey(
+    currentQuestion,
+    currentPrepareQuestionNumber
+  );
+
+  const handlePrepareQuestionInteraction = (event) => {
+    if (!isPrepareReadingWriting) return;
+
+    const questionElement = event.target?.closest?.('[id^="question-"]');
+    const questionMatch = /^question-(\d+)$/.exec(questionElement?.id || '');
+    if (!questionMatch) return;
+
+    const questionNumber = Number(questionMatch[1]);
+    const target = prepareQuestionNavigationTargets.find(
+      (item) => item.questionNumber === questionNumber
+    );
+    if (!target) return;
+
+    if (target.questionIndex !== currentQuestionIndex) {
+      setCurrentQuestionIndex(target.questionIndex);
+      setCurrentPartIndex(target.entry.partIndex);
+      setActiveQuestion(target.entry.key);
+    }
+    setGatewayFocusedQuestionNumber(questionNumber);
   };
 
   // Toggle flag
@@ -2189,20 +2296,33 @@ const ExamCoreReadingRuntimePage = ({
     ? gatewayFocusedQuestionNumber
     : currentGatewayQuestionRange?.first;
   const canGoToPreviousQuestion =
-    currentQuestionIndex > 0
-    || Boolean(
-      currentGatewayQuestionRange
-      && currentGatewayQuestionNumber > currentGatewayQuestionRange.first
-    );
+    isPrepareReadingWriting
+      ? currentPrepareQuestionNavigationIndex > 0
+      : currentQuestionIndex > 0
+        || Boolean(
+          currentGatewayQuestionRange
+          && currentGatewayQuestionNumber > currentGatewayQuestionRange.first
+        );
   const canGoToNextQuestion =
-    currentQuestionIndex < allQuestions.length - 1
-    || Boolean(
-      currentGatewayQuestionRange
-      && currentGatewayQuestionNumber < currentGatewayQuestionRange.last
-    );
+    isPrepareReadingWriting
+      ? currentPrepareQuestionNavigationIndex >= 0
+        && currentPrepareQuestionNavigationIndex < prepareQuestionNavigationTargets.length - 1
+      : currentQuestionIndex < allQuestions.length - 1
+        || Boolean(
+          currentGatewayQuestionRange
+          && currentGatewayQuestionNumber < currentGatewayQuestionRange.last
+        );
 
   const navigateAdjacentQuestion = (direction) => {
     if (direction !== -1 && direction !== 1) return;
+
+    if (isPrepareReadingWriting) {
+      const target = prepareQuestionNavigationTargets[
+        currentPrepareQuestionNavigationIndex + direction
+      ];
+      if (target) goToQuestion(target.questionIndex, target.questionNumber);
+      return;
+    }
 
     if (currentGatewayQuestionRange) {
       const nextQuestionNumber = currentGatewayQuestionNumber + direction;
@@ -2318,6 +2438,8 @@ const ExamCoreReadingRuntimePage = ({
       ref={annotationContentRef}
       className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}${isGatewayReadingWriting ? ' cambridge-test-container--gateway' : ''}`}
       data-student-annotation-layout="true"
+      onFocusCapture={handlePrepareQuestionInteraction}
+      onClickCapture={handlePrepareQuestionInteraction}
     >
       <ExtensionToast message={extensionToast} />
       <ExtensionToast message={runtimeLimitToast} label="Autosave" tone="warning" top={152} />
@@ -2538,8 +2660,8 @@ const ExamCoreReadingRuntimePage = ({
                   style={{ position: 'relative' }}
                 >
                   <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestionFlagKey) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestionFlagKey)}
                     aria-label="Flag question"
                   >
                     <InlineIcon name="flag" size={14} />
@@ -4547,8 +4669,8 @@ const ExamCoreReadingRuntimePage = ({
                 <div className={`cambridge-question-wrapper ${answers[currentQuestion.key] ? 'answered' : ''} !w-full sm:!w-[80%] p-3 sm:p-4`}>
                   {/* Flag Button */}
                   <button
-                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestion.key) ? 'flagged' : ''}`}
-                    onClick={() => toggleFlag(currentQuestion.key)}
+                    className={`cambridge-flag-button ${flaggedQuestions.has(currentQuestionFlagKey) ? 'flagged' : ''}`}
+                    onClick={() => toggleFlag(currentQuestionFlagKey)}
                     aria-label="Flag question"
                   >
                     <InlineIcon name="flag" size={14} />
@@ -4677,17 +4799,19 @@ const ExamCoreReadingRuntimePage = ({
                 return (
                   <>
                     <div className="cambridge-parts-container gateway-section-tabs" ref={gatewaySectionTabsRef}>
-                      {sectionGroups.map((group) => {
+                      {sectionGroups.map((group, groupIndex) => {
                         const isActive = group === activeGroup;
                         const firstEntry = group.entries[0];
                         const firstIndex = questionIndexByKey.get(firstEntry.key) ?? -1;
                         const total = getQuestionCountForSection(group.section);
                         const answered = getGroupAnsweredCount(group);
                         const title = group.section.sectionTitle || group.section.title || `Section ${group.sectionIndex + 1}`;
-                        const compactTitle = title
-                          .replace(/^Grammar\s*-\s*/i, 'Grammar ')
-                          .replace(/^Vocabulary\s*-\s*/i, 'Vocab ')
-                          .replace(/^Use of English\s*-\s*/i, 'Use Eng. ');
+                        const compactTitle = isPrepareReadingWriting
+                          ? getPrepareFooterSectionLabel(group, groupIndex, sectionGroups)
+                          : title
+                            .replace(/^Grammar\s*-\s*/i, 'Grammar ')
+                            .replace(/^Vocabulary\s*-\s*/i, 'Vocab ')
+                            .replace(/^Use of English\s*-\s*/i, 'Use Eng. ');
                         const sectionGroupKey = `${group.partIndex}-${group.sectionIndex}`;
 
                         return (
@@ -4785,20 +4909,23 @@ const ExamCoreReadingRuntimePage = ({
                               isActive: currentQuestionIndex === (questionIndexByKey.get(entry.key) ?? -1),
                             }));
 
-                          return questionButtons.map((item) => (
-                            <button
-                              key={item.key}
-                              className={`cambridge-question-num-btn ${item.isAnswered ? 'answered' : ''} ${item.isActive ? 'active' : ''} ${flaggedQuestions.has(item.entry.key) ? 'flagged' : ''}`}
-                              onClick={() => goToQuestion(item.questionIndex, item.targetQuestionNumber)}
-                              title={`Question ${item.questionNumber}${item.isAnswered ? ' answered' : ''}`}
-                              aria-current={item.isActive ? 'step' : undefined}
-                            >
-                              {item.questionNumber}
-                              {flaggedQuestions.has(item.entry.key) && (
-                                <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
-                              )}
-                            </button>
-                          ));
+                          return questionButtons.map((item) => {
+                            const questionFlagKey = getQuestionFlagKey(item.entry, item.questionNumber);
+                            return (
+                              <button
+                                key={item.key}
+                                className={`cambridge-question-num-btn ${item.isAnswered ? 'answered' : ''} ${item.isActive ? 'active' : ''} ${flaggedQuestions.has(questionFlagKey) ? 'flagged' : ''}`}
+                                onClick={() => goToQuestion(item.questionIndex, item.targetQuestionNumber)}
+                                title={`Question ${item.questionNumber}${item.isAnswered ? ' answered' : ''}`}
+                                aria-current={item.isActive ? 'step' : undefined}
+                              >
+                                {item.questionNumber}
+                                {flaggedQuestions.has(questionFlagKey) && (
+                                  <span className="nav-flag-icon" aria-hidden="true"><InlineIcon name="flag" size={10} /></span>
+                                )}
+                              </button>
+                            );
+                          });
                         })()}
                       </div>
                     )}

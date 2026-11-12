@@ -23,6 +23,7 @@ router.get(
       code: req.params.code,
       skill: req.query.skill,
       status: req.query.status,
+      includeActive: req.query.includeActive,
     })
   )
 );
@@ -46,6 +47,23 @@ router.get(
       submissionId: req.params.submissionId,
       user: req.user,
     })
+  )
+);
+router.post(
+  "/:code/submissions/:submissionId/extend-time",
+  ...requireTeacher,
+  send((req) =>
+    service.extendSubmissionTime({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+      extraMinutes: req.body?.extraMinutes,
+    }).then(({ submission, extensionMinutes, timing }) => ({
+      message: `Extended by ${extensionMinutes} minutes.`,
+      submissionId: submission.id,
+      extensionMinutes,
+      expiresAt: submission.expiresAt,
+      timing,
+    }))
   )
 );
 router.put(

@@ -1,6 +1,10 @@
 jest.mock("../models", () => ({
   ExamLevel: { findOne: jest.fn() },
-  ExamLevelSubmission: { findOne: jest.fn(), create: jest.fn() },
+  ExamLevelSubmission: {
+    findOne: jest.fn(),
+    findAll: jest.fn(),
+    create: jest.fn(),
+  },
   ExamLevelTest: {
     create: jest.fn(),
     findAll: jest.fn(),
@@ -21,7 +25,7 @@ jest.mock("../modules/cambridge/shared/readingTestUtils", () => ({
   safeParseParts: jest.fn((parts) => typeof parts === "string" ? JSON.parse(parts) : parts),
 }));
 
-const { ExamLevel, ExamLevelTest } = require("../models");
+const { ExamLevel, ExamLevelSubmission, ExamLevelTest } = require("../models");
 const service = require("../modules/examLevels/service");
 
 const level = {
@@ -236,6 +240,91 @@ describe("exam level skill test adapter", () => {
           status: "published",
         },
       })
+    );
+  });
+
+  test("includes active attempts in the submission list without exposing draft answers", async () => {
+    const completedSubmission = {
+      submittedAt: new Date("2026-11-12T08:00:00.000Z"),
+      toJSON: () => ({ id: 1, finished: true, submittedAt: "2026-11-12T08:00:00.000Z" }),
+    };
+    const activeSubmission = {
+      lastSavedAt: new Date("2026-11-12T09:00:00.000Z"),
+      toJSON: () => ({
+        id: 2,
+        finished: false,
+        lastSavedAt: "2026-11-12T09:00:00.000Z",
+        answers: { secret: "draft answer" },
+        progressMeta: { currentQuestionIndex: 3 },
+      }),
+    };
+    ExamLevelSubmission.findAll
+      .mockResolvedValueOnce([completedSubmission])
+      .mockResolvedValueOnce([activeSubmission]);
+
+    const submissions = await service.listSubmissions({
+      code: "prepare",
+      includeActive: "1",
+    });
+
+    expect(submissions.map(({ id }) => id)).toEqual([2, 1]);
+    expect(submissions[0]).not.toHaveProperty("answers");
+    expect(submissions[0]).not.toHaveProperty("progressMeta");
+  });
+
+  test("extends an active exam-level attempt from the current expiry", async () => {
+    const initialExpiry = new Date(Date.now() + 10 * 60_000);
+    const submission = {
+      id: 2,
+      expiresAt: initialExpiry,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    ExamLevelSubmission.findOne.mockResolvedValue(submission);
+
+    const result = await service.extendSubmissionTime({
+      code: "prepare",
+      submissionId: 2,
+      extraMinutes: 10,
+    });
+
+    expect(ExamLevelSubmission.findOne).toHaveBeenCalledWith({
+      where: { id: 2, levelId: 4, finished: false },
+    });
+    expect(result.extensionMinutes).toBe(10);
+    expect(submission.expiresAt.getTime()).toBe(initialExpiry.getTime() + 10 * 60_000);
+    expect(submission.save).toHaveBeenCalled();
+  });
+
+  test("does not overwrite an extension when an older client autosaves", async () => {
+    const extendedExpiry = new Date(Date.now() + 60 * 60_000);
+    const staleExpiry = new Date(Date.now() + 15 * 60_000);
+    const submission = {
+      expiresAt: extendedExpiry,
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    ExamLevelTest.findOne.mockResolvedValue({
+      id: 12,
+      title: "Prepare Reading",
+      testType: "exam-reading-v1",
+      classCode: "PP-A",
+    });
+    ExamLevelSubmission.findOne.mockResolvedValue(submission);
+
+    await service.autosaveSubmission({
+      code: "prepare",
+      body: {
+        testId: 12,
+        testType: "exam-reading-v1",
+        skill: "reading",
+        submissionId: 2,
+        expiresAt: staleExpiry.getTime(),
+        answers: {},
+      },
+      user: { id: 8, role: "student" },
+    });
+
+    expect(submission.update).toHaveBeenCalledWith(
+      expect.objectContaining({ expiresAt: extendedExpiry })
     );
   });
 });
