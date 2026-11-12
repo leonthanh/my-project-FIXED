@@ -60,6 +60,14 @@ const TAB_TONES = {
     softText: "#c2410c",
     softBadgeBackground: "rgba(251, 146, 60, 0.16)",
   },
+  prepare: {
+    activeBackground: "linear-gradient(135deg, #7c3aed 0%, #9f67ff 100%)",
+    activeBorder: "#7c3aed",
+    softBackground: "#f5f3ff",
+    softBorder: "#ddd6fe",
+    softText: "#6d28d9",
+    softBadgeBackground: "rgba(124, 58, 237, 0.12)",
+  },
 };
 
 const getTabTone = (toneKey) => TAB_TONES[toneKey] || TAB_TONES.reading;

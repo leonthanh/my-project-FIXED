@@ -1,3 +1,209 @@
+.prepare-submissions-page {
+  width: 100%;
+  margin: 0 auto;
+  padding: 22px 14px;
+  color: #172033;
+}
+
+.prepare-submissions-page__error,
+.prepare-submissions-page__state,
+.prepare-submissions-page__empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #64748b;
+}
+
+.prepare-submissions-page__error {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.prepare-submissions-page__index {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.prepare-submissions-page__status,
+.prepare-submissions-page__skill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.prepare-submissions-page__status.is-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.prepare-submissions-page__status.is-reviewed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.prepare-submissions-page__skill.is-listening {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.prepare-submissions-page__skill.is-reading {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+.prepare-submissions-page__student,
+.prepare-submissions-page__score {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.prepare-submissions-page__student small,
+.prepare-submissions-page__score small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.prepare-submissions-page__test {
+  min-width: 120px;
+  max-width: 240px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.prepare-submissions-page__score {
+  color: #0f3f94;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.prepare-submissions-page__date {
+  color: #64748b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.prepare-submissions-page__expanded {
+  display: flex;
+  align-items: center;
+  gap: 10px 20px;
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 13px;
+}
+
+.prepare-submissions-page__open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid #c4b5fd;
+  border-radius: 9px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.prepare-submissions-page__open:hover {
+  background: #ede9fe;
+}
+
+body.dark-mode .prepare-submissions-page {
+  color: #e2e8f0;
+}
+
+body.dark-mode .prepare-submissions-page__error,
+body.dark-mode .prepare-submissions-page__state,
+body.dark-mode .prepare-submissions-page__empty {
+  border-color: #334155;
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+body.dark-mode .prepare-submissions-page__error {
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+body.dark-mode .prepare-submissions-page__status.is-pending {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+
+body.dark-mode .prepare-submissions-page__status.is-reviewed {
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+}
+
+body.dark-mode .prepare-submissions-page__skill.is-listening {
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+}
+
+body.dark-mode .prepare-submissions-page__skill.is-reading {
+  background: rgba(124, 58, 237, 0.2);
+  color: #ddd6fe;
+}
+
+body.dark-mode .prepare-submissions-page__student small,
+body.dark-mode .prepare-submissions-page__score small,
+body.dark-mode .prepare-submissions-page__date {
+  color: #94a3b8;
+}
+
+body.dark-mode .prepare-submissions-page__test,
+body.dark-mode .prepare-submissions-page__expanded {
+  color: #cbd5e1;
+}
+
+body.dark-mode .prepare-submissions-page__open {
+  border-color: #6d28d9;
+  background: rgba(124, 58, 237, 0.18);
+  color: #ddd6fe;
+}
+
+@media (max-width: 760px) {
+  .prepare-submissions-page {
+    padding: 16px 10px;
+  }
+
+  .prepare-submissions-page__test {
+    max-width: none;
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .prepare-submissions-page__score {
+    margin-left: auto;
+  }
+
+  .prepare-submissions-page__date {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .prepare-submissions-page__open {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
 .exam-level-submissions {
   width: min(1120px, calc(100% - 32px));
   margin: 32px auto 72px;

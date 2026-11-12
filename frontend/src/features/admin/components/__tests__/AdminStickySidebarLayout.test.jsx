@@ -16,6 +16,7 @@ describe("buildAdminWorkspaceLinks", () => {
       "reading",
       "listening",
       "gateway",
+      "prepare",
       "cambridge",
       "general",
     ]);
@@ -32,10 +33,12 @@ describe("buildAdminWorkspaceLinks", () => {
       "reading",
       "listening",
       "gateway",
+      "prepare",
       "cambridge",
       "general",
       "display-settings",
       "runtime-sync-metrics",
+      "exam-levels",
       "permissions",
       "users",
     ]);
@@ -55,9 +58,46 @@ describe("buildAdminWorkspaceLinks", () => {
       "reading",
       "listening",
       "gateway",
+      "prepare",
       "cambridge",
       "general",
     ]);
+  });
+
+  test("Prepare workspace opens its submissions and exposes skill filters", () => {
+    const navigate = jest.fn();
+    const setActiveWorkspaceGroup = jest.fn();
+    const onPrepareSkillClick = jest.fn();
+    const nav = buildSubmissionWorkspaceNav({
+      navigate,
+      currentKey: "prepare",
+      activeWorkspaceGroup: "prepare",
+      setActiveWorkspaceGroup,
+      activePrepareSkill: "reading-writing",
+      onPrepareSkillClick,
+    });
+
+    expect(nav.workspaceGroupLinks.map((item) => item.key)).toEqual([
+      "workspace-review",
+      "workspace-ix",
+      "workspace-gateway",
+      "workspace-prepare",
+      "workspace-orange",
+      "workspace-general",
+    ]);
+    expect(nav.workspaceChildLinks.map((item) => item.label)).toEqual([
+      "All",
+      "Listening",
+      "Reading & Writing",
+    ]);
+    expect(nav.workspaceChildLinks[2].active).toBe(true);
+
+    nav.workspaceGroupLinks.find((item) => item.key === "workspace-prepare").onClick();
+    nav.workspaceChildLinks[1].onClick();
+
+    expect(setActiveWorkspaceGroup).toHaveBeenCalledWith("prepare");
+    expect(navigate).toHaveBeenCalledWith("/exam-levels/prepare/submissions");
+    expect(onPrepareSkillClick).toHaveBeenCalledWith("listening");
   });
 });
 
@@ -146,6 +186,7 @@ describe("buildReviewWorkspaceNav", () => {
       "workspace-review",
       "workspace-ix",
       "workspace-gateway",
+      "workspace-prepare",
       "workspace-orange",
       "workspace-general",
     ]);
@@ -179,6 +220,7 @@ describe("buildReviewWorkspaceNav", () => {
         "workspace-review",
         "workspace-ix",
         "workspace-gateway",
+        "workspace-prepare",
         "workspace-orange",
         "workspace-general",
       ]);
@@ -295,5 +337,30 @@ describe("buildReviewWorkspaceNav", () => {
       "Listening",
       "Reading-Writing",
     ]);
+  });
+
+  test("Prepare parent routes to the Prepare submissions page between Gateway and Orange", () => {
+    const { args, fns } = createArgs({
+      activeWorkspaceGroup: "review",
+      activeTab: "review",
+    });
+    const nav = buildReviewWorkspaceNav(args);
+    const parentKeys = nav.workspaceParentLinks.map((item) => item.key);
+    const prepareParent = nav.workspaceParentLinks.find(
+      (item) => item.key === "workspace-prepare"
+    );
+
+    expect(parentKeys.indexOf("workspace-prepare")).toBe(
+      parentKeys.indexOf("workspace-gateway") + 1
+    );
+    expect(parentKeys.indexOf("workspace-orange")).toBe(
+      parentKeys.indexOf("workspace-prepare") + 1
+    );
+
+    prepareParent.onClick();
+
+    expect(fns.navigate).toHaveBeenCalledWith(
+      "/exam-levels/prepare/submissions"
+    );
   });
 });
