@@ -1,10 +1,45 @@
 import {
+  buildPrepareQuestionNavigationTargets,
   computeQuestionStarts,
   countClozeBlanksFromText,
   getQuestionCountForSection,
   isZeroNumberedClozeExample,
   parseClozeBlanksFromText,
 } from "../examQuestionNumbering";
+
+describe("buildPrepareQuestionNavigationTargets", () => {
+  it("keeps the Prepare writing task after the last numbered question", () => {
+    const readingQuestion = {
+      key: "reading-50",
+      questionNumber: 50,
+      section: { questionType: "multiple-choice" },
+    };
+    const writingTask = {
+      key: "writing",
+      questionNumber: null,
+      section: { questionType: "story-writing" },
+    };
+    const unrelatedUnnumberedEntry = {
+      key: "un-numbered",
+      questionNumber: null,
+      section: { questionType: "instructions" },
+    };
+
+    const targets = buildPrepareQuestionNavigationTargets(
+      [readingQuestion, unrelatedUnnumberedEntry, writingTask],
+      new Set()
+    );
+
+    expect(targets.map(({ entry, questionIndex, questionNumber }) => ({
+      key: entry.key,
+      questionIndex,
+      questionNumber,
+    }))).toEqual([
+      { key: "reading-50", questionIndex: 0, questionNumber: 50 },
+      { key: "writing", questionIndex: 2, questionNumber: null },
+    ]);
+  });
+});
 
 const makeQuestions = (count) => Array.from({ length: count }, () => ({}));
 

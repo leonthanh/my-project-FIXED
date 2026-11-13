@@ -243,6 +243,24 @@ const getQuestionCountForSection = (section) => {
   return section.questions.length;
 };
 
+const buildPrepareQuestionNavigationTargets = (questions, groupedQuestionTypes) => (
+  (Array.isArray(questions) ? questions : []).flatMap((entry, questionIndex) => {
+    if (!Number.isFinite(entry.questionNumber)) {
+      if (!['short-message', 'story-writing'].includes(entry.section?.questionType)) return [];
+      return [{ entry, questionIndex, questionNumber: null }];
+    }
+
+    const questionCount = groupedQuestionTypes.has(entry.section?.questionType)
+      ? Math.max(getQuestionCountForSection(entry.section), 1)
+      : 1;
+    return Array.from({ length: questionCount }, (_, questionOffset) => ({
+      entry,
+      questionIndex,
+      questionNumber: entry.questionNumber + questionOffset,
+    }));
+  })
+);
+
 const parseClozeBlanksFromText = (passageText, startingNum = 1) => {
   if (!passageText) return [];
   let plainText = passageText;
@@ -362,6 +380,7 @@ export {
   countNotesCompletionBlanks,
   isZeroNumberedClozeExample,
   getQuestionCountForSection,
+  buildPrepareQuestionNavigationTargets,
   parseClozeBlanksFromText,
   computeQuestionStarts,
   getSectionQuestionType,

@@ -615,6 +615,19 @@ const extendSubmissionTime = async ({ code, submissionId, extraMinutes }) => {
   };
 };
 
+const deleteSubmission = async ({ code, submissionId }) => {
+  const level = await getLevel(code);
+  const numericSubmissionId = Number(submissionId);
+  if (!Number.isInteger(numericSubmissionId) || numericSubmissionId <= 0) {
+    throw createServiceError(404, "Submission not found.");
+  }
+
+  const deletedCount = await ExamLevelSubmission.destroy({
+    where: { id: numericSubmissionId, levelId: level.id },
+  });
+  if (!deletedCount) throw createServiceError(404, "Submission not found.");
+};
+
 const getSubmissionForReview = async ({ code, submissionId, user }) => {
   const level = await getLevel(code);
   const submission = await ExamLevelSubmission.findOne({
@@ -655,10 +668,19 @@ const saveSubmissionReview = async ({ code, submissionId, body = {}, user }) => 
   if (feedback.length > 10000) {
     throw createServiceError(400, "Feedback must be 10,000 characters or fewer.");
   }
+  const manualResponses = responseFeedback && !feedback
+    ? Object.entries(submission.detailedResults || {}).filter(([, result]) => (
+        result?.isCorrect === null
+        && String(result.userAnswer ?? "").trim()
+      ))
+    : [];
+  const hasUnreviewedResponses = manualResponses.some(([key]) => (
+    !String(responseFeedback?.items?.[key]?.feedback || "").trim()
+  ));
   await submission.update({
     feedback: feedback || null,
     responseFeedback,
-    status: "reviewed",
+    status: hasUnreviewedResponses ? "submitted" : "reviewed",
   });
   return submission.toJSON();
 };
@@ -666,6 +688,7 @@ const saveSubmissionReview = async ({ code, submissionId, body = {}, user }) => 
 module.exports = {
   autosaveSubmission,
   createTest,
+  deleteSubmission,
   deleteTest,
   extendSubmissionTime,
   getActiveSubmission,

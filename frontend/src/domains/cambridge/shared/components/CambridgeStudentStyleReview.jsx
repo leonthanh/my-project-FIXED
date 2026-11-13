@@ -31,6 +31,16 @@ const EMPTY_FLAGGED_QUESTIONS = new Set();
 const NO_ANSWER_TEXT = '(No answer)';
 const STUDENT_ANSWER_LABEL = 'Student answer';
 const CORRECT_ANSWER_LABEL = 'Correct answer';
+const PREPARE_REVIEW_QUESTION_TYPES = new Set([
+  'word-bank-completion',
+  'conditional-sentence-completion',
+  'reported-command-completion',
+  'reported-speech-transformation',
+  'past-simple-passive-transformation',
+  'reported-speech-verb-choice',
+  'definition-completion',
+  'word-bank-adjective-formation',
+]);
 
 const styles = {
   wrapper: {
@@ -2547,6 +2557,43 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                       onAnswerChange={noop}
                       answers={answers}
                       submitted
+                    />
+                  );
+                }
+
+                if (sectionType === 'prepare-reading-comprehension') {
+                  return (
+                    <LongTextMCDisplay
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{ ...question, id: `${partIdx}-${secIdx}-${qIdx}` }}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                    />
+                  );
+                }
+
+                if (PREPARE_REVIEW_QUESTION_TYPES.has(sectionType)) {
+                  return (
+                    <QuestionDisplayFactory
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{
+                        ...section,
+                        id: `${partIdx}-${secIdx}-${qIdx}`,
+                        questions: [question],
+                      }}
+                      questionType={sectionType}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                      questionIndex={qIdx}
+                      examType={examType}
+                      testType={testType}
+                      gatewayQuestionNumbers={isGatewayReadingWritingReview}
+                      gatewayMetadata={section.questions?.[0] || {}}
+                      sectionQuestionCount={section.questions?.length || 1}
                     />
                   );
                 }

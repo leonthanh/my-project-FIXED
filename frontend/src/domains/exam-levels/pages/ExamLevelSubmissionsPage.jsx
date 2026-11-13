@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon";
-import { apiPath, authFetch } from "../../../shared/utils/api";
+import ConfirmModal from "../../../shared/components/ConfirmModal";
+import { apiPath, authFetch, getStoredUser, hostPath } from "../../../shared/utils/api";
+import { isAdmin } from "../../../shared/utils/permissions";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
   AdminSidebarNavList,
@@ -21,6 +23,11 @@ import AttemptExtensionControls from "../../../features/admin/components/Attempt
 import {
   getAttemptTimingMeta,
 } from "../../../features/admin/utils/attemptTiming";
+import {
+  getCambridgeResponseFeedbackText,
+  upsertCambridgeResponseFeedback,
+} from "../../../shared/utils/cambridgeFeedback";
+import sanitizePromptHtml from "../../../shared/utils/sanitizePromptHtml";
 import "./ExamLevelSubmissionsPage.css";
 
 const PREPARE_SKILLS = ["listening", "reading-writing"];
@@ -84,6 +91,88 @@ const formatTimeSpent = (value) => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
+const getManualResponses = (submission) => {
+  const detailedResults = submission?.detailedResults;
+  const parsedResults = typeof detailedResults === "string"
+    ? (() => {
+        try {
+          return JSON.parse(detailedResults);
+        } catch {
+          return {};
+        }
+      })()
+    : detailedResults;
+  if (!parsedResults || typeof parsedResults !== "object" || Array.isArray(parsedResults)) {
+    return [];
+  }
+
+  return Object.entries(parsedResults)
+    .filter(([, result]) => result?.isCorrect === null)
+    .map(([key, result], index) => {
+      const userAnswer = typeof result.userAnswer === "string"
+        ? result.userAnswer.trim()
+        : String(result.userAnswer ?? "").trim();
+      return {
+        key,
+        label: result.questionNumber
+          ? `Question ${result.questionNumber}`
+          : ["short-message", "story-writing"].includes(result.questionType)
+            ? "Writing task"
+            : `Response ${index + 1}`,
+        prompt: String(result.questionText || "").trim(),
+        questionType: String(result.questionType || "").trim(),
+        userAnswer,
+      };
+    })
+    .filter((response) => response.userAnswer);
+};
+
+const getWritingContentFromTest = (test, response) => {
+  const emptyContent = { isPrepareWriting: false, instructions: "", prompt: "" };
+  const keyParts = String(response?.key || "").split("-").map(Number);
+  if (keyParts.length !== 3 || keyParts.some((index) => !Number.isInteger(index))) return emptyContent;
+
+  let parts = test?.parts;
+  if (typeof parts === "string") {
+    try {
+      parts = JSON.parse(parts);
+    } catch {
+      return emptyContent;
+    }
+  }
+  if (!Array.isArray(parts)) return emptyContent;
+
+  const [partIndex, sectionIndex, questionIndex] = keyParts;
+  const section = parts[partIndex]?.sections?.[sectionIndex];
+  const question = section?.questions?.[questionIndex];
+  if (!question || typeof question !== "object") return emptyContent;
+
+  const questionType = response.questionType || section.questionType;
+  if (questionType === "story-writing") {
+    return {
+      isPrepareWriting: Boolean(question.prepareWritingMode),
+      instructions: String(question.instructions || "").trim(),
+      prompt: String(question.story || question.prompt || question.openingSentence || "").trim(),
+    };
+  }
+
+  const candidates = questionType === "short-message"
+    ? [question.situation, question.questionText, question.prompt]
+    : [question.prompt, question.instructions, question.openingSentence, question.situation, question.questionText];
+  return {
+    isPrepareWriting: Boolean(question.prepareWritingMode),
+    instructions: "",
+    prompt: String(candidates.find((candidate) => String(candidate || "").trim()) || "").trim(),
+  };
+};
+
+const getPendingManualResponses = (submission) => {
+  if (String(submission?.feedback || "").trim()) return [];
+  return getManualResponses(submission).filter((response) => (
+    !getCambridgeResponseFeedbackText(submission?.responseFeedback, response.key)
+  ));
+};
+
 const extensionButtonStyle = {
   padding: "7px 12px",
   border: "none",
@@ -111,9 +200,43 @@ const ExamLevelSubmissionsPage = () => {
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("prepare");
   const [extendingId, setExtendingId] = useState(null);
   const [extensionErrors, setExtensionErrors] = useState({});
+  const [reviewingEssayId, setReviewingEssayId] = useState(null);
+  const [essayFeedbackDrafts, setEssayFeedbackDrafts] = useState({});
+  const [essaySavingKey, setEssaySavingKey] = useState("");
+  const [essayReviewErrors, setEssayReviewErrors] = useState({});
+  const [essayReviewDetails, setEssayReviewDetails] = useState({});
+  const [essayReviewLoadingIds, setEssayReviewLoadingIds] = useState({});
+  const [essayReviewLoadErrors, setEssayReviewLoadErrors] = useState({});
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const currentUser = useMemo(() => getStoredUser(), []);
+  const canDeleteSubmissions = isAdmin(currentUser);
+  const reviewingSubmission = submissions.find((item) => item.id === reviewingEssayId) || null;
+  const reviewingResponses = reviewingSubmission ? getManualResponses(reviewingSubmission) : [];
+  const reviewingPendingCount = reviewingSubmission
+    ? getPendingManualResponses(reviewingSubmission).length
+    : 0;
 
   const requestedSkill = String(searchParams.get("skill") || "all").toLowerCase();
   const activeSkill = PREPARE_SKILLS.includes(requestedSkill) ? requestedSkill : "all";
+
+  useEffect(() => {
+    if (reviewingEssayId === null) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setReviewingEssayId(null);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [reviewingEssayId]);
 
   useEffect(() => {
     let mounted = true;
@@ -303,6 +426,133 @@ const ExamLevelSubmissionsPage = () => {
       return false;
     } finally {
       setExtendingId(null);
+    }
+  };
+
+  const openEssayReview = async (submission) => {
+    setReviewingEssayId(submission.id);
+    setEssayFeedbackDrafts((current) => ({
+      ...current,
+      [submission.id]: current[submission.id] || Object.fromEntries(
+        getManualResponses(submission).map((response) => [
+          response.key,
+          getCambridgeResponseFeedbackText(submission.responseFeedback, response.key),
+        ])
+      ),
+    }));
+    setEssayReviewErrors((current) => ({ ...current, [submission.id]: "" }));
+    if (essayReviewDetails[submission.id] || essayReviewLoadingIds[submission.id]) return;
+
+    setEssayReviewLoadingIds((current) => ({ ...current, [submission.id]: true }));
+    setEssayReviewLoadErrors((current) => ({ ...current, [submission.id]: "" }));
+    try {
+      const response = await authFetch(apiPath(
+        `exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(submission.id)}`
+      ));
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || "Could not load the writing prompt.");
+      }
+      setEssayReviewDetails((current) => ({ ...current, [submission.id]: payload }));
+    } catch (detailError) {
+      setEssayReviewLoadErrors((current) => ({
+        ...current,
+        [submission.id]: detailError.message || "Could not load the writing prompt.",
+      }));
+    } finally {
+      setEssayReviewLoadingIds((current) => ({ ...current, [submission.id]: false }));
+    }
+  };
+
+  const handleSaveEssayFeedback = async (submission, response) => {
+    const feedback = String(
+      essayFeedbackDrafts[submission.id]?.[response.key] || ""
+    ).trim();
+    const stateKey = `${submission.id}:${response.key}`;
+    if (!feedback) {
+      setEssayReviewErrors((current) => ({
+        ...current,
+        [submission.id]: "Enter feedback before saving.",
+      }));
+      return;
+    }
+
+    setEssaySavingKey(stateKey);
+    setEssayReviewErrors((current) => ({ ...current, [submission.id]: "" }));
+    try {
+      const reviewerName = String(
+        currentUser?.name || currentUser?.username || currentUser?.fullName || "Teacher"
+      ).trim();
+      const responseFeedback = upsertCambridgeResponseFeedback({
+        existingValue: submission.responseFeedback,
+        responseKey: response.key,
+        feedback,
+        feedbackBy: reviewerName,
+        feedbackAt: new Date().toISOString(),
+        label: response.label,
+        prompt: response.prompt,
+        questionType: response.questionType,
+      });
+      const responseObject = await authFetch(apiPath(
+        `exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(submission.id)}/review`
+      ), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedback: submission.feedback || "",
+          responseFeedback,
+        }),
+      });
+      const payload = await responseObject.json().catch(() => ({}));
+      if (!responseObject.ok) {
+        throw new Error(payload.message || "Could not save essay feedback.");
+      }
+
+      setSubmissions((current) => current.map((item) => (
+        item.id === submission.id
+          ? {
+              ...item,
+              feedback: payload.feedback ?? submission.feedback ?? null,
+              responseFeedback: payload.responseFeedback || responseFeedback,
+              status: payload.status || "reviewed",
+            }
+          : item
+      )));
+    } catch (reviewError) {
+      setEssayReviewErrors((current) => ({
+        ...current,
+        [submission.id]: reviewError.message || "Could not save essay feedback.",
+      }));
+    } finally {
+      setEssaySavingKey("");
+    }
+  };
+
+  const handleDeleteSubmission = async () => {
+    if (!deleteConfirm || !canDeleteSubmissions || deletingId) return;
+    setDeletingId(deleteConfirm.id);
+    setDeleteError("");
+    try {
+      const response = await authFetch(apiPath(
+        `exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(deleteConfirm.id)}`
+      ), { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || "Could not delete submission.");
+      }
+
+      setSubmissions((current) => current.filter((item) => item.id !== deleteConfirm.id));
+      setExpandedItems((current) => {
+        const next = new Set(current);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
+      if (reviewingEssayId === deleteConfirm.id) setReviewingEssayId(null);
+      setDeleteConfirm(null);
+    } catch (deleteSubmissionError) {
+      setDeleteError(deleteSubmissionError.message || "Could not delete submission.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -539,6 +789,10 @@ const ExamLevelSubmissionsPage = () => {
                 const timingMeta = isActive ? getAttemptTimingMeta(item.expiresAt) : null;
                 const feedback = String(item.feedback || "").trim();
                 const isReviewed = hasReview(item);
+                const pendingManualResponses = getPendingManualResponses(item);
+                const canReviewEssay = !isActive
+                  && item.skill === "reading-writing"
+                  && pendingManualResponses.length > 0;
                 const summaryStats = [
                   {
                     label: "Type",
@@ -648,17 +902,44 @@ const ExamLevelSubmissionsPage = () => {
                       <p className="prepare-submissions-page__noFeedback">No teacher feedback yet.</p>
                     )}
 
-                    {!isActive ? (
-                      <div className="prepare-submissions-page__actions">
+                    <div className="prepare-submissions-page__actions">
+                      {canReviewEssay ? (
+                        <button
+                          type="button"
+                          className="prepare-submissions-page__reviewEssay"
+                          onClick={() => openEssayReview(item)}
+                        >
+                          <InlineIcon name="review" size={15} />
+                          <span>Review Essay</span>
+                          <span className="prepare-submissions-page__reviewCount">
+                            {pendingManualResponses.length}
+                          </span>
+                        </button>
+                      ) : null}
+                      {!isActive ? (
                         <Link
                           className="prepare-submissions-page__open"
-                          to={`/exam-levels/${encodeURIComponent(code)}/submissions/${encodeURIComponent(item.id)}`}
+                          to={`/exam-levels/${encodeURIComponent(code)}/submission-results/${encodeURIComponent(item.id)}`}
                         >
                           <InlineIcon name="eye" size={15} />
-                          <span>Open submission review</span>
+                          <span>View</span>
                         </Link>
-                      </div>
-                    ) : null}
+                      ) : null}
+                      {canDeleteSubmissions ? (
+                        <button
+                          type="button"
+                          className="prepare-submissions-page__delete"
+                          disabled={deletingId === item.id}
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleteConfirm({ id: item.id, studentName: item.studentName });
+                          }}
+                        >
+                          <InlineIcon name="trash" size={15} />
+                          <span>{deletingId === item.id ? "Deleting…" : "Delete"}</span>
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 );
               }}
@@ -668,6 +949,160 @@ const ExamLevelSubmissionsPage = () => {
           ) : null}
         </AdminStickySidebarLayout>
       </div>
+      {reviewingSubmission ? (
+        <div
+          className="prepare-submissions-page__drawerOverlay"
+          onClick={() => setReviewingEssayId(null)}
+        >
+          <aside
+            className="prepare-submissions-page__drawerPanel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Prepare essay review"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="prepare-submissions-page__drawerHeader">
+              <div>
+                <div className="prepare-submissions-page__drawerEyebrow">Prepare Essay Review</div>
+                <h2 className="prepare-submissions-page__drawerTitle">
+                  {reviewingSubmission.testTitle || `${skillLabel(reviewingSubmission.skill)} test`}
+                </h2>
+                <div className="prepare-submissions-page__drawerMeta">
+                  <span>{reviewingSubmission.studentName || "Student"}</span>
+                  {reviewingSubmission.classCode ? <span>{reviewingSubmission.classCode}</span> : null}
+                  <span className="is-pending">
+                    {reviewingPendingCount} pending
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="prepare-submissions-page__drawerClose"
+                aria-label="Close review drawer"
+                onClick={() => setReviewingEssayId(null)}
+              >
+                <InlineIcon name="close" size={18} />
+              </button>
+            </header>
+
+            <div className="prepare-submissions-page__drawerBody">
+              <section className="prepare-submissions-page__essayReview" aria-label="Essay review responses">
+                <h3>Open-ended responses to review</h3>
+                {essayReviewLoadingIds[reviewingSubmission.id] ? (
+                  <p className="prepare-submissions-page__drawerEmpty">Loading writing prompt…</p>
+                ) : null}
+                {essayReviewLoadErrors[reviewingSubmission.id] ? (
+                  <p className="prepare-submissions-page__error" role="alert">
+                    {essayReviewLoadErrors[reviewingSubmission.id]}
+                  </p>
+                ) : null}
+                {reviewingResponses.length ? reviewingResponses.map((response) => {
+                  const stateKey = `${reviewingSubmission.id}:${response.key}`;
+                  const savedFeedback = getCambridgeResponseFeedbackText(
+                    reviewingSubmission.responseFeedback,
+                    response.key
+                  );
+                  const writingContent = getWritingContentFromTest(
+                    essayReviewDetails[reviewingSubmission.id]?.test,
+                    response
+                  );
+                  const isPrepareWriting = writingContent.isPrepareWriting
+                    || response.questionType === "story-writing";
+                  const instructions = writingContent.instructions
+                    || (isPrepareWriting ? response.prompt : "");
+                  const prompt = writingContent.prompt
+                    || (isPrepareWriting ? "" : response.prompt);
+                  const feedbackPrompt = isPrepareWriting
+                    ? [
+                        instructions ? `Instructions:\n${instructions}` : "",
+                        prompt ? `Letter / Prompt Text:\n${prompt}` : "",
+                      ].filter(Boolean).join("\n\n")
+                    : prompt;
+                  return (
+                    <article key={response.key} className="prepare-submissions-page__essayResponse">
+                      <strong>{response.label}</strong>
+                      {instructions ? (
+                        <div className="prepare-submissions-page__essayPromptWrap">
+                          <span className="prepare-submissions-page__essayPromptLabel">Instructions</span>
+                          <div
+                            className="prepare-submissions-page__essayPromptHtml"
+                            dangerouslySetInnerHTML={{ __html: sanitizePromptHtml(instructions, hostPath) }}
+                          />
+                        </div>
+                      ) : null}
+                      {prompt ? (
+                        <div className="prepare-submissions-page__essayPromptWrap">
+                          <span className="prepare-submissions-page__essayPromptLabel">
+                            {isPrepareWriting ? "Letter / Prompt Text" : "Prompt"}
+                          </span>
+                          <div
+                            className="prepare-submissions-page__essayPromptHtml"
+                            dangerouslySetInnerHTML={{ __html: sanitizePromptHtml(prompt, hostPath) }}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="prepare-submissions-page__essayAnswer">
+                        {response.userAnswer}
+                      </div>
+                      <label htmlFor={`prepare-feedback-${reviewingSubmission.id}-${response.key}`}>
+                        Teacher feedback
+                      </label>
+                      <textarea
+                        id={`prepare-feedback-${reviewingSubmission.id}-${response.key}`}
+                        value={essayFeedbackDrafts[reviewingSubmission.id]?.[response.key] ?? savedFeedback}
+                        maxLength={10000}
+                        rows={4}
+                        onChange={(event) => setEssayFeedbackDrafts((current) => ({
+                          ...current,
+                          [reviewingSubmission.id]: {
+                            ...current[reviewingSubmission.id],
+                            [response.key]: event.target.value,
+                          },
+                        }))}
+                      />
+                      <button
+                        type="button"
+                        disabled={essaySavingKey === stateKey}
+                        onClick={() => handleSaveEssayFeedback(
+                          reviewingSubmission,
+                          { ...response, prompt: feedbackPrompt }
+                        )}
+                      >
+                        {essaySavingKey === stateKey
+                          ? "Saving…"
+                          : savedFeedback ? "Update Feedback" : "Save Feedback"}
+                      </button>
+                    </article>
+                  );
+                }) : (
+                  <p className="prepare-submissions-page__drawerEmpty">
+                    No open-ended responses were found in this submission.
+                  </p>
+                )}
+                {essayReviewErrors[reviewingSubmission.id] ? (
+                  <p className="prepare-submissions-page__error" role="alert">
+                    {essayReviewErrors[reviewingSubmission.id]}
+                  </p>
+                ) : null}
+              </section>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+      <ConfirmModal
+        isOpen={Boolean(deleteConfirm)}
+        onClose={() => {
+          if (deletingId) return;
+          setDeleteConfirm(null);
+          setDeleteError("");
+        }}
+        onConfirm={handleDeleteSubmission}
+        title="Delete this submission?"
+        message={`This will permanently delete ${deleteConfirm?.studentName || "this student's"} submission and its review data.`}
+        confirmText={deletingId ? "Deleting…" : "Delete submission"}
+        type="danger"
+        extraContent={deleteError || null}
+      />
     </>
   );
 };

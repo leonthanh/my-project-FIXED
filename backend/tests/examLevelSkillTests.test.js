@@ -4,6 +4,7 @@ jest.mock("../models", () => ({
     findOne: jest.fn(),
     findAll: jest.fn(),
     create: jest.fn(),
+    destroy: jest.fn(),
   },
   ExamLevelTest: {
     create: jest.fn(),
@@ -293,6 +294,48 @@ describe("exam level skill test adapter", () => {
     expect(result.extensionMinutes).toBe(10);
     expect(submission.expiresAt.getTime()).toBe(initialExpiry.getTime() + 10 * 60_000);
     expect(submission.save).toHaveBeenCalled();
+  });
+
+  test("deletes a submission only within the requested exam level", async () => {
+    ExamLevelSubmission.destroy.mockResolvedValue(1);
+
+    await service.deleteSubmission({ code: "prepare", submissionId: 7 });
+
+    expect(ExamLevelSubmission.destroy).toHaveBeenCalledWith({
+      where: { id: 7, levelId: 4 },
+    });
+  });
+
+  test("keeps a submission pending until every answered manual response has feedback", async () => {
+    const submission = {
+      detailedResults: {
+        "0-0-0": { isCorrect: null, userAnswer: "First answer" },
+        "0-1-0": { isCorrect: null, userAnswer: "Second answer" },
+      },
+      update: jest.fn().mockImplementation(async function update(values) {
+        this.savedValues = values;
+      }),
+      toJSON() {
+        return this.savedValues;
+      },
+    };
+    ExamLevelSubmission.findOne.mockResolvedValue(submission);
+
+    await service.saveSubmissionReview({
+      code: "prepare",
+      submissionId: 7,
+      body: {
+        responseFeedback: {
+          version: 1,
+          items: { "0-0-0": { feedback: "Good answer." } },
+        },
+      },
+      user: { id: 8, role: "teacher" },
+    });
+
+    expect(submission.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "submitted" })
+    );
   });
 
   test("does not overwrite an extension when an older client autosaves", async () => {

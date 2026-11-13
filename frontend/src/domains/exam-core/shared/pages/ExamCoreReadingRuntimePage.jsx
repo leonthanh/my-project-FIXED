@@ -31,6 +31,7 @@ import InlineChoiceDisplay from "../../../../shared/components/questions/display
 import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
 import PrepareQuestionsDisplay from "../../../exam-levels/prepare/PrepareQuestionsDisplay";
 import {
+  buildPrepareQuestionNavigationTargets,
   computeQuestionStarts,
   getQuestionCountForSection,
   isZeroNumberedClozeExample,
@@ -1915,19 +1916,10 @@ const ExamCoreReadingRuntimePage = ({
 
   const prepareQuestionNavigationTargets = useMemo(() => {
     if (!isPrepareReadingWriting) return [];
-
-    return allQuestions.flatMap((entry, questionIndex) => {
-      if (!Number.isFinite(entry.questionNumber)) return [];
-      const questionCount = PREPARE_GROUPED_QUESTION_TYPES.has(entry.section?.questionType)
-        ? Math.max(getQuestionCountForSection(entry.section), 1)
-        : 1;
-
-      return Array.from({ length: questionCount }, (_, questionOffset) => ({
-        entry,
-        questionIndex,
-        questionNumber: entry.questionNumber + questionOffset,
-      }));
-    });
+    return buildPrepareQuestionNavigationTargets(
+      allQuestions,
+      PREPARE_GROUPED_QUESTION_TYPES
+    );
   }, [allQuestions, isPrepareReadingWriting]);
 
   const getPeopleMatchingAnswerKey = useCallback((q) => {

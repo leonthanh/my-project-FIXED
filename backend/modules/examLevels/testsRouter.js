@@ -4,6 +4,7 @@ const service = require("./service");
 
 const router = express.Router();
 const requireTeacher = [requireAuth, requireRole("teacher", "admin")];
+const requireAdmin = [requireAuth, requireRole("admin")];
 const send = (handler) => async (req, res, next) => {
   try {
     const result = await handler(req);
@@ -48,6 +49,17 @@ router.get(
       user: req.user,
     })
   )
+);
+router.delete(
+  "/:code/submissions/:submissionId",
+  ...requireAdmin,
+  send(async (req) => {
+    await service.deleteSubmission({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+    });
+    return { message: "Submission deleted." };
+  })
 );
 router.post(
   "/:code/submissions/:submissionId/extend-time",
