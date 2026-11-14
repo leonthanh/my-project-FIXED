@@ -240,7 +240,7 @@ git push origin main
 - Deploy tự chạy khi có `push` vào `main`.
 - Nếu bạn merge PR bằng **Squash and merge**, GitHub tạo commit mới trên `main`, nên workflow cũng tự chạy.
 - Bạn cũng có thể chạy tay bằng `workflow_dispatch` trong tab Actions.
-- Flow này deploy bằng GitHub Actions + FTP mirror, không cần `git pull` trên cPanel.
+- Flow này deploy bằng GitHub Actions + explicit FTPS (FTP over TLS, port 21), không cần `git pull` trên cPanel.
 
 ### Checklist deploy nhanh
 
