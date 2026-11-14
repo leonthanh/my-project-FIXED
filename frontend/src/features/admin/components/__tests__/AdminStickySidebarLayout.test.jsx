@@ -38,7 +38,6 @@ describe("buildAdminWorkspaceLinks", () => {
       "general",
       "display-settings",
       "runtime-sync-metrics",
-      "exam-levels",
       "permissions",
       "users",
     ]);
@@ -96,7 +95,7 @@ describe("buildAdminWorkspaceLinks", () => {
     nav.workspaceChildLinks[1].onClick();
 
     expect(setActiveWorkspaceGroup).toHaveBeenCalledWith("prepare");
-    expect(navigate).toHaveBeenCalledWith("/exam-levels/prepare/submissions");
+    expect(navigate).toHaveBeenCalledWith("/prepare/submissions");
     expect(onPrepareSkillClick).toHaveBeenCalledWith("listening");
   });
 });
@@ -360,7 +359,7 @@ describe("buildReviewWorkspaceNav", () => {
     prepareParent.onClick();
 
     expect(fns.navigate).toHaveBeenCalledWith(
-      "/exam-levels/prepare/submissions"
+      "/prepare/submissions"
     );
   });
 });

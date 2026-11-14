@@ -12,8 +12,8 @@ import {
   validateFlexiblePrepareReadingWritingParts,
   validatePrepareReadingWritingParts,
 } from "./prepareReadingWriting";
-import { getPrepareReadingWritingQuestionTypes } from "../../../shared/config/questionTypes";
-import { getQuestionCountForSection } from "../../exam-core/shared/utils/examQuestionNumbering";
+import { getPrepareReadingWritingQuestionTypes } from "../../shared/config/questionTypes";
+import { getQuestionCountForSection } from "../exam-engine/shared/utils/examQuestionNumbering";
 
 test("Prepare blueprint has 50 numbered questions and a separate W rubric", () => {
   const parts = buildPrepareReadingWritingParts();

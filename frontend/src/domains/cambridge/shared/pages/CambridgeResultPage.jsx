@@ -5,7 +5,7 @@ import AdminNavbar from "../../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
-import { isZeroNumberedClozeExample } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import { isZeroNumberedClozeExample } from "../../../exam-engine/shared/utils/examQuestionNumbering";
 import { summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { countNotesCompletionBlanks, shouldIncludeSectionForPart } from "../utils/questionNumbering";
@@ -157,7 +157,7 @@ function buildWritingPromptHtml(sectionType, question, detailedResult) {
  */
 const CambridgeResultPage = ({ platform = 'orange' }) => {
   const { submissionId, code: rawCode } = useParams();
-  const code = String(rawCode || '').trim().toLowerCase();
+  const code = String((platform === 'prepare' ? rawCode || 'prepare' : rawCode) || '').trim().toLowerCase();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();

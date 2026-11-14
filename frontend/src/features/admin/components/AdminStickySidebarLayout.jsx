@@ -63,7 +63,7 @@ const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
     hint: "Prepare submissions",
     tone: "violet",
     active: currentKey === "prepare",
-    onClick: () => navigate("/exam-levels/prepare/submissions"),
+    onClick: () => navigate("/prepare/submissions"),
   },
   {
     key: "cambridge",
@@ -100,14 +100,6 @@ const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
     tone: "cyan",
     active: currentKey === "runtime-sync-metrics",
     onClick: () => navigate("/admin/runtime-sync-metrics"),
-  },
-  {
-    key: "exam-levels",
-    label: "Levels",
-    hint: "Level and skill templates",
-    tone: "blue",
-    active: currentKey === "exam-levels",
-    onClick: () => navigate("/admin/exam-levels"),
   },
   {
     key: "permissions",

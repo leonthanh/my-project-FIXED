@@ -33,7 +33,7 @@ import { normalizeQuillPromptHtml } from "../utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 import GATEWAY_WRITING_RUBRIC from "../../../../shared/config/gatewayWritingRubric";
-import PrepareQuestionsEditor from "../../../exam-levels/prepare/PrepareQuestionsEditor";
+import PrepareQuestionsEditor from "../../../prepare/PrepareQuestionsEditor";
 import {
   buildPrepareReadingWritingParts,
   countPrepareScoringUnitsForSection,
@@ -46,7 +46,7 @@ import {
   PREPARE_WRITING_RUBRIC,
   validateFlexiblePrepareReadingWritingParts,
   validatePrepareReadingWritingParts,
-} from "../../../exam-levels/prepare/prepareReadingWriting";
+} from "../../../prepare/prepareReadingWriting";
 
 const InlineIcon = ({ name, size = 16, strokeWidth = 2, style }) => (
   <span

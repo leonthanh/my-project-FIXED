@@ -32,6 +32,7 @@ const normalizePrepareSkill = (skill) =>
 export const PLATFORM_TABS = [
   { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
   { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
+  { key: 'prepare', label: 'Prepare', icon: 'reading', hint: 'Reading & Writing, Listening' },
   { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
   { key: 'general', label: 'General', icon: 'tests', hint: 'Placement-style combined skills.' },
 ];
@@ -39,12 +40,9 @@ export const PLATFORM_TABS = [
 export function buildPlatformTabs(displayLabels = {}) {
   const generalDisplayName = String(displayLabels?.generalDisplayName || 'General').trim() || 'General';
 
-  return [
-    { key: 'ix', label: 'IX', icon: 'tests', hint: 'Focused IELTS-style skills.' },
-    { key: 'gateway', label: 'Gateway', icon: 'document', hint: 'Gateway to the World progress tests.' },
-    { key: 'orange', label: 'Orange', icon: 'orange', hint: 'Cambridge levels grouped cleanly.' },
-    { key: 'general', label: generalDisplayName, icon: 'tests', hint: 'Placement-style combined skills.' },
-  ];
+  return PLATFORM_TABS.map((tab) => (
+    tab.key === 'general' ? { ...tab, label: generalDisplayName } : tab
+  ));
 }
 
 export function normalizeSelectTestState({ platform, type, tab }) {

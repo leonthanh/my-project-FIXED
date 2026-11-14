@@ -142,7 +142,7 @@ test("shows shared submission layout, filters by skill/status, and opens Prepare
   })).toBeInTheDocument();
   expect(screen.getByText("Good work")).toBeInTheDocument();
   const reviewLink = await screen.findByRole("link", { name: "View" });
-  expect(reviewLink).toHaveAttribute("href", "/exam-levels/prepare/submission-results/2");
+  expect(reviewLink).toHaveAttribute("href", "/prepare/submission-results/2");
 });
 
 test("shows active Prepare attempts and sends extension requests", async () => {

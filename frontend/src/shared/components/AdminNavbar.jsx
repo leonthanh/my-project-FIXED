@@ -192,7 +192,7 @@ const adminRoutePreloaders = {
   "/admin/create-gateway/reading-writing": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/create-gateway/listening": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
-  "/admin/exam-levels": () => import("../../features/admin/pages/ExamLevelsPage"),
+  "/admin/prepare": () => import("../../features/admin/pages/SelectTest"),
   "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
@@ -715,7 +715,7 @@ const AdminNavbar = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
     if (pathname.startsWith("/review")) return "review";
-    if (pathname.includes("/exam-levels/prepare")) return "prepare";
+    if (pathname.includes("/exam-levels/prepare") || pathname.startsWith("/prepare")) return "prepare";
     if (pathname.includes("gateway")) return "gateway";
     if (pathname === "/select-test") {
       const platform = new URLSearchParams(location?.search || "").get("platform");
@@ -803,7 +803,7 @@ const AdminNavbar = () => {
   const getPreferredDesktopPrepareSection = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
-    if (pathname.includes("/exam-levels/prepare/submissions")) {
+    if (pathname.includes("/prepare/submissions") || pathname.includes("/exam-levels/prepare/submissions")) {
       return "submissions";
     }
     if (pathname === "/select-test") {
@@ -1248,14 +1248,14 @@ const AdminNavbar = () => {
         items: [
           buildAdminLinkItem(
             "create-prepare-reading-writing",
-            "/admin/exam-levels/prepare/reading-writing/new",
+            "/admin/prepare/reading-writing/new",
             "Reading & Writing",
             canManageReading,
             "reading"
           ),
           buildAdminLinkItem(
             "create-prepare-listening",
-            "/admin/exam-levels/prepare/listening/new",
+            "/admin/prepare/listening/new",
             "Listening",
             canManageListening,
             "listening"
@@ -1292,7 +1292,7 @@ const AdminNavbar = () => {
         items: [
           buildAdminLinkItem(
             "prepare-submissions",
-            "/exam-levels/prepare/submissions",
+            "/prepare/submissions",
             "View submissions",
             true,
             "submissions"
@@ -1326,13 +1326,6 @@ const AdminNavbar = () => {
           "Teacher Permissions",
           true,
           "permissions"
-        ),
-        buildAdminLinkItem(
-          "exam-levels",
-          "/admin/exam-levels",
-          "Level Registry",
-          true,
-          "management"
         ),
         buildAdminLinkItem("users", "/admin/users", "User Management", true, "users"),
       ].filter(Boolean),
@@ -1616,6 +1609,8 @@ const AdminNavbar = () => {
     (pathname === "/select-test" && platformParam === "gateway");
   const isPrepareCurrent =
     pathname.includes("/exam-levels/prepare") ||
+    pathname.startsWith("/prepare") ||
+    pathname.startsWith("/admin/prepare") ||
     (pathname === "/select-test" && platformParam === "prepare");
   const isIxCurrent =
     (pathname.startsWith("/admin/create") && !isGeneralCurrent && !isGatewayCurrent) ||
@@ -1630,7 +1625,7 @@ const AdminNavbar = () => {
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions") ||
     pathname.startsWith("/admin/display-settings") ||
-    pathname.startsWith("/admin/exam-levels") ||
+    pathname.startsWith("/admin/prepare") ||
     pathname.startsWith("/admin/runtime-sync-metrics");
   const isExamLevelCurrent = pathname.startsWith("/exam-levels/");
 

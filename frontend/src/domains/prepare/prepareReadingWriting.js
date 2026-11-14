@@ -1,6 +1,6 @@
-import { getDefaultQuestionData, getPrepareReadingWritingQuestionTypes } from "../../../shared/config/questionTypes";
-import PREPARE_WRITING_RUBRIC from "../../../shared/config/prepareWritingRubric";
-import { getQuestionCountForSection } from "../../exam-core/shared/utils/examQuestionNumbering";
+import { getDefaultQuestionData, getPrepareReadingWritingQuestionTypes } from "../../shared/config/questionTypes";
+import PREPARE_WRITING_RUBRIC from "../../shared/config/prepareWritingRubric";
+import { getQuestionCountForSection } from "../exam-engine/shared/utils/examQuestionNumbering";
 
 export const PREPARE_READING_WRITING_FORMAT = "prepare-reading-writing-v1";
 export const PREPARE_FLEXIBLE_READING_WRITING_FORMAT = "prepare-reading-writing-v2";

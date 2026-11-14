@@ -1,6 +1,6 @@
 import { getExamLevelSkillBuilderSuccessPath } from "../ExamLevelSkillBuilderPage";
 
-jest.mock("../../../exam-core/shared/components/ExamCoreTestBuilder", () => () => null);
+jest.mock("../../../exam-engine/shared/components/ExamCoreTestBuilder", () => () => null);
 
 describe("getExamLevelSkillBuilderSuccessPath", () => {
   test("returns Prepare builders to the matching Test List skill", () => {

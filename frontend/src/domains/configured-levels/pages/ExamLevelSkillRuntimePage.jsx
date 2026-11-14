@@ -5,8 +5,8 @@ import {
   buildPlacementAttemptPath,
   readPlacementRuntimeContext,
 } from "../../../shared/utils/placementTests";
-import ExamCoreListeningRuntimePage from "../../exam-core/shared/pages/ExamCoreListeningRuntimePage";
-import ExamCoreReadingRuntimePage from "../../exam-core/shared/pages/ExamCoreReadingRuntimePage";
+import ExamCoreListeningRuntimePage from "../../exam-engine/shared/pages/ExamCoreListeningRuntimePage";
+import ExamCoreReadingRuntimePage from "../../exam-engine/shared/pages/ExamCoreReadingRuntimePage";
 
 const SKILL_LABELS = {
   reading: "Reading",
@@ -15,10 +15,10 @@ const SKILL_LABELS = {
   "reading-writing": "Reading & Writing",
 };
 
-const ExamLevelSkillRuntimePage = () => {
+const ExamLevelSkillRuntimePage = ({ code: codeOverride } = {}) => {
   const { code: rawCode, skill: rawSkill } = useParams();
   const location = useLocation();
-  const code = String(rawCode || "").trim().toLowerCase();
+  const code = String(codeOverride || rawCode || "").trim().toLowerCase();
   const skill = String(rawSkill || "").trim().toLowerCase();
   const placementContext = readPlacementRuntimeContext(location);
   const [level, setLevel] = useState(null);
@@ -68,7 +68,9 @@ const ExamLevelSkillRuntimePage = () => {
     examDisplayName: level.name,
     hubPath: placementContext.isPlacementRuntime
       ? buildPlacementAttemptPath(placementContext.placementAttemptToken)
-      : `/exam-levels/${codePath}`,
+      : code === "prepare"
+        ? "/prepare"
+        : `/exam-levels/${codePath}`,
   };
 
   return skill === "listening" ? (

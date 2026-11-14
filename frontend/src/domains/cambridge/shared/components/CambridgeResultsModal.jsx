@@ -1,1 +1,1 @@
-export { default } from "../../../exam-core/shared/components/ExamCoreResultsModal";
+export { default } from "../../../exam-engine/shared/components/ExamCoreResultsModal";

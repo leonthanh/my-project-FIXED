@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiPath, authFetch } from "../../../shared/utils/api";
 import { buildSelectTestPath } from "../../../shared/config/examRegistry";
-import ExamCoreTestBuilder from "../../exam-core/shared/components/ExamCoreTestBuilder";
-import { isPrepareReadingWriting } from "../prepare/prepareReadingWriting";
+import ExamCoreTestBuilder from "../../exam-engine/shared/components/ExamCoreTestBuilder";
+import { isPrepareReadingWriting } from "../../prepare/prepareReadingWriting";
 
 const SKILL_LABELS = {
   reading: "Reading",
@@ -20,9 +20,9 @@ export const getExamLevelSkillBuilderSuccessPath = (code, skill) => {
   return `/exam-levels/${encodeURIComponent(normalizedCode)}`;
 };
 
-const ExamLevelSkillBuilderPage = () => {
+const ExamLevelSkillBuilderPage = ({ code: codeOverride } = {}) => {
   const { code: rawCode, skill: rawSkill, id } = useParams();
-  const code = String(rawCode || "").trim().toLowerCase();
+  const code = String(codeOverride || rawCode || "").trim().toLowerCase();
   const skill = String(rawSkill || "").trim().toLowerCase();
   const navigate = useNavigate();
   const [level, setLevel] = useState(null);

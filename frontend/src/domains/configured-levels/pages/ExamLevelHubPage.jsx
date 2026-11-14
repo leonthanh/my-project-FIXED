@@ -18,9 +18,9 @@ const SKILL_LABELS = {
   "reading-writing": "Reading & Writing",
 };
 
-const ExamLevelHubPage = () => {
+const ExamLevelHubPage = ({ code: codeOverride } = {}) => {
   const { code: rawCode } = useParams();
-  const code = String(rawCode || "").trim().toLowerCase();
+  const code = String(codeOverride || rawCode || "").trim().toLowerCase();
   const navigate = useNavigate();
   const user = useMemo(() => getStoredUser(), []);
   const isTeacher = ["teacher", "admin"].includes(String(user?.role || "").toLowerCase());
@@ -30,6 +30,16 @@ const ExamLevelHubPage = () => {
   const [error, setError] = useState("");
   const [placementSelections, setPlacementSelections] = useState([]);
   const [placementSaving, setPlacementSaving] = useState(false);
+  const hubPath = code === "prepare" ? "/prepare" : `/exam-levels/${encodeURIComponent(code)}`;
+  const submissionsPath = `${hubPath}/submissions`;
+  const createTestPath = (skill) => code === "prepare"
+    ? `/admin/prepare/${encodeURIComponent(skill)}/new`
+    : `/admin/exam-levels/${encodeURIComponent(code)}/${encodeURIComponent(skill)}/new`;
+  const runtimePath = (skill, testId) =>
+    `${hubPath}/${encodeURIComponent(skill)}/${encodeURIComponent(testId)}`;
+  const editTestPath = (skill, testId) => code === "prepare"
+    ? `/admin/prepare/${encodeURIComponent(skill)}/${encodeURIComponent(testId)}/edit`
+    : `/admin/exam-levels/${encodeURIComponent(code)}/${encodeURIComponent(skill)}/${encodeURIComponent(testId)}/edit`;
 
   useEffect(() => {
     let mounted = true;
@@ -168,7 +178,7 @@ const ExamLevelHubPage = () => {
             <button
               type="button"
               className="exam-level-hub__back"
-              onClick={() => navigate(`/exam-levels/${encodeURIComponent(code)}/submissions`)}
+              onClick={() => navigate(submissionsPath)}
             >
               View submissions
             </button>
@@ -186,7 +196,7 @@ const ExamLevelHubPage = () => {
                 <button
                   type="button"
                   className="exam-level-hub__create"
-                  onClick={() => navigate(`/admin/exam-levels/${encodeURIComponent(code)}/${skill}/new`)}
+                  onClick={() => navigate(createTestPath(skill))}
                 >
                   <LineIcon name="create" size={16} />
                   Create {SKILL_LABELS[skill] || skill} test
@@ -216,7 +226,7 @@ const ExamLevelHubPage = () => {
                     <h3>{test.title}</h3>
                     <p>{test.classCode || "No class"} · {test.totalQuestions || 0} questions · {test.duration} min</p>
                     <div className="exam-level-hub__actions">
-                      <button type="button" onClick={() => navigate(`/exam-levels/${encodeURIComponent(code)}/${skill}/${test.id}`)}>
+                      <button type="button" onClick={() => navigate(runtimePath(skill, test.id))}>
                         Take test
                       </button>
                       {isTeacher && (
@@ -231,7 +241,7 @@ const ExamLevelHubPage = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => navigate(`/admin/exam-levels/${encodeURIComponent(code)}/${skill}/${test.id}/edit`)}
+                            onClick={() => navigate(editTestPath(skill, test.id))}
                           >
                             Edit
                           </button>

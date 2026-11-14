@@ -1,5 +1,5 @@
 import React from "react";
-import GatewayCoreTestBuilder from "../../../exam-core/shared/components/ExamCoreTestBuilder";
+import GatewayCoreTestBuilder from "../../../exam-engine/shared/components/ExamCoreTestBuilder";
 
 const GatewayTestBuilder = ({ skill = "reading-writing", ...props }) => {
   const normalizedSkill = String(skill || "").trim().toLowerCase();

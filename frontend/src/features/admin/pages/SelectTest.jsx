@@ -159,23 +159,7 @@ const SelectTest = () => {
   const location = useLocation();
   const { displayLabels } = useDisplaySettings();
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
-  const platformTabs = useMemo(() => {
-    const tabs = buildPlatformTabs(displayLabels);
-    const prepareLevel = registeredLevels.find(
-      (level) => String(level.code || "").toLowerCase() === "prepare"
-    );
-    if (!prepareLevel) return tabs;
-
-    const orangeIndex = tabs.findIndex((tab) => tab.key === "orange");
-    const prepareTab = {
-      key: "prepare",
-      label: prepareLevel.name || "Prepare",
-      icon: "reading",
-      hint: "Reading & Writing, Listening",
-    };
-    const insertionIndex = orangeIndex < 0 ? tabs.length : orangeIndex;
-    return [...tabs.slice(0, insertionIndex), prepareTab, ...tabs.slice(insertionIndex)];
-  }, [displayLabels, registeredLevels]);
+  const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
   const otherConfiguredLevels = registeredLevels.filter(
     (level) => String(level.code || "").toLowerCase() !== "prepare"
   );
@@ -1489,7 +1473,7 @@ const SelectTest = () => {
                     <button
                       type="button"
                       className="select-test-create select-test-create--toolbar"
-                      onClick={() => navigate(`/admin/exam-levels/prepare/${activePrepareTab}/new`)}
+                      onClick={() => navigate(`/admin/prepare/${activePrepareTab}/new`)}
                     >
                       <LineIcon name="create" size={16} />
                       <span>Create Prepare {currentSkillInfo.label} Test</span>
@@ -1643,7 +1627,7 @@ const SelectTest = () => {
                         <button
                           type="button"
                           className="select-test-create"
-                          onClick={() => navigate(`/admin/exam-levels/prepare/${activePrepareTab}/new`)}
+                          onClick={() => navigate(`/admin/prepare/${activePrepareTab}/new`)}
                         >
                           <LineIcon name="create" size={16} />
                           <span>Create Prepare {currentSkillInfo.label} Test</span>
@@ -1892,7 +1876,7 @@ const SelectTest = () => {
                                 type="button"
                                 className="select-test-cardMain"
                                 onClick={() => navigate(
-                                  `/exam-levels/prepare/${activePrepareTab}/${test.id}`
+                                  `/prepare/${activePrepareTab}/${test.id}`
                                 )}
                               >
                                 <div className="select-test-cardHeader">
@@ -1933,7 +1917,7 @@ const SelectTest = () => {
                                       type="button"
                                       className="select-test-edit"
                                       onClick={() => navigate(
-                                        `/admin/exam-levels/prepare/${activePrepareTab}/${test.id}/edit`
+                                        `/admin/prepare/${activePrepareTab}/${test.id}/edit`
                                       )}
                                     >
                                       <span>Edit Test</span>

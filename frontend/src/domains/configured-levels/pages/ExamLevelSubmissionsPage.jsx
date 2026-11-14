@@ -184,11 +184,14 @@ const extensionButtonStyle = {
   cursor: "pointer",
 };
 
-const ExamLevelSubmissionsPage = () => {
+const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
   const { code: rawCode } = useParams();
-  const code = String(rawCode || "").trim().toLowerCase();
+  const code = String(codeOverride || rawCode || "").trim().toLowerCase();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const submissionResultsPath = code === "prepare"
+    ? "/prepare/submission-results"
+    : `/exam-levels/${encodeURIComponent(code)}/submission-results`;
   const [level, setLevel] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -919,7 +922,7 @@ const ExamLevelSubmissionsPage = () => {
                       {!isActive ? (
                         <Link
                           className="prepare-submissions-page__open"
-                          to={`/exam-levels/${encodeURIComponent(code)}/submission-results/${encodeURIComponent(item.id)}`}
+                          to={`${submissionResultsPath}/${encodeURIComponent(item.id)}`}
                         >
                           <InlineIcon name="eye" size={15} />
                           <span>View</span>

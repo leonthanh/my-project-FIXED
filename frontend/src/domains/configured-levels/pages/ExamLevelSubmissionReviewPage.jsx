@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AdminNavbar from "../../../shared/components/AdminNavbar";
 import { apiPath, authFetch } from "../../../shared/utils/api";
-import { isPrepareReadingWriting } from "../prepare/prepareReadingWriting";
+import { isPrepareReadingWriting } from "../../prepare/prepareReadingWriting";
 import "./ExamLevelSubmissionsPage.css";
 
 const formatValue = (value) => {
@@ -11,9 +11,12 @@ const formatValue = (value) => {
   return String(value);
 };
 
-const ExamLevelSubmissionReviewPage = () => {
+const ExamLevelSubmissionReviewPage = ({ code: codeOverride } = {}) => {
   const { code: rawCode, submissionId } = useParams();
-  const code = String(rawCode || "").trim().toLowerCase();
+  const code = String(codeOverride || rawCode || "").trim().toLowerCase();
+  const submissionsPath = code === "prepare"
+    ? "/prepare/submissions"
+    : `/exam-levels/${encodeURIComponent(code)}/submissions`;
   const [data, setData] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
@@ -79,7 +82,7 @@ const ExamLevelSubmissionReviewPage = () => {
     <>
       <AdminNavbar />
       <main className="exam-level-submissions exam-level-submissions--review">
-        <Link className="exam-level-submissions__back" to={`/exam-levels/${encodeURIComponent(code)}/submissions`}>
+        <Link className="exam-level-submissions__back" to={submissionsPath}>
           Back to submissions
         </Link>
         {loading ? <p>Loading submission…</p> : null}

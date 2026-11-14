@@ -29,7 +29,7 @@ import ClozeMCDisplay from "../../../../shared/components/questions/displays/Clo
 
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
 import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
-import PrepareQuestionsDisplay from "../../../exam-levels/prepare/PrepareQuestionsDisplay";
+import PrepareQuestionsDisplay from "../../../prepare/PrepareQuestionsDisplay";
 import {
   buildPrepareQuestionNavigationTargets,
   computeQuestionStarts,

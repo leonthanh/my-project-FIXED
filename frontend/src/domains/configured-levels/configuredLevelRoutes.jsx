@@ -7,9 +7,8 @@ const ExamLevelSkillBuilderPage = lazy(() => import("./pages/ExamLevelSkillBuild
 const ExamLevelSkillRuntimePage = lazy(() => import("./pages/ExamLevelSkillRuntimePage"));
 const ExamLevelSubmissionsPage = lazy(() => import("./pages/ExamLevelSubmissionsPage"));
 const ExamLevelSubmissionReviewPage = lazy(() => import("./pages/ExamLevelSubmissionReviewPage"));
-const ExamLevelSubmissionResultPage = lazy(() => import("./pages/ExamLevelSubmissionResultPage"));
 
-export const buildExamLevelRoutes = ({ isAuthenticated }) => [
+export const buildConfiguredLevelRoutes = ({ isAuthenticated }) => [
   <Route
     key="exam-level-hub"
     path="/exam-levels/:code"
@@ -24,11 +23,6 @@ export const buildExamLevelRoutes = ({ isAuthenticated }) => [
     key="exam-level-submission-review"
     path="/exam-levels/:code/submissions/:submissionId"
     element={renderProtected("teacher", <ExamLevelSubmissionReviewPage />)}
-  />,
-  <Route
-    key="exam-level-submission-result"
-    path="/exam-levels/:code/submission-results/:submissionId"
-    element={renderProtected("teacher", <ExamLevelSubmissionResultPage />)}
   />,
   <Route
     key="exam-level-skill-runtime"
