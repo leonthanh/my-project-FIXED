@@ -159,7 +159,7 @@ jobs:
       - name: Deploy Frontend
         if: needs.prepare.outputs.frontend-changed == 'true'
         env:
-          FTP_HOST: 103.221.222.18
+          FTP_HOST: ix.star-siec.edu.vn
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
@@ -282,7 +282,7 @@ jobs:
       - name: Deploy Backend
         if: needs.prepare.outputs.backend-changed == 'true'
         env:
-          FTP_HOST: 103.221.222.18
+          FTP_HOST: ix.star-siec.edu.vn
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
