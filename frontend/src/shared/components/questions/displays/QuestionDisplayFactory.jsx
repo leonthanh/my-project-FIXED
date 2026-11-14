@@ -296,7 +296,7 @@ const QuestionDisplayFactory = ({
                     style={{ marginTop: 2 }}
                   />
                   {gatewayOptionBadges && (
-                    <span style={{
+                    <span className="gateway-option-badge" style={{
                       minWidth: '22px',
                       height: '22px',
                       borderRadius: '4px',

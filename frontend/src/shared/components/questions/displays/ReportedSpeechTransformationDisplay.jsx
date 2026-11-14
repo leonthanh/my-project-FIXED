@@ -1,18 +1,5 @@
 import React from 'react';
-
-const normalize = (value) => String(value || '')
-  .normalize('NFKC')
-  .replace(/[\u2018\u2019\u201B\u02BC]/g, "'")
-  .trim()
-  .toLowerCase()
-  .replace(/\s+/g, ' ')
-  .replace(/[.]+$/, '');
-const acceptedAnswers = (value) => (
-  Array.isArray(value)
-    ? value.map(normalize).filter(Boolean)
-    : String(value || '').split(/[|/]/).map(normalize).filter(Boolean)
-);
-const primaryAnswer = (value) => String(value || '').split(/[|/]/)[0].trim();
+import { getPrimaryAnswer, isAnswerAccepted } from '../../../utils/questionAnswerMatching';
 
 const ReportedSpeechTransformationDisplay = ({
   section,
@@ -34,7 +21,7 @@ const ReportedSpeechTransformationDisplay = ({
           const answerKey = `${section?.id || 'section'}-${itemIndex}`;
           const userAnswer = String(answers[answerKey] || '');
           const expected = item.correctAnswer || '';
-          const isCorrect = acceptedAnswers(expected).includes(normalize(userAnswer));
+          const isCorrect = isAnswerAccepted(userAnswer, expected);
 
           return (
             <div
@@ -67,7 +54,7 @@ const ReportedSpeechTransformationDisplay = ({
               </div>
               {submitted && !isCorrect && expected && (
                 <div style={styles.correctAnswer}>
-                  Correct answer: <strong>{primaryAnswer(expected)}</strong>
+                  Correct answer: <strong>{getPrimaryAnswer(expected)}</strong>
                 </div>
               )}
             </div>

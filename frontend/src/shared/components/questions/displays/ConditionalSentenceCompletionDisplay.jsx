@@ -1,12 +1,5 @@
 import React from 'react';
-
-const normalize = (value) => String(value || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
-const acceptedAnswers = (value) => (
-  Array.isArray(value)
-    ? value.map(normalize).filter(Boolean)
-    : String(value || '').split(/[|/]/).map(normalize).filter(Boolean)
-);
-const primaryAnswer = (value) => String(value || '').split(/[|/]/)[0].trim();
+import { getPrimaryAnswer, isAnswerAccepted } from '../../../utils/questionAnswerMatching';
 
 const renderSentence = (text, renderBlank) => String(text || '').split(/(\{[12]\})/g).map((part, index) => {
   const match = part.match(/^\{([12])\}$/);
@@ -42,7 +35,7 @@ const ConditionalSentenceCompletionDisplay = ({
                   const answerKey = `${section?.id || 'section'}-${itemIndex}-${blankIndex}`;
                   const userAnswer = String(answers[answerKey] || '');
                   const correctAnswer = item.blankAnswers?.[blankIndex] || '';
-                  const isCorrect = acceptedAnswers(correctAnswer).includes(normalize(userAnswer));
+                  const isCorrect = isAnswerAccepted(userAnswer, correctAnswer);
                   return (
                     <React.Fragment key={key}>
                       {' '}
@@ -61,7 +54,7 @@ const ConditionalSentenceCompletionDisplay = ({
                         }}
                       />
                       {submitted && !isCorrect && correctAnswer && (
-                        <span style={styles.correctAnswer}>{primaryAnswer(correctAnswer)}</span>
+                        <span style={styles.correctAnswer}>{getPrimaryAnswer(correctAnswer)}</span>
                       )}
                       {' '}
                     </React.Fragment>

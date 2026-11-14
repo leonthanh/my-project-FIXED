@@ -1,16 +1,21 @@
-export const summarizeDetailedResults = (rawResults) => {
-  let results = rawResults;
+export const parseJsonValue = (rawValue) => {
+  let value = rawValue;
   let parseDepth = 0;
 
-  while (typeof results === "string" && parseDepth < 2) {
+  while (typeof value === "string" && parseDepth < 2) {
     try {
-      results = JSON.parse(results);
+      value = JSON.parse(value);
     } catch {
-      return null;
+      return value;
     }
     parseDepth += 1;
   }
 
+  return value;
+};
+
+export const summarizeDetailedResults = (rawResults) => {
+  const results = parseJsonValue(rawResults);
   const entries = Array.isArray(results)
     ? results
     : results && typeof results === "object"

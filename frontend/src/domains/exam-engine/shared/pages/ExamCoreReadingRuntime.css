@@ -2284,3 +2284,79 @@ body.dark-mode .cambridge-question-wrapper > div > div > div[style*="background"
   .cambridge-movers .cambridge-question-wrapper select   { font-size: 16px !important; }
   .cambridge-movers .cambridge-question-wrapper button   { font-size: 16px !important; }
 }
+
+.cambridge-test-container--prepare .test-header .test-badge {
+  background: #b91c1c !important;
+}
+
+.cambridge-test-container--prepare .cambridge-question-number,
+.cambridge-test-container--prepare .gateway-question-number {
+  background-color: #c2410c !important;
+}
+
+.cambridge-test-container--prepare .gateway-option-badge,
+.cambridge-test-container--prepare .cambridge-question-wrapper label > span[style*="background-color: rgb(47, 125, 70)"] {
+  background-color: #c2410c !important;
+}
+
+.cambridge-footer--prepare .gateway-section-tabs .cambridge-part-tab {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.cambridge-footer--prepare .gateway-section-tabs .cambridge-part-tab:hover:not(.active) {
+  background: #ffedd5;
+  border-color: #fb923c;
+  color: #7c2d12;
+}
+
+.cambridge-footer--prepare .gateway-section-tabs .cambridge-part-tab.active {
+  background: linear-gradient(135deg, #c2410c 0%, #b91c1c 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.3);
+}
+
+.cambridge-footer--prepare .gateway-section-tabs .cambridge-part-badge {
+  background: rgba(194, 65, 12, 0.14);
+  color: #9a3412;
+  opacity: 1;
+}
+
+.cambridge-footer--prepare .gateway-section-tabs .cambridge-part-tab.active .cambridge-part-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.cambridge-footer--prepare .gateway-section-questions .cambridge-question-num-btn {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.cambridge-footer--prepare .gateway-section-questions .cambridge-question-num-btn:hover:not(.active) {
+  background: #ffedd5;
+  border-color: #fb923c;
+  color: #7c2d12;
+}
+
+.cambridge-footer--prepare .gateway-section-questions .cambridge-question-num-btn.answered {
+  background: #c2410c;
+  border-color: #9a3412;
+  color: #fff;
+}
+
+.cambridge-footer--prepare .gateway-section-questions .cambridge-question-num-btn.active {
+  background: #b91c1c;
+  border-color: #991b1b;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.28);
+  transform: scale(1.18);
+}
+
+.cambridge-footer--prepare .gateway-section-questions .cambridge-question-num-btn.answered.active {
+  background: #991b1b;
+  border-color: #7f1d1d;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.36);
+}

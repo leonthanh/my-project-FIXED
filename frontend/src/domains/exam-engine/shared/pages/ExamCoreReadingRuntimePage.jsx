@@ -2441,7 +2441,7 @@ const ExamCoreReadingRuntimePage = ({
   return (
     <div
       ref={annotationContentRef}
-      className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}${isGatewayReadingWriting ? ' cambridge-test-container--gateway' : ''}`}
+      className={`cambridge-test-container bg-slate-50${examType === 'MOVERS' ? ' cambridge-movers' : ''}${isGatewayReadingWriting ? ' cambridge-test-container--gateway' : ''}${isPrepareReadingWriting ? ' cambridge-test-container--prepare' : ''}`}
       data-student-annotation-layout="true"
       onFocusCapture={handlePrepareQuestionInteraction}
       onClickCapture={handlePrepareQuestionInteraction}
@@ -4729,7 +4729,7 @@ const ExamCoreReadingRuntimePage = ({
       </div>
 
       {/* Footer Navigation */}
-      <footer className={`cambridge-footer${isGatewayReadingWriting ? ' cambridge-footer--gateway' : ''}`}>
+      <footer className={`cambridge-footer${isGatewayReadingWriting ? ' cambridge-footer--gateway' : ''}${isPrepareReadingWriting ? ' cambridge-footer--prepare' : ''}`}>
         {/* Floating arrows – positioned absolute above footer */}
         <div className="cambridge-footer-arrows">
           <button
