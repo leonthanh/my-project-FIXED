@@ -2,7 +2,7 @@
 
 ## Deploy Production
 
-Workflow production hiện tại nằm ở `.github/workflows/deploy.yml` và deploy bằng GitHub Actions + FTP mirror, không dùng `git pull` trên cPanel.
+Workflow production hiện tại nằm ở `.github/workflows/deploy.yml` và deploy bằng GitHub Actions + explicit FTPS (FTP over TLS, port 21), không dùng `git pull` trên cPanel.
 
 ### Trigger
 
