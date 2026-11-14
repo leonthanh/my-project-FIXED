@@ -6,7 +6,8 @@ import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
 import { isZeroNumberedClozeExample } from "../../../exam-engine/shared/utils/examQuestionNumbering";
-import { summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
+import { parseJsonValue, summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
+import { getPrepareQuestionSummaryStatuses } from "../../../prepare/prepareQuestionSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { countNotesCompletionBlanks, shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
@@ -252,20 +253,8 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     const normalized = { ...raw };
 
     // Backend may return JSON columns as stringified JSON
-    if (typeof normalized.answers === 'string') {
-      try {
-        normalized.answers = JSON.parse(normalized.answers);
-      } catch {
-        // keep as-is
-      }
-    }
-    if (typeof normalized.detailedResults === 'string') {
-      try {
-        normalized.detailedResults = JSON.parse(normalized.detailedResults);
-      } catch {
-        // keep as-is
-      }
-    }
+    normalized.answers = parseJsonValue(normalized.answers);
+    normalized.detailedResults = parseJsonValue(normalized.detailedResults);
 
     if (!hasOwnKeys(normalized.answers) && hasOwnKeys(normalized.detailedResults)) {
       normalized.answers = rebuildAnswersFromDetailedResults(normalized.detailedResults);
@@ -797,12 +786,36 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
     }
 
     const mapped = new Map();
+    const prepareWritingResults = [];
+    const prepareQuestionStatuses = isPrepareResultPage
+      ? getPrepareQuestionSummaryStatuses(test?.parts, submission?.answers, submission?.detailedResults)
+      : new Map();
     Object.entries(submission?.detailedResults || {}).forEach(([key, result]) => {
-      const questionNum = Number(questionNumberMap[key]);
-      if (!Number.isFinite(questionNum) || questionNum <= 0) return;
       if (!result || typeof result !== 'object') return;
+      const resultQuestionNumber = Number(result.questionNumber);
+      const isPrepareWritingResult = isPrepareResultPage
+        && ['short-message', 'story-writing'].includes(result.questionType);
+      if (
+        isPrepareWritingResult
+        && (!Number.isFinite(resultQuestionNumber) || resultQuestionNumber <= 0)
+      ) {
+        prepareWritingResults.push({ key, result });
+        return;
+      }
+
+      const questionNum = Number(
+        isPrepareResultPage && Number.isFinite(resultQuestionNumber) && resultQuestionNumber > 0
+          ? resultQuestionNumber
+          : questionNumberMap[key] ?? result?.questionNumber
+      );
+      if (!Number.isFinite(questionNum) || questionNum <= 0) return;
       if (!mapped.has(questionNum)) {
-        mapped.set(questionNum, { key, questionNum, result });
+        const prepareIsCorrect = prepareQuestionStatuses.get(questionNum);
+        mapped.set(questionNum, {
+          key,
+          questionNum,
+          result: prepareIsCorrect === undefined ? result : { ...result, isCorrect: prepareIsCorrect },
+        });
       }
     });
 
@@ -833,8 +846,15 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         });
     }
 
-    return Array.from(mapped.values()).sort((left, right) => left.questionNum - right.questionNum);
-  }, [isGatewayListeningResult, questionNumberMap, submission?.answers, submission?.detailedResults]);
+    const lastQuestionNumber = Math.max(0, ...mapped.keys());
+    const sortedWritingResults = prepareWritingResults.map((entry, index) => ({
+      ...entry,
+      questionNum: lastQuestionNumber + index + 1,
+    }));
+
+    return [...mapped.values(), ...sortedWritingResults]
+      .sort((left, right) => left.questionNum - right.questionNum);
+  }, [isGatewayListeningResult, isPrepareResultPage, questionNumberMap, submission?.answers, submission?.detailedResults, test?.parts]);
 
   // Calculate stats
   const stats = useMemo(() => {

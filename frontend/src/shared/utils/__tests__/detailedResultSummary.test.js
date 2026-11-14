@@ -32,6 +32,20 @@ describe("summarizeDetailedResults", () => {
     });
   });
 
+  test("accepts double-JSON-encoded detailed results", () => {
+    const results = {
+      first: { isCorrect: true },
+      second: { isCorrect: false },
+    };
+
+    expect(summarizeDetailedResults(JSON.stringify(JSON.stringify(results)))).toEqual({
+      correct: 1,
+      wrong: 1,
+      total: 2,
+      percentage: 50,
+    });
+  });
+
   test("returns null when there are no scored details", () => {
     expect(summarizeDetailedResults([{ isCorrect: null }])).toBeNull();
   });
