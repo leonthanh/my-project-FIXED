@@ -68,6 +68,28 @@ export const getPrepareTotalPoints = (parts) =>
     0
   );
 
+export const getPrepareQuestionResultCounts = (detailedResults, questionCount) => {
+  const resultsByQuestion = new Map();
+  Object.entries(detailedResults || {}).forEach(([key, result]) => {
+    if (result?.isCorrect !== true && result?.isCorrect !== false) return;
+    const number = Number(result.questionNumber);
+    const questionKey = Number.isInteger(number) && number > 0
+      ? `question-${number}`
+      : `answer-${key}`;
+    if (!resultsByQuestion.has(questionKey)) resultsByQuestion.set(questionKey, []);
+    resultsByQuestion.get(questionKey).push(result.isCorrect);
+  });
+
+  const total = Number.isInteger(Number(questionCount)) && Number(questionCount) >= 0
+    ? Number(questionCount)
+    : resultsByQuestion.size;
+  const correct = Math.min(
+    total,
+    [...resultsByQuestion.values()].filter((answers) => answers.every(Boolean)).length
+  );
+  return { correct, incorrect: Math.max(total - correct, 0) };
+};
+
 export const createFlexiblePrepareParts = () => {
   const defaultQuestionType = getPrepareReadingWritingQuestionTypes()[0]?.id || "fill";
   return [{

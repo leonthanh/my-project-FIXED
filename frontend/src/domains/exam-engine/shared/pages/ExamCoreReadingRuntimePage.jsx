@@ -30,6 +30,7 @@ import ClozeMCDisplay from "../../../../shared/components/questions/displays/Clo
 import InlineChoiceDisplay from "../../../../shared/components/questions/displays/InlineChoiceDisplay";
 import ExamCoreResultsModal from "../components/ExamCoreResultsModal";
 import PrepareQuestionsDisplay from "../../../prepare/PrepareQuestionsDisplay";
+import { getPrepareQuestionResultCounts } from "../../../prepare/prepareReadingWriting";
 import {
   buildPrepareQuestionNavigationTargets,
   computeQuestionStarts,
@@ -959,10 +960,22 @@ const ExamCoreReadingRuntimePage = ({
       // Use backend scoring as source of truth
       const dr = data.detailedResults || {};
       const hasDetailedResults = Object.keys(dr).length > 0;
-      const backendCorrect = hasDetailedResults
+      const prepareQuestionCount = new Set(
+        prepareQuestionNavigationTargets
+          .map((target) => target.questionNumber)
+          .filter(Number.isFinite)
+      ).size;
+      const prepareQuestionResults = isPrepareReadingWriting && hasDetailedResults
+        ? getPrepareQuestionResultCounts(dr, prepareQuestionCount)
+        : null;
+      const backendCorrect = prepareQuestionResults
+        ? prepareQuestionResults.correct
+        : hasDetailedResults
         ? Object.values(dr).filter(r => r.isCorrect === true).length
         : Number(data.score) || 0;
-      const backendIncorrect = hasDetailedResults
+      const backendIncorrect = prepareQuestionResults
+        ? prepareQuestionResults.incorrect
+        : hasDetailedResults
         ? Object.values(dr).filter(r => r.isCorrect === false).length
         : Math.max((Number(data.total) || 0) - backendCorrect, 0);
 

@@ -4,6 +4,7 @@ import {
   createFlexiblePrepareParts,
   createPrepareWritingQuestionData,
   getFlexiblePrepareDraftParts,
+  getPrepareQuestionResultCounts,
   getPrepareTotalPoints,
   isPrepareReadingWriting,
   isFlexiblePrepareReadingWriting,
@@ -30,6 +31,30 @@ test("Prepare blueprint has 50 numbered questions and a separate W rubric", () =
 
 test("legacy gateway is not classified as Prepare", () => {
   expect(isPrepareReadingWriting([{ sections: [] }])).toBe(false);
+});
+
+test("Prepare result counts group multiple scored answers under one numbered question", () => {
+  const detailedResults = {};
+  for (let questionNumber = 1; questionNumber <= 50; questionNumber += 1) {
+    detailedResults[`answer-${questionNumber}`] = {
+      questionNumber,
+      isCorrect: questionNumber === 2,
+    };
+  }
+  for (let questionNumber = 1; questionNumber <= 15; questionNumber += 1) {
+    detailedResults[`answer-${questionNumber}-blank-2`] = {
+      questionNumber,
+      isCorrect: questionNumber === 2,
+    };
+  }
+  detailedResults["writing"] = { isCorrect: null };
+
+  expect(Object.values(detailedResults).filter((result) => typeof result.isCorrect === "boolean"))
+    .toHaveLength(65);
+  expect(getPrepareQuestionResultCounts(detailedResults, 50)).toEqual({
+    correct: 1,
+    incorrect: 49,
+  });
 });
 
 test("Prepare marks the reusable PET story-writing option with a PP scope label", () => {

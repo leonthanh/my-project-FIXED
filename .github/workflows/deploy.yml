@@ -288,10 +288,10 @@ jobs:
             echo "Backend deploy attempt $attempt/3"
             if timeout "$deploy_timeout" lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP_CMDS'
           set cmd:fail-exit true
-          set net:max-retries 1
-          set net:timeout 20
-          set net:reconnect-interval-base 3
-          set net:reconnect-interval-max 8
+          set net:max-retries 5
+          set net:timeout 40
+          set net:reconnect-interval-base 5
+          set net:reconnect-interval-max 30
           set net:persist-retries 0
           set ftp:passive-mode true
           set ssl:verify-certificate no
@@ -304,10 +304,12 @@ jobs:
           bye
           LFTP_CMDS
             then
+              echo "Backend deploy succeeded on attempt $attempt."
               break
+            else
+              status=$?
             fi
 
-            status=$?
             if [ "$status" -eq 124 ]; then
               echo "Backend deploy attempt $attempt timed out after ${deploy_timeout}s."
             else
