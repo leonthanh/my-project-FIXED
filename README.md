@@ -16,6 +16,7 @@ Workflow production hiện tại nằm ở `.github/workflows/deploy.yml` và de
 - Frontend sau đó được mirror từ `frontend/dist/` lên `/ix.star-siec.edu.vn/frontend/build/` với chế độ `--delete`, nên file build cũ bị xóa trên server
 - Backend được đóng gói source, tạo `.env` từ GitHub Secrets, rồi mirror lên `/ix.star-siec.edu.vn/backend/` với chế độ `--delete`
 - Deploy backend giữ nguyên `uploads` và không upload `node_modules`
+- FTP service phải có chứng chỉ TLS hợp lệ cho `ftp.star-siec.edu.vn`; workflow xác minh chứng chỉ trước khi deploy
 - Sau khi backend deploy xong, bạn vẫn phải restart Node.js App thủ công trong cPanel
 
 ## GitHub Secrets
