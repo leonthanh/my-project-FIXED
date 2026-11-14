@@ -303,6 +303,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ftp:ssl-protect-list true
           set ssl:verify-certificate no
+          debug 3
           mkdir -p /ix.star-siec.edu.vn/backend/
           mirror -R --continue --delete --verbose=1 --parallel=1 \
             -x '(^|/)(node_modules|uploads)(/|$)' \
