@@ -1,7 +1,7 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import GatewayReadingRuntimePage from "../../../domains/exam-core/shared/pages/ExamCoreReadingRuntimePage";
-import GatewayListeningRuntimePage from "../../../domains/exam-core/shared/pages/ExamCoreListeningRuntimePage";
+import GatewayReadingRuntimePage from "../../../domains/exam-engine/shared/pages/ExamCoreReadingRuntimePage";
+import GatewayListeningRuntimePage from "../../../domains/exam-engine/shared/pages/ExamCoreListeningRuntimePage";
 import { normalizeGatewaySkill } from "../../../domains/gateway/config/skills";
 
 const GatewayDoTestPage = () => {

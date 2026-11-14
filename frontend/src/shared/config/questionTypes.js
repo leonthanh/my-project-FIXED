@@ -9,6 +9,31 @@
 // QUESTION TYPE DEFINITIONS
 // ============================================
 
+export const PREPARE_GRAMMAR_SENTENCE_TEMPLATES = {
+  'first-conditional': {
+    label: 'First Conditional',
+    instruction: 'Complete the first conditional sentences.',
+    items: [
+      { questionText: 'My friends {1} (not come) to the party if the music {2} (be) bad.', blankAnswers: ["won't come|will not come", 'is'] },
+      { questionText: 'If you {1} (go) to Peru, you {2} (see) Machu Picchu.', blankAnswers: ['go', 'will see'] },
+      { questionText: 'If you {1} (step) on an egg, you {2} (break) it.', blankAnswers: ['step', 'will break'] },
+      { questionText: 'I {1} (not study) maths if I {2} (go) to university.', blankAnswers: ["won't study|will not study", 'go'] },
+      { questionText: 'If you {1} (not tell) her, she {2} (not know) the truth.', blankAnswers: ["don't tell|do not tell", "won't know|will not know"] },
+    ],
+  },
+  'second-conditional': {
+    label: 'Second Conditional',
+    instruction: 'Complete the second conditional sentences.',
+    items: [
+      { questionText: 'If it {1} (be) my birthday tomorrow, I {2} (ask) for a new computer.', blankAnswers: ['were', 'would ask'] },
+      { questionText: 'I {1} (be) disappointed if I {2} (fail) my exams.', blankAnswers: ['would be', 'failed'] },
+      { questionText: 'If I {1} (have) a pet, I {2} (not have) a parrot.', blankAnswers: ['had', "wouldn't have|would not have"] },
+      { questionText: 'If we {1} (get) a virus on this computer, it {2} (take) a long time to clean it.', blankAnswers: ['got', 'would take'] },
+      { questionText: 'If you {1} (eat) more fresh fruit and vegetables, you {2} (feel) healthier.', blankAnswers: ['ate', 'would feel'] },
+    ],
+  },
+};
+
 export const QUESTION_TYPES = {
   // =========== COMMON TYPES ===========
   'fill': {
@@ -379,6 +404,29 @@ export const QUESTION_TYPES = {
     supportedTests: ['ket-reading', 'pet-reading'],
   },
 
+  'prepare-reading-comprehension': {
+    id: 'prepare-reading-comprehension',
+    label: 'Reading Comprehension - Multiple Choice',
+    labelVi: 'Đọc hiểu: đoạn văn + trắc nghiệm 4 lựa chọn',
+    iconName: 'reading',
+    description: 'Một bài đọc và các câu hỏi trắc nghiệm A-D; dùng lại trình soạn thảo Long Text MC',
+    editor: 'LongTextMCEditor',
+    defaultData: {
+      passageTitle: '',
+      passage: '',
+      prepareReadingMode: true,
+      gatewayReadingMode: true,
+      readingAInstruction: 'Choose the correct answer.',
+      readingAScoreNote: '____/5 (1 mark per answer)',
+      questions: Array.from({ length: 5 }, () => ({
+        questionText: '',
+        options: ['A. ', 'B. ', 'C. ', 'D. '],
+        correctAnswer: '',
+      })),
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
   'cloze-mc': {
     id: 'cloze-mc',
     label: 'Multiple Choice Cloze',
@@ -483,6 +531,285 @@ export const QUESTION_TYPES = {
       items: Array.from({ length: 10 }, () => ({ questionText: '', correctAnswer: '', explanation: '' })),
     },
     supportedTests: ['general-reading', 'general-reading-60'],
+  },
+
+  'word-bank-completion': {
+    id: 'word-bank-completion',
+    label: 'Two Word Banks - Sentence Completion',
+    labelVi: 'Hoàn thành câu với hai nhóm từ',
+    iconName: 'fill',
+    description: 'Chọn một từ từ mỗi nhóm A/B để hoàn thành từng câu',
+    editor: 'WordBankCompletionEditor',
+    defaultData: {
+      instruction: 'Complete each sentence with a word from list A and a word from list B.',
+      wordBanks: [
+        { label: 'A', words: ['add', 'blow', 'carry', 'cut', 'take', 'work'] },
+        { label: 'B', words: ['away', 'out', 'up'] },
+      ],
+      example: {
+        questionText: "Can you help us, please? We can't {1} {2} how to do the next part of the experiment.",
+        blankAnswers: ['work', 'out'],
+      },
+      items: [
+        { questionText: 'Now {1} {2} these two numbers.', blankAnswers: ['add', 'up'] },
+        { questionText: 'Can you {1} {2} 3174 from 5629 without a calculator?', blankAnswers: ['take', 'away'] },
+        { questionText: 'First, we need to {1} {2} this paper into little pieces.', blankAnswers: ['cut', 'up'] },
+        { questionText: 'Do you know how to {1} {2} this experiment?', blankAnswers: ['carry', 'out'] },
+        { questionText: "I hope this doesn't {1} {2}. I don't like loud noises.", blankAnswers: ['blow', 'up'] },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'conditional-sentence-completion': {
+    id: 'conditional-sentence-completion',
+    label: 'Conditional Sentences - Two Verb Forms',
+    labelVi: 'Hoàn thành câu điều kiện (hai dạng động từ)',
+    iconName: 'fill',
+    description: 'Điền hai dạng động từ theo gợi ý trong ngoặc; dùng cho First/Second Conditional',
+    editor: 'ConditionalSentenceCompletionEditor',
+    defaultData: {
+      templateId: 'first-conditional',
+      instruction: PREPARE_GRAMMAR_SENTENCE_TEMPLATES['first-conditional'].instruction,
+      items: PREPARE_GRAMMAR_SENTENCE_TEMPLATES['first-conditional'].items,
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'reported-command-completion': {
+    id: 'reported-command-completion',
+    label: 'Reported Commands',
+    labelVi: 'Viết lại câu mệnh lệnh gián tiếp',
+    iconName: 'fill',
+    description: 'Viết lại lời yêu cầu/mệnh lệnh với reporting verb được gợi ý',
+    editor: 'ReportedCommandCompletionEditor',
+    defaultData: {
+      instruction: 'Complete the reported commands. Use the reporting verbs in brackets.',
+      example: {
+        sourceText: "My sister said to me, 'Can you do me a favour?'",
+        sentenceStarter: 'My sister',
+        reportingVerb: 'ask',
+        correctAnswer: 'asked me to do her a favour',
+      },
+      items: [
+        {
+          sourceText: "Dad said to us, 'You mustn't open that email. It's got a virus.'",
+          sentenceStarter: 'Dad',
+          reportingVerb: 'warn',
+          correctAnswer: 'warned us not to open that email',
+        },
+        {
+          sourceText: "My friends said to me, 'Don't stop! You can finish the race. Not far now.'",
+          sentenceStarter: 'They',
+          reportingVerb: 'encourage',
+          correctAnswer: 'encouraged me to finish the race',
+        },
+        {
+          sourceText: "The teacher said to the class, 'Everybody turn to page 34.'",
+          sentenceStarter: 'The teacher',
+          reportingVerb: 'tell',
+          correctAnswer: 'told the class to turn to page 34',
+        },
+        {
+          sourceText: "He said to his friend, 'Please go shopping with me. You'll enjoy it.'",
+          sentenceStarter: 'He',
+          reportingVerb: 'persuade',
+          correctAnswer: 'persuaded his friend to go shopping with him',
+        },
+        {
+          sourceText: "His mum said to him, 'Don't forget to pack your sunglasses.'",
+          sentenceStarter: 'His mum',
+          reportingVerb: 'remind',
+          correctAnswer: 'reminded him to pack his sunglasses',
+        },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'reported-speech-transformation': {
+    id: 'reported-speech-transformation',
+    label: 'Reported Speech / Direct Speech Transformation',
+    labelVi: 'Chuyển đổi câu trực tiếp và gián tiếp',
+    iconName: 'fill',
+    description: 'Hoàn thành câu thứ hai bằng cách chuyển đổi giữa direct speech và reported speech',
+    editor: 'ReportedSpeechTransformationEditor',
+    defaultData: {
+      instruction: 'Complete the second sentence in reported speech or direct speech.',
+      items: [
+        {
+          sourceText: 'Alice said, “I love reading fashion magazines.”',
+          targetPrefix: 'Alice said',
+          targetSuffix: '.',
+          correctAnswer: 'she loved reading fashion magazines',
+        },
+        {
+          sourceText: 'Billy said to me “My sister can write really well.”',
+          targetPrefix: 'Billy said to me that',
+          targetSuffix: '.',
+          correctAnswer: 'his sister could write really well',
+        },
+        {
+          sourceText: 'Tom said he didn’t want to go cycling.',
+          targetPrefix: '“',
+          targetSuffix: ',” said Tom.',
+          correctAnswer: 'I don’t want to go cycling',
+        },
+        {
+          sourceText: '“We won’t be late,” said the children.',
+          targetPrefix: 'The children said',
+          targetSuffix: '.',
+          correctAnswer: 'they wouldn’t be late',
+        },
+        {
+          sourceText: 'We said that that new soap opera looked great.',
+          targetPrefix: '“',
+          targetSuffix: ',” said we.',
+          correctAnswer: 'That new soap opera looks great',
+        },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'past-simple-passive-transformation': {
+    id: 'past-simple-passive-transformation',
+    label: 'Past Simple Passive Transformation',
+    labelVi: 'Viết lại câu bị động thì quá khứ đơn',
+    iconName: 'fill',
+    description: 'Viết lại câu chủ động ở thì quá khứ đơn sang dạng bị động',
+    editor: 'PastSimplePassiveTransformationEditor',
+    defaultData: {
+      instruction: 'Rewrite the sentences in the past simple passive.',
+      items: [
+        {
+          sourceText: 'They built our school in 1985.',
+          targetPrefix: 'Our school ',
+          targetSuffix: '.',
+          correctAnswer: 'was built in 1985',
+        },
+        {
+          sourceText: 'Vincent Van Gogh painted Sunflowers.',
+          targetPrefix: 'Sunflowers ',
+          targetSuffix: '.',
+          correctAnswer: 'was painted by Vincent Van Gogh',
+        },
+        {
+          sourceText: 'Mary Quant designed mini-skirts in the 1960s.',
+          targetPrefix: 'Mini-skirts ',
+          targetSuffix: '.',
+          correctAnswer: 'were designed by Mary Quant in the 1960s',
+        },
+        {
+          sourceText: 'People didn’t use the internet until the 1990s.',
+          targetPrefix: 'The internet ',
+          targetSuffix: '.',
+          correctAnswer: 'wasn’t used until the 1990s',
+        },
+        {
+          sourceText: 'Did they make your shoes in Spain?',
+          targetPrefix: 'Were ',
+          targetSuffix: '?',
+          correctAnswer: 'your shoes made in Spain',
+        },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'reported-speech-verb-choice': {
+    id: 'reported-speech-verb-choice',
+    label: 'Reported Speech Verb Choice',
+    labelVi: 'Chọn động từ tường thuật (said / told)',
+    iconName: 'choice',
+    description: 'Chọn động từ tường thuật phù hợp để hoàn thành câu',
+    editor: 'ReportedSpeechVerbChoiceEditor',
+    defaultData: {
+      instruction: 'Choose the correct word to complete the sentences.',
+      options: ['said', 'told'],
+      example: {
+        sentencePrefix: 'He ',
+        sentenceSuffix: ' us we could open the window if we felt hot.',
+        correctAnswer: 'told',
+      },
+      items: [
+        {
+          sentencePrefix: 'The headmaster ',
+          sentenceSuffix: ' we would have 2 weeks off for Christmas.',
+          correctAnswer: 'said',
+        },
+        {
+          sentencePrefix: 'She ',
+          sentenceSuffix: ' she was doing a Science project.',
+          correctAnswer: 'said',
+        },
+        {
+          sentencePrefix: 'I ',
+          sentenceSuffix: ' my parents that I wanted to study in Scotland.',
+          correctAnswer: 'told',
+        },
+        {
+          sentencePrefix: 'The notice ',
+          sentenceSuffix: ' that they would cancel the football match because of the rain.',
+          correctAnswer: 'said',
+        },
+        {
+          sentencePrefix: 'Alice ',
+          sentenceSuffix: ' Maria that she could not meet her before the party.',
+          correctAnswer: 'told',
+        },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'definition-completion': {
+    id: 'definition-completion',
+    label: 'Definition Completion with First Letter',
+    labelVi: 'Điền từ theo định nghĩa (cho chữ cái đầu)',
+    iconName: 'fill',
+    description: 'Đọc định nghĩa và điền từ; chữ cái đầu cùng độ dài từ được gợi ý',
+    editor: 'DefinitionCompletionEditor',
+    defaultData: {
+      instruction: 'Read the phrases and write the words. The first letter is given.',
+      items: [
+        { questionText: 'a piece of art made from stone or wood', correctAnswer: 'sculpture' },
+        { questionText: 'a book that tells a story about imaginary people', correctAnswer: 'novel' },
+        { questionText: 'a room or a building which is used for showing works of art', correctAnswer: 'gallery' },
+        { questionText: 'a room where an artist or photographer works', correctAnswer: 'studio' },
+        { questionText: 'the people who sit and watch a performance at a theatre, cinema, etc.', correctAnswer: 'audience' },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
+  },
+
+  'word-bank-adjective-formation': {
+    id: 'word-bank-adjective-formation',
+    label: 'Word Bank - Adjective Formation',
+    labelVi: 'Biến đổi từ: tính từ từ word bank',
+    iconName: 'fill',
+    description: 'Chọn từ gốc trong word bank và biến đổi thành tính từ để hoàn thành câu',
+    editor: 'WordBankAdjectiveFormationEditor',
+    defaultData: {
+      instruction: 'Complete the sentences with the correct adjective form (-al or -ful) of these words. There is one extra word.',
+      wordBank: ['history', 'stress', 'colour', 'pain', 'origin', 'nature'],
+      items: [
+        { questionText: 'Doing exams every day for a month is very {1}.', correctAnswer: 'stressful' },
+        { questionText: 'I like finding out about {1} events.', correctAnswer: 'historical' },
+        { questionText: "I wanted to enter the writing competition but I couldn't think of an {1} idea.", correctAnswer: 'original' },
+        { questionText: "My brother's very shy but he's in the school play. He isn't a {1} performer.", correctAnswer: 'natural' },
+        { questionText: "I hurt my elbow when I was playing tennis and it's still quite {1}.", correctAnswer: 'painful' },
+      ],
+      scoreNote: '____/5 (1 mark per answer)',
+    },
+    supportedTests: ['prepare-reading-writing'],
   },
 
   // =========== KET/PET WRITING ===========
@@ -1212,6 +1539,23 @@ export const getQuestionTypesForTest = (testTypeId) => {
   return testConfig.questionTypes
     .map(typeId => QUESTION_TYPES[typeId])
     .filter(Boolean);
+};
+
+export const getPrepareReadingWritingQuestionTypes = () => {
+  const typeIds = [
+    ...(TEST_CONFIGS['ket-reading']?.questionTypes || []),
+    ...(TEST_CONFIGS['pet-reading']?.questionTypes || []),
+    ...(TEST_CONFIGS['gateway-reading-writing']?.questionTypes || []),
+  ];
+  return [...new Set(typeIds)]
+    .concat('word-bank-completion', 'conditional-sentence-completion', 'reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'prepare-reading-comprehension', 'definition-completion', 'word-bank-adjective-formation')
+    .filter((typeId, index, allTypeIds) => allTypeIds.indexOf(typeId) === index)
+    .filter((typeId) => typeId !== 'multiple-choice-pictures')
+    .map((typeId) => QUESTION_TYPES[typeId])
+    .filter(Boolean)
+    .map((questionType) => questionType.id === 'story-writing'
+      ? { ...questionType, scopeLabel: 'PET/General/PP' }
+      : questionType);
 };
 
 /**

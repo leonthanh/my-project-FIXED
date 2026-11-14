@@ -4,6 +4,7 @@ const service = require("./service");
 
 const router = express.Router();
 const requireTeacher = [requireAuth, requireRole("teacher", "admin")];
+const requireAdmin = [requireAuth, requireRole("admin")];
 const send = (handler) => async (req, res, next) => {
   try {
     const result = await handler(req);
@@ -23,6 +24,7 @@ router.get(
       code: req.params.code,
       skill: req.query.skill,
       status: req.query.status,
+      includeActive: req.query.includeActive,
     })
   )
 );
@@ -46,6 +48,34 @@ router.get(
       submissionId: req.params.submissionId,
       user: req.user,
     })
+  )
+);
+router.delete(
+  "/:code/submissions/:submissionId",
+  ...requireAdmin,
+  send(async (req) => {
+    await service.deleteSubmission({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+    });
+    return { message: "Submission deleted." };
+  })
+);
+router.post(
+  "/:code/submissions/:submissionId/extend-time",
+  ...requireTeacher,
+  send((req) =>
+    service.extendSubmissionTime({
+      code: req.params.code,
+      submissionId: req.params.submissionId,
+      extraMinutes: req.body?.extraMinutes,
+    }).then(({ submission, extensionMinutes, timing }) => ({
+      message: `Extended by ${extensionMinutes} minutes.`,
+      submissionId: submission.id,
+      extensionMinutes,
+      expiresAt: submission.expiresAt,
+      timing,
+    }))
   )
 );
 router.put(

@@ -26,8 +26,8 @@ import { canManageCategory } from "../../../../shared/utils/permissions";
 import AudioPreviewBlock from "../../../../shared/components/AudioPreviewBlock";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import "./GeneralTestBuilder.css";
-import { computeQuestionStarts, getQuestionCountForSection } from "../../../exam-core/shared/utils/examQuestionNumbering";
-import { normalizeQuillPromptHtml } from "../../../exam-core/shared/utils/normalizePromptHtml";
+import { computeQuestionStarts, getQuestionCountForSection } from "../../../exam-engine/shared/utils/examQuestionNumbering";
+import { normalizeQuillPromptHtml } from "../../../exam-engine/shared/utils/normalizePromptHtml";
 import { normalizeAudioReference, normalizeListeningPartsAudio } from "../../../../shared/utils/audioUrls";
 import resolveAuthUserDisplayName from "../../../../shared/utils/authUserDisplayName";
 import {

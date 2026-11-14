@@ -1,1 +1,1 @@
-export * from "../../../exam-core/shared/utils/examQuestionNumbering";
+export * from "../../../exam-engine/shared/utils/examQuestionNumbering";

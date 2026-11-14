@@ -1,1 +1,1 @@
-export * from "../../../exam-core/shared/components/ExamCoreSectionDisplays";
+export * from "../../../exam-engine/shared/components/ExamCoreSectionDisplays";

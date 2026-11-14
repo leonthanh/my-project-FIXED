@@ -10,7 +10,7 @@ import ExtensionToast from "../../../../shared/components/ExtensionToast";
 import StudentAnnotations from "../../../../shared/components/StudentAnnotations.jsx";
 import TestStartModal from "../../../../shared/components/TestStartModal";
 import ConfirmModal from "../../../../shared/components/ConfirmModal";
-import ExamCoreResultsModal from "../../../exam-core/shared/components/ExamCoreResultsModal";
+import ExamCoreResultsModal from "../../../exam-engine/shared/components/ExamCoreResultsModal";
 import LineIcon from "../../../../shared/components/LineIcon.jsx";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import {
@@ -26,10 +26,10 @@ import {
   getServerCooldownMs,
   recordRuntimeSyncRequestMetric,
 } from "../../../../shared/utils/runtimeSync";
-import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../../../exam-core/shared/utils/examQuestionNumbering";
-import { ExamCoreQuestionDisplay, CompactExamCoreQuestionDisplay } from "../../../exam-core/shared/components/ExamCoreQuestionCards";
-import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../../../exam-core/shared/components/ExamCoreListeningRuntimeSections";
-import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../exam-core/shared/components/ExamCoreSectionDisplays";
+import { computeQuestionStarts, countClozeBlanksFromText, getQuestionCountForSection } from "../../../exam-engine/shared/utils/examQuestionNumbering";
+import { ExamCoreQuestionDisplay, CompactExamCoreQuestionDisplay } from "../../../exam-engine/shared/components/ExamCoreQuestionCards";
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from "../../../exam-engine/shared/components/ExamCoreListeningRuntimeSections";
+import { OpenClozeSectionDisplay, GapMatchSectionDisplay } from "../../../exam-engine/shared/components/ExamCoreSectionDisplays";
 import { TEST_CONFIGS } from "../../../../shared/config/questionTypes";
 import createStyles from "./DoGeneralListeningTest.styles";
 import './DoGeneralListeningTest.css';

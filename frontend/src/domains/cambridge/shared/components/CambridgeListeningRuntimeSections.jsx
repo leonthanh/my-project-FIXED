@@ -1,1 +1,1 @@
-export * from "../../../exam-core/shared/components/ExamCoreListeningRuntimeSections";
+export * from "../../../exam-engine/shared/components/ExamCoreListeningRuntimeSections";

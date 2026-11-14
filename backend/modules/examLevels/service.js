@@ -2,8 +2,16 @@ const { Op } = require("sequelize");
 const { ExamLevel, ExamLevelSubmission, ExamLevelTest } = require("../../models");
 const { processTestParts } = require("../../utils/clozParser");
 const { normalizeStudentResultVisibility } = require("../../utils/studentResultVisibility");
+const {
+  DEFAULT_EXTENSION_MINUTES,
+  buildTimingPayload,
+  extendDeadline,
+  normalizeExtensionMinutes,
+  resolveAuthoritativeExpiry,
+} = require("../../utils/testTiming");
 const { scoreTest } = require("../cambridge/shared/scoring");
-const { countTotalQuestionsFromParts } = require("../cambridge/shared/readingTestUtils");
+const { countTotalQuestionsFromParts, safeParseParts } = require("../cambridge/shared/readingTestUtils");
+const { isPrepareFormat, validatePrepareParts } = require("./prepareReadingWriting");
 const placementService = require("../placement/service");
 
 const ALLOWED_SKILLS = new Set([
@@ -113,6 +121,16 @@ const createTest = async ({ code, skill, body = {}, user }) => {
   if (String(body.testType || "") !== config.templateId) {
     throw createServiceError(400, "Test type does not match this level's configured skill template.");
   }
+  if (isPrepareFormat(parts) && (
+    normalizeCode(code) !== "prepare" ||
+    normalizedSkill !== "reading-writing" ||
+    !validatePrepareParts(parts, {
+      allowIncompleteScoring: body.status === "draft",
+      allowIncompleteContent: body.status === "draft",
+    })
+  )) {
+    throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
+  }
 
   const studentResultVisibility = normalizeStudentResultVisibility(
     body.studentResultVisibility,
@@ -166,6 +184,16 @@ const updateTest = async ({ code, skill, id, body = {} }) => {
   if (body.parts !== undefined) {
     if (!Array.isArray(body.parts) || body.parts.length === 0) {
       throw createServiceError(400, "At least one part is required.");
+    }
+    const statusForValidation = body.status === undefined ? test.status : body.status;
+    if ((isPrepareFormat(body.parts) || isPrepareFormat(safeParseParts(test.parts))) &&
+        (normalizeCode(code) !== "prepare" || normalizedSkill !== "reading-writing" ||
+         !isPrepareFormat(body.parts) ||
+         !validatePrepareParts(body.parts, {
+           allowIncompleteScoring: statusForValidation === "draft",
+           allowIncompleteContent: statusForValidation === "draft",
+         }))) {
+      throw createServiceError(400, "Invalid Prepare Reading & Writing test structure.");
     }
     updates.parts = processTestParts(body.parts);
     updates.totalQuestions = countTotalQuestionsFromParts(updates.parts);
@@ -336,7 +364,7 @@ const autosaveSubmission = async ({ code, body = {}, user }) => {
       ? body.answers
       : {},
     finished: false,
-    expiresAt,
+    expiresAt: resolveAuthoritativeExpiry(submission?.expiresAt, expiresAt),
     lastSavedAt: now,
     progressMeta: body.progressMeta && typeof body.progressMeta === "object" && !Array.isArray(body.progressMeta)
       ? body.progressMeta
@@ -492,11 +520,11 @@ const submitTest = async ({ code, skill, id, body = {}, user }) => {
   };
 };
 
-const listSubmissions = async ({ code, skill, status }) => {
+const listSubmissions = async ({ code, skill, status, includeActive = false }) => {
   const level = await getLevel(code);
   const where = { levelId: level.id, finished: true };
+  const normalizedSkill = skill ? normalizeSkill(skill) : null;
   if (skill) {
-    const normalizedSkill = normalizeSkill(skill);
     if (!ALLOWED_SKILLS.has(normalizedSkill)) {
       throw createServiceError(400, "Invalid skill filter.");
     }
@@ -512,7 +540,92 @@ const listSubmissions = async ({ code, skill, status }) => {
     order: [["submittedAt", "DESC"], ["id", "DESC"]],
     limit: 500,
   });
-  return submissions.map((submission) => submission.toJSON());
+  const includeActiveSubmissions = ["1", "true", "yes"].includes(
+    String(includeActive).toLowerCase()
+  );
+  if (!includeActiveSubmissions) {
+    return submissions.map((submission) => submission.toJSON());
+  }
+
+  const activeSubmissions = ["reviewed", "archived"].includes(status)
+    ? []
+    : await ExamLevelSubmission.findAll({
+        where: {
+          levelId: level.id,
+          finished: false,
+          status: { [Op.ne]: "archived" },
+          ...(normalizedSkill ? { skill: normalizedSkill } : {}),
+        },
+        order: [["lastSavedAt", "DESC"], ["id", "DESC"]],
+        limit: 500,
+      });
+
+  return [...submissions, ...activeSubmissions]
+    .sort((left, right) => {
+      const getTimestamp = (submission) => new Date(
+        submission.lastSavedAt
+          || submission.submittedAt
+          || submission.updatedAt
+          || submission.createdAt
+          || 0
+      ).getTime();
+      return getTimestamp(right) - getTimestamp(left);
+    })
+    .slice(0, 500)
+    .map((submission) => {
+      const json = submission.toJSON();
+      if (json.finished === false) {
+        delete json.answers;
+        delete json.detailedResults;
+        delete json.progressMeta;
+      }
+      return json;
+    });
+};
+
+const extendSubmissionTime = async ({ code, submissionId, extraMinutes }) => {
+  const level = await getLevel(code);
+  const numericSubmissionId = Number(submissionId);
+  if (!Number.isInteger(numericSubmissionId) || numericSubmissionId <= 0) {
+    throw createServiceError(404, "Active submission not found.");
+  }
+
+  const submission = await ExamLevelSubmission.findOne({
+    where: {
+      id: numericSubmissionId,
+      levelId: level.id,
+      finished: false,
+    },
+  });
+  if (!submission) throw createServiceError(404, "Active submission not found.");
+
+  const extensionMinutes = normalizeExtensionMinutes(
+    extraMinutes,
+    DEFAULT_EXTENSION_MINUTES
+  );
+  const { expiresAtMs } = extendDeadline(submission.expiresAt, extensionMinutes);
+  submission.expiresAt = new Date(expiresAtMs);
+  submission.lastSavedAt = new Date();
+  await submission.save();
+
+  return {
+    submission,
+    extensionMinutes,
+    timing: buildTimingPayload(submission.expiresAt),
+  };
+};
+
+const deleteSubmission = async ({ code, submissionId }) => {
+  const level = await getLevel(code);
+  const numericSubmissionId = Number(submissionId);
+  if (!Number.isInteger(numericSubmissionId) || numericSubmissionId <= 0) {
+    throw createServiceError(404, "Submission not found.");
+  }
+
+  const deletedCount = await ExamLevelSubmission.destroy({
+    where: { id: numericSubmissionId, levelId: level.id },
+  });
+  if (!deletedCount) throw createServiceError(404, "Submission not found.");
 };
 
 const getSubmissionForReview = async ({ code, submissionId, user }) => {
@@ -555,10 +668,19 @@ const saveSubmissionReview = async ({ code, submissionId, body = {}, user }) => 
   if (feedback.length > 10000) {
     throw createServiceError(400, "Feedback must be 10,000 characters or fewer.");
   }
+  const manualResponses = responseFeedback && !feedback
+    ? Object.entries(submission.detailedResults || {}).filter(([, result]) => (
+        result?.isCorrect === null
+        && String(result.userAnswer ?? "").trim()
+      ))
+    : [];
+  const hasUnreviewedResponses = manualResponses.some(([key]) => (
+    !String(responseFeedback?.items?.[key]?.feedback || "").trim()
+  ));
   await submission.update({
     feedback: feedback || null,
     responseFeedback,
-    status: "reviewed",
+    status: hasUnreviewedResponses ? "submitted" : "reviewed",
   });
   return submission.toJSON();
 };
@@ -566,7 +688,9 @@ const saveSubmissionReview = async ({ code, submissionId, body = {}, user }) => 
 module.exports = {
   autosaveSubmission,
   createTest,
+  deleteSubmission,
   deleteTest,
+  extendSubmissionTime,
   getActiveSubmission,
   getLevelByCode,
   getSubmissionForReview,

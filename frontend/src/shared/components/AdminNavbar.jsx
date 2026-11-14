@@ -192,7 +192,7 @@ const adminRoutePreloaders = {
   "/admin/create-gateway/reading-writing": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/create-gateway/listening": () => import("../../features/gateway/pages/GatewayCreateTestPage"),
   "/admin/display-settings": () => import("../../features/admin/pages/AdminDisplaySettingsPage"),
-  "/admin/exam-levels": () => import("../../features/admin/pages/ExamLevelsPage"),
+  "/admin/prepare": () => import("../../features/admin/pages/SelectTest"),
   "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
@@ -361,6 +361,7 @@ const AdminNavbar = () => {
     useState("create");
   const [mobileGeneralSection, setMobileGeneralSection] = useState("create");
   const [mobileGatewaySection, setMobileGatewaySection] = useState("create");
+  const [mobilePrepareSection, setMobilePrepareSection] = useState("create");
   const [desktopDrawerMode, setDesktopDrawerMode] = useState(null);
   const [desktopCambridgeSection, setDesktopCambridgeSection] = useState("ket");
   const [desktopCambridgeGroup, setDesktopCambridgeGroup] = useState("flyers");
@@ -368,6 +369,7 @@ const AdminNavbar = () => {
     useState("create");
   const [desktopGeneralSection, setDesktopGeneralSection] = useState("create");
   const [desktopGatewaySection, setDesktopGatewaySection] = useState("create");
+  const [desktopPrepareSection, setDesktopPrepareSection] = useState("create");
   const [desktopNavbarHeight, setDesktopNavbarHeight] = useState(0);
   const notificationDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
@@ -713,9 +715,11 @@ const AdminNavbar = () => {
     const pathname = String(location?.pathname || "").toLowerCase();
 
     if (pathname.startsWith("/review")) return "review";
+    if (pathname.includes("/exam-levels/prepare") || pathname.startsWith("/prepare")) return "prepare";
     if (pathname.includes("gateway")) return "gateway";
     if (pathname === "/select-test") {
       const platform = new URLSearchParams(location?.search || "").get("platform");
+      if (platform === "prepare") return "prepare";
       if (platform === "gateway") return "gateway";
       if (platform === "general") return "general";
     }
@@ -796,6 +800,20 @@ const AdminNavbar = () => {
     return "create";
   };
 
+  const getPreferredDesktopPrepareSection = () => {
+    const pathname = String(location?.pathname || "").toLowerCase();
+
+    if (pathname.includes("/prepare/submissions") || pathname.includes("/exam-levels/prepare/submissions")) {
+      return "submissions";
+    }
+    if (pathname === "/select-test") {
+      const platform = new URLSearchParams(location?.search || "").get("platform");
+      if (platform === "prepare") return "browse";
+    }
+
+    return "create";
+  };
+
   const closeDesktopDrawer = () => setDesktopDrawerMode(null);
 
   const closeMobileDrawer = () => setMobileDrawerOpen(false);
@@ -805,6 +823,9 @@ const AdminNavbar = () => {
     setMobileDrawerTab(preferredTab);
     if (preferredTab === "gateway") {
       setMobileGatewaySection(getPreferredDesktopGatewaySection());
+    }
+    if (preferredTab === "prepare") {
+      setMobilePrepareSection(getPreferredDesktopPrepareSection());
     }
     setMobileDrawerOpen(true);
   };
@@ -880,6 +901,10 @@ const AdminNavbar = () => {
 
     if (mode === "gateway") {
       setDesktopGatewaySection(getPreferredDesktopGatewaySection());
+    }
+
+    if (mode === "prepare") {
+      setDesktopPrepareSection(getPreferredDesktopPrepareSection());
     }
 
     setDesktopDrawerMode(mode);
@@ -1213,6 +1238,71 @@ const AdminNavbar = () => {
     [canManageListening, canManageReading]
   );
 
+  const prepareSections = useMemo(
+    () => [
+      {
+        key: "create",
+        label: "Create",
+        title: "Create Prepare tests",
+        iconName: "create",
+        items: [
+          buildAdminLinkItem(
+            "create-prepare-reading-writing",
+            "/admin/prepare/reading-writing/new",
+            "Reading & Writing",
+            canManageReading,
+            "reading"
+          ),
+          buildAdminLinkItem(
+            "create-prepare-listening",
+            "/admin/prepare/listening/new",
+            "Listening",
+            canManageListening,
+            "listening"
+          ),
+        ].filter(Boolean),
+      },
+      {
+        key: "browse",
+        label: "Test Library",
+        title: "Prepare test library",
+        iconName: "tests",
+        items: [
+          buildAdminLinkItem(
+            "prepare-reading-writing-library",
+            "/select-test?platform=prepare&tab=reading-writing",
+            "Reading & Writing tests",
+            true,
+            "tests"
+          ),
+          buildAdminLinkItem(
+            "prepare-listening-library",
+            "/select-test?platform=prepare&tab=listening",
+            "Listening tests",
+            true,
+            "tests"
+          ),
+        ],
+      },
+      {
+        key: "submissions",
+        label: "Submissions",
+        title: "Prepare submissions",
+        iconName: "submissions",
+        items: [
+          buildAdminLinkItem(
+            "prepare-submissions",
+            "/prepare/submissions",
+            "View submissions",
+            true,
+            "submissions"
+          ),
+        ],
+      },
+    ].filter((section) => section.items.length > 0),
+    [canManageListening, canManageReading]
+  );
+
   const adminItems = useMemo(
     () =>
       [
@@ -1236,13 +1326,6 @@ const AdminNavbar = () => {
           "Teacher Permissions",
           true,
           "permissions"
-        ),
-        buildAdminLinkItem(
-          "exam-levels",
-          "/admin/exam-levels",
-          "Level Registry",
-          true,
-          "management"
         ),
         buildAdminLinkItem("users", "/admin/users", "User Management", true, "users"),
       ].filter(Boolean),
@@ -1285,6 +1368,11 @@ const AdminNavbar = () => {
         return;
       }
 
+      if (mobileDrawerTab === "prepare") {
+        preloadAdminItems(flattenAdminSections(prepareSections));
+        return;
+      }
+
       if (mobileDrawerTab === "admin") {
         preloadAdminItems(adminItems);
         return;
@@ -1313,6 +1401,7 @@ const AdminNavbar = () => {
     adminItems,
     generalSections,
     gatewaySections,
+    prepareSections,
     cambridgeSections,
     ieltsSections,
   ]);
@@ -1337,13 +1426,18 @@ const AdminNavbar = () => {
       if (desktopDrawerMode === "general") {
         preloadAdminItems(flattenAdminSections(generalSections));
         preloadAdminRoute("/admin/general-submissions");
+        return;
+      }
+
+      if (desktopDrawerMode === "prepare") {
+        preloadAdminItems(flattenAdminSections(prepareSections));
       }
     }, 0);
 
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [isCompactMenu, desktopDrawerMode, generalSections, cambridgeSections, ieltsSections]);
+  }, [isCompactMenu, desktopDrawerMode, generalSections, prepareSections, cambridgeSections, ieltsSections]);
 
   const activeCambridgeSection =
     cambridgeSections.find((section) => section.key === mobileCambridgeSection) ||
@@ -1367,6 +1461,10 @@ const AdminNavbar = () => {
     gatewaySections.find((section) => section.key === mobileGatewaySection) ||
     gatewaySections[0] ||
     null;
+  const activePrepareSection =
+    prepareSections.find((section) => section.key === mobilePrepareSection) ||
+    prepareSections[0] ||
+    null;
   const desktopDrawerVisible = Boolean(desktopDrawerMode);
   const activeDesktopCambridgeSection =
     cambridgeSections.find((section) => section.key === desktopCambridgeSection) ||
@@ -1387,6 +1485,10 @@ const AdminNavbar = () => {
   const activeDesktopGatewaySection =
     gatewaySections.find((section) => section.key === desktopGatewaySection) ||
     gatewaySections[0] ||
+    null;
+  const activeDesktopPrepareSection =
+    prepareSections.find((section) => section.key === desktopPrepareSection) ||
+    prepareSections[0] ||
     null;
 
   const notificationsWithSeenState = useMemo(
@@ -1505,20 +1607,25 @@ const AdminNavbar = () => {
   const isGatewayCurrent =
     pathname.includes("gateway") ||
     (pathname === "/select-test" && platformParam === "gateway");
+  const isPrepareCurrent =
+    pathname.includes("/exam-levels/prepare") ||
+    pathname.startsWith("/prepare") ||
+    pathname.startsWith("/admin/prepare") ||
+    (pathname === "/select-test" && platformParam === "prepare");
   const isIxCurrent =
     (pathname.startsWith("/admin/create") && !isGeneralCurrent && !isGatewayCurrent) ||
     pathname.includes("writing-submissions") ||
     pathname.includes("reading-submissions") ||
     pathname.includes("listening-submissions");
   const isTestListCurrent =
-    pathname === "/select-test" && platformParam !== "gateway";
+    pathname === "/select-test" && !["gateway", "prepare"].includes(platformParam);
   const isReviewCurrent = pathname.startsWith("/review");
   const isProfileCurrent = pathname.startsWith("/profile");
   const isAdminCurrent =
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions") ||
     pathname.startsWith("/admin/display-settings") ||
-    pathname.startsWith("/admin/exam-levels") ||
+    pathname.startsWith("/admin/prepare") ||
     pathname.startsWith("/admin/runtime-sync-metrics");
   const isExamLevelCurrent = pathname.startsWith("/exam-levels/");
 
@@ -1529,6 +1636,9 @@ const AdminNavbar = () => {
     },
     { key: "ix", label: "IX" },
     { key: "gateway", label: "Gateway" },
+    ...(examLevels.some((level) => String(level.code || "").toLowerCase() === "prepare")
+      ? [{ key: "prepare", label: "Prepare" }]
+      : []),
     { key: "orange", label: "Orange" },
     { key: "general", label: generalDisplayName },
     { key: "overview", label: "Overview" },
@@ -1784,6 +1894,32 @@ const AdminNavbar = () => {
     );
   };
 
+  const renderDesktopPrepareDrawerContent = () => {
+    if (!activeDesktopPrepareSection) return null;
+
+    return (
+      <>
+        {renderDesktopDrawerTabs(
+          prepareSections,
+          activeDesktopPrepareSection.key,
+          setDesktopPrepareSection
+        )}
+        <div className="adminNavbar__desktopDrawerBody">
+          <div className="adminNavbar__desktopDrawerSectionTitle">
+            {activeDesktopPrepareSection.title}
+          </div>
+          <div className="adminNavbar__desktopDrawerList">
+            {renderMenuItems(
+              activeDesktopPrepareSection.items,
+              closeDesktopDrawer,
+              "drawer"
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const renderMobileTabs = (sections, activeKey, onChange) => (
     <div className="adminNavbar__mobileTabs">
       {sections.map((section) => (
@@ -1962,6 +2098,37 @@ const AdminNavbar = () => {
     );
   };
 
+  const renderMobilePrepareMenu = () => {
+    if (!activePrepareSection) return null;
+
+    return (
+      <>
+        <div className="adminNavbar__mobileMenuTop">
+          <div className="adminNavbar__mobileMenuTitle">Prepare</div>
+          <div className="adminNavbar__mobileMenuHint">
+            Create Prepare tests, browse the library, and review submissions.
+          </div>
+        </div>
+        {renderMobileTabs(
+          prepareSections,
+          activePrepareSection.key,
+          setMobilePrepareSection
+        )}
+        <div
+          key={activePrepareSection.key}
+          className="adminNavbar__mobileAnimatedStage"
+        >
+          <div className="adminNavbar__mobileMenuBody">
+            <div className="adminNavbar__mobileSectionTitle">
+              {activePrepareSection.title}
+            </div>
+            {renderMenuItems(activePrepareSection.items, closeMobileDrawer, "mobile")}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const renderMobileAdminMenu = () => (
     <>
       <div className="adminNavbar__mobileMenuTop">
@@ -2084,6 +2251,10 @@ const AdminNavbar = () => {
       return renderMobileGatewayMenu();
     }
 
+    if (mobileDrawerTab === "prepare") {
+      return renderMobilePrepareMenu();
+    }
+
     if (mobileDrawerTab === "admin") {
       return renderMobileAdminMenu();
     }
@@ -2158,6 +2329,8 @@ const AdminNavbar = () => {
                   ? "Orange menu"
                   : desktopDrawerMode === "gateway"
                   ? "Gateway menu"
+                  : desktopDrawerMode === "prepare"
+                  ? "Prepare menu"
                   : desktopDrawerMode === "general"
                   ? `${generalDisplayName} menu`
                   : "IX menu"
@@ -2172,6 +2345,8 @@ const AdminNavbar = () => {
                           ? "cambridge"
                           : desktopDrawerMode === "gateway"
                           ? "reading"
+                          : desktopDrawerMode === "prepare"
+                          ? "reading"
                           : "tests"
                       }
                     />
@@ -2185,6 +2360,8 @@ const AdminNavbar = () => {
                         ? "Orange Drawer"
                         : desktopDrawerMode === "gateway"
                         ? "Gateway Drawer"
+                        : desktopDrawerMode === "prepare"
+                        ? "Prepare Drawer"
                         : desktopDrawerMode === "general"
                         ? `${generalDisplayName} Drawer`
                         : "IX Drawer"}
@@ -2194,6 +2371,8 @@ const AdminNavbar = () => {
                         ? "Cambridge creation and submissions collected into a cleaner side panel."
                         : desktopDrawerMode === "gateway"
                         ? "Gateway creation, test library, and submissions in a dedicated side panel."
+                        : desktopDrawerMode === "prepare"
+                        ? "Prepare creation, test library, and submissions in a dedicated side panel."
                         : desktopDrawerMode === "general"
                         ? `${generalDisplayName} creation and submissions in a dedicated side panel.`
                         : "Create and review IELTS tests without a crowded dropdown menu."}
@@ -2218,6 +2397,7 @@ const AdminNavbar = () => {
                 {desktopDrawerMode === "ix" && renderDesktopSubmissionDrawerContent()}
                 {desktopDrawerMode === "general" && renderDesktopGeneralDrawerContent()}
                 {desktopDrawerMode === "gateway" && renderDesktopGatewayDrawerContent()}
+                {desktopDrawerMode === "prepare" && renderDesktopPrepareDrawerContent()}
               </div>
             </aside>
           </>,
@@ -2329,17 +2509,51 @@ const AdminNavbar = () => {
           </span>
         </div>
 
-        {examLevels.map((level) => (
-          <Link
-            key={level.code}
-            to={`/exam-levels/${encodeURIComponent(level.code)}`}
-            className={`adminNavbar__link${isExamLevelCurrent && pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`) ? " adminNavbar__link--active" : ""}`}
-            title={level.name}
-          >
-            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
-            <span className="adminNavbar__label">{level.name}</span>
-          </Link>
-        ))}
+        {examLevels.map((level) => {
+          const isPrepareLevel = String(level.code || "").toLowerCase() === "prepare";
+          const isLevelActive = isPrepareLevel
+            ? isPrepareCurrent || desktopDrawerMode === "prepare"
+            : isExamLevelCurrent &&
+              pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`);
+
+          if (isPrepareLevel) {
+            return (
+              <div key={level.code} className="adminNavbar__dropdown">
+                <span
+                  className={`adminNavbar__link adminNavbar__dropdownToggle${isLevelActive ? " adminNavbar__link--active" : ""}`}
+                  onClick={() => toggleDesktopDrawer("prepare")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleDesktopDrawer("prepare");
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-haspopup="dialog"
+                  aria-expanded={desktopDrawerMode === "prepare"}
+                  title={level.name}
+                >
+                  <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="reading" /></span>
+                  <span className="adminNavbar__label">{level.name}</span>
+                  <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <Link
+              key={level.code}
+              to={`/exam-levels/${encodeURIComponent(level.code)}`}
+              className={`adminNavbar__link${isLevelActive ? " adminNavbar__link--active" : ""}`}
+              title={level.name}
+            >
+              <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>
+              <span className="adminNavbar__label">{level.name}</span>
+            </Link>
+          );
+        })}
 
         <Link to="/select-test" className={`adminNavbar__link${isTestListCurrent ? " adminNavbar__link--active" : ""}`} title="Test list">
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="tests" /></span>

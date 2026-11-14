@@ -1,1 +1,1 @@
-export { default } from "../../../exam-core/shared/pages/ExamCoreReadingRuntimePage";
+export { default } from "../../../exam-engine/shared/pages/ExamCoreReadingRuntimePage";

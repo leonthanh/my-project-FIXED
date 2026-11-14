@@ -45,6 +45,9 @@ const safeParseParts = (rawParts) => {
 const countTotalQuestionsFromParts = (rawParts = []) => {
   const parts = safeParseParts(rawParts);
   const processedParts = processTestParts(parts);
+  const isPrepareReadingWriting = ['prepare-reading-writing-v1', 'prepare-reading-writing-v2']
+    .includes(processedParts[0]?.examFormat);
+  const isFlexiblePrepareReadingWriting = processedParts[0]?.examFormat === 'prepare-reading-writing-v2';
 
   let total = 0;
 
@@ -62,7 +65,7 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
       const questions = section.questions || [];
 
       questions.forEach((question) => {
-        if (sectionType === 'long-text-mc' && Array.isArray(question.questions)) {
+        if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && Array.isArray(question.questions)) {
           total += question.questions.length;
           return;
         }
@@ -87,6 +90,11 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question.items)) {
+          total += question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
         if (sectionType === 'preposition-gap-fill' && Array.isArray(question.items)) {
           total += question.items.length > 0 ? question.items.length : 1;
           return;
@@ -102,13 +110,20 @@ const countTotalQuestionsFromParts = (rawParts = []) => {
           return;
         }
 
-        if (sectionType === 'reading-open-questions' && Array.isArray(question.items)) {
-          total += question.items.length > 0 ? question.items.length : 1;
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(sectionType) && Array.isArray(question.items)) {
+          total += question.items.length * 2;
           return;
         }
 
-        if (sectionType === 'short-message') {
-          total += 1;
+        if (sectionType === 'reading-open-questions' && Array.isArray(question.items)) {
+          total += isFlexiblePrepareReadingWriting
+            ? question.items.reduce((itemTotal) => itemTotal + (question?.exerciseMode === 'two-blanks' ? 2 : 1), 0)
+            : question.items.length > 0 ? question.items.length : 1;
+          return;
+        }
+
+        if (sectionType === 'short-message' || sectionType === 'story-writing') {
+          if (!isPrepareReadingWriting) total += 1;
           return;
         }
 

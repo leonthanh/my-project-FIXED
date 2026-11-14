@@ -19,8 +19,8 @@ import PrepositionGapFillDisplay from "../../../../shared/components/questions/d
 import OddOneOutDisplay from "../../../../shared/components/questions/displays/OddOneOutDisplay";
 import SentenceCorrectionDisplay from "../../../../shared/components/questions/displays/SentenceCorrectionDisplay";
 import ReadingOpenQuestionsDisplay from "../../../../shared/components/questions/displays/ReadingOpenQuestionsDisplay";
-import ExamCoreResultsModal from "../../../exam-core/shared/components/ExamCoreResultsModal";
-import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import ExamCoreResultsModal from "../../../exam-engine/shared/components/ExamCoreResultsModal";
+import { computeQuestionStarts, getQuestionCountForSection, parseClozeBlanksFromText } from "../../../exam-engine/shared/utils/examQuestionNumbering";
 import {
   formatClock,
   getExtensionToastMessage,

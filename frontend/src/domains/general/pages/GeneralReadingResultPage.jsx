@@ -7,7 +7,7 @@ import { useDisplaySettings } from '../../../shared/contexts/DisplaySettingsCont
 import { formatStudentDisplayName } from '../../../shared/utils/personName';
 import { summarizeDetailedResults } from '../../../shared/utils/detailedResultSummary';
 import CambridgeStudentStyleReview from '../../cambridge/shared/components/CambridgeStudentStyleReview';
-import { parseClozeBlanksFromText } from '../../exam-core/shared/utils/examQuestionNumbering';
+import { parseClozeBlanksFromText } from '../../exam-engine/shared/utils/examQuestionNumbering';
 
 const hasOwnKeys = (value) => (
   !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0

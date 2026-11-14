@@ -7,10 +7,10 @@ import {
   isZeroNumberedClozeExample,
   parseClozeBlanksFromText,
   shouldIncludeSectionForPart,
-} from '../../../exam-core/shared/utils/examQuestionNumbering';
+} from '../../../exam-engine/shared/utils/examQuestionNumbering';
 import getClozeReviewCorrectAnswer from '../utils/clozeReviewAnswers';
 import QuestionDisplayFactory from '../../../../shared/components/questions/displays/QuestionDisplayFactory';
-import createListeningStyles from '../../../exam-core/shared/pages/ExamCoreListeningRuntime.styles';
+import createListeningStyles from '../../../exam-engine/shared/pages/ExamCoreListeningRuntime.styles';
 import SignMessageDisplay from '../../../../shared/components/questions/displays/SignMessageDisplay';
 import LongTextMCDisplay from '../../../../shared/components/questions/displays/LongTextMCDisplay';
 import ClozeMCDisplay from '../../../../shared/components/questions/displays/ClozeMCDisplay';
@@ -21,16 +21,26 @@ import ImageClozeDisplay from '../../../../shared/components/questions/displays/
 import WordDragClozeDisplay from '../../../../shared/components/questions/displays/WordDragClozeDisplay';
 import StoryCompletionDisplay from '../../../../shared/components/questions/displays/StoryCompletionDisplay';
 import LookReadWriteDisplay from '../../../../shared/components/questions/displays/LookReadWriteDisplay';
-import { ExamCoreQuestionDisplay } from '../../../exam-core/shared/components/ExamCoreQuestionCards';
-import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from '../../../exam-core/shared/components/ExamCoreListeningRuntimeSections';
-import AnchoredImageStage from '../../../exam-core/shared/components/AnchoredImageStage';
-import '../../../exam-core/shared/pages/ExamCoreReadingRuntime.css';
+import { ExamCoreQuestionDisplay } from '../../../exam-engine/shared/components/ExamCoreQuestionCards';
+import { ColourWriteStudentSection, DrawLinesQuestion, ImageTickSlideSection, LetterMatchingStudentSection } from '../../../exam-engine/shared/components/ExamCoreListeningRuntimeSections';
+import AnchoredImageStage from '../../../exam-engine/shared/components/AnchoredImageStage';
+import '../../../exam-engine/shared/pages/ExamCoreReadingRuntime.css';
 
 const noop = () => {};
 const EMPTY_FLAGGED_QUESTIONS = new Set();
 const NO_ANSWER_TEXT = '(No answer)';
 const STUDENT_ANSWER_LABEL = 'Student answer';
 const CORRECT_ANSWER_LABEL = 'Correct answer';
+const PREPARE_REVIEW_QUESTION_TYPES = new Set([
+  'word-bank-completion',
+  'conditional-sentence-completion',
+  'reported-command-completion',
+  'reported-speech-transformation',
+  'past-simple-passive-transformation',
+  'reported-speech-verb-choice',
+  'definition-completion',
+  'word-bank-adjective-formation',
+]);
 
 const styles = {
   wrapper: {
@@ -2547,6 +2557,43 @@ export default function CambridgeStudentStyleReview({ test, submission }) {
                       onAnswerChange={noop}
                       answers={answers}
                       submitted
+                    />
+                  );
+                }
+
+                if (sectionType === 'prepare-reading-comprehension') {
+                  return (
+                    <LongTextMCDisplay
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{ ...question, id: `${partIdx}-${secIdx}-${qIdx}` }}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                    />
+                  );
+                }
+
+                if (PREPARE_REVIEW_QUESTION_TYPES.has(sectionType)) {
+                  return (
+                    <QuestionDisplayFactory
+                      key={`${partIdx}-${secIdx}-${qIdx}`}
+                      section={{
+                        ...section,
+                        id: `${partIdx}-${secIdx}-${qIdx}`,
+                        questions: [question],
+                      }}
+                      questionType={sectionType}
+                      startingNumber={questionStart}
+                      onAnswerChange={noop}
+                      answers={answers}
+                      submitted
+                      questionIndex={qIdx}
+                      examType={examType}
+                      testType={testType}
+                      gatewayQuestionNumbers={isGatewayReadingWritingReview}
+                      gatewayMetadata={section.questions?.[0] || {}}
+                      sectionQuestionCount={section.questions?.length || 1}
                     />
                   );
                 }

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { apiPath, getStoredUser, hostPath } from "../../../../shared/utils/api";
+import { apiPath, authFetch, getStoredUser, hostPath } from "../../../../shared/utils/api";
 import AdminNavbar from "../../../../shared/components/AdminNavbar";
 import StudentNavbar from "../../../../shared/components/StudentNavbar";
 import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
-import { isZeroNumberedClozeExample } from "../../../exam-core/shared/utils/examQuestionNumbering";
+import { isZeroNumberedClozeExample } from "../../../exam-engine/shared/utils/examQuestionNumbering";
 import { summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { countNotesCompletionBlanks, shouldIncludeSectionForPart } from "../utils/questionNumbering";
@@ -156,7 +156,8 @@ function buildWritingPromptHtml(sectionType, question, detailedResult) {
  * - Đáp án đúng cho từng câu
  */
 const CambridgeResultPage = ({ platform = 'orange' }) => {
-  const { submissionId } = useParams();
+  const { submissionId, code: rawCode } = useParams();
+  const code = String((platform === 'prepare' ? rawCode || 'prepare' : rawCode) || '').trim().toLowerCase();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();
@@ -282,18 +283,26 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
   const [expandedParts, setExpandedParts] = useState({});
   const [showLegacyDetails, setShowLegacyDetails] = useState(false);
   const lastFetchedTestKeyRef = useRef(null);
+  const isPrepareResultPage = platform === 'prepare';
   const isGatewaySubmission = String(submission?.testType || '').trim().toLowerCase().startsWith('gateway-');
-  const isGatewayResultPage =
-    platform === 'gateway' || location.pathname.startsWith('/gateway/result/');
-  const isGatewayResult = isGatewaySubmission || isGatewayResultPage;
-  const submissionsApiBase = isGatewayResultPage ? 'gateway/submissions' : 'cambridge/submissions';
+  const isGatewayResultPage = !isPrepareResultPage && (
+    platform === 'gateway' || location.pathname.startsWith('/gateway/result/')
+  );
+  const isGatewayResult = isPrepareResultPage || isGatewaySubmission || isGatewayResultPage;
+  const submissionsApiBase = isPrepareResultPage
+    ? `exam-levels/${encodeURIComponent(code)}/submissions`
+    : isGatewayResultPage ? 'gateway/submissions' : 'cambridge/submissions';
   const gatewayTab = String(submission?.testType || '').toLowerCase().includes('listening')
     ? 'listening'
     : 'reading-writing';
-  const resultHomePath = isGatewayResult
+  const resultHomePath = isPrepareResultPage
+    ? `/select-test?platform=prepare&tab=${submission?.skill === 'listening' ? 'listening' : 'reading-writing'}`
+    : isGatewayResult
     ? `/select-test?platform=gateway&tab=${gatewayTab}`
     : '/cambridge';
-  const resultPageTitle = isGatewayResult ? 'Gateway Test Results' : 'Orange Test Results';
+  const resultPageTitle = isPrepareResultPage
+    ? 'Prepare Test Results'
+    : isGatewayResult ? 'Gateway Test Results' : 'Orange Test Results';
   const isGatewayListeningResult = String(submission?.testType || '').trim().toLowerCase().startsWith('gateway-listening');
 
   useEffect(() => {
@@ -340,10 +349,26 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         // Don't show loading spinner if we already have nav state data (avoid flicker)
         if (!location.state?.submission) setLoading(true);
         setError(null);
-        const res = await fetch(apiPath(`${submissionsApiBase}/${submissionId}`), { signal: controller.signal });
+        const resultPath = `${submissionsApiBase}/${submissionId}`;
+        const res = isPrepareResultPage
+          ? await authFetch(apiPath(resultPath), { signal: controller.signal })
+          : await fetch(apiPath(resultPath), { signal: controller.signal });
         if (!res.ok) throw new Error("Result not found");
         const data = await res.json();
-        if (!cancelled) setSubmission(normalizeSubmission(data));
+        if (!cancelled) {
+          if (isPrepareResultPage) {
+            setSubmission(normalizeSubmission(data.submission));
+            if (data.test) {
+              const nextTest = { ...data.test };
+              nextTest.parts = typeof nextTest.parts === 'string'
+                ? JSON.parse(nextTest.parts)
+                : nextTest.parts;
+              setTest(nextTest);
+            }
+          } else {
+            setSubmission(normalizeSubmission(data));
+          }
+        }
       } catch (err) {
         if (cancelled) return;
         if (err?.name === 'AbortError') return;
@@ -358,9 +383,10 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       cancelled = true;
       controller.abort();
     };
-  }, [submissionId, submissionsApiBase]);
+  }, [isPrepareResultPage, submissionId, submissionsApiBase]);
 
   useEffect(() => {
+    if (isPrepareResultPage) return;
     if (!submission?.testType) return;
     if (!test || String(test.id) !== String(submission.testId)) return;
 
@@ -373,14 +399,16 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         state: { ...location.state, submission },
       });
     }
-  }, [location.pathname, location.state, navigate, submission, submissionId, test]);
+  }, [isPrepareResultPage, location.pathname, location.state, navigate, submission, submissionId, test]);
 
   // Ensure we have test data for rendering Part 5 + mapping keys
   useEffect(() => {
     const sub = normalizeSubmission(location.state?.submission) || submission;
     if (!sub?.testId || !sub?.testType) return;
 
-    const category = sub.testType.includes('listening') ? 'listening' : 'reading';
+    const category = isPrepareResultPage
+      ? String(sub.skill || '').trim().toLowerCase() || 'reading-writing'
+      : sub.testType.includes('listening') ? 'listening' : 'reading';
     const fetchKey = `${category}:${sub.testId}`;
     const shouldFetch = !test || String(test.id) !== String(sub.testId) || testNeedsRefresh(test);
     if (!shouldFetch) return;
@@ -392,8 +420,12 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
 
     (async () => {
       try {
-        const testPlatformBase = isGatewayResult ? 'gateway' : 'cambridge';
-        const testRes = await fetch(apiPath(`${testPlatformBase}/${category}-tests/${sub.testId}`), { signal: controller.signal });
+        const testPath = isPrepareResultPage
+          ? `exam-levels/${encodeURIComponent(code)}/${encodeURIComponent(category)}/tests/${encodeURIComponent(sub.testId)}`
+          : `${isGatewayResult ? 'gateway' : 'cambridge'}/${category}-tests/${sub.testId}`;
+        const testRes = isPrepareResultPage
+          ? await authFetch(apiPath(testPath), { signal: controller.signal })
+          : await fetch(apiPath(testPath), { signal: controller.signal });
         if (!testRes.ok) return;
         const testData = await testRes.json();
         testData.parts = typeof testData.parts === 'string' ? JSON.parse(testData.parts) : testData.parts;
@@ -412,7 +444,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
         lastFetchedTestKeyRef.current = null;
       }
     };
-  }, [submission, location.state?.submission, test, isGatewayResult]);
+  }, [code, isPrepareResultPage, submission, location.state?.submission, test, isGatewayResult]);
 
   const formatQuestionLabel = (questionNum, questionType = '') => {
     if (questionType === 'short-message' || questionType === 'story-writing') return 'W';

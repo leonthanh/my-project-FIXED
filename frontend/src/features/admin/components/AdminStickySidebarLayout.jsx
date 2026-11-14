@@ -58,6 +58,14 @@ const buildBaseWorkspaceLinks = (navigate, currentKey, displayLabels) => {
     onClick: () => navigate("/admin/gateway-submissions"),
   },
   {
+    key: "prepare",
+    label: "Prepare",
+    hint: "Prepare submissions",
+    tone: "violet",
+    active: currentKey === "prepare",
+    onClick: () => navigate("/prepare/submissions"),
+  },
+  {
     key: "cambridge",
     label: "Orange",
     hint: "Cambridge submissions",
@@ -92,14 +100,6 @@ const buildAdminOnlyWorkspaceLinks = (navigate, currentKey) => [
     tone: "cyan",
     active: currentKey === "runtime-sync-metrics",
     onClick: () => navigate("/admin/runtime-sync-metrics"),
-  },
-  {
-    key: "exam-levels",
-    label: "Levels",
-    hint: "Level and skill templates",
-    tone: "blue",
-    active: currentKey === "exam-levels",
-    onClick: () => navigate("/admin/exam-levels"),
   },
   {
     key: "permissions",
@@ -166,6 +166,8 @@ export const buildSubmissionWorkspaceContext = ({
     workspaceLinks.find((item) => item?.key === "cambridge") || null;
   const gatewayWorkspaceLink =
     workspaceLinks.find((item) => item?.key === "gateway") || null;
+  const prepareWorkspaceLink =
+    workspaceLinks.find((item) => item?.key === "prepare") || null;
   const generalWorkspaceLink =
     workspaceLinks.find((item) => item?.key === "general") || null;
 
@@ -176,6 +178,7 @@ export const buildSubmissionWorkspaceContext = ({
     ixWorkspaceLinks,
     orangeWorkspaceLink,
     gatewayWorkspaceLink,
+    prepareWorkspaceLink,
     generalWorkspaceLink,
   };
 };
@@ -190,6 +193,8 @@ export const buildSubmissionWorkspaceNav = ({
   onIxGroupClick,
   onOrangeGroupClick,
   onGatewayGroupClick,
+  activePrepareSkill = "all",
+  onPrepareSkillClick,
   onGeneralGroupClick,
 } = {}) => {
   const {
@@ -199,6 +204,7 @@ export const buildSubmissionWorkspaceNav = ({
     ixWorkspaceLinks,
     orangeWorkspaceLink,
     gatewayWorkspaceLink,
+    prepareWorkspaceLink,
     generalWorkspaceLink,
   } = buildSubmissionWorkspaceContext({
     navigate,
@@ -248,6 +254,19 @@ export const buildSubmissionWorkspaceNav = ({
           },
         }
       : null,
+    prepareWorkspaceLink
+      ? {
+          key: "workspace-prepare",
+          label: prepareWorkspaceLink.label,
+          hint: prepareWorkspaceLink.hint,
+          tone: prepareWorkspaceLink.tone,
+          active: activeWorkspaceGroup === "prepare",
+          onClick: () => {
+            setActiveWorkspaceGroup("prepare");
+            prepareWorkspaceLink.onClick?.();
+          },
+        }
+      : null,
     orangeWorkspaceLink
       ? {
           key: "workspace-orange",
@@ -294,6 +313,16 @@ export const buildSubmissionWorkspaceNav = ({
           active: item.key === activeIxKey,
           onClick: item.onClick,
         }))
+      : activeWorkspaceGroup === "prepare"
+      ? [
+          { key: "all", label: "All", hint: "All Prepare submissions", tone: "violet" },
+          { key: "listening", label: "Listening", hint: "Prepare Listening submissions", tone: "green" },
+          { key: "reading-writing", label: "Reading & Writing", hint: "Prepare Reading & Writing submissions", tone: "blue" },
+        ].map((item) => ({
+          ...item,
+          active: item.key === activePrepareSkill,
+          onClick: () => onPrepareSkillClick?.(item.key),
+        }))
       : [];
 
   return {
@@ -302,6 +331,7 @@ export const buildSubmissionWorkspaceNav = ({
     reviewWorkspaceLink,
     ixWorkspaceLinks,
     orangeWorkspaceLink,
+    prepareWorkspaceLink,
     generalWorkspaceLink,
     workspaceGroupLinks,
     workspaceChildLinks,
@@ -327,6 +357,7 @@ export const buildReviewWorkspaceNav = ({
     reviewWorkspaceLink,
     orangeWorkspaceLink,
     gatewayWorkspaceLink,
+    prepareWorkspaceLink,
     generalWorkspaceLink,
   } = buildSubmissionWorkspaceContext({
     navigate,
@@ -373,6 +404,20 @@ export const buildReviewWorkspaceNav = ({
       active: activeTab !== "review" && activeWorkspaceGroup === "gateway",
       onClick: () => {
         navigateToPlatformSubmissionPage("gateway", "all");
+      },
+    });
+  }
+
+  if (prepareWorkspaceLink) {
+    workspaceParentLinks.push({
+      key: "workspace-prepare",
+      label: prepareWorkspaceLink.label,
+      hint: prepareWorkspaceLink.hint,
+      tone: prepareWorkspaceLink.tone,
+      active: activeTab !== "review" && activeWorkspaceGroup === "prepare",
+      onClick: () => {
+        setActiveWorkspaceGroup("prepare");
+        prepareWorkspaceLink.onClick?.();
       },
     });
   }

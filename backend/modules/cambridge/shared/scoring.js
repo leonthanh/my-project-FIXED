@@ -189,7 +189,7 @@ const countNotesCompletionBlanks = (notesText) => {
 
 const getQuestionCount = (question, sectionType) => {
   const q = question || {};
-  if (sectionType === 'long-text-mc' && Array.isArray(q.questions)) return q.questions.length;
+  if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && Array.isArray(q.questions)) return q.questions.length;
   if (sectionType === 'cloze-mc' && Array.isArray(q.blanks)) return q.blanks.length;
   if (sectionType === 'notes-completion') {
     const blankCount = countNotesCompletionBlanks(q.notesText);
@@ -223,6 +223,9 @@ const getQuestionCount = (question, sectionType) => {
   if (sectionType === 'odd-one-out' && Array.isArray(q.groups)) return q.groups.length;
   if (sectionType === 'sentence-correction' && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'reading-open-questions' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'word-bank-completion' && Array.isArray(q.items)) return q.items.length;
+  if (sectionType === 'conditional-sentence-completion' && Array.isArray(q.items)) return q.items.length;
+  if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(q.items)) return q.items.length;
   if (sectionType === 'draw-lines' && Array.isArray(q.leftItems)) {
     return q.leftItems.slice(1).filter((n) => String(n || '').trim()).length;
   }
@@ -265,6 +268,9 @@ const scoreTest = (test, answers) => {
     String(test?.testType || '').trim().toLowerCase() === 'gateway-reading-writing';
 
   const parts = processTestParts(safeParseParts(test?.parts));
+  const isPrepareReadingWriting = ['prepare-reading-writing-v1', 'prepare-reading-writing-v2']
+    .includes(parts?.[0]?.examFormat);
+  const isFlexiblePrepareReadingWriting = parts?.[0]?.examFormat === 'prepare-reading-writing-v2';
 
   const questionStartNumbers = computeQuestionStartNumbers(parts);
 
@@ -544,10 +550,77 @@ const scoreTest = (test, answers) => {
           return;
         }
 
+        if (['word-bank-completion', 'conditional-sentence-completion'].includes(sectionType) && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            (item?.blankAnswers || []).slice(0, 2).forEach((correctAnswer, blankIndex) => {
+              const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}-${blankIndex}`;
+              const userAnswer = pickAnswer(key);
+              const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+              total++;
+              if (isCorrect) score++;
+              detailedResults[key] = {
+                isCorrect,
+                questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
+                userAnswer: userAnswer || null,
+                correctAnswer,
+                questionType: sectionType,
+                questionText: item?.questionText || '',
+                answerIndex: blankIndex + 1,
+              };
+            });
+          });
+          return;
+        }
+
+        if (['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice', 'definition-completion', 'word-bank-adjective-formation'].includes(sectionType) && Array.isArray(question?.items)) {
+          question.items.forEach((item, itemIdx) => {
+            const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
+            const userAnswer = pickAnswer(key);
+            const correctAnswer = item?.correctAnswer;
+            const isCorrect = scoreQuestion(userAnswer, correctAnswer, 'fill');
+            total++;
+            if (isCorrect) score++;
+            detailedResults[key] = {
+              isCorrect,
+              questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
+              userAnswer: userAnswer || null,
+              correctAnswer,
+              questionType: ['reported-command-completion', 'reported-speech-transformation', 'past-simple-passive-transformation', 'reported-speech-verb-choice'].includes(sectionType) ? sectionType : 'fill',
+              questionText: item?.questionText || item?.sourceText || `${item?.sentencePrefix || ''}${item?.sentenceSuffix || ''}`,
+            };
+          });
+          return;
+        }
+
         if (sectionType === 'reading-open-questions' && Array.isArray(question?.items)) {
           question.items.forEach((item, itemIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${itemIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${itemIdx}`;
+            if (isPrepareReadingWriting && question.exerciseMode === 'two-blanks') {
+              const blanks = item.blankAnswers.map((correctAnswer, blankIndex) => {
+                const userAnswer = pickAnswer(`${legacyKey}-${blankIndex}`);
+                return {
+                  userAnswer: userAnswer || null,
+                  correctAnswer,
+                  isCorrect: scoreQuestion(userAnswer, correctAnswer, 'fill'),
+                };
+              });
+              const earnedPoints = blanks.filter((blank) => blank.isCorrect).length * 0.5;
+              total++;
+              score += earnedPoints;
+              detailedResults[key] = {
+                isCorrect: earnedPoints === 1,
+                questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx,
+                earnedPoints,
+                maxPoints: 1,
+                userAnswer: blanks.map((blank) => blank.userAnswer),
+                correctAnswer: blanks.map((blank) => blank.correctAnswer),
+                blanks,
+                questionType: 'reading-open-questions',
+                questionText: item?.questionText || '',
+              };
+              return;
+            }
             const userAnswer = pickAnswer(key, [legacyKey]);
             const correctAnswer = item?.correctAnswer;
 
@@ -568,6 +641,7 @@ const scoreTest = (test, answers) => {
 
             detailedResults[key] = {
               isCorrect,
+              ...(isPrepareReadingWriting ? { questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + itemIdx } : {}),
               userAnswer: userAnswer || null,
               correctAnswer,
               questionType: 'reading-open-questions',
@@ -707,7 +781,7 @@ const scoreTest = (test, answers) => {
           return;
         }
 
-        if (sectionType === 'long-text-mc' && question.questions && Array.isArray(question.questions)) {
+        if (['long-text-mc', 'prepare-reading-comprehension'].includes(sectionType) && question.questions && Array.isArray(question.questions)) {
           question.questions.forEach((nestedQ, nestedIdx) => {
             const key = `${partIdx}-${secIdx}-${qIdx}-${nestedIdx}`;
             const legacyKey = `${partIdx}-${secIdx}-${nestedIdx}`;
@@ -730,6 +804,7 @@ const scoreTest = (test, answers) => {
             if (isCorrect) score++;
             detailedResults[key] = {
               isCorrect,
+              ...(isPrepareReadingWriting ? { questionNumber: (questionStartNumbers.get(`${partIdx}-${secIdx}-${qIdx}`) || 1) + nestedIdx } : {}),
               userAnswer: userAnswer || null,
               correctAnswer,
               questionType: nestedQ.questionType || 'abc',
@@ -1048,6 +1123,35 @@ const scoreTest = (test, answers) => {
       });
     });
   });
+
+  if (isFlexiblePrepareReadingWriting) {
+    let weightedScore = 0;
+    Object.entries(detailedResults).forEach(([resultKey, result]) => {
+      if (!result || (result.isCorrect !== true && result.isCorrect !== false)) return;
+      const [partIndex, sectionIndex] = resultKey.split('-').map(Number);
+      const section = parts?.[partIndex]?.sections?.[sectionIndex];
+      if (!section || ['short-message', 'story-writing'].includes(section.questionType)) return;
+
+      const pointsPerAnswer = Number(section.preparePointsPerAnswer);
+      if (!Number.isFinite(pointsPerAnswer) || pointsPerAnswer <= 0) return;
+
+      if (Array.isArray(result.blanks)) {
+        const earnedPoints = result.blanks.reduce((sum, blank) => (
+          sum + (blank.isCorrect ? pointsPerAnswer : 0)
+        ), 0);
+        result.earnedPoints = earnedPoints;
+        result.maxPoints = result.blanks.length * pointsPerAnswer;
+        weightedScore += earnedPoints;
+        return;
+      }
+
+      result.earnedPoints = result.isCorrect ? pointsPerAnswer : 0;
+      result.maxPoints = pointsPerAnswer;
+      weightedScore += result.earnedPoints;
+    });
+    score = Math.round((weightedScore + Number.EPSILON) * 100) / 100;
+    total = 50;
+  }
 
   const weightedBreakdown = computeScoreBreakdown(test, detailedResults, score, total);
   const finalScore = weightedBreakdown?.overall?.score ?? score;

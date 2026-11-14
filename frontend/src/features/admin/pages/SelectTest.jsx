@@ -48,7 +48,9 @@ import {
 import {
   buildPlatformTabs,
   buildSelectTestPath,
+  DEFAULT_PREPARE_SKILL,
   parseSelectTestSearch,
+  PREPARE_SKILLS,
 } from "../../../shared/config/examRegistry";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import {
@@ -127,6 +129,7 @@ const SelectTest = () => {
     gateway: [],
     cambridge: [],
     general: [],
+    prepare: [],
   });
   const [activePlatform, setActivePlatform] = useState("ix");
   const [activeIxTab, setActiveIxTab] = useState(DEFAULT_IX_SKILL);
@@ -134,8 +137,10 @@ const SelectTest = () => {
   const [activeOrangeType, setActiveOrangeType] = useState(DEFAULT_ORANGE_TYPE);
   const [activeOrangeTab, setActiveOrangeTab] = useState(DEFAULT_ORANGE_SKILL);
   const [activeGeneralTab, setActiveGeneralTab] = useState(DEFAULT_GENERAL_SKILL);
+  const [activePrepareTab, setActivePrepareTab] = useState(DEFAULT_PREPARE_SKILL);
   const [registeredLevels, setRegisteredLevels] = useState([]);
   const [registeredLevelError, setRegisteredLevelError] = useState("");
+  const [prepareTestLoadError, setPrepareTestLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState("newest");
@@ -155,6 +160,9 @@ const SelectTest = () => {
   const { displayLabels } = useDisplaySettings();
   const generalDisplayName = String(displayLabels?.generalDisplayName || "General").trim() || "General";
   const platformTabs = useMemo(() => buildPlatformTabs(displayLabels), [displayLabels]);
+  const otherConfiguredLevels = registeredLevels.filter(
+    (level) => String(level.code || "").toLowerCase() !== "prepare"
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -203,6 +211,8 @@ const SelectTest = () => {
       nextTab = next.tab || activeGatewayTab || DEFAULT_GATEWAY_SKILL;
     } else if (nextPlatform === "general") {
       nextTab = next.tab || activeGeneralTab || DEFAULT_GENERAL_SKILL;
+    } else if (nextPlatform === "prepare") {
+      nextTab = next.tab || activePrepareTab || DEFAULT_PREPARE_SKILL;
     } else {
       nextTab = next.tab || activeIxTab || DEFAULT_IX_SKILL;
     }
@@ -234,6 +244,25 @@ const SelectTest = () => {
         const generalListeningPath = isTeacher
           ? 'general/listening-tests?includeArchived=1'
           : 'general/listening-tests';
+        const prepareTestsPromise = Promise.allSettled(
+          PREPARE_SKILLS.map(async (skill) => {
+            const response = await authFetch(
+              apiPath(`exam-levels/prepare/${encodeURIComponent(skill.key)}/tests`)
+            );
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+              throw new Error(payload?.message || `Could not load Prepare ${skill.label} tests.`);
+            }
+            if (!Array.isArray(payload)) {
+              throw new Error(`Prepare ${skill.label} tests returned an invalid response.`);
+            }
+            return payload.map((test) => ({
+              ...test,
+              skill: skill.key,
+              category: "prepare",
+            }));
+          })
+        );
         const [
           writingRes,
           readingRes,
@@ -243,6 +272,7 @@ const SelectTest = () => {
           gatewayListeningRes,
           generalReadingRes,
           generalListeningRes,
+          prepareTestResults,
         ] = await Promise.all([
           fetch(apiPath(writingPath)),
           fetch(apiPath(readingPath)),
@@ -252,6 +282,7 @@ const SelectTest = () => {
           fetch(apiPath(gatewayListeningPath)),
           fetch(apiPath(generalReadingPath)),
           fetch(apiPath(generalListeningPath)),
+          prepareTestsPromise,
         ]);
 
         const writingData = await writingRes.json();
@@ -295,6 +326,16 @@ const SelectTest = () => {
             : "reading",
           category: "general",
         }));
+        const prepareErrors = [];
+        const prepareTests = prepareTestResults.flatMap((result, index) => {
+          if (result.status === "fulfilled") return result.value;
+          const error = result.reason;
+          const skill = PREPARE_SKILLS[index];
+          console.error(`Failed to load Prepare ${skill.label} tests:`, error);
+          prepareErrors.push(`${skill.label}: ${error.message || "Could not load tests."}`);
+          return [];
+        });
+        setPrepareTestLoadError(prepareErrors.join(" "));
 
         setTests({
           writing: ieltsWriting,
@@ -303,6 +344,7 @@ const SelectTest = () => {
           gateway: gatewayCambridge,
           cambridge: orangeCambridge,
           general: generalCambridge,
+          prepare: prepareTests,
         });
       } catch (err) {
         console.error("Failed to load tests:", err);
@@ -313,7 +355,9 @@ const SelectTest = () => {
           gateway: [],
           cambridge: [],
           general: [],
+          prepare: [],
         });
+        setPrepareTestLoadError("Could not load Prepare tests.");
       } finally {
         setLoading(false);
       }
@@ -537,13 +581,14 @@ const SelectTest = () => {
     setActiveOrangeType(nextState.orangeType);
     setActiveOrangeTab(nextState.orangeTab);
     setActiveGeneralTab(nextState.generalTab);
+    setActivePrepareTab(nextState.prepareTab || DEFAULT_PREPARE_SKILL);
   }, [location.search]);
 
   useEffect(() => {
     setVisibleCount(12);
     setSearchQuery("");
     setSortMode("newest");
-  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeType, activeOrangeTab, activeGeneralTab]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeType, activeOrangeTab, activeGeneralTab, activePrepareTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -791,6 +836,7 @@ const SelectTest = () => {
   const gatewayTotalCount = tests.gateway?.length || 0;
   const orangeTotalCount = tests.cambridge?.length || 0;
   const generalTotalCount = tests.general?.length || 0;
+  const prepareTotalCount = tests.prepare?.length || 0;
 
   const generalSkillTabs = useMemo(
     () => GENERAL_SKILLS.map((skill) => ({
@@ -803,6 +849,13 @@ const SelectTest = () => {
   );
 
   const generalConfig = useMemo(() => getGeneralTestConfig(activeGeneralTab), [activeGeneralTab]);
+  const prepareSkillTabs = useMemo(
+    () => PREPARE_SKILLS.map((skill) => ({
+      ...skill,
+      count: (tests.prepare || []).filter((test) => test.skill === skill.key).length,
+    })),
+    [tests.prepare]
+  );
 
   const currentContext = useMemo(() => {
     if (activePlatform === "ix") {
@@ -825,6 +878,18 @@ const SelectTest = () => {
         isOrange: false,
         isGeneral: false,
         isGateway: true,
+      };
+    }
+
+    if (activePlatform === "prepare") {
+      return {
+        list: (tests.prepare || []).filter((test) => test.skill === activePrepareTab),
+        displayType: "prepare",
+        categoryForPermission: activePrepareTab,
+        isOrange: false,
+        isGeneral: false,
+        isGateway: false,
+        isPrepare: true,
       };
     }
 
@@ -856,12 +921,12 @@ const SelectTest = () => {
       isGeneral: false,
       isGateway: false,
     };
-  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeTab, activeGeneralTab, tests, orangeFilteredByType]);
+  }, [activePlatform, activeIxTab, activeGatewayTab, activeOrangeTab, activeGeneralTab, activePrepareTab, tests, orangeFilteredByType]);
 
   const activeList = filterAndSort(currentContext.list, currentContext.displayType);
   const visibleList = activeList.slice(0, visibleCount);
   const remainingCount = Math.max(0, activeList.length - visibleList.length);
-  const canManageCurrentSelection = currentContext.isGateway
+  const canManageCurrentSelection = currentContext.isGateway || currentContext.isPrepare
     ? isTeacher
     : canManageCategory(user, currentContext.categoryForPermission);
   const placementSelectionKeys = useMemo(
@@ -878,10 +943,13 @@ const SelectTest = () => {
       ? GENERAL_SKILL_META[activeGeneralTab] || GENERAL_SKILL_META.reading
       : activePlatform === "gateway"
         ? GATEWAY_SKILL_META[activeGatewayTab] || GATEWAY_SKILL_META[DEFAULT_GATEWAY_SKILL]
+        : activePlatform === "prepare"
+          ? prepareSkillTabs.find((skill) => skill.key === activePrepareTab) || prepareSkillTabs[0]
         : SKILL_META[activePlatform === "ix" ? activeIxTab : activeOrangeTab] || SKILL_META.reading;
   const currentShelfTitle = (() => {
     if (activePlatform === "ix") return `IX ${currentSkillInfo.label}`;
     if (activePlatform === "gateway") return `Gateway ${currentSkillInfo.label}`;
+    if (activePlatform === "prepare") return `Prepare ${currentSkillInfo.label}`;
     if (activePlatform === "general") return `${generalDisplayName} ${currentSkillInfo.label}`;
     return `${activeOrangeLevel.name} • ${currentSkillInfo.label}`;
   })();
@@ -895,6 +963,8 @@ const SelectTest = () => {
         ? activeOrangeLevel.iconName || "orange"
         : activePlatform === "gateway"
           ? "document"
+        : activePlatform === "prepare"
+          ? currentSkillInfo.icon
         : activePlatform === "general"
           ? GENERAL_LEVEL_META.iconName || "tests"
           : "tests",
@@ -903,6 +973,8 @@ const SelectTest = () => {
           ? activeOrangeLevel.shortLabel
           : activePlatform === "gateway"
             ? "Gateway"
+          : activePlatform === "prepare"
+            ? "Prepare"
           : activePlatform === "general"
             ? generalDisplayName
             : "IX",
@@ -1092,7 +1164,9 @@ const SelectTest = () => {
                       type="button"
                       onClick={() =>
                         updateSelectRoute(
-                          tab.key === "orange"
+                          tab.key === "prepare"
+                            ? { platform: "prepare", tab: activePrepareTab }
+                            : tab.key === "orange"
                             ? { platform: "orange", type: activeOrangeType, tab: activeOrangeTab }
                             : tab.key === "gateway"
                               ? { platform: "gateway", tab: activeGatewayTab }
@@ -1113,6 +1187,8 @@ const SelectTest = () => {
                             ? "Writing, reading, listening"
                             : tab.key === "gateway"
                               ? "Reading-writing, listening"
+                            : tab.key === "prepare"
+                              ? "Reading & Writing, Listening"
                             : tab.key === "general"
                               ? "Placement-style combined skills"
                               : "KET, PET, Flyers, Movers, Starters"}
@@ -1123,6 +1199,8 @@ const SelectTest = () => {
                           ? ixTotalCount
                           : tab.key === "gateway"
                             ? gatewayTotalCount
+                            : tab.key === "prepare"
+                              ? prepareTotalCount
                             : tab.key === "general"
                               ? generalTotalCount
                               : orangeTotalCount}
@@ -1131,15 +1209,12 @@ const SelectTest = () => {
                   ))}
                 </div>
 
-                {registeredLevels.length > 0 || registeredLevelError ? (
+                {otherConfiguredLevels.length > 0 || registeredLevelError ? (
                   <div className="select-test-sidebarPanel">
-                    <div className="select-test-sidebarPanelHeader">
-                      <span className="select-test-sidebarPanelTitle">Configured levels</span>
-                    </div>
                     {registeredLevelError ? (
                       <p className="select-test-shelfMetaItem" role="alert">{registeredLevelError}</p>
                     ) : null}
-                    {registeredLevels.map((level) => (
+                    {otherConfiguredLevels.map((level) => (
                       <button
                         key={level.id}
                         type="button"
@@ -1206,6 +1281,32 @@ const SelectTest = () => {
                           <span className="select-test-pillCount">
                             {(tests.gateway || []).filter((test) => test.skill === tab.key).length}
                           </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : activePlatform === "prepare" ? (
+                  <div className="select-test-sidebarPanel">
+                    <div className="select-test-sidebarPanelHeader">
+                      <span className="select-test-sidebarPanelTitle">Prepare skills</span>
+                      <span className="select-test-sidebarPanelMeta">{prepareTotalCount} tests</span>
+                    </div>
+
+                    <div className="select-test-pillRow select-test-pillRow--sidebar">
+                      {prepareSkillTabs.map((skill) => (
+                        <button
+                          key={skill.key}
+                          type="button"
+                          onClick={() => updateSelectRoute({ platform: "prepare", tab: skill.key })}
+                          className={`select-test-pillButton select-test-pillButton--${skill.key} ${
+                            activePrepareTab === skill.key ? "active" : ""
+                          }`}
+                        >
+                          <span className="select-test-skillIcon" aria-hidden="true">
+                            <LineIcon name={skill.icon} size={16} />
+                          </span>
+                          <span className="select-test-pillLabel">{skill.label}</span>
+                          <span className="select-test-pillCount">{skill.count}</span>
                         </button>
                       ))}
                     </div>
@@ -1307,6 +1408,9 @@ const SelectTest = () => {
             </aside>
 
             <div className="select-test-main">
+              {activePlatform === "prepare" && prepareTestLoadError ? (
+                <p className="select-test-shelfMetaItem" role="alert">{prepareTestLoadError}</p>
+              ) : null}
               <section className={`select-test-toolbar select-test-toolbar--${activePlatform}`}>
                 <div className="select-test-toolbarMain">
                   <div className="select-test-toolbarIdentity">
@@ -1315,6 +1419,8 @@ const SelectTest = () => {
                         ? "Orange library"
                         : activePlatform === "gateway"
                           ? "Gateway library"
+                          : activePlatform === "prepare"
+                            ? "Prepare library"
                           : activePlatform === "general"
                             ? `${generalDisplayName} library`
                             : "IX library"}
@@ -1360,6 +1466,17 @@ const SelectTest = () => {
                     >
                       <LineIcon name="create" size={16} />
                       <span>Create Gateway Test</span>
+                    </button>
+                  ) : null}
+
+                  {currentContext.isPrepare && canManageCurrentSelection ? (
+                    <button
+                      type="button"
+                      className="select-test-create select-test-create--toolbar"
+                      onClick={() => navigate(`/admin/prepare/${activePrepareTab}/new`)}
+                    >
+                      <LineIcon name="create" size={16} />
+                      <span>Create Prepare {currentSkillInfo.label} Test</span>
                     </button>
                   ) : null}
                 </div>
@@ -1501,6 +1618,19 @@ const SelectTest = () => {
                         >
                           <LineIcon name="create" size={16} />
                           <span>Create Gateway Test</span>
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {currentContext.isPrepare && canManageCurrentSelection ? (
+                      <div className="select-test-adminActions">
+                        <button
+                          type="button"
+                          className="select-test-create"
+                          onClick={() => navigate(`/admin/prepare/${activePrepareTab}/new`)}
+                        >
+                          <LineIcon name="create" size={16} />
+                          <span>Create Prepare {currentSkillInfo.label} Test</span>
                         </button>
                       </div>
                     ) : null}
@@ -1698,6 +1828,101 @@ const SelectTest = () => {
                                     </button>
                                   ) : null}
 
+                                  {placementEligible ? (
+                                    <button
+                                      type="button"
+                                      className={`select-test-placementToggle${placementShown ? " is-active" : ""}`}
+                                      disabled={placementSaving}
+                                      onClick={() => handleTogglePlacement(placementSelection)}
+                                    >
+                                      <LineIcon name={placementShown ? "publish" : "target"} size={16} />
+                                      <span>{placementShown ? "Show Off" : "Show On"}</span>
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      ) : currentContext.isPrepare ? (
+                        visibleList.map((test, index) => {
+                          const title = test.title || `Prepare ${currentSkillInfo.label}`;
+                          const placementSelection = createPlacementSelection({
+                            platform: "exam-level",
+                            levelCode: "prepare",
+                            skill: activePrepareTab,
+                            testId: test.id,
+                            testType: test.testType,
+                            title,
+                            badge: "Prepare",
+                            questionsLabel: `${test.totalQuestions || 0} questions`,
+                            durationLabel: `${test.duration || 0} min`,
+                          });
+                          const placementEligible = isPlacementAdmin && isPlacementEligible({
+                            platform: "exam-level",
+                            levelCode: "prepare",
+                            skill: activePrepareTab,
+                            testType: test.testType,
+                          });
+                          const placementShown = placementEligible &&
+                            placementSelectionKeys.has(placementSelection.key);
+
+                          return (
+                            <div
+                              key={`prepare-${activePrepareTab}-${test.id}`}
+                              className={`select-test-card select-test-card--${activePrepareTab}`}
+                            >
+                              <button
+                                type="button"
+                                className="select-test-cardMain"
+                                onClick={() => navigate(
+                                  `/prepare/${activePrepareTab}/${test.id}`
+                                )}
+                              >
+                                <div className="select-test-cardHeader">
+                                  <span className={`select-test-cardBadge select-test-cardBadge--${activePrepareTab}`}>
+                                    <LineIcon name={currentSkillInfo.icon} size={16} />
+                                    <span>{currentSkillInfo.label}</span>
+                                  </span>
+                                  <span className={`select-test-cardTitleBadge select-test-cardTitleBadge--${activePrepareTab}`}>
+                                    {index + 1}
+                                  </span>
+                                </div>
+
+                                <h3 className="select-test-cardTitle">{title}</h3>
+                                <div className="select-test-cardMeta select-test-cardMeta--grid">
+                                  <span className="select-test-chip">{test.classCode || "No class"}</span>
+                                  <span className="select-test-cardPill">
+                                    <LineIcon name="teacher" size={14} />
+                                    <span>Teacher: {test.teacherName || "N/A"}</span>
+                                  </span>
+                                </div>
+
+                                <div className="select-test-cardFooter select-test-cardFooter--noFootnote">
+                                  <div className="select-test-cardFooterMeta">
+                                    <span className="select-test-cardActionHint">Start</span>
+                                    {placementEligible ? (
+                                      <span className={`select-test-cardPlacementState${placementShown ? " is-active" : ""}`}>
+                                        {placementShown ? "Placement On" : "Placement Off"}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </button>
+
+                              {canManageCurrentSelection || placementEligible ? (
+                                <div className="select-test-cardActions">
+                                  {canManageCurrentSelection ? (
+                                    <button
+                                      type="button"
+                                      className="select-test-edit"
+                                      onClick={() => navigate(
+                                        `/admin/prepare/${activePrepareTab}/${test.id}/edit`
+                                      )}
+                                    >
+                                      <span>Edit Test</span>
+                                    </button>
+                                  ) : null}
                                   {placementEligible ? (
                                     <button
                                       type="button"

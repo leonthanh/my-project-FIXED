@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../db");
+const { jsonFieldGetter } = require("./examLevelJson");
 
 module.exports = sequelize.define(
   "ExamLevelTest",
@@ -45,6 +46,7 @@ module.exports = sequelize.define(
     parts: {
       type: DataTypes.JSON,
       allowNull: false,
+      get: jsonFieldGetter("parts", "array"),
     },
     totalQuestions: {
       type: DataTypes.INTEGER,

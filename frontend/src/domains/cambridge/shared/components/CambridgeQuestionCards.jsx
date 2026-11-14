@@ -4,4 +4,4 @@ export {
   ExamCoreQuestionDisplay,
   CompactExamCoreQuestionDisplay,
   getExamCoreQuestionType,
-} from "../../../exam-core/shared/components/ExamCoreQuestionCards";
+} from "../../../exam-engine/shared/components/ExamCoreQuestionCards";
