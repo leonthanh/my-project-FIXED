@@ -49,3 +49,39 @@ export const getPrepareQuestionSummaryStatuses = (parts, answers, detailedResult
 
   return statuses;
 };
+
+export const summarizePrepareQuestionResults = (questionResults) => {
+  const scoredQuestions = (questionResults || []).filter(
+    ({ result }) => !['short-message', 'story-writing'].includes(result?.questionType)
+  );
+  let correct = 0;
+  let wrong = 0;
+  let unanswered = 0;
+
+  scoredQuestions.forEach(({ result }) => {
+    const isUnanswered = result?.userAnswer === null
+      || result?.userAnswer === undefined
+      || result?.userAnswer === '';
+
+    if (result?.isCorrect === true) {
+      correct += 1;
+    } else if (result?.isCorrect === null && !isUnanswered) {
+      return;
+    } else if (isUnanswered) {
+      unanswered += 1;
+    } else {
+      wrong += 1;
+    }
+  });
+
+  const total = scoredQuestions.length;
+
+  return {
+    score: correct,
+    total,
+    percentage: total ? Math.round((correct / total) * 100) : 0,
+    correct,
+    wrong,
+    unanswered,
+  };
+};

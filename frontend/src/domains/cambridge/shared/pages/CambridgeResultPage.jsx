@@ -7,7 +7,10 @@ import { useTheme } from "../../../../shared/contexts/ThemeContext";
 import { isAdmin, isTeacher } from "../../../../shared/utils/permissions";
 import { isZeroNumberedClozeExample } from "../../../exam-engine/shared/utils/examQuestionNumbering";
 import { parseJsonValue, summarizeDetailedResults } from "../../../../shared/utils/detailedResultSummary";
-import { getPrepareQuestionSummaryStatuses } from "../../../prepare/prepareQuestionSummary";
+import {
+  getPrepareQuestionSummaryStatuses,
+  summarizePrepareQuestionResults,
+} from "../../../prepare/prepareQuestionSummary";
 import CambridgeStudentStyleReview from "../components/CambridgeStudentStyleReview";
 import { countNotesCompletionBlanks, shouldIncludeSectionForPart } from "../utils/questionNumbering";
 
@@ -860,6 +863,14 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
   const stats = useMemo(() => {
     if (!submission) return null;
 
+    if (isPrepareResultPage) {
+      const prepareSummary = summarizePrepareQuestionResults(mappedQuestionResults);
+      return {
+        ...prepareSummary,
+        grade: getGrade(prepareSummary.percentage),
+      };
+    }
+
     const { score, percentage } = submission;
     const rawDetailedResults = Array.isArray(submission.detailedResults)
       ? submission.detailedResults
@@ -903,7 +914,7 @@ const CambridgeResultPage = ({ platform = 'orange' }) => {
       unanswered: unansweredCount,
       grade: getGrade(displayedPercentage)
     };
-  }, [getResultStatus, isGeneralReading60, isGatewaySubmission, mappedQuestionResults, submission]);
+  }, [getResultStatus, isGeneralReading60, isGatewaySubmission, isPrepareResultPage, mappedQuestionResults, submission]);
 
   // Get grade based on percentage
   function getGrade(percentage) {
