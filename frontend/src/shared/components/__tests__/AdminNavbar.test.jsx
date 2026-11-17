@@ -5,6 +5,7 @@ import AdminNavbar from '../AdminNavbar';
 
 jest.mock('../../utils/api', () => ({
   apiPath: jest.fn((path) => path),
+  authFetch: jest.fn((url, options) => global.fetch(url, options)),
   hostPath: jest.fn((path) => path),
   clearAuth: jest.fn(),
   getStoredUser: jest.fn(),
@@ -66,6 +67,30 @@ describe('AdminNavbar auth sync', () => {
     });
     expect(screen.getByRole('link', { name: 'Thanh Le' })).toHaveAttribute('href', '/profile');
     expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  test('shows Prepare navigation even when the active exam-level list does not include it', async () => {
+    getStoredUser.mockReturnValue({
+      id: 8,
+      name: 'Teacher',
+      role: 'teacher',
+      canManageTests: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/prepare/submissions']}>
+        <AdminNavbar />
+      </MemoryRouter>
+    );
+
+    const prepareButton = await screen.findByRole('button', { name: 'Prepare' });
+    expect(prepareButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(prepareButton);
+
+    expect(prepareButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: 'Prepare menu' })).toBeInTheDocument();
+    expect(screen.getByText('Prepare submissions')).toBeInTheDocument();
   });
 
   test('shows pending notifications only for tests created by the current teacher', async () => {

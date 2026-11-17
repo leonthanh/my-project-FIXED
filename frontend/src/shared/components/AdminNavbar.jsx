@@ -1628,6 +1628,9 @@ const AdminNavbar = () => {
     pathname.startsWith("/admin/prepare") ||
     pathname.startsWith("/admin/runtime-sync-metrics");
   const isExamLevelCurrent = pathname.startsWith("/exam-levels/");
+  const prepareLevelName =
+    examLevels.find((level) => String(level.code || "").toLowerCase() === "prepare")?.name ||
+    "Prepare";
 
   const mobileDrawerTabs = [
     {
@@ -1636,9 +1639,7 @@ const AdminNavbar = () => {
     },
     { key: "ix", label: "IX" },
     { key: "gateway", label: "Gateway" },
-    ...(examLevels.some((level) => String(level.code || "").toLowerCase() === "prepare")
-      ? [{ key: "prepare", label: "Prepare" }]
-      : []),
+    { key: "prepare", label: prepareLevelName },
     { key: "orange", label: "Orange" },
     { key: "general", label: generalDisplayName },
     { key: "overview", label: "Overview" },
@@ -2509,38 +2510,34 @@ const AdminNavbar = () => {
           </span>
         </div>
 
-        {examLevels.map((level) => {
-          const isPrepareLevel = String(level.code || "").toLowerCase() === "prepare";
-          const isLevelActive = isPrepareLevel
-            ? isPrepareCurrent || desktopDrawerMode === "prepare"
-            : isExamLevelCurrent &&
-              pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`);
+        <div className="adminNavbar__dropdown">
+          <span
+            className={`adminNavbar__link adminNavbar__dropdownToggle${isPrepareCurrent || desktopDrawerMode === "prepare" ? " adminNavbar__link--active" : ""}`}
+            onClick={() => toggleDesktopDrawer("prepare")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggleDesktopDrawer("prepare");
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="dialog"
+            aria-expanded={desktopDrawerMode === "prepare"}
+            title={prepareLevelName}
+          >
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="reading" /></span>
+            <span className="adminNavbar__label">{prepareLevelName}</span>
+            <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
+          </span>
+        </div>
 
-          if (isPrepareLevel) {
-            return (
-              <div key={level.code} className="adminNavbar__dropdown">
-                <span
-                  className={`adminNavbar__link adminNavbar__dropdownToggle${isLevelActive ? " adminNavbar__link--active" : ""}`}
-                  onClick={() => toggleDesktopDrawer("prepare")}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      toggleDesktopDrawer("prepare");
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-haspopup="dialog"
-                  aria-expanded={desktopDrawerMode === "prepare"}
-                  title={level.name}
-                >
-                  <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="reading" /></span>
-                  <span className="adminNavbar__label">{level.name}</span>
-                  <span className="adminNavbar__caret"><NavIcon name="chevron-down" /></span>
-                </span>
-              </div>
-            );
-          }
+        {examLevels
+          .filter((level) => String(level.code || "").toLowerCase() !== "prepare")
+          .map((level) => {
+          const isLevelActive =
+            isExamLevelCurrent &&
+            pathname.startsWith(`/exam-levels/${String(level.code).toLowerCase()}`);
 
           return (
             <Link
