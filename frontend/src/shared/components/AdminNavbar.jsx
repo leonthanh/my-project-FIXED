@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiPath, authFetch, hostPath, logoutAuthSession, getStoredUser } from "../utils/api";
 import { hasResolvedSubmissionFeedback } from "../utils/cambridgeFeedback";
 import { canManageCategory } from "../utils/permissions";
+import { fetchAdminSubmissionJson } from "../utils/adminSubmissionRequests";
 import { useDisplaySettings } from "../contexts/DisplaySettingsContext";
 import "./AdminNavbar.css";
 
@@ -414,13 +415,7 @@ const AdminNavbar = () => {
   }, []);
 
   useEffect(() => {
-    const readJsonOrThrow = async (path) => {
-      const res = await authFetch(apiPath(path));
-      if (!res.ok) {
-        throw new Error(`Request failed for ${path}`);
-      }
-      return res.json();
-    };
+    const readJsonOrThrow = fetchAdminSubmissionJson;
 
     const fetchPendingNotifications = async () => {
       const [

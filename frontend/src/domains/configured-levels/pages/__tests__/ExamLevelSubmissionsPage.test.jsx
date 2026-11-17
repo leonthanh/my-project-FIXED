@@ -16,8 +16,20 @@ jest.mock("../../../../shared/components/ConfirmModal", () => (props) => (
 jest.mock("../../../../shared/utils/api", () => ({
   apiPath: (path) => path,
   authFetch: jest.fn(),
+  getAuthHeaders: jest.fn(() => ({ Authorization: "Bearer test-token" })),
   getStoredUser: jest.fn(() => ({ role: "teacher", name: "Teacher" })),
   hostPath: (path) => path,
+}));
+jest.mock("../../../../shared/utils/adminSubmissionRequests", () => ({
+  fetchAdminSubmissionJson: jest.fn(async (path, { errorMessage } = {}) => {
+    const { apiPath, authFetch } = require("../../../../shared/utils/api");
+    const response = await authFetch(apiPath(path));
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.message || errorMessage || `Request failed for ${path}`);
+    }
+    return payload;
+  }),
 }));
 
 const { authFetch, getStoredUser } = require("../../../../shared/utils/api");
@@ -143,6 +155,49 @@ test("shows shared submission layout, filters by skill/status, and opens Prepare
   expect(screen.getByText("Good work")).toBeInTheDocument();
   const reviewLink = await screen.findByRole("link", { name: "View" });
   expect(reviewLink).toHaveAttribute("href", "/prepare/submission-results/2");
+});
+
+test("renders submissions in batches without changing the total result count", async () => {
+  const manySubmissions = Array.from({ length: 51 }, (_, index) => ({
+    id: index + 1,
+    skill: "reading-writing",
+    studentName: `Student ${index + 1}`,
+    studentPhone: "0900000001",
+    testTitle: "Prepare Reading & Writing",
+    score: 40,
+    totalQuestions: 50,
+    percentage: 80,
+    status: "submitted",
+    finished: true,
+    submittedAt: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
+    manualResponses: [],
+  }));
+  authFetch.mockImplementation(async (path) => ({
+    ok: true,
+    json: async () => (
+      path === "exam-levels/prepare"
+        ? { code: "prepare", name: "Prepare", skills: ["reading-writing"] }
+        : manySubmissions
+    ),
+  }));
+
+  const { container } = render(
+    <MemoryRouter initialEntries={["/prepare/submissions"]}>
+      <Routes>
+        <Route path="/prepare/submissions" element={<ExamLevelSubmissionsPage code="prepare" />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("Student 51")).toBeInTheDocument();
+  expect(container.querySelectorAll(".prepare-submissions-page__index")).toHaveLength(50);
+  expect(screen.getByRole("button", { name: /^All Prepare submissions/ }))
+    .toHaveTextContent("51");
+
+  fireEvent.click(screen.getByRole("button", { name: "Load 50 more (1 remaining)" }));
+
+  expect(screen.queryByRole("button", { name: /Load 50 more/ })).not.toBeInTheDocument();
+  expect(container.querySelectorAll(".prepare-submissions-page__index")).toHaveLength(51);
 });
 
 test("shows active Prepare attempts and sends extension requests", async () => {

@@ -539,12 +539,53 @@ const listSubmissions = async ({ code, skill, status, includeActive = false }) =
     where,
     order: [["submittedAt", "DESC"], ["id", "DESC"]],
     limit: 500,
+    attributes: { exclude: ["answers", "progressMeta"] },
   });
+  const toSubmissionSummary = (submission) => {
+    const json = submission.toJSON();
+    const detailedResults = typeof json.detailedResults === "string"
+      ? (() => {
+          try {
+            return JSON.parse(json.detailedResults);
+          } catch (_error) {
+            return {};
+          }
+        })()
+      : json.detailedResults;
+    const results = detailedResults
+      && typeof detailedResults === "object"
+      && !Array.isArray(detailedResults)
+      ? detailedResults
+      : {};
+    json.manualResponses = json.finished === false
+      ? []
+      : Object.entries(results)
+          .filter(([, result]) => result?.isCorrect === null)
+          .map(([key, result], index) => {
+            const userAnswer = String(result.userAnswer ?? "").trim();
+            return {
+              key,
+              label: result.questionNumber
+                ? `Question ${result.questionNumber}`
+                : ["short-message", "story-writing"].includes(result.questionType)
+                  ? "Writing task"
+                  : `Response ${index + 1}`,
+              prompt: String(result.questionText || "").trim(),
+              questionType: String(result.questionType || "").trim(),
+              userAnswer,
+            };
+          })
+          .filter((response) => response.userAnswer);
+    delete json.answers;
+    delete json.detailedResults;
+    delete json.progressMeta;
+    return json;
+  };
   const includeActiveSubmissions = ["1", "true", "yes"].includes(
     String(includeActive).toLowerCase()
   );
   if (!includeActiveSubmissions) {
-    return submissions.map((submission) => submission.toJSON());
+    return submissions.map(toSubmissionSummary);
   }
 
   const activeSubmissions = ["reviewed", "archived"].includes(status)
@@ -558,6 +599,7 @@ const listSubmissions = async ({ code, skill, status, includeActive = false }) =
         },
         order: [["lastSavedAt", "DESC"], ["id", "DESC"]],
         limit: 500,
+        attributes: { exclude: ["answers", "detailedResults", "progressMeta"] },
       });
 
   return [...submissions, ...activeSubmissions]
@@ -572,15 +614,7 @@ const listSubmissions = async ({ code, skill, status, includeActive = false }) =
       return getTimestamp(right) - getTimestamp(left);
     })
     .slice(0, 500)
-    .map((submission) => {
-      const json = submission.toJSON();
-      if (json.finished === false) {
-        delete json.answers;
-        delete json.detailedResults;
-        delete json.progressMeta;
-      }
-      return json;
-    });
+    .map(toSubmissionSummary);
 };
 
 const extendSubmissionTime = async ({ code, submissionId, extraMinutes }) => {

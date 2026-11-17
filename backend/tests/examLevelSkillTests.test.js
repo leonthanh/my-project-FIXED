@@ -247,7 +247,23 @@ describe("exam level skill test adapter", () => {
   test("includes active attempts in the submission list without exposing draft answers", async () => {
     const completedSubmission = {
       submittedAt: new Date("2026-11-12T08:00:00.000Z"),
-      toJSON: () => ({ id: 1, finished: true, submittedAt: "2026-11-12T08:00:00.000Z" }),
+      toJSON: () => ({
+        id: 1,
+        finished: true,
+        submittedAt: "2026-11-12T08:00:00.000Z",
+        answers: { answer: "saved" },
+        detailedResults: {
+          "1-0-0": {
+            isCorrect: null,
+            questionNumber: 8,
+            questionText: "Write a short message.",
+            questionType: "short-message",
+            userAnswer: "  Hello there.  ",
+          },
+          "1-0-1": { isCorrect: true, userAnswer: "A" },
+        },
+        progressMeta: { currentQuestionIndex: 2 },
+      }),
     };
     const activeSubmission = {
       lastSavedAt: new Date("2026-11-12T09:00:00.000Z"),
@@ -271,6 +287,30 @@ describe("exam level skill test adapter", () => {
     expect(submissions.map(({ id }) => id)).toEqual([2, 1]);
     expect(submissions[0]).not.toHaveProperty("answers");
     expect(submissions[0]).not.toHaveProperty("progressMeta");
+    expect(submissions[1]).not.toHaveProperty("answers");
+    expect(submissions[1]).not.toHaveProperty("detailedResults");
+    expect(submissions[1]).not.toHaveProperty("progressMeta");
+    expect(submissions[1].manualResponses).toEqual([
+      {
+        key: "1-0-0",
+        label: "Question 8",
+        prompt: "Write a short message.",
+        questionType: "short-message",
+        userAnswer: "Hello there.",
+      },
+    ]);
+    expect(ExamLevelSubmission.findAll).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        attributes: { exclude: ["answers", "progressMeta"] },
+      })
+    );
+    expect(ExamLevelSubmission.findAll).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        attributes: { exclude: ["answers", "detailedResults", "progressMeta"] },
+      })
+    );
   });
 
   test("extends an active exam-level attempt from the current expiry", async () => {
