@@ -1613,7 +1613,13 @@ const CambridgeSubmissionsPage = ({
               title={null}
               allowMobileWrap
               showZeroBadge
-              countMode={resolvedPlatformFilter === 'gateway' ? 'gateway' : 'cambridge'}
+              countMode={
+                resolvedPlatformFilter === 'gateway'
+                  ? 'gateway'
+                  : resolvedPlatformFilter === 'general'
+                  ? 'general'
+                  : 'cambridge'
+              }
               onSelect={handleSelectSubmissionView}
             />
           )}

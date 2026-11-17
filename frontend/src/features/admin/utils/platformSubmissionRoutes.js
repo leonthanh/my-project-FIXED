@@ -36,6 +36,11 @@ export const getPlatformSubmissionRoute = (groupKey = "orange", tabKey = "all") 
   return groupMap[normalizedView] || groupMap.all;
 };
 
+export const getPlatformSubmissionApiBase = (source) =>
+  String(source || "").trim().toLowerCase() === "general"
+    ? "general/submissions"
+    : "cambridge/submissions";
+
 export const getSubmissionResultRoute = (testType, submissionId) => {
   const id = String(submissionId ?? "").trim();
   if (!id) return null;

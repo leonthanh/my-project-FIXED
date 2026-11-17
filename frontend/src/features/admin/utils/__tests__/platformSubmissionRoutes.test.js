@@ -1,4 +1,5 @@
 import {
+  getPlatformSubmissionApiBase,
   getPlatformSubmissionRoute,
   getSubmissionResultRoute,
   PLATFORM_SUBMISSION_PAGE_BY_GROUP,
@@ -59,6 +60,11 @@ describe("getPlatformSubmissionRoute", () => {
     expect(getPlatformSubmissionRoute("general", "reading")).toBe(
       PLATFORM_SUBMISSION_PAGE_BY_GROUP.general.reading
     );
+  });
+
+  test("uses the General submissions API for General queue rows", () => {
+    expect(getPlatformSubmissionApiBase("general")).toBe("general/submissions");
+    expect(getPlatformSubmissionApiBase("cambridge")).toBe("cambridge/submissions");
   });
 
   test("falls back safely for unknown values", () => {
