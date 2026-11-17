@@ -1,4 +1,7 @@
-import { getPrepareQuestionSummaryStatuses } from '../prepareQuestionSummary';
+import {
+  getPrepareQuestionSummaryStatuses,
+  summarizePrepareQuestionResults,
+} from '../prepareQuestionSummary';
 
 const parts = [{
   sections: [
@@ -56,4 +59,24 @@ test('marks a grouped Prepare question wrong when one blank is incorrect', () =>
   );
 
   expect(statuses.get(16)).toBe(false);
+});
+
+test('scores mapped Prepare questions once and excludes pending writing from the total', () => {
+  const questionResults = Array.from({ length: 50 }, (_, index) => ({
+    questionNum: index + 1,
+    result: { isCorrect: true, userAnswer: 'answer' },
+  }));
+  questionResults.push({
+    questionNum: 51,
+    result: { questionType: 'short-message', isCorrect: null, userAnswer: 'essay' },
+  });
+
+  expect(summarizePrepareQuestionResults(questionResults)).toEqual({
+    score: 50,
+    total: 50,
+    percentage: 100,
+    correct: 50,
+    wrong: 0,
+    unanswered: 0,
+  });
 });
