@@ -10,6 +10,7 @@ import AdminStickySidebarLayout, {
 import { useTheme } from "../../../shared/contexts/ThemeContext";
 import { useDisplaySettings } from "../../../shared/contexts/DisplaySettingsContext";
 import { apiPath, authFetch } from "../../../shared/utils/api";
+import { fetchAdminSubmissionJson } from "../../../shared/utils/adminSubmissionRequests";
 import { getAiFallbackRateLimitMessage, getAiRequestErrorMessage } from "../../../shared/utils/aiFeedback";
 import { formatStudentDisplayName } from "../../../shared/utils/personName";
 import {
@@ -42,6 +43,7 @@ const DEFAULT_REVIEW_FILTERS = {
 };
 
 const CAMBRIDGE_REVIEW_PAGE_SIZE = 200;
+const REVIEW_QUEUE_PAGE_SIZE = 50;
 
 const cloneReviewFilters = (overrides = {}) => ({
   ...DEFAULT_REVIEW_FILTERS,
@@ -166,6 +168,11 @@ const Review = () => {
   const [activeTab, setActiveTab] = useState("review");
   const [activeWorkspaceGroup, setActiveWorkspaceGroup] = useState("review");
   const [filtersByTab, setFiltersByTab] = useState(createInitialFiltersByTab);
+  const [reviewVisibleCount, setReviewVisibleCount] = useState(REVIEW_QUEUE_PAGE_SIZE);
+
+  useEffect(() => {
+    setReviewVisibleCount(REVIEW_QUEUE_PAGE_SIZE);
+  }, [activeTab, filtersByTab.review]);
 
   const [unreviewedWriting, setUnreviewedWriting] = useState([]);
   const [unreviewedPetWriting, setUnreviewedPetWriting] = useState([]);
@@ -229,8 +236,7 @@ const Review = () => {
     const fetchUnreviewedWriting = async () => {
       setLoadingWriting(true);
       try {
-        const res = await authFetch(apiPath("writing/list"));
-        const all = await res.json();
+        const all = await fetchAdminSubmissionJson("writing/list");
         const filtered = Array.isArray(all) ? all : [];
 
         const petWriting = filtered.filter((sub) =>
@@ -259,12 +265,7 @@ const Review = () => {
     const fetchUnreviewedReading = async () => {
       setLoadingReading(true);
       try {
-        const res = await authFetch(apiPath("reading-submissions/admin/list"));
-        if (!res.ok) {
-          throw new Error("Could not load Reading submissions.");
-        }
-
-        const data = await res.json();
+        const data = await fetchAdminSubmissionJson("reading-submissions/admin/list");
         const submissions = Array.isArray(data) ? data : [];
         setUnreviewedReading(submissions);
       } catch (err) {
@@ -278,12 +279,7 @@ const Review = () => {
     const fetchUnreviewedListening = async () => {
       setLoadingListening(true);
       try {
-        const res = await authFetch(apiPath("listening-submissions/admin/list"));
-        if (!res.ok) {
-          throw new Error("Could not load Listening submissions.");
-        }
-
-        const data = await res.json();
+        const data = await fetchAdminSubmissionJson("listening-submissions/admin/list");
         const submissions = Array.isArray(data) ? data : [];
         setUnreviewedListening(submissions);
       } catch (err) {
@@ -1509,6 +1505,8 @@ const Review = () => {
       ? readingNeedsReviewCount
       : listeningNeedsReviewCount;
   const activeReviewedCount = Math.max(activeTotalCount - activePendingCount, 0);
+  const isReviewQueueLoading =
+    loadingWriting || loadingReading || loadingListening || loadingCambridge || loadingGeneral;
   const activeQueueHint =
     activeTab === "review"
       ? "Showing all submissions across IX, Orange, Gateway, and General in one queue."
@@ -1898,13 +1896,7 @@ const Review = () => {
   };
 
   const renderReviewQueue = () => {
-    if (
-      loadingWriting ||
-      loadingReading ||
-      loadingListening ||
-      loadingCambridge ||
-      loadingGeneral
-    ) {
+    if (!filteredReviewRows.length && isReviewQueueLoading) {
       return (
         <>
           {loadingWriting && <p>Loading writing submissions...</p>}
@@ -1924,20 +1916,28 @@ const Review = () => {
       );
     }
 
-    return (
-      <ExpandableSubmissionList
-        items={filteredReviewRows}
-        expandedItems={expandedQueueItems.review}
-        onToggle={(rowId) => {
-          const row = filteredReviewRows.find((entry) => getIxRowId(entry) === rowId);
-          if (!row) return;
+    const visibleReviewRows = filteredReviewRows.slice(0, reviewVisibleCount);
 
-          toggleQueueItem("review", rowId);
-          ensureCambridgeDetailLoaded(row);
-        }}
-        getItemId={getIxRowId}
-        getTone={(row) => getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)}
-        renderHeader={({ item: row, index, tone }) => {
+    return (
+      <>
+        {isReviewQueueLoading && (
+          <p role="status" style={{ color: isDarkMode ? "#94a3b8" : "#6b7280" }}>
+            Loading remaining submissions...
+          </p>
+        )}
+        <ExpandableSubmissionList
+          items={visibleReviewRows}
+          expandedItems={expandedQueueItems.review}
+          onToggle={(rowId) => {
+            const row = visibleReviewRows.find((entry) => getIxRowId(entry) === rowId);
+            if (!row) return;
+
+            toggleQueueItem("review", rowId);
+            ensureCambridgeDetailLoaded(row);
+          }}
+          getItemId={getIxRowId}
+          getTone={(row) => getSubmissionTone(getQueueToneVariant(row?.sub), isDarkMode)}
+          renderHeader={({ item: row, index, tone }) => {
           const submission = row?.sub || {};
           const source = String(row?.source || "");
           const typeLabel =
@@ -2031,8 +2031,8 @@ const Review = () => {
               </span>
             </>
           );
-        }}
-        renderExpanded={({ item: row, tone }) => {
+          }}
+          renderExpanded={({ item: row, tone }) => {
           const source = String(row?.source || "");
           const submission = row?.sub || {};
 
@@ -2059,8 +2059,31 @@ const Review = () => {
           }
 
           return renderCambridgeRowExpandedContent(row, tone);
-        }}
-      />
+          }}
+        />
+        {visibleReviewRows.length < filteredReviewRows.length && (
+          <button
+            type="button"
+            onClick={() =>
+              setReviewVisibleCount((count) =>
+                Math.min(count + REVIEW_QUEUE_PAGE_SIZE, filteredReviewRows.length)
+              )
+            }
+            style={{
+              justifySelf: "center",
+              padding: "9px 16px",
+              borderRadius: 8,
+              border: `1px solid ${isDarkMode ? "#334155" : "#cbd5e1"}`,
+              background: isDarkMode ? "#1e293b" : "#fff",
+              color: isDarkMode ? "#e2e8f0" : "#1f2937",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Load 50 more ({filteredReviewRows.length - visibleReviewRows.length} remaining)
+          </button>
+        )}
+      </>
     );
   };
 
@@ -2350,7 +2373,11 @@ const Review = () => {
                 </AdminSidebarPanel>
               ) : null}
 
-              <AdminSidebarPanel eyebrow="Summary" title="Current queue" meta={`${activeReviewTab.shortLabel} • ${activeFilteredCount} visible`}>
+              <AdminSidebarPanel
+                eyebrow="Summary"
+                title="Current queue"
+                meta={`${activeReviewTab.shortLabel} • ${activeFilteredCount} visible${activeTab === "review" && isReviewQueueLoading ? " • loading" : ""}`}
+              >
                 <AdminSidebarMetricList items={sidebarStats} />
                 <p className="admin-side-layout__panelText">{activeQueueHint}</p>
               </AdminSidebarPanel>

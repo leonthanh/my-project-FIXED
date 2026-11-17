@@ -54,7 +54,7 @@ const ExamLevel = sequelize.define(
     },
   },
   {
-    tableName: "exam_levels",
+    tableName: "prepare_levels",
     timestamps: true,
     indexes: [{ unique: true, fields: ["code"] }],
   }

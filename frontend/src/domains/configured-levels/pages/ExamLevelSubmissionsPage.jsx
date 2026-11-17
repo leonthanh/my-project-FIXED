@@ -4,6 +4,7 @@ import AdminNavbar from "../../../shared/components/AdminNavbar";
 import InlineIcon from "../../../shared/components/InlineIcon";
 import ConfirmModal from "../../../shared/components/ConfirmModal";
 import { apiPath, authFetch, getStoredUser, hostPath } from "../../../shared/utils/api";
+import { fetchAdminSubmissionJson } from "../../../shared/utils/adminSubmissionRequests";
 import { isAdmin } from "../../../shared/utils/permissions";
 import AdminStickySidebarLayout, {
   AdminSidebarMetricList,
@@ -45,6 +46,7 @@ const EMPTY_FILTERS = {
   fromDate: "",
   toDate: "",
 };
+const SUBMISSION_PAGE_SIZE = 50;
 
 const skillLabel = (value) => ({
   listening: "Listening",
@@ -92,6 +94,12 @@ const formatTimeSpent = (value) => {
 };
 
 const getManualResponses = (submission) => {
+  if (Array.isArray(submission?.manualResponses)) {
+    return submission.manualResponses.filter((response) => (
+      response && String(response.userAnswer ?? "").trim()
+    ));
+  }
+
   const detailedResults = submission?.detailedResults;
   const parsedResults = typeof detailedResults === "string"
     ? (() => {
@@ -195,6 +203,7 @@ const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
   const [level, setLevel] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [visibleSubmissionCount, setVisibleSubmissionCount] = useState(SUBMISSION_PAGE_SIZE);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [reviewStatus, setReviewStatus] = useState("all");
@@ -225,6 +234,10 @@ const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
   const activeSkill = PREPARE_SKILLS.includes(requestedSkill) ? requestedSkill : "all";
 
   useEffect(() => {
+    setVisibleSubmissionCount(SUBMISSION_PAGE_SIZE);
+  }, [activeSkill, filters, reviewStatus, sortOrder]);
+
+  useEffect(() => {
     if (reviewingEssayId === null) return undefined;
 
     const previousOverflow = document.body.style.overflow;
@@ -247,20 +260,15 @@ const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
       setLoading(true);
       setError("");
       try {
-        const [levelResponse, submissionsResponse] = await Promise.all([
-          authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}`)),
-          authFetch(apiPath(`exam-levels/${encodeURIComponent(code)}/submissions?includeActive=1`)),
-        ]);
         const [levelPayload, submissionPayload] = await Promise.all([
-          levelResponse.json().catch(() => ({})),
-          submissionsResponse.json().catch(() => ({})),
+          fetchAdminSubmissionJson(`exam-levels/${encodeURIComponent(code)}`, {
+            errorMessage: "Could not load this exam level.",
+          }),
+          fetchAdminSubmissionJson(
+            `exam-levels/${encodeURIComponent(code)}/submissions?includeActive=1`,
+            { errorMessage: "Could not load submissions." }
+          ),
         ]);
-        if (!levelResponse.ok) {
-          throw new Error(levelPayload.message || "Could not load this exam level.");
-        }
-        if (!submissionsResponse.ok) {
-          throw new Error(submissionPayload.message || "Could not load submissions.");
-        }
         if (mounted) {
           setLevel(levelPayload);
           setSubmissions(Array.isArray(submissionPayload) ? submissionPayload : []);
@@ -744,8 +752,9 @@ const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
             </p>
           ) : null}
           {!loading && filteredSubmissions.length > 0 ? (
-            <ExpandableSubmissionList
-              items={filteredSubmissions}
+            <>
+              <ExpandableSubmissionList
+              items={filteredSubmissions.slice(0, visibleSubmissionCount)}
               expandedItems={expandedItems}
               onToggle={toggleExpanded}
               getTone={(submission) => getSubmissionTone(
@@ -948,7 +957,29 @@ const ExamLevelSubmissionsPage = ({ code: codeOverride } = {}) => {
               }}
               emptyState={null}
               compact
-            />
+              />
+              {visibleSubmissionCount < filteredSubmissions.length ? (
+                <button
+                  type="button"
+                  onClick={() => setVisibleSubmissionCount((count) => (
+                    Math.min(count + SUBMISSION_PAGE_SIZE, filteredSubmissions.length)
+                  ))}
+                  style={{
+                    margin: "16px auto 0",
+                    display: "block",
+                    padding: "9px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#1f2937",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Load 50 more ({filteredSubmissions.length - visibleSubmissionCount} remaining)
+                </button>
+              ) : null}
+            </>
           ) : null}
         </AdminStickySidebarLayout>
       </div>

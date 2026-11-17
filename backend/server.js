@@ -657,6 +657,12 @@ sequelize
     // Tự động thêm các cột còn thiếu (an toàn, không xoá dữ liệu)
     return ensureDbColumns(sequelize);
   })
+  .then(async () => {
+    const migratedTables = await require("./scripts/migrate-prepare-table-names")();
+    if (migratedTables.length) {
+      logger.info({ tables: migratedTables }, "Prepare tables renamed");
+    }
+  })
   .then(() => AppSetting.sync())
   .then(() => {
     // If legacy/seed data contains orphaned foreign-key values, MySQL will reject

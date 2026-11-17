@@ -121,7 +121,7 @@ module.exports = sequelize.define(
     },
   },
   {
-    tableName: "exam_level_submissions",
+    tableName: "prepare_submissions",
     timestamps: true,
     indexes: [
       { fields: ["levelId", "testId", "userId", "finished"] },

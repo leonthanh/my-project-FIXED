@@ -79,7 +79,7 @@ module.exports = sequelize.define(
     },
   },
   {
-    tableName: "exam_level_tests",
+    tableName: "prepare_tests",
     timestamps: true,
     indexes: [
       { fields: ["levelId", "skill", "status"] },
