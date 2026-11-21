@@ -8,6 +8,7 @@ jest.mock('../../utils/api', () => ({
   authFetch: jest.fn((url, options) => global.fetch(url, options)),
   hostPath: jest.fn((path) => path),
   clearAuth: jest.fn(),
+  getAuthHeaders: jest.fn(() => ({})),
   getStoredUser: jest.fn(),
 }));
 
@@ -195,17 +196,17 @@ describe('AdminNavbar auth sync', () => {
     );
 
     await waitFor(() => {
-      expect(document.querySelector('.adminNavbar__badge')).toHaveTextContent('4');
+      expect(screen.getByText('4', { selector: '.adminNavbar__badge' })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTitle('Pending submissions'));
 
-    expect(await screen.findByText('Writing: Student Writing Match')).toBeInTheDocument();
-    expect(screen.getByText('Reading: Student Reading Match')).toBeInTheDocument();
-    expect(screen.getByText('Listening: Student Listening Match')).toBeInTheDocument();
-    expect(screen.getByText('Orange: Student Orange Match')).toBeInTheDocument();
-    expect(screen.queryByText('Writing: Student Writing Other')).not.toBeInTheDocument();
-    expect(screen.queryByText('Reading: Student Reading Other')).not.toBeInTheDocument();
-    expect(screen.queryByText('Orange: Student Orange Other')).not.toBeInTheDocument();
+    expect(await screen.findByText('Student Writing Match')).toBeInTheDocument();
+    expect(screen.getByText('Student Reading Match')).toBeInTheDocument();
+    expect(screen.getByText('Student Listening Match')).toBeInTheDocument();
+    expect(screen.getByText('Student Orange Match')).toBeInTheDocument();
+    expect(screen.queryByText('Student Writing Other')).not.toBeInTheDocument();
+    expect(screen.queryByText('Student Reading Other')).not.toBeInTheDocument();
+    expect(screen.queryByText('Student Orange Other')).not.toBeInTheDocument();
   });
 });

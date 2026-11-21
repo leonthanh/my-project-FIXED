@@ -1,0 +1,86 @@
+.progressReportsPage {
+  min-height: calc(100vh - 64px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progressReportsPage__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.progressReportsPage__header p {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.progressReportsPage__tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.progressReportsPage__tab {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.progressReportsPage__tab--active {
+  border-color: #1b7472;
+  background: #1b7472;
+  color: #fff;
+}
+
+.progressReportsPage__panel {
+  flex: 1;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid #d7e0e9;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.progressReportsPage__status {
+  display: grid;
+  min-height: 560px;
+  margin: 0;
+  padding: 24px;
+  place-items: center;
+  color: #64748b;
+  text-align: center;
+}
+
+.progressReportsPage__status--error {
+  color: #b91c1c;
+}
+
+.progressReportsPage__frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 230px);
+  min-height: 560px;
+  border: 0;
+  background: #f2f5f8;
+}
+
+@media (max-width: 768px) {
+  .progressReportsPage {
+    padding: 14px;
+  }
+
+  .progressReportsPage__frame {
+    height: calc(100vh - 210px);
+    min-height: 520px;
+  }
+
+  .progressReportsPage__status {
+    min-height: 520px;
+  }
+}

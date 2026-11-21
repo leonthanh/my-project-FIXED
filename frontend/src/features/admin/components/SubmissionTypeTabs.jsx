@@ -160,6 +160,40 @@ const SubmissionTypeTabs = ({
           return;
         }
 
+        if (countMode === "general") {
+          const [allRes, listeningRes, readingRes] = await Promise.all([
+            authFetch(apiPath("general/submissions?page=1&limit=1&includeActive=1"), {
+              signal: controller.signal,
+            }),
+            authFetch(apiPath("general/submissions?page=1&limit=1&includeActive=1&testType=listening"), {
+              signal: controller.signal,
+            }),
+            authFetch(apiPath("general/submissions?page=1&limit=1&includeActive=1&testType=reading"), {
+              signal: controller.signal,
+            }),
+          ]);
+
+          if (!allRes.ok || !listeningRes.ok || !readingRes.ok) {
+            throw new Error("Failed to load General submission counts");
+          }
+
+          const [allData, listeningData, readingData] = await Promise.all([
+            allRes.json(),
+            listeningRes.json(),
+            readingRes.json(),
+          ]);
+
+          if (!isCancelled) {
+            setCountMap({
+              all: Number(allData?.pagination?.total) || 0,
+              listening: Number(listeningData?.pagination?.total) || 0,
+              reading: Number(readingData?.pagination?.total) || 0,
+            });
+          }
+
+          return;
+        }
+
         if (countMode === "gateway") {
           const [allRes, listeningRes, readingRes] = await Promise.all([
             authFetch(apiPath("gateway/submissions?page=1&limit=1&includeActive=1"), {

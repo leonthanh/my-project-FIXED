@@ -28,6 +28,7 @@ import {
 import { getReviewTabTone } from "../components/reviewTabTones";
 import { getAttemptTimingMeta } from "../utils/attemptTiming";
 import {
+  getPlatformSubmissionApiBase,
   getPlatformSubmissionRoute,
   getSubmissionResultRoute,
 } from "../utils/platformSubmissionRoutes";
@@ -361,7 +362,7 @@ const Review = () => {
         setLoadingGeneral(true);
         const buildUrl = (page) =>
           apiPath(
-            `cambridge/submissions?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1&platform=general`
+            `${getPlatformSubmissionApiBase("general")}?page=${page}&limit=${CAMBRIDGE_REVIEW_PAGE_SIZE}&includeActive=1`
           );
 
         const firstRes = await authFetch(buildUrl(1));
@@ -459,8 +460,8 @@ const Review = () => {
       .filter((item) => item.userAnswer.length > 0);
   };
 
-  const getCambridgeFeedbackStateKey = (submissionId, responseKey) =>
-    `${submissionId}:${responseKey}`;
+  const getCambridgeFeedbackStateKey = (submissionKey, responseKey) =>
+    `${submissionKey}:${responseKey}`;
 
   const mergedCambridgeRows = useMemo(() => {
     const petRows = unreviewedPetWriting.map((sub) => ({
@@ -501,6 +502,7 @@ const Review = () => {
     `${String(source || "ix")}:${String(submissionId || "")}`;
 
   const getIxRowId = (row) => getIxRowKey(row?.source, row?.sub?.id);
+  const getReviewSubmissionKey = (row) => getIxRowId(row);
 
   const mergedIxRows = useMemo(() => {
     const writingRows = unreviewedWriting.map((sub) => ({
@@ -532,17 +534,19 @@ const Review = () => {
 
   const ensureCambridgeDetailLoaded = async (row) => {
     const submissionId = row?.sub?.id;
+    const submissionKey = getReviewSubmissionKey(row);
+    const source = String(row?.source || "");
 
     if (
-      !["cambridge", "gateway", "general"].includes(String(row?.source || "")) ||
+      !["cambridge", "gateway", "general"].includes(source) ||
       !submissionId
     ) {
       return;
     }
 
     if (
-      cambridgeDetailsById[submissionId] ||
-      cambridgeLoadingDetailById[submissionId]
+      cambridgeDetailsById[submissionKey] ||
+      cambridgeLoadingDetailById[submissionKey]
     ) {
       return;
     }
@@ -550,37 +554,40 @@ const Review = () => {
     try {
       setCambridgeLoadingDetailById((prev) => ({
         ...prev,
-        [submissionId]: true,
+        [submissionKey]: true,
       }));
 
-      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`));
+      const apiBase = getPlatformSubmissionApiBase(source);
+      const res = await fetch(apiPath(`${apiBase}/${encodeURIComponent(submissionId)}`));
       if (!res.ok) {
         throw new Error("Could not load submission details.");
       }
 
       const detail = await res.json();
-      setCambridgeDetailsById((prev) => ({ ...prev, [submissionId]: detail }));
+      setCambridgeDetailsById((prev) => ({ ...prev, [submissionKey]: detail }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]: prev[submissionId] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
+        [submissionKey]: prev[submissionKey] || buildCambridgeResponseFeedbackDraftMap(detail?.responseFeedback),
       }));
     } catch (err) {
       console.error("Failed to load Cambridge submission detail:", err);
       setCambridgeStatusById((prev) => ({
         ...prev,
-        [submissionId]: err.message || "Could not load submission details.",
+        [submissionKey]: err.message || "Could not load submission details.",
       }));
     } finally {
       setCambridgeLoadingDetailById((prev) => ({
         ...prev,
-        [submissionId]: false,
+        [submissionKey]: false,
       }));
     }
   };
 
-  const handleGenerateCambridgeFeedback = async (submission, responseItem) => {
-    const detail = cambridgeDetailsById[submission.id];
-    const stateKey = getCambridgeFeedbackStateKey(submission.id, responseItem.key);
+  const handleGenerateCambridgeFeedback = async (row, responseItem) => {
+    const submission = row?.sub || {};
+    const submissionKey = getReviewSubmissionKey(row);
+    const detail = cambridgeDetailsById[submissionKey];
+    const stateKey = getCambridgeFeedbackStateKey(submissionKey, responseItem.key);
 
     if (!responseItem?.userAnswer?.trim()) {
       alert("No open-ended responses were found for AI feedback.");
@@ -647,15 +654,18 @@ const Review = () => {
     }
   };
 
-  const handleSaveCambridgeFeedback = async (submissionId, responseItem) => {
-    const stateKey = getCambridgeFeedbackStateKey(submissionId, responseItem.key);
+  const handleSaveCambridgeFeedback = async (row, responseItem) => {
+    const submission = row?.sub || {};
+    const source = String(row?.source || "");
+    const submissionId = submission.id;
+    const submissionKey = getReviewSubmissionKey(row);
+    const stateKey = getCambridgeFeedbackStateKey(submissionKey, responseItem.key);
     const feedback = String(
-      cambridgeFeedbackDraftById[submissionId]?.[responseItem.key] || ""
+      cambridgeFeedbackDraftById[submissionKey]?.[responseItem.key] || ""
     ).trim();
     if (!feedback) return;
 
-    const detail = cambridgeDetailsById[submissionId];
-    const submission = cambridgeSubmissions.find((item) => item.id === submissionId);
+    const detail = cambridgeDetailsById[submissionKey];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
     const existingResponseFeedback = getCambridgeResponseFeedbackText(
       detail?.responseFeedback || submission?.responseFeedback,
@@ -667,7 +677,8 @@ const Review = () => {
     try {
       setCambridgeSavingById((prev) => ({ ...prev, [stateKey]: true }));
 
-      const res = await fetch(apiPath(`cambridge/submissions/${submissionId}`), {
+      const apiBase = getPlatformSubmissionApiBase(source);
+      const res = await fetch(apiPath(`${apiBase}/${encodeURIComponent(submissionId)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -713,7 +724,10 @@ const Review = () => {
       const savedFeedbackAt =
         savedSubmission.feedbackAt || new Date().toISOString();
 
-      setCambridgeSubmissions((prev) =>
+      const updateSubmissionList = source === "general"
+        ? setGeneralSubmissions
+        : setCambridgeSubmissions;
+      updateSubmissionList((prev) =>
         prev.map((item) =>
           item.id === submissionId
             ? {
@@ -730,27 +744,27 @@ const Review = () => {
       );
       setCambridgeDetailsById((prev) => ({
         ...prev,
-        [submissionId]: prev[submissionId]
+        [submissionKey]: prev[submissionKey]
           ? {
-              ...prev[submissionId],
+              ...prev[submissionKey],
               responseFeedback: nextResponseFeedback,
-              feedback: savedSubmission.feedback ?? prev[submissionId].feedback,
+              feedback: savedSubmission.feedback ?? prev[submissionKey].feedback,
               feedbackBy:
                 savedSubmission.status === "reviewed" || nextStatus === "reviewed"
                   ? reviewerName
-                  : prev[submissionId].feedbackBy,
+                  : prev[submissionKey].feedbackBy,
               feedbackAt:
                 savedSubmission.status === "reviewed" || nextStatus === "reviewed"
                   ? savedFeedbackAt
-                  : prev[submissionId].feedbackAt,
+                  : prev[submissionKey].feedbackAt,
               status: savedSubmission.status || nextStatus,
             }
-          : prev[submissionId],
+          : prev[submissionKey],
       }));
       setCambridgeFeedbackDraftById((prev) => ({
         ...prev,
-        [submissionId]: {
-          ...(prev[submissionId] || {}),
+        [submissionKey]: {
+          ...(prev[submissionKey] || {}),
           [responseItem.key]: feedback,
         },
       }));
@@ -1159,9 +1173,15 @@ const Review = () => {
     }
 
     const submission = row?.sub || {};
-    const submissionPlatform = row?.source === "gateway" ? "Gateway" : "Orange";
-    const detail = cambridgeDetailsById[submission.id];
-    const isLoadingDetail = !!cambridgeLoadingDetailById[submission.id];
+    const source = String(row?.source || "");
+    const submissionKey = getReviewSubmissionKey(row);
+    const submissionPlatform = source === "general"
+      ? "General"
+      : source === "gateway"
+      ? "Gateway"
+      : "Orange";
+    const detail = cambridgeDetailsById[submissionKey];
+    const isLoadingDetail = !!cambridgeLoadingDetailById[submissionKey];
     const pendingAnswers = detail ? getPendingManualAnswers(detail) : [];
     const timingMeta = submission?.finished === false ? getAttemptTimingMeta(submission?.expiresAt) : null;
     const score = Number(submission?.score);
@@ -1266,7 +1286,9 @@ const Review = () => {
             submission,
             detail,
             pendingAnswers,
-            isLoadingDetail
+            isLoadingDetail,
+            row,
+            submissionKey
           )}
         </div>
       </>
@@ -1629,23 +1651,25 @@ const Review = () => {
     sub,
     detail,
     pendingAnswers,
-    isLoadingDetail
+    isLoadingDetail,
+    row,
+    submissionKey
   ) => {
     const legacyFeedback = String(detail?.feedback || sub?.feedback || "").trim();
-    const responseDrafts = cambridgeFeedbackDraftById[sub.id] || {};
+    const responseDrafts = cambridgeFeedbackDraftById[submissionKey] || {};
 
     return (
     <div style={{ display: "grid", gap: isCompactLayout ? 8 : 10 }}>
       {isLoadingDetail && <div>Loading submission details...</div>}
 
-      {!isLoadingDetail && !detail && cambridgeStatusById[sub.id] && (
+      {!isLoadingDetail && !detail && cambridgeStatusById[submissionKey] && (
         <div
           style={{
             color: isDarkMode ? "#93c5fd" : "#1d4ed8",
             fontSize: 13,
           }}
         >
-          {cambridgeStatusById[sub.id]}
+          {cambridgeStatusById[submissionKey]}
         </div>
       )}
 
@@ -1694,8 +1718,8 @@ const Review = () => {
                         onChange={(e) =>
                           setCambridgeFeedbackDraftById((prev) => ({
                             ...prev,
-                            [sub.id]: {
-                              ...(prev[sub.id] || {}),
+                            [submissionKey]: {
+                              ...(prev[submissionKey] || {}),
                               [item.key]: e.target.value,
                             },
                           }))
@@ -1715,7 +1739,7 @@ const Review = () => {
 
                       <div style={feedbackActionRowStyle(isCompactLayout)}>
                         <button
-                          onClick={() => handleGenerateCambridgeFeedback(sub, item)}
+                          onClick={() => handleGenerateCambridgeFeedback(row, item)}
                           style={
                             isCompactLayout
                               ? { ...secondaryButtonStyle, width: "100%", padding: "10px 12px" }
@@ -1724,21 +1748,21 @@ const Review = () => {
                           disabled={
                             !item.userAnswer ||
                             cambridgeAiLoadingById[
-                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                              getCambridgeFeedbackStateKey(submissionKey, item.key)
                             ] ||
                             cambridgeSavingById[
-                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                              getCambridgeFeedbackStateKey(submissionKey, item.key)
                             ]
                           }
                         >
                           {cambridgeAiLoadingById[
-                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                            getCambridgeFeedbackStateKey(submissionKey, item.key)
                           ]
                             ? "Generating..."
                             : "AI Feedback"}
                         </button>
                         <button
-                          onClick={() => handleSaveCambridgeFeedback(sub.id, item)}
+                          onClick={() => handleSaveCambridgeFeedback(row, item)}
                           style={
                             isCompactLayout
                               ? { ...primaryButtonStyle, width: "100%", padding: "10px 12px" }
@@ -1747,15 +1771,15 @@ const Review = () => {
                           disabled={
                             !(responseDrafts[item.key] || "").trim() ||
                             cambridgeSavingById[
-                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                              getCambridgeFeedbackStateKey(submissionKey, item.key)
                             ] ||
                             cambridgeAiLoadingById[
-                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                              getCambridgeFeedbackStateKey(submissionKey, item.key)
                             ]
                           }
                         >
                           {cambridgeSavingById[
-                            getCambridgeFeedbackStateKey(sub.id, item.key)
+                            getCambridgeFeedbackStateKey(submissionKey, item.key)
                           ]
                             ? "Saving..."
                             : getCambridgeResponseFeedbackText(
@@ -1768,7 +1792,7 @@ const Review = () => {
                       </div>
 
                       {cambridgeResponseStatusByKey[
-                        getCambridgeFeedbackStateKey(sub.id, item.key)
+                        getCambridgeFeedbackStateKey(submissionKey, item.key)
                       ] && (
                         <div
                           style={{
@@ -1778,7 +1802,7 @@ const Review = () => {
                         >
                           {
                             cambridgeResponseStatusByKey[
-                              getCambridgeFeedbackStateKey(sub.id, item.key)
+                              getCambridgeFeedbackStateKey(submissionKey, item.key)
                             ]
                           }
                         </div>

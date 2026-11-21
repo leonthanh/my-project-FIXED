@@ -25,6 +25,10 @@ function apiPath(pathname = '') {
   return `/api/${normalizePath(pathname)}`;
 }
 
+function getAuthHeaders() {
+  return {};
+}
+
 function hostPath(pathname = '') {
   const normalized = normalizePath(pathname);
   if (!normalized) return '';
@@ -82,6 +86,7 @@ async function refreshAccessToken() {
 module.exports = {
   API_HOST,
   apiPath,
+  getAuthHeaders,
   hostPath,
   getStoredUser,
   clearAuth,

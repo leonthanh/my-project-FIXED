@@ -395,6 +395,7 @@ const analyticsRoutes = require("./routes/analytics");
 const placementRoutes = require("./routes/placement");
 const settingsRoutes = require("./routes/settings");
 const examLevelRoutes = require("./routes/examLevels");
+const progressReportsRoutes = require("./routes/progressReports");
 
 // Middleware
 const shouldLogHttp = String(process.env.SHOW_HTTP_LOG || '').toLowerCase() === 'true';
@@ -508,6 +509,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/placement', placementRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/exam-levels', examLevelRoutes);
+app.use('/api/progress-reports', progressReportsRoutes);
 
 // Debug route: verify FRONTEND_URL (development only)
 if (process.env.NODE_ENV !== 'production') {
