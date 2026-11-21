@@ -47,6 +47,20 @@
   background: #fff;
 }
 
+.progressReportsPage__status {
+  display: grid;
+  min-height: 560px;
+  margin: 0;
+  padding: 24px;
+  place-items: center;
+  color: #64748b;
+  text-align: center;
+}
+
+.progressReportsPage__status--error {
+  color: #b91c1c;
+}
+
 .progressReportsPage__frame {
   display: block;
   width: 100%;
@@ -63,6 +77,10 @@
 
   .progressReportsPage__frame {
     height: calc(100vh - 210px);
+    min-height: 520px;
+  }
+
+  .progressReportsPage__status {
     min-height: 520px;
   }
 }

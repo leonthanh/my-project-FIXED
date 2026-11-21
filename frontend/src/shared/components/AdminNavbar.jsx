@@ -250,6 +250,40 @@ const getSubmissionStatus = (submission) => {
 const isPendingSubmission = (submission) =>
   getSubmissionStatus(submission) === "pending";
 
+const isSubmissionAssignedToUser = (submission, user) => {
+  if (user?.role === "admin") return true;
+  if (user?.role !== "teacher") return false;
+
+  const userId = String(user.id ?? user.userId ?? "").trim();
+  const teacherId = String(
+    submission?.teacherId ??
+      submission?.teacher?.id ??
+      submission?.test?.teacherId ??
+      submission?.Test?.teacherId ??
+      submission?.WritingTest?.teacherId ??
+      submission?.writing_test?.teacherId ??
+      ""
+  ).trim();
+  if (userId && teacherId) return userId === teacherId;
+
+  const userName = String(user.name || user.username || user.fullName || "")
+    .trim()
+    .toLowerCase();
+  const teacherName = String(
+    submission?.teacherName ||
+      submission?.teacher?.name ||
+      submission?.test?.teacherName ||
+      submission?.Test?.teacherName ||
+      submission?.WritingTest?.teacherName ||
+      submission?.writing_test?.teacherName ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return Boolean(userName && teacherName && userName === teacherName);
+};
+
 const getStudentName = (submission) =>
   submission?.studentName ||
   submission?.userName ||
@@ -416,6 +450,7 @@ const AdminNavbar = () => {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     const readJsonOrThrow = fetchAdminSubmissionJson;
 
     const fetchPendingNotifications = async () => {
@@ -476,6 +511,7 @@ const AdminNavbar = () => {
       const nextNotifications = [
         ...writingSubmissions
           .filter(isPendingSubmission)
+          .filter((submission) => isSubmissionAssignedToUser(submission, user))
           .map((submission) =>
             buildPendingNotification(
               submission,
@@ -485,6 +521,7 @@ const AdminNavbar = () => {
           ),
         ...readingSubmissions
           .filter(isPendingSubmission)
+          .filter((submission) => isSubmissionAssignedToUser(submission, user))
           .map((submission) =>
             buildPendingNotification(
               submission,
@@ -494,6 +531,7 @@ const AdminNavbar = () => {
           ),
         ...listeningSubmissions
           .filter(isPendingSubmission)
+          .filter((submission) => isSubmissionAssignedToUser(submission, user))
           .map((submission) =>
             buildPendingNotification(
               submission,
@@ -503,6 +541,7 @@ const AdminNavbar = () => {
           ),
         ...orangeSubmissions
           .filter(isPendingSubmission)
+          .filter((submission) => isSubmissionAssignedToUser(submission, user))
           .map((submission) =>
             buildPendingNotification(
               submission,
@@ -512,6 +551,7 @@ const AdminNavbar = () => {
           ),
         ...gatewaySubmissions
           .filter(isPendingSubmission)
+          .filter((submission) => isSubmissionAssignedToUser(submission, user))
           .map((submission) =>
             buildPendingNotification(
               submission,
@@ -525,13 +565,16 @@ const AdminNavbar = () => {
         return rightTime - leftTime;
       });
 
-      setPendingNotifications(nextNotifications);
+      if (isMounted) setPendingNotifications(nextNotifications);
     };
 
     fetchPendingNotifications();
     const interval = setInterval(fetchPendingNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

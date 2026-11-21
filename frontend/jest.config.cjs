@@ -17,6 +17,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/)+(shared/)?utils/api$': '<rootDir>/test/apiMock.js',
+    '^\\./api$': '<rootDir>/test/apiMock.js',
     '^(\\.{1,2}/)+(shared/)?utils/testTiming$': '<rootDir>/test/testTimingMock.js',
     'ThemeContext$': '<rootDir>/test/themeContextMock.js',
     '\\.(css|less|scss|sass)$': '<rootDir>/test/styleMock.js',
