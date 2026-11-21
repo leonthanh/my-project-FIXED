@@ -197,6 +197,7 @@ const adminRoutePreloaders = {
   "/admin/runtime-sync-metrics": () => import("../../features/admin/pages/AdminRuntimeSyncMetricsPage"),
   "/admin/teacher-permissions": () => import("../../features/admin/pages/TeacherPermissionsPage"),
   "/admin/users": () => import("../../features/admin/pages/AdminUserManagement"),
+  "/admin/progress-reports": () => import("../../features/admin/pages/ProgressReportsPage"),
 };
 
 const preloadAdminRoute = (path) => {
@@ -1616,6 +1617,7 @@ const AdminNavbar = () => {
     pathname === "/select-test" && !["gateway", "prepare"].includes(platformParam);
   const isReviewCurrent = pathname.startsWith("/review");
   const isProfileCurrent = pathname.startsWith("/profile");
+  const isProgressReportsCurrent = pathname.startsWith("/admin/progress-reports");
   const isAdminCurrent =
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/teacher-permissions") ||
@@ -2152,6 +2154,14 @@ const AdminNavbar = () => {
         <div className="adminNavbar__mobileQuickGrid">
           {renderMobileQuickLink("/review", "Review", "Open review queue and submission flow", "review")}
           {renderMobileQuickLink("/select-test", "Test List", "Browse and edit available tests", "tests")}
+          {["admin", "teacher"].includes(user?.role)
+            ? renderMobileQuickLink(
+                "/admin/progress-reports",
+                "Progress Reports",
+                "Comment with templates and export Word/PDF",
+                "review"
+              )
+            : null}
           {examLevels.map((level) =>
             renderMobileQuickLink(
               `/exam-levels/${encodeURIComponent(level.code)}`,
@@ -2556,6 +2566,17 @@ const AdminNavbar = () => {
           <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="review" /></span>
           <span className="adminNavbar__label">Review</span>
         </Link>
+
+        {["admin", "teacher"].includes(user?.role) && (
+          <Link
+            to="/admin/progress-reports"
+            className={`adminNavbar__link${isProgressReportsCurrent ? " adminNavbar__link--active" : ""}`}
+            title="Progress Reports"
+          >
+            <span className="adminNavbar__icon" aria-hidden="true"><NavIcon name="review" /></span>
+            <span className="adminNavbar__label">Progress Reports</span>
+          </Link>
+        )}
 
         {user?.role === 'admin' && (
           <div className="adminNavbar__dropdown" ref={adminDropdownRef}>

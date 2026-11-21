@@ -20,6 +20,55 @@ describe("ProtectedRoute", () => {
     jest.clearAllMocks();
   });
 
+  test.each(["teacher", "admin"])(
+    "allows %s through teacher-protected report pages",
+    (role) => {
+      getStoredUser.mockReturnValue({ role });
+      hasStoredSession.mockReturnValue(true);
+
+      render(
+        <MemoryRouter initialEntries={["/admin/progress-reports"]}>
+          <Routes>
+            <Route
+              path="/admin/progress-reports"
+              element={(
+                <ProtectedRoute role="teacher">
+                  <div>Progress Reports</div>
+                </ProtectedRoute>
+              )}
+            />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText("Progress Reports")).toBeInTheDocument();
+    }
+  );
+
+  test("redirects students away from teacher-protected report pages", async () => {
+    getStoredUser.mockReturnValue({ role: "student" });
+    hasStoredSession.mockReturnValue(true);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/progress-reports"]}>
+        <Routes>
+          <Route
+            path="/admin/progress-reports"
+            element={(
+              <ProtectedRoute role="teacher">
+                <div>Progress Reports</div>
+              </ProtectedRoute>
+            )}
+          />
+          <Route path="/" element={<div>Student Home</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Student Home")).toBeInTheDocument();
+    expect(screen.queryByText("Progress Reports")).not.toBeInTheDocument();
+  });
+
   test("redirects teachers away from admin-only pages to review", async () => {
     getStoredUser.mockReturnValue({ role: "teacher" });
     hasStoredSession.mockReturnValue(true);

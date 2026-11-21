@@ -11,6 +11,7 @@ const TeacherPermissionsPage = lazy(() => import('../../features/admin/pages/Tea
 const AdminUserManagement = lazy(() => import('../../features/admin/pages/AdminUserManagement'));
 const AdminDisplaySettingsPage = lazy(() => import('../../features/admin/pages/AdminDisplaySettingsPage'));
 const AdminRuntimeSyncMetricsPage = lazy(() => import('../../features/admin/pages/AdminRuntimeSyncMetricsPage'));
+const ProgressReportsPage = lazy(() => import('../../features/admin/pages/ProgressReportsPage'));
 const GatewaySubmissionsPage = lazy(() => import('../../features/gateway/pages/GatewaySubmissionsPage'));
 const UserProfilePage = lazy(() => import('../../features/auth/pages/UserProfilePage'));
 
@@ -21,6 +22,7 @@ export const buildAdminRoutes = () => [
   <Route key="admin-listening-submissions" path="/admin/listening-submissions" element={renderProtected('teacher', <AdminListeningSubmissions />)} />,
   <Route key="admin-writing-submissions" path="/admin/writing-submissions" element={renderProtected('teacher', <AdminWritingSubmissions />)} />,
   <Route key="admin-gateway-submissions" path="/admin/gateway-submissions" element={renderProtected('teacher', <GatewaySubmissionsPage />)} />,
+  <Route key="admin-progress-reports" path="/admin/progress-reports" element={renderProtected('teacher', <ProgressReportsPage />)} />,
   <Route key="admin-root" path="/admin" element={renderProtected('teacher', <Navigate to="/admin/writing-submissions" replace />)} />,
   <Route key="admin-display-settings" path="/admin/display-settings" element={renderProtected('admin', <AdminDisplaySettingsPage />)} />,
   <Route key="admin-exam-levels-legacy" path="/admin/exam-levels" element={renderProtected('teacher', <Navigate to="/admin/prepare" replace />)} />,
